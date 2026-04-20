@@ -35,6 +35,7 @@ import type {
 } from "../types/logical";
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "./cardinality";
 import { normalizeLogicalModelGeometry } from "./logicalLayout";
+import { normalizeLogicalModelSqlMetadata } from "./logicalSqlMetadata";
 
 interface ParsedCardinality {
   raw: string;
@@ -2427,6 +2428,116 @@ function buildTablePersistenceKey(table: LogicalTable): string {
   return `name:${table.kind}:${normalizeSpaces(table.name).toLowerCase()}`;
 }
 
+function buildColumnReferenceSignature(column: LogicalColumn): string {
+  if (column.references.length === 0) {
+    return "";
+  }
+
+  return column.references
+    .map((reference) => `${reference.targetTableId}:${reference.targetColumnId}`)
+    .sort((left, right) => left.localeCompare(right))
+    .join(",");
+}
+
+function buildColumnPersistenceKeys(
+  tablePersistenceKey: string,
+  column: LogicalColumn,
+  index: number,
+): string[] {
+  const keys: string[] = [];
+  keys.push(`${tablePersistenceKey}|id:${column.id}`);
+
+  if (column.sourceAttributeId) {
+    keys.push(`${tablePersistenceKey}|attribute:${column.sourceAttributeId}`);
+  }
+
+  if (column.generatedByDecisionId) {
+    keys.push(`${tablePersistenceKey}|decision:${column.generatedByDecisionId}`);
+  }
+
+  if (column.sourceRelationshipId) {
+    keys.push(`${tablePersistenceKey}|relationship:${column.sourceRelationshipId}`);
+  }
+
+  const referenceSignature = buildColumnReferenceSignature(column);
+  if (referenceSignature) {
+    keys.push(`${tablePersistenceKey}|reference:${referenceSignature}`);
+  }
+
+  if (column.originLabel) {
+    keys.push(`${tablePersistenceKey}|origin:${normalizeSpaces(column.originLabel).toLowerCase()}`);
+  }
+
+  const normalizedName = normalizeSpaces(column.name).toLowerCase();
+  keys.push(`${tablePersistenceKey}|index:${index}|name:${normalizedName}`);
+  keys.push(`${tablePersistenceKey}|name:${normalizedName}`);
+
+  return [...new Set(keys)];
+}
+
+function mergeColumnSqlMetadataFromPrevious(
+  nextModel: LogicalModel,
+  previousModel?: LogicalModel,
+): LogicalModel {
+  if (!previousModel) {
+    return nextModel;
+  }
+
+  const previousColumnsByKey = new Map<string, LogicalColumn[]>();
+  previousModel.tables.forEach((table) => {
+    const tablePersistenceKey = buildTablePersistenceKey(table);
+    table.columns.forEach((column, index) => {
+      buildColumnPersistenceKeys(tablePersistenceKey, column, index).forEach((key) => {
+        const bucket = previousColumnsByKey.get(key) ?? [];
+        bucket.push(column);
+        previousColumnsByKey.set(key, bucket);
+      });
+    });
+  });
+
+  const consumedPreviousColumnIds = new Set<string>();
+
+  return {
+    ...nextModel,
+    tables: nextModel.tables.map((table) => {
+      const tablePersistenceKey = buildTablePersistenceKey(table);
+      return {
+        ...table,
+        columns: table.columns.map((column, index) => {
+          const keys = buildColumnPersistenceKeys(tablePersistenceKey, column, index);
+          let matched: LogicalColumn | undefined;
+
+          for (const key of keys) {
+            const candidate = previousColumnsByKey
+              .get(key)
+              ?.find((previousColumn) => !consumedPreviousColumnIds.has(previousColumn.id));
+            if (candidate) {
+              matched = candidate;
+              consumedPreviousColumnIds.add(candidate.id);
+              break;
+            }
+          }
+
+          if (!matched) {
+            return column;
+          }
+
+          return {
+            ...column,
+            dataType: matched.dataType ?? column.dataType,
+            defaultValue: matched.defaultValue ?? null,
+            length: matched.length ?? null,
+            precision: matched.precision ?? null,
+            scale: matched.scale ?? null,
+            isNullable: matched.isPrimaryKey ? false : matched.isNullable,
+            isUnique: matched.isUnique,
+          };
+        }),
+      };
+    }),
+  };
+}
+
 function getSourceNodeForTable(
   table: LogicalTable,
   nodeById: Map<string, DiagramNode>,
@@ -2501,6 +2612,11 @@ function createTransformationColumns(
     isForeignKey: column.isForeignKey,
     isUnique: column.isUnique === true,
     isNullable: column.isNullable,
+    dataType: column.dataType,
+    defaultValue: column.defaultValue ?? null,
+    length: column.length ?? null,
+    precision: column.precision ?? null,
+    scale: column.scale ?? null,
     generatedByDecisionId: column.generatedByDecisionId,
     references: column.references,
     relatedTargetKeys:
@@ -3044,8 +3160,10 @@ export function createEmptyLogicalWorkspace(
   diagram: DiagramDocument,
   previousWorkspace?: LogicalWorkspaceDocument,
 ): LogicalWorkspaceDocument {
-  const model = normalizeLogicalModelGeometry(
-    createEmptyLogicalModel(`${normalizeTableName(diagram.meta.name)} (traduzione logica)`),
+  const model = normalizeLogicalModelSqlMetadata(
+    normalizeLogicalModelGeometry(
+      createEmptyLogicalModel(`${normalizeTableName(diagram.meta.name)} (traduzione logica)`),
+    ),
   );
   const translation: LogicalTranslationState = {
     meta: {
@@ -3101,7 +3219,9 @@ export function refreshLogicalWorkspace(
     mappings: [],
   };
   const rebuiltModel = buildModelFromDecisions(diagram, translation);
-  const positionedModel = positionLogicalModelInPlace(diagram, rebuiltModel, workspace.model);
+  const mergedModel = mergeColumnSqlMetadataFromPrevious(rebuiltModel, workspace.model);
+  const normalizedModel = normalizeLogicalModelSqlMetadata(mergedModel);
+  const positionedModel = positionLogicalModelInPlace(diagram, normalizedModel, workspace.model);
   const transformation = buildTransformationGraph(diagram, translation, positionedModel);
   return {
     model: positionedModel,
@@ -3118,14 +3238,15 @@ export function updateLogicalWorkspaceModel(
   workspace: LogicalWorkspaceDocument,
   model: LogicalModel,
 ): LogicalWorkspaceDocument {
+  const normalizedModel = normalizeLogicalModelSqlMetadata(model);
   return {
     ...workspace,
-    model,
+    model: normalizedModel,
     translation: {
       ...workspace.translation,
-      mappings: buildMappings(model, workspace.translation),
+      mappings: buildMappings(normalizedModel, workspace.translation),
     },
-    transformation: buildTransformationGraph(diagram, workspace.translation, model),
+    transformation: buildTransformationGraph(diagram, workspace.translation, normalizedModel),
   };
 }
 

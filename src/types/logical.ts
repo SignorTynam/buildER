@@ -1,6 +1,19 @@
 import type { EdgeKind, LineStyle, NodeKind, Viewport } from "./diagram";
 
 export type LogicalTableKind = "entity" | "associative" | "relationship";
+export const SQL_DATA_TYPE_OPTIONS = [
+  "INTEGER",
+  "TEXT",
+  "VARCHAR",
+  "REAL",
+  "NUMERIC",
+  "DATE",
+  "DATETIME",
+  "BLOB",
+  "JSON",
+  "BOOLEAN",
+] as const;
+export type SupportedSqlDataType = (typeof SQL_DATA_TYPE_OPTIONS)[number];
 export type LogicalIssueLevel = "warning" | "error";
 export type LogicalTranslationStep =
   | "entities"
@@ -72,6 +85,10 @@ export interface LogicalColumn {
   isNullable: boolean;
   isGenerated?: boolean;
   dataType?: string;
+  defaultValue?: string | null;
+  length?: number | null;
+  precision?: number | null;
+  scale?: number | null;
   references: LogicalColumnReference[];
 }
 
@@ -228,6 +245,11 @@ export interface LogicalTransformationColumn {
   isForeignKey: boolean;
   isUnique: boolean;
   isNullable: boolean;
+  dataType?: string;
+  defaultValue?: string | null;
+  length?: number | null;
+  precision?: number | null;
+  scale?: number | null;
   generatedByDecisionId?: string;
   references: LogicalColumnReference[];
   relatedTargetKeys: string[];

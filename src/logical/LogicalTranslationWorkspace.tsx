@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DiagramDocument, Viewport } from "../types/diagram";
 import type {
+  LogicalColumn,
   LogicalSelection,
   LogicalTranslationArtifactRef,
   LogicalTranslationChoice,
@@ -14,6 +15,12 @@ import {
   getLogicalTranslationChoicesForItem,
   getLogicalTranslationStepCompletion,
 } from "../utils/logicalTranslation";
+import {
+  formatSqlType,
+  isColumnEffectivelyUnique,
+  type LogicalColumnSqlPatch,
+} from "../utils/logicalSqlMetadata";
+import { generateLogicalSql } from "../utils/logicalSql";
 import { LogicalTransformationCanvas } from "./LogicalTransformationCanvas";
 
 interface LogicalTranslationWorkspaceProps {
@@ -21,15 +28,18 @@ interface LogicalTranslationWorkspaceProps {
   workspace: LogicalWorkspaceDocument;
   viewport: Viewport;
   selection: LogicalSelection;
+  typeMode: boolean;
   fitRequestToken: number;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
+  onTypeModeChange: (nextValue: boolean) => void;
   onApplyChoice: (item: LogicalTranslationItem, choice: LogicalTranslationChoice) => void;
   onResetTranslation: () => void;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
   onCommitModel: (nextModel: LogicalWorkspaceDocument["model"], previousModel: LogicalWorkspaceDocument["model"]) => void;
   onRenameTable: (tableId: string, nextName: string) => void;
   onRenameColumn: (tableId: string, columnId: string, nextName: string) => void;
+  onUpdateColumnSql: (tableId: string, columnId: string, patch: LogicalColumnSqlPatch) => void;
 }
 
 const ALL_LOGICAL_STEPS: LogicalTranslationStep[] = [
@@ -139,6 +149,42 @@ function describeSelectedElement(workspace: LogicalWorkspaceDocument, selection:
   return null;
 }
 
+function findSelectedLogicalColumn(
+  workspace: LogicalWorkspaceDocument,
+  selection: LogicalSelection,
+): { tableId: string; tableName: string; column: LogicalColumn } | null {
+  if (!selection.columnId) {
+    return null;
+  }
+
+  for (const table of workspace.model.tables) {
+    const column = table.columns.find((candidate) => candidate.id === selection.columnId);
+    if (column) {
+      return {
+        tableId: table.id,
+        tableName: table.name,
+        column,
+      };
+    }
+  }
+
+  return null;
+}
+
+function downloadSqlPreview(sql: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const blob = new Blob([sql], { type: "text/sql;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "logical-model.sql";
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+}
+
 function selectArtifact(
   artifact: LogicalTranslationArtifactRef,
   workspace: LogicalWorkspaceDocument,
@@ -201,6 +247,12 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     () => describeSelectedElement(props.workspace, props.selection),
     [props.workspace, props.selection],
   );
+  const selectedColumnContext = useMemo(
+    () => findSelectedLogicalColumn(props.workspace, props.selection),
+    [props.workspace, props.selection],
+  );
+  const sqlPreview = useMemo(() => generateLogicalSql(props.workspace.model), [props.workspace.model]);
+  const [sqlCopyStatus, setSqlCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const selectedTargetKeyRef = useRef<string | null>(null);
 
   const stepItems = overview.itemsByStep[activeStep] ?? [];
@@ -281,6 +333,27 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     setSelectedItemId(matchedItem.id);
   }, [overview, props.selection, props.workspace.transformation.edges, props.workspace.transformation.nodes]);
 
+  async function copySqlPreview(): Promise<void> {
+    if (typeof navigator === "undefined") {
+      setSqlCopyStatus("error");
+      return;
+    }
+
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(sqlPreview);
+      } else {
+        throw new Error("Clipboard API unavailable");
+      }
+
+      setSqlCopyStatus("copied");
+      window.setTimeout(() => setSqlCopyStatus("idle"), 1400);
+    } catch {
+      setSqlCopyStatus("error");
+      window.setTimeout(() => setSqlCopyStatus("idle"), 1800);
+    }
+  }
+
   return (
     <>
       <aside className="toolbar-panel translation-step-rail" aria-label="Workflow logico manuale">
@@ -345,6 +418,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               workspace={props.workspace}
               selection={props.selection}
               viewport={props.viewport}
+              typeMode={props.typeMode}
               fitRequestToken={props.fitRequestToken}
               activeTargetKeys={activeTargetKeys}
               focusedTargetKey={focusedTargetKey}
@@ -354,6 +428,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               onCommitModel={props.onCommitModel}
               onRenameTable={props.onRenameTable}
               onRenameColumn={props.onRenameColumn}
+              onUpdateColumnSql={props.onUpdateColumnSql}
             />
           </div>
         </div>
@@ -374,6 +449,66 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             <p>{selectedElementLabel}</p>
           </section>
         ) : null}
+
+        <section className="translation-panel-section">
+          <div className="translation-section-head">
+            <h3>Type Mode</h3>
+            <button
+              type="button"
+              className={props.typeMode ? "translation-reset-button active" : "translation-reset-button"}
+              onClick={() => props.onTypeModeChange(!props.typeMode)}
+            >
+              {props.typeMode ? "Disattiva" : "Attiva"}
+            </button>
+          </div>
+          <p>
+            {props.typeMode
+              ? "Clicca una colonna nel canvas per modificare tipo SQL, nullable, unique e default in linea."
+              : "Attiva Type Mode per aprire l'editor contestuale vicino alla colonna selezionata."}
+          </p>
+          {selectedColumnContext ? (
+            <div className="translation-sql-column-status">
+              <strong>
+                {selectedColumnContext.tableName}.{selectedColumnContext.column.name}
+              </strong>
+              <span>{formatSqlType(selectedColumnContext.column)}</span>
+              <span>
+                {selectedColumnContext.column.isPrimaryKey
+                  ? "PK"
+                  : selectedColumnContext.column.isForeignKey
+                    ? "FK"
+                    : "COL"}
+                {isColumnEffectivelyUnique(selectedColumnContext.column) ? " · UQ" : ""}
+                {selectedColumnContext.column.isNullable ? " · NULL" : " · NOT NULL"}
+              </span>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="translation-panel-section translation-sql-preview-section">
+          <div className="translation-section-head">
+            <h3>SQL Preview</h3>
+            <span className="translation-inline-counter">{props.workspace.model.tables.length}</span>
+          </div>
+          <div className="translation-sql-actions">
+            <button type="button" onClick={() => void copySqlPreview()}>
+              {sqlCopyStatus === "copied" ? "Copiato" : sqlCopyStatus === "error" ? "Errore copia" : "Copia SQL"}
+            </button>
+            <button type="button" onClick={() => downloadSqlPreview(sqlPreview)}>
+              Download .sql
+            </button>
+          </div>
+          <textarea
+            className="translation-sql-preview"
+            readOnly
+            value={sqlPreview}
+            spellCheck={false}
+            aria-label="Anteprima SQL del modello logico"
+          />
+          <p className="translation-sql-hint">
+            Tipi mancanti: default visibile automatico applicato sul modello logico.
+          </p>
+        </section>
 
         {activeStep !== "review" ? (
           <>

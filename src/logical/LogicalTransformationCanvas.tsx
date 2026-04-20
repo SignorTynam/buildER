@@ -19,11 +19,22 @@ import {
   clampZoom,
   clientPointFromWorld,
 } from "../utils/geometry";
+import {
+  formatSqlType,
+  isColumnEffectivelyUnique,
+  isColumnTypeLockedByReference,
+  isTypeUniquenessLocked,
+  requiresLength,
+  requiresPrecisionScale,
+  SQL_TYPE_PICKER_OPTIONS,
+  type LogicalColumnSqlPatch,
+} from "../utils/logicalSqlMetadata";
 
 interface LogicalTransformationCanvasProps {
   workspace: LogicalWorkspaceDocument;
   selection: LogicalSelection;
   viewport: Viewport;
+  typeMode: boolean;
   fitRequestToken: number;
   activeTargetKeys: string[];
   focusedTargetKey: string | null;
@@ -33,6 +44,7 @@ interface LogicalTransformationCanvasProps {
   onCommitModel: (nextModel: LogicalWorkspaceDocument["model"], previousModel: LogicalWorkspaceDocument["model"]) => void;
   onRenameTable: (tableId: string, nextName: string) => void;
   onRenameColumn: (tableId: string, columnId: string, nextName: string) => void;
+  onUpdateColumnSql: (tableId: string, columnId: string, patch: LogicalColumnSqlPatch) => void;
 }
 
 type ConnectionSide = "left" | "right" | "top" | "bottom";
@@ -64,6 +76,19 @@ type InlineEditState =
   | { kind: "column"; tableId: string; columnId: string; value: string }
   | null;
 
+type ColumnTypeEditorState = {
+  tableId: string;
+  columnId: string;
+  nameValue: string;
+  dataTypeValue: string;
+  nullableValue: boolean;
+  uniqueValue: boolean;
+  defaultValue: string;
+  lengthValue: string;
+  precisionValue: string;
+  scaleValue: string;
+};
+
 const WORLD_EXTENT = 9200;
 const ROUTE_EXIT_OFFSET = 18;
 const LANE_STEP = 14;
@@ -81,6 +106,8 @@ const DESIGNER_TABLE_INLINE_EDITOR_TOP = 6;
 const DESIGNER_EDGE_DEFAULT_STROKE_WIDTH = 1.2;
 const DESIGNER_EDGE_ACTIVE_STROKE_WIDTH = 1.45;
 const DESIGNER_EDGE_SELECTED_STROKE_WIDTH = 1.7;
+const DESIGNER_COLUMN_TYPE_GAP = 18;
+const TYPE_EDITOR_MIN_WIDTH = 300;
 
 function clampDesignerDimension(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -101,7 +128,11 @@ function getDesignerLogicalTableDimensions(label: string, columns: LogicalColumn
     columns.length > 0
       ? Math.max(
           ...columns.map(
-            (column) => estimateDesignerTextWidth(column.name, "column") + DESIGNER_TABLE_HORIZONTAL_PADDING * 2,
+            (column) =>
+              estimateDesignerTextWidth(column.name, "column") +
+              estimateDesignerTextWidth(formatSqlType(column), "column") +
+              DESIGNER_TABLE_HORIZONTAL_PADDING * 2 +
+              DESIGNER_COLUMN_TYPE_GAP,
           ),
         )
       : DESIGNER_TABLE_MIN_WIDTH;
@@ -507,12 +538,29 @@ function intersectingTargetKey(
   return targetKey != null && element.relatedTargetKeys.includes(targetKey);
 }
 
+function createTypeEditorState(tableId: string, column: LogicalColumn): ColumnTypeEditorState {
+  return {
+    tableId,
+    columnId: column.id,
+    nameValue: column.name,
+    dataTypeValue: column.dataType?.trim().toUpperCase() || "VARCHAR",
+    nullableValue: column.isNullable,
+    uniqueValue: isColumnEffectivelyUnique(column),
+    defaultValue: column.defaultValue ?? "",
+    lengthValue: column.length == null ? "" : String(column.length),
+    precisionValue: column.precision == null ? "" : String(column.precision),
+    scaleValue: column.scale == null ? "" : String(column.scale),
+  };
+}
+
 export function LogicalTransformationCanvas(props: LogicalTransformationCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const typeEditorRef = useRef<HTMLFormElement | null>(null);
   const fitRetryFrameRef = useRef<number | null>(null);
   const fitRetryAttemptsRef = useRef(0);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
+  const [typeEditor, setTypeEditor] = useState<ColumnTypeEditorState | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [hoverTableId, setHoverTableId] = useState<string | null>(null);
 
@@ -524,6 +572,23 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     });
     return result;
   }, [props.workspace.model.tables]);
+  const selectedColumnContext = useMemo(() => {
+    if (!props.selection.columnId) {
+      return null;
+    }
+
+    for (const table of props.workspace.model.tables) {
+      const column = table.columns.find((candidate) => candidate.id === props.selection.columnId);
+      if (column) {
+        return {
+          table,
+          column,
+        };
+      }
+    }
+
+    return null;
+  }, [props.selection.columnId, props.workspace.model.tables]);
   const renderedNodes = useMemo(
     () =>
       graph.nodes.map((node) =>
@@ -586,8 +651,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       if (event.key === " ") {
         setSpacePressed(true);
       }
-      if (event.key === "Escape" && inlineEdit) {
-        setInlineEdit(null);
+      if (event.key === "Escape") {
+        if (inlineEdit) {
+          setInlineEdit(null);
+        }
+        if (typeEditor) {
+          setTypeEditor(null);
+        }
       }
     }
 
@@ -603,7 +673,46 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [inlineEdit]);
+  }, [inlineEdit, typeEditor]);
+
+  useEffect(() => {
+    if (!props.typeMode || !selectedColumnContext) {
+      setTypeEditor(null);
+      return;
+    }
+
+    setTypeEditor((current) => {
+      if (
+        current &&
+        current.tableId === selectedColumnContext.table.id &&
+        current.columnId === selectedColumnContext.column.id
+      ) {
+        return current;
+      }
+
+      return createTypeEditorState(selectedColumnContext.table.id, selectedColumnContext.column);
+    });
+  }, [props.typeMode, selectedColumnContext]);
+
+  useEffect(() => {
+    if (!typeEditor) {
+      return;
+    }
+
+    function handlePointerDown(event: globalThis.MouseEvent) {
+      if (!typeEditorRef.current) {
+        return;
+      }
+
+      const target = event.target as Node | null;
+      if (target && !typeEditorRef.current.contains(target)) {
+        setTypeEditor(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [typeEditor]);
 
   function getViewportRect(): DOMRect | null {
     if (!containerRef.current) {
@@ -996,7 +1105,148 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     };
   }
 
+  function parseOptionalInteger(value: string, minimum: number): number | null {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isInteger(parsed) || parsed < minimum) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  function buildSqlPatchFromTypeEditor(editorState: ColumnTypeEditorState): LogicalColumnSqlPatch {
+    const normalizedType = editorState.dataTypeValue.trim().toUpperCase() || "VARCHAR";
+    const length = requiresLength(normalizedType) ? parseOptionalInteger(editorState.lengthValue, 1) : null;
+    const precision = requiresPrecisionScale(normalizedType)
+      ? parseOptionalInteger(editorState.precisionValue, 1)
+      : null;
+    const scale = requiresPrecisionScale(normalizedType) ? parseOptionalInteger(editorState.scaleValue, 0) : null;
+
+    return {
+      dataType: normalizedType,
+      isNullable: editorState.nullableValue,
+      isUnique: isTypeUniquenessLocked(normalizedType) ? true : editorState.uniqueValue,
+      defaultValue: editorState.defaultValue.trim() ? editorState.defaultValue.trim() : null,
+      length,
+      precision,
+      scale,
+    };
+  }
+
+  function updateTypeEditor<K extends keyof ColumnTypeEditorState>(key: K, value: ColumnTypeEditorState[K]) {
+    setTypeEditor((current) => {
+      if (!current) {
+        return current;
+      }
+
+      if (key === "dataTypeValue") {
+        const nextType = String(value).trim().toUpperCase() || "VARCHAR";
+        return {
+          ...current,
+          dataTypeValue: nextType,
+          uniqueValue: isTypeUniquenessLocked(nextType) ? true : current.uniqueValue,
+          lengthValue: requiresLength(nextType) ? current.lengthValue : "",
+          precisionValue: requiresPrecisionScale(nextType) ? current.precisionValue : "",
+          scaleValue: requiresPrecisionScale(nextType) ? current.scaleValue : "",
+        };
+      }
+
+      return {
+        ...current,
+        [key]: value,
+      };
+    });
+  }
+
+  function commitTypeEditor() {
+    if (!typeEditor) {
+      return;
+    }
+
+    const targetTable = props.workspace.model.tables.find((table) => table.id === typeEditor.tableId);
+    const targetColumn = targetTable?.columns.find((column) => column.id === typeEditor.columnId);
+    if (!targetTable || !targetColumn) {
+      setTypeEditor(null);
+      return;
+    }
+
+    const trimmedName = typeEditor.nameValue.trim();
+    const patch = buildSqlPatchFromTypeEditor(typeEditor);
+    if (trimmedName.length > 0 && trimmedName !== targetColumn.name) {
+      patch.name = trimmedName;
+    }
+
+    props.onUpdateColumnSql(typeEditor.tableId, typeEditor.columnId, patch);
+    setTypeEditor(null);
+  }
+
+  function getTypeEditorStyle() {
+    if (!typeEditor || !containerRef.current) {
+      return undefined;
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const tableNode = nodeById.get(typeEditor.tableId);
+    if (!tableNode) {
+      return undefined;
+    }
+
+    const rowIndex = (tableColumnsById.get(tableNode.tableId ?? tableNode.id) ?? []).findIndex(
+      (column) => column.id === typeEditor.columnId,
+    );
+    if (rowIndex < 0) {
+      return undefined;
+    }
+
+    const anchorPoint = clientPointFromWorld(
+      {
+        x: tableNode.x + tableNode.width + 12,
+        y: tableNode.y + DESIGNER_TABLE_HEADER_HEIGHT + rowIndex * DESIGNER_TABLE_ROW_HEIGHT + 2,
+      },
+      props.viewport,
+      rect,
+    );
+    const panelHeightEstimate = 332;
+    let left = anchorPoint.x - rect.left;
+    let top = anchorPoint.y - rect.top;
+
+    const maxAllowedLeft = Math.max(8, rect.width - TYPE_EDITOR_MIN_WIDTH - 8);
+    if (left > maxAllowedLeft) {
+      left = Math.max(8, left - TYPE_EDITOR_MIN_WIDTH - 28);
+    }
+
+    if (top + panelHeightEstimate > rect.height - 8) {
+      top = Math.max(8, rect.height - panelHeightEstimate - 8);
+    }
+
+    return {
+      left,
+      top,
+      width: Math.min(Math.max(TYPE_EDITOR_MIN_WIDTH, tableNode.width * 0.58 * props.viewport.zoom), rect.width - left - 8),
+    };
+  }
+
   const inlineEditorStyle = getInlineEditorStyle();
+  const typeEditorStyle = getTypeEditorStyle();
+  const typeEditorColumn =
+    typeEditor == null
+      ? null
+      : props.workspace.model.tables
+          .find((table) => table.id === typeEditor.tableId)
+          ?.columns.find((column) => column.id === typeEditor.columnId) ?? null;
+  const typeEditorTypeLocked = typeEditorColumn ? isColumnTypeLockedByReference(typeEditorColumn) : false;
+  const typeEditorUniqueLocked = isTypeUniquenessLocked(typeEditor?.dataTypeValue);
+  const typeEditorNullableLocked = Boolean(typeEditorColumn?.isPrimaryKey);
+  const typeEditorUniqueDisabled = Boolean(typeEditorColumn?.isPrimaryKey || typeEditorUniqueLocked);
+  const typeEditorUniqueChecked =
+    typeEditorColumn?.isPrimaryKey === true
+      ? true
+      : Boolean((typeEditor?.uniqueValue ?? false) || typeEditorUniqueLocked);
 
   return (
     <div
@@ -1294,11 +1544,21 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                   const rowY =
                     tableNode.y + DESIGNER_TABLE_HEADER_HEIGHT + rowIndex * DESIGNER_TABLE_ROW_HEIGHT;
                   const isSelectedColumn = props.selection.columnId === column.id;
+                  const isTypeEditorColumn =
+                    typeEditor != null && typeEditor.tableId === tableNode.id && typeEditor.columnId === column.id;
+                  const typeLabel = formatSqlType(column);
+                  const typeLockedByFk = isColumnTypeLockedByReference(column);
 
                   return (
                     <g
                       key={column.id}
-                      className={isSelectedColumn ? "logical-column-row selected" : "logical-column-row"}
+                      className={[
+                        "logical-column-row",
+                        isSelectedColumn ? "selected" : "",
+                        isTypeEditorColumn ? "type-editor-active" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                       onDoubleClick={(event) => startColumnInlineEdit(event, tableNode, column)}
                     >
                       <rect
@@ -1329,6 +1589,22 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                       >
                         {column.name}
                       </text>
+
+                      <text
+                        x={tableNode.x + tableNode.width - DESIGNER_TABLE_HORIZONTAL_PADDING}
+                        y={rowY + DESIGNER_TABLE_ROW_HEIGHT / 2}
+                        dominantBaseline="middle"
+                        textAnchor="end"
+                        className={[
+                          "logical-column-type",
+                          typeLockedByFk ? "locked" : "",
+                          isTypeEditorColumn ? "active" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        {typeLockedByFk ? `${typeLabel} <- FK` : typeLabel}
+                      </text>
                     </g>
                   );
                 })}
@@ -1357,6 +1633,131 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
           </button>
         </div>
       </div>
+
+      {typeEditor && typeEditorStyle ? (
+        <form
+          ref={typeEditorRef}
+          className="logical-type-editor"
+          style={typeEditorStyle}
+          onSubmit={(event) => {
+            event.preventDefault();
+            commitTypeEditor();
+          }}
+        >
+          <div className="logical-type-editor-header">
+            <strong>Tipo SQL colonna</strong>
+            <button type="button" onClick={() => setTypeEditor(null)}>
+              Chiudi
+            </button>
+          </div>
+
+          <label>
+            Nome colonna
+            <input
+              value={typeEditor.nameValue}
+              onChange={(event) => updateTypeEditor("nameValue", event.target.value)}
+            />
+          </label>
+
+          <label>
+            Tipo SQL
+            <select
+              value={typeEditor.dataTypeValue}
+              disabled={typeEditorTypeLocked}
+              onChange={(event) => updateTypeEditor("dataTypeValue", event.target.value)}
+            >
+              {SQL_TYPE_PICKER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {requiresLength(typeEditor.dataTypeValue) ? (
+            <label>
+              Lunghezza
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={typeEditor.lengthValue}
+                onChange={(event) => updateTypeEditor("lengthValue", event.target.value)}
+              />
+            </label>
+          ) : null}
+
+          {requiresPrecisionScale(typeEditor.dataTypeValue) ? (
+            <div className="logical-type-editor-grid-two">
+              <label>
+                Precisione
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={typeEditor.precisionValue}
+                  onChange={(event) => updateTypeEditor("precisionValue", event.target.value)}
+                />
+              </label>
+              <label>
+                Scala
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={typeEditor.scaleValue}
+                  onChange={(event) => updateTypeEditor("scaleValue", event.target.value)}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          <label className="logical-type-editor-checkbox">
+            <input
+              type="checkbox"
+              checked={typeEditorNullableLocked ? false : typeEditor.nullableValue}
+              disabled={typeEditorNullableLocked}
+              onChange={(event) => updateTypeEditor("nullableValue", event.target.checked)}
+            />
+            Nullable
+          </label>
+
+          <label className="logical-type-editor-checkbox">
+            <input
+              type="checkbox"
+              checked={typeEditorUniqueChecked}
+              disabled={typeEditorUniqueDisabled}
+              onChange={(event) => updateTypeEditor("uniqueValue", event.target.checked)}
+            />
+            Unique
+          </label>
+
+          <label>
+            Default value
+            <input
+              value={typeEditor.defaultValue}
+              placeholder="es. CURRENT_TIMESTAMP"
+              onChange={(event) => updateTypeEditor("defaultValue", event.target.value)}
+            />
+          </label>
+
+          {typeEditorTypeLocked ? (
+            <p className="logical-type-editor-note">
+              Tipo bloccato: colonna FK sincronizzata automaticamente con la PK referenziata.
+            </p>
+          ) : null}
+          {typeEditorUniqueLocked ? (
+            <p className="logical-type-editor-note">Tipo selezionato con vincolo UNIQUE implicito.</p>
+          ) : null}
+
+          <div className="logical-type-editor-actions">
+            <button type="button" onClick={() => setTypeEditor(null)}>
+              Annulla
+            </button>
+            <button type="submit">Applica</button>
+          </div>
+        </form>
+      ) : null}
 
       {inlineEdit && inlineEditorStyle ? (
         <form

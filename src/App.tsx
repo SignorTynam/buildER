@@ -83,6 +83,10 @@ import {
 } from "./utils/logicalWorkspace";
 import { applyLogicalTranslationChoice } from "./utils/logicalTranslation";
 import {
+  type LogicalColumnSqlPatch,
+  updateLogicalColumnSqlMetadata,
+} from "./utils/logicalSqlMetadata";
+import {
   parseProjectFile,
   ProjectFileError,
   PROJECT_FILE_ACCEPT,
@@ -1030,6 +1034,7 @@ export default function App() {
   }));
   const [logicalViewport, setLogicalViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.logicalViewport }));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => ({ ...sessionBootstrap.logicalSelection }));
+  const [logicalTypeMode, setLogicalTypeMode] = useState(false);
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const [statusMessage, setStatusMessage] = useState("");
@@ -2503,6 +2508,7 @@ export default function App() {
       }
 
       setDiagramView("translation");
+      setLogicalTypeMode(false);
       setSelection({ nodeIds: [], edgeIds: [] });
       setTool("select");
       return;
@@ -2517,6 +2523,7 @@ export default function App() {
       const logicalAccess = canOpenLogicalView(translationHistory.present);
       if (!logicalAccess.allowed) {
         setDiagramView("translation");
+        setLogicalTypeMode(false);
         setStatusWarning(logicalAccess.reason ?? "Completa prima la traduzione ER->ER.");
         return;
       }
@@ -2542,6 +2549,7 @@ export default function App() {
     }
 
     setDiagramView("er");
+    setLogicalTypeMode(false);
     setTranslationSelection({ nodeIds: [], edgeIds: [] });
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
     setStatus("Vista ER attiva.");
@@ -2650,6 +2658,20 @@ export default function App() {
       ),
     });
 
+    commitLogicalModel(nextModel, previousModel);
+  }
+
+  function handleLogicalTypeModeChange(nextValue: boolean) {
+    setLogicalTypeMode(nextValue);
+  }
+
+  function handleLogicalColumnSqlUpdate(
+    tableId: string,
+    columnId: string,
+    patch: LogicalColumnSqlPatch,
+  ) {
+    const previousModel = logicalHistory.present.model;
+    const nextModel = updateLogicalColumnSqlMetadata(previousModel, tableId, columnId, patch);
     commitLogicalModel(nextModel, previousModel);
   }
 
@@ -4042,15 +4064,18 @@ export default function App() {
               workspace={logicalHistory.present}
               viewport={logicalViewport}
               selection={logicalSelection}
+              typeMode={logicalTypeMode}
               fitRequestToken={logicalFitRequestToken}
               onViewportChange={setLogicalViewport}
               onSelectionChange={setLogicalSelection}
+              onTypeModeChange={handleLogicalTypeModeChange}
               onApplyChoice={handleApplyLogicalTranslationChoice}
               onResetTranslation={handleResetLogicalTranslation}
               onPreviewModel={previewLogicalModel}
               onCommitModel={commitLogicalModel}
               onRenameTable={handleLogicalTableRename}
               onRenameColumn={handleLogicalColumnRename}
+              onUpdateColumnSql={handleLogicalColumnSqlUpdate}
             />
           )}
         </div>

@@ -15,6 +15,7 @@ import type {
   LogicalUniqueConstraint,
 } from "../types/logical";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./logicalLayout";
+import { normalizeLogicalModelSqlMetadata } from "./logicalSqlMetadata";
 import { getConnectorParticipation } from "./cardinality";
 
 interface ParsedCardinality {
@@ -977,7 +978,7 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
     issues: context.issues,
   };
 
-  return autoLayoutLogicalModel(normalizeLogicalModelGeometry(model));
+  return autoLayoutLogicalModel(normalizeLogicalModelGeometry(normalizeLogicalModelSqlMetadata(model)));
 }
 
 function buildTableMatchKey(table: LogicalTable): string {

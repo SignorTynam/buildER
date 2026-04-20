@@ -1,4 +1,5 @@
 import type { LogicalColumn, LogicalForeignKey, LogicalModel, LogicalTable, LogicalUniqueConstraint } from "../types/logical";
+import { formatSqlType } from "./logicalSqlMetadata";
 
 function quoteIdentifier(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
@@ -74,9 +75,13 @@ export function generateLogicalSql(model: LogicalModel): string {
     .map((table) => {
       const primaryKeyColumns = table.columns.filter((column) => column.isPrimaryKey);
       const lines = table.columns.map((column) => {
-        const dataType = column.dataType?.trim() || "TEXT";
+        const dataType = formatSqlType(column);
         const notNull = column.isNullable ? "" : " NOT NULL";
-        return `${quoteIdentifier(column.name)} ${dataType}${notNull}`;
+        const defaultClause =
+          typeof column.defaultValue === "string" && column.defaultValue.trim().length > 0
+            ? ` DEFAULT ${column.defaultValue.trim()}`
+            : "";
+        return `${quoteIdentifier(column.name)} ${dataType}${notNull}${defaultClause}`;
       });
 
       if (primaryKeyColumns.length > 0) {
@@ -90,6 +95,18 @@ export function generateLogicalSql(model: LogicalModel): string {
         (uniqueConstraintsByTableId.get(table.id) ?? []).map((constraint) => buildUniqueConstraintSignature(constraint.columnIds)),
       );
       lines.push(...renderedUniqueConstraints);
+
+      table.columns
+        .filter((column) => column.isUnique && !column.isPrimaryKey)
+        .forEach((column) => {
+          const signature = buildUniqueConstraintSignature([column.id]);
+          if (renderedUniqueSignatures.has(signature)) {
+            return;
+          }
+
+          lines.push(`UNIQUE (${joinIdentifierList([column.name])})`);
+          renderedUniqueSignatures.add(signature);
+        });
 
       (foreignKeysByTableId.get(table.id) ?? []).forEach((foreignKey) => {
         if (foreignKey.unique) {

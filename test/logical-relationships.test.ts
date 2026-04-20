@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
+import type { LogicalModel } from "../src/types/logical.ts";
 import {
   LOGICAL_TRANSLATION_STEPS,
   applyLogicalTranslationChoice,
@@ -11,6 +12,7 @@ import {
 } from "../src/utils/logicalTranslation.ts";
 import { generateLogicalModel } from "../src/utils/logicalMapping.ts";
 import { generateLogicalSql } from "../src/utils/logicalSql.ts";
+import { updateLogicalColumnSqlMetadata } from "../src/utils/logicalSqlMetadata.ts";
 
 function createEntity(
   id: string,
@@ -253,6 +255,121 @@ function applyEntityChoices(diagram: DiagramDocument) {
   }
 
   return { workspace, overview };
+}
+
+function createSqlMetadataModelFixture(): LogicalModel {
+  return {
+    meta: {
+      name: "SQL Metadata Fixture",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      sourceDiagramVersion: 1,
+      sourceSignature: "fixture",
+    },
+    tables: [
+      {
+        id: "table-user",
+        name: "USER",
+        kind: "entity",
+        x: 40,
+        y: 80,
+        width: 240,
+        height: 120,
+        columns: [
+          {
+            id: "col-user-id",
+            name: "ID",
+            isPrimaryKey: true,
+            isForeignKey: false,
+            isNullable: false,
+            dataType: "INTEGER",
+            references: [],
+          },
+          {
+            id: "col-user-email",
+            name: "Email",
+            isPrimaryKey: false,
+            isForeignKey: false,
+            isNullable: true,
+            dataType: "VARCHAR",
+            length: 100,
+            references: [],
+          },
+        ],
+      },
+      {
+        id: "table-order",
+        name: "ORDERS",
+        kind: "entity",
+        x: 420,
+        y: 80,
+        width: 260,
+        height: 150,
+        columns: [
+          {
+            id: "col-order-id",
+            name: "ID",
+            isPrimaryKey: true,
+            isForeignKey: false,
+            isNullable: false,
+            dataType: "INTEGER",
+            references: [],
+          },
+          {
+            id: "col-order-user-id",
+            name: "User_ID",
+            isPrimaryKey: false,
+            isForeignKey: true,
+            isNullable: false,
+            dataType: "INTEGER",
+            references: [
+              {
+                foreignKeyId: "fk-order-user",
+                targetTableId: "table-user",
+                targetColumnId: "col-user-id",
+              },
+            ],
+          },
+          {
+            id: "col-order-total",
+            name: "Totale",
+            isPrimaryKey: false,
+            isForeignKey: false,
+            isNullable: true,
+            dataType: "NUMERIC",
+            precision: 10,
+            scale: 2,
+            references: [],
+          },
+        ],
+      },
+    ],
+    foreignKeys: [
+      {
+        id: "fk-order-user",
+        name: "FK_ORDER_USER",
+        fromTableId: "table-order",
+        toTableId: "table-user",
+        mappings: [
+          {
+            fromColumnId: "col-order-user-id",
+            toColumnId: "col-user-id",
+          },
+        ],
+        required: true,
+      },
+    ],
+    uniqueConstraints: [],
+    edges: [
+      {
+        id: "edge-order-user",
+        foreignKeyId: "fk-order-user",
+        fromTableId: "table-order",
+        toTableId: "table-user",
+        label: "FK_ORDER_USER",
+      },
+    ],
+    issues: [],
+  };
 }
 
 test("la traduzione guidata 1:N assegna la FK al carrier corretto e nasconde le relazioni risolte", () => {
@@ -922,4 +1039,63 @@ test("una tabella con piu identificatori alternativi sceglie una sola PK e tradu
   assert.match(clienteSql, /PRIMARY KEY \("Codice"\)/);
   assert.match(clienteSql, /UNIQUE \("Email"\)/);
   assert.doesNotMatch(clienteSql, /PRIMARY KEY \("Codice", "Email"\)/);
+});
+
+test("l'aggiornamento SQL mantiene la sync stretta FK<-PK e blocca la nullable delle PK", () => {
+  const model = createSqlMetadataModelFixture();
+
+  const withPkNullableAttempt = updateLogicalColumnSqlMetadata(model, "table-user", "col-user-id", {
+    isNullable: true,
+  });
+  const userPk = withPkNullableAttempt.tables
+    .find((table) => table.id === "table-user")
+    ?.columns.find((column) => column.id === "col-user-id");
+  assert.ok(userPk, "PK utente non trovata");
+  assert.equal(userPk.isNullable, false, "Una PK non deve mai diventare nullable");
+
+  const withFkTypeAttempt = updateLogicalColumnSqlMetadata(withPkNullableAttempt, "table-order", "col-order-user-id", {
+    dataType: "VARCHAR",
+    length: 80,
+  });
+
+  const fkColumn = withFkTypeAttempt.tables
+    .find((table) => table.id === "table-order")
+    ?.columns.find((column) => column.id === "col-order-user-id");
+  assert.ok(fkColumn, "Colonna FK non trovata");
+  assert.equal(fkColumn.dataType, "INTEGER", "La FK deve restare sincronizzata al tipo della PK target");
+  assert.equal(fkColumn.length ?? null, null, "La FK sincronizzata non deve mantenere parametri VARCHAR");
+});
+
+test("il SQL generator usa tipo parametrico, default e unique da metadati SQL", () => {
+  const model = createSqlMetadataModelFixture();
+
+  let next = updateLogicalColumnSqlMetadata(model, "table-user", "col-user-email", {
+    dataType: "VARCHAR",
+    length: 180,
+    isNullable: false,
+    isUnique: true,
+    defaultValue: "'noreply@example.com'",
+  });
+  next = updateLogicalColumnSqlMetadata(next, "table-order", "col-order-total", {
+    dataType: "NUMERIC",
+    precision: 12,
+    scale: 4,
+    defaultValue: "0",
+  });
+
+  const emailUnique = next.uniqueConstraints.find(
+    (constraint) =>
+      constraint.tableId === "table-user" &&
+      constraint.columnIds.length === 1 &&
+      constraint.columnIds[0] === "col-user-email",
+  );
+  assert.ok(emailUnique, "Il toggle UNIQUE deve creare il vincolo unico monocolonna");
+
+  const sql = generateLogicalSql(next);
+  const userSql = extractCreateTable(sql, "USER");
+  const orderSql = extractCreateTable(sql, "ORDERS");
+
+  assert.match(userSql, /"Email" VARCHAR\(180\) NOT NULL DEFAULT 'noreply@example.com'/);
+  assert.match(userSql, /UNIQUE \("Email"\)/);
+  assert.match(orderSql, /"Totale" NUMERIC\(12,4\) DEFAULT 0/);
 });
