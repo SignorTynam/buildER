@@ -1,4 +1,4 @@
-export const APP_NAME = "Studio Diagrammi ER";
+export const APP_NAME = "ER Studio";
 export const APP_VERSION = "3.8";
 export const APP_TITLE = `${APP_NAME}`;
 
@@ -224,7 +224,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     updates: [
       "Rinominato il menu Aiuto in Informazioni.",
       "Aggiunto il pulsante Novita con storico aggiornamenti.",
-      "Introdotto versioning applicazione: Studio Diagrammi ER 1.0.",
+      "Introdotto versioning applicazione: ER Studio 1.0.",
       "Migliorata la resa attributi: cardinalita opzionale, etichetta dinamica e connessioni lineari.",
       "Aggiunto identificatore composto interno configurabile manualmente selezionando 2+ attributi.",
     ],
