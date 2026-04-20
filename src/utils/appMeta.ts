@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "3.8";
+export const APP_VERSION = "3.9";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,18 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.9",
+    date: "2026-04-20",
+    updates: [
+      "Versione applicativa aggiornata alla release 3.9.",
+      "Ripristinata la Vista Logica come workflow guidato manuale post-traduzione, con step, item pending e regole esplicite nel nuovo LogicalTranslationWorkspace.",
+      "Rimossa la conversione logica completa automatica in ingresso Vista Logica: il modello viene costruito in modo incrementale solo tramite decisioni utente.",
+      "Separazione responsabilita consolidata: gerarchie ISA e attributi composti restano nella Vista Traduzione; la Vista Logica non ripropone piu lo step generalizzazioni.",
+      "Riallineato refresh/save-load del workspace logico per preservare decisioni manuali valide e invalidare in modo sicuro le decisioni legacy non coerenti.",
+      "Aggiunti test di regressione sul workflow logico manuale (assenza auto-conversione, aggiornamenti incrementali, gestione legacy) e aggiornato il pacchetto test npm.",
+    ],
+  },
   {
     version: "3.8",
     date: "2026-04-16",

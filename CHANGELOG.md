@@ -15,6 +15,22 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [3.9.0] - 2026-04-20
+
+### Added
+- Introdotto il nuovo `LogicalTranslationWorkspace` per la Vista Logica, con workflow guidato a step, gestione item pending e pannello conflitti/artefatti.
+- Aggiunti test di regressione dedicati al workflow logico manuale (apertura senza auto-conversione, aggiornamenti incrementali e gestione decisioni legacy).
+
+### Changed
+- Versione applicativa aggiornata alla release 3.9 su package, lockfile, metadata applicativi e documentazione.
+- Ripristinata la Vista Logica come fase manuale e incrementale dopo la Vista Traduzione: la costruzione del modello logico avviene solo tramite decisioni utente.
+- Consolidata la separazione di responsabilita tra viste: gerarchie ISA e attributi composti restano nella Vista Traduzione; la Vista Logica non espone piu lo step generalizzazioni.
+- Riallineata la gestione di refresh/salvataggio/caricamento del workspace logico per mantenere decisioni coerenti e invalidare in sicurezza quelle incompatibili.
+
+### Fixed
+- L'apertura della Vista Logica non innesca piu una conversione logica completa automatica.
+- Ridotti i rischi di inconsistenza su progetti legacy con decisioni di generalizzazione non piu valide nel nuovo scope logico.
+
 ## [3.8.0] - 2026-04-16
 
 ### Added
