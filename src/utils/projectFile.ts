@@ -1,5 +1,5 @@
 import type { DiagramDocument, Viewport } from "../types/diagram";
-import type { LogicalModel, LogicalWorkspaceDocument } from "../types/logical";
+import type { LogicalModel, LogicalTranslationState, LogicalWorkspaceDocument } from "../types/logical";
 import type { ErTranslationState, ErTranslationWorkspaceDocument, WorkspaceView } from "../types/translation";
 import { parseDiagram, serializeDiagram } from "./diagram";
 import { createEmptyErTranslationWorkspace, refreshErTranslationWorkspace } from "./erTranslation";
@@ -202,6 +202,40 @@ function sanitizeLogicalModel(value: unknown): LogicalModel {
   } as LogicalModel;
 }
 
+function sanitizeLogicalTranslationState(
+  value: unknown,
+  fallback: LogicalTranslationState,
+): LogicalTranslationState {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const meta = value.meta;
+  if (
+    !isRecord(meta) ||
+    typeof meta.createdAt !== "string" ||
+    typeof meta.updatedAt !== "string" ||
+    typeof meta.sourceSignature !== "string" ||
+    !Array.isArray(value.decisions) ||
+    !Array.isArray(value.mappings) ||
+    !Array.isArray(value.conflicts)
+  ) {
+    return fallback;
+  }
+
+  return {
+    meta: {
+      ...fallback.meta,
+      createdAt: meta.createdAt,
+      updatedAt: meta.updatedAt,
+      sourceSignature: meta.sourceSignature,
+    },
+    decisions: value.decisions as LogicalTranslationState["decisions"],
+    mappings: value.mappings as LogicalTranslationState["mappings"],
+    conflicts: value.conflicts as LogicalTranslationState["conflicts"],
+  };
+}
+
 function sanitizeTranslationWorkspace(value: unknown, diagram: DiagramDocument): ErTranslationWorkspaceDocument {
   const fallback = createEmptyErTranslationWorkspace(diagram);
   if (!isRecord(value) || !isRecord(value.translation)) {
@@ -242,9 +276,11 @@ function sanitizeLogicalWorkspace(value: unknown, translatedDiagram: DiagramDocu
   }
 
   try {
+    const translation = sanitizeLogicalTranslationState(value.translation, fallback.translation);
     return refreshLogicalWorkspace(translatedDiagram, {
       ...fallback,
       model: sanitizeLogicalModel(value.model),
+      translation,
     });
   } catch {
     return fallback;

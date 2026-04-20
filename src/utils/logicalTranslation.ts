@@ -173,14 +173,9 @@ export const LOGICAL_TRANSLATION_STEPS: Array<{
     description: "Trasforma ogni attributo multivalore in tabella separata con FK verso l'owner.",
   },
   {
-    id: "generalizations",
-    label: "Fix Generalizations",
-    description: "Scegli la strategia di mapping delle gerarchie ISA.",
-  },
-  {
     id: "review",
     label: "Review",
-    description: "Controlla mapping, conflitti aperti e schema logico finale incrementale.",
+    description: "Controlla mapping, conflitti aperti e avanzamento della trasformazione logica manuale.",
   },
 ];
 
@@ -1311,25 +1306,6 @@ function createTranslationItemsByStep(
       step: "multivalued-attributes",
       label: attribute.label,
       description: `Attributo multivalore di ${owner?.label ?? "owner"} da trasformare in tabella separata.`,
-      status: decision ? (conflictMessages.length > 0 || decision.status === "invalid" ? "invalid" : "applied") : "pending",
-      currentDecisionId: decision?.id,
-      currentSummary: decision?.summary,
-      choiceIds: choices.map((choice) => choice.id),
-      conflictMessages,
-    });
-  });
-
-  buildGeneralizationHierarchies(diagram).forEach((hierarchy) => {
-    const choices = buildGeneralizationChoices(hierarchy);
-    choices.forEach((choice) => choicesByKey.set(buildChoiceKey(choice.targetType, choice.targetId, choice.rule, choice.configuration), choice));
-    const decision = getDecisionForTarget(state, "generalization", hierarchy.supertype.id);
-    const conflictMessages = conflictsByTargetKey.get(`generalization:${hierarchy.supertype.id}`)?.map((conflict) => conflict.message) ?? [];
-    itemsByStep.generalizations.push({
-      id: hierarchy.supertype.id,
-      targetType: "generalization",
-      step: "generalizations",
-      label: hierarchy.supertype.label,
-      description: `Gerarchia ${hierarchy.supertype.label} -> ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")}.`,
       status: decision ? (conflictMessages.length > 0 || decision.status === "invalid" ? "invalid" : "applied") : "pending",
       currentDecisionId: decision?.id,
       currentSummary: decision?.summary,

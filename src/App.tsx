@@ -7,7 +7,7 @@ import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { useHistory } from "./hooks/useHistory";
-import { LogicalTransformationCanvas } from "./logical/LogicalTransformationCanvas";
+import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
 import { TranslationWorkspace } from "./translation/TranslationWorkspace";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
@@ -28,6 +28,9 @@ import { EMPTY_LOGICAL_SELECTION } from "./types/logical";
 import type {
   LogicalModel,
   LogicalSelection,
+  LogicalTranslationChoice,
+  LogicalTranslationItem,
+  LogicalTranslationState,
   LogicalWorkspaceDocument,
 } from "./types/logical";
 import type {
@@ -78,6 +81,7 @@ import {
   refreshLogicalWorkspace,
   updateLogicalWorkspaceModel,
 } from "./utils/logicalWorkspace";
+import { applyLogicalTranslationChoice } from "./utils/logicalTranslation";
 import {
   parseProjectFile,
   ProjectFileError,
@@ -364,6 +368,40 @@ function sanitizeErTranslationWorkspace(value: unknown, diagram: DiagramDocument
   }
 }
 
+function sanitizeLogicalTranslationState(
+  value: unknown,
+  fallback: LogicalTranslationState,
+): LogicalTranslationState {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const meta = value.meta;
+  if (
+    !isRecord(meta) ||
+    typeof meta.createdAt !== "string" ||
+    typeof meta.updatedAt !== "string" ||
+    typeof meta.sourceSignature !== "string" ||
+    !Array.isArray(value.decisions) ||
+    !Array.isArray(value.mappings) ||
+    !Array.isArray(value.conflicts)
+  ) {
+    return fallback;
+  }
+
+  return {
+    meta: {
+      ...fallback.meta,
+      createdAt: meta.createdAt,
+      updatedAt: meta.updatedAt,
+      sourceSignature: meta.sourceSignature,
+    },
+    decisions: value.decisions as LogicalTranslationState["decisions"],
+    mappings: value.mappings as LogicalTranslationState["mappings"],
+    conflicts: value.conflicts as LogicalTranslationState["conflicts"],
+  };
+}
+
 function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): LogicalWorkspaceDocument {
   const fallback = createEmptyLogicalWorkspace(diagram);
   if (!isRecord(value) || !isRecord(value.model)) {
@@ -371,9 +409,11 @@ function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): Log
   }
 
   try {
+    const translation = sanitizeLogicalTranslationState(value.translation, fallback.translation);
     return refreshLogicalWorkspace(diagram, {
       ...fallback,
       model: sanitizeLogicalModel(value.model),
+      translation,
       transformation: fallback.transformation,
     });
   } catch {
@@ -1113,7 +1153,7 @@ export default function App() {
     "--diagram-code-panel-width": activeSidePanel ? `${activeSidePanelWidth}px` : "0px",
     "--diagram-code-resizer-width": activeSidePanel ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
-  const structuredWorkspaceActive = diagramView === "translation" || (diagramView === "logical" && logicalGenerated);
+  const structuredWorkspaceActive = diagramView === "translation" || diagramView === "logical";
   const logicalWorkspaceShellStyle = {
     "--toolbar-width": structuredWorkspaceActive ? "220px" : "0px",
     "--toolbar-resizer-width": "0px",
@@ -1319,6 +1359,26 @@ export default function App() {
       setStatus("Vista logica riallineata all'ER tradotto.");
     }
   }, [currentTranslatedSignature, diagramView, logicalGenerated, logicalHistory, translationHistory]);
+
+  useEffect(() => {
+    if (diagramView !== "logical" || logicalGenerated) {
+      return;
+    }
+
+    const logicalAccess = canOpenLogicalView(translationHistory.present);
+    if (!logicalAccess.allowed) {
+      setDiagramView("translation");
+      setStatusWarning(logicalAccess.reason ?? "Completa la traduzione ER->ER per aprire la vista logica.");
+      return;
+    }
+
+    const initializedWorkspace = refreshLogicalWorkspace(
+      translationHistory.present.translatedDiagram,
+      createEmptyLogicalWorkspace(translationHistory.present.translatedDiagram, logicalHistory.present),
+    );
+    logicalHistory.setPresent(initializedWorkspace);
+    setLogicalGenerated(true);
+  }, [diagramView, logicalGenerated, logicalHistory, translationHistory]);
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -2399,9 +2459,20 @@ export default function App() {
     setStatus("Workspace di traduzione ER->ER resettato.");
   }
 
-  function regenerateLogicalWorkspace(options?: { switchToLogical?: boolean; preservePositions?: boolean }) {
+  function regenerateLogicalWorkspace(options?: {
+    switchToLogical?: boolean;
+    preservePositions?: boolean;
+    resetDecisions?: boolean;
+  }) {
+    const translatedDiagram = translationHistory.present.translatedDiagram;
     const previousWorkspace = options?.preservePositions && logicalGenerated ? logicalHistory.present : undefined;
-    const nextWorkspace = refreshLogicalWorkspace(translationHistory.present.translatedDiagram, previousWorkspace);
+    const nextWorkspace =
+      options?.resetDecisions === true
+        ? createEmptyLogicalWorkspace(translatedDiagram)
+        : refreshLogicalWorkspace(
+            translatedDiagram,
+            previousWorkspace ?? createEmptyLogicalWorkspace(translatedDiagram),
+          );
 
     logicalHistory.reset(nextWorkspace);
     setLogicalGenerated(true);
@@ -2412,7 +2483,12 @@ export default function App() {
     }
 
     setTool("select");
-    setStatus(previousWorkspace ? "Vista logica rigenerata dall'ER tradotto." : "Workspace logico generato dall'ER tradotto.");
+    if (options?.resetDecisions) {
+      setStatus("Workflow logico manuale resettato.");
+      return;
+    }
+
+    setStatus(previousWorkspace ? "Vista logica riallineata all'ER tradotto." : "Workspace logico manuale inizializzato.");
   }
 
   function handleDiagramViewChange(nextView: WorkspaceView) {
@@ -2445,9 +2521,18 @@ export default function App() {
         return;
       }
 
-      if (!logicalGenerated || logicalOutOfDate) {
+      if (!logicalGenerated) {
         regenerateLogicalWorkspace({ switchToLogical: true, preservePositions: true });
         return;
+      }
+
+      if (logicalOutOfDate) {
+        const refreshedWorkspace = refreshLogicalWorkspace(
+          translationHistory.present.translatedDiagram,
+          logicalHistory.present,
+        );
+        logicalHistory.setPresent(refreshedWorkspace);
+        setStatus("Vista logica riallineata all'ER tradotto senza conversione automatica completa.");
       }
 
       setDiagramView("logical");
@@ -2472,7 +2557,23 @@ export default function App() {
 
     regenerateLogicalWorkspace({
       switchToLogical: true,
-      preservePositions: true,
+      preservePositions: false,
+      resetDecisions: true,
+    });
+  }
+
+  function handleResetLogicalTranslation() {
+    const logicalAccess = canOpenLogicalView(translationHistory.present);
+    if (!logicalAccess.allowed) {
+      setDiagramView("translation");
+      setStatusWarning(logicalAccess.reason ?? "Completa prima la traduzione ER->ER.");
+      return;
+    }
+
+    regenerateLogicalWorkspace({
+      switchToLogical: true,
+      preservePositions: false,
+      resetDecisions: true,
     });
   }
 
@@ -2498,10 +2599,6 @@ export default function App() {
   }
 
   function handleLogicalFit() {
-    if (!logicalGenerated) {
-      return;
-    }
-
     setLogicalFitRequestToken((current) => current + 1);
   }
 
@@ -2561,6 +2658,20 @@ export default function App() {
     const nextWorkspace = applyErTranslationChoice(history.present, previousWorkspace, choice, item.targetType, item.id);
     commitTranslationWorkspace(nextWorkspace, previousWorkspace);
     setDiagramView("translation");
+    setStatus(choice.summary);
+  }
+
+  function handleApplyLogicalTranslationChoice(item: LogicalTranslationItem, choice: LogicalTranslationChoice) {
+    const previousWorkspace = logicalHistory.present;
+    const nextWorkspace = applyLogicalTranslationChoice(
+      translationHistory.present.translatedDiagram,
+      previousWorkspace,
+      choice,
+      item.targetType,
+      item.id,
+    );
+    commitLogicalWorkspace(nextWorkspace, previousWorkspace);
+    setDiagramView("logical");
     setStatus(choice.summary);
   }
 
@@ -3925,33 +4036,22 @@ export default function App() {
                 );
               }}
             />
-          ) : !logicalGenerated ? (
-            <div className="workspace-main logical-main" style={{ gridColumn: "1 / -1" }}>
-                <section className="logical-empty-state">
-                  <h2>Vista Logica</h2>
-                  <p>Genera lo schema logico a partire dal diagramma ER tradotto completato.</p>
-                  <button type="button" className="mode-button active" onClick={handleGenerateLogicalModel}>
-                    Genera schema logico
-                  </button>
-                </section>
-            </div>
           ) : (
-            <div className="workspace-main logical-main" style={{ gridColumn: "1 / -1" }}>
-              <LogicalTransformationCanvas
+            <LogicalTranslationWorkspace
+              sourceDiagram={translationHistory.present.translatedDiagram}
               workspace={logicalHistory.present}
-                selection={logicalSelection}
-                viewport={logicalViewport}
-                fitRequestToken={logicalFitRequestToken}
-                activeTargetKeys={[]}
-                focusedTargetKey={null}
-                onViewportChange={setLogicalViewport}
-                onSelectionChange={setLogicalSelection}
-                onPreviewModel={previewLogicalModel}
-                onCommitModel={commitLogicalModel}
-                onRenameTable={handleLogicalTableRename}
-                onRenameColumn={handleLogicalColumnRename}
-              />
-            </div>
+              viewport={logicalViewport}
+              selection={logicalSelection}
+              fitRequestToken={logicalFitRequestToken}
+              onViewportChange={setLogicalViewport}
+              onSelectionChange={setLogicalSelection}
+              onApplyChoice={handleApplyLogicalTranslationChoice}
+              onResetTranslation={handleResetLogicalTranslation}
+              onPreviewModel={previewLogicalModel}
+              onCommitModel={commitLogicalModel}
+              onRenameTable={handleLogicalTableRename}
+              onRenameColumn={handleLogicalColumnRename}
+            />
           )}
         </div>
       </div>

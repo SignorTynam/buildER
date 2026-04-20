@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DiagramCanvas } from "../canvas/DiagramCanvas";
-import type { SelectionState, Viewport } from "../types/diagram";
+import type { DiagramDocument, SelectionState, Viewport } from "../types/diagram";
 import type {
   ErTranslationChoice,
   ErTranslationItem,
