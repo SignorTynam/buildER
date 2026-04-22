@@ -10,6 +10,7 @@ interface AppHeaderProps {
   appVersion: string;
   diagramName: string;
   diagramView: WorkspaceView;
+  logicalSqlOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
   mode: EditorMode;
@@ -19,6 +20,8 @@ interface AppHeaderProps {
   focusMode: boolean;
   toolRailCollapsed: boolean;
   onDiagramViewChange: (view: WorkspaceView) => void;
+  onOpenSql: () => void;
+  onOpenLogicalWorkflow: () => void;
   onModeChange: (mode: EditorMode) => void;
   onNewProject: () => void;
   onUndo: () => void;
@@ -56,8 +59,9 @@ export function AppHeader(props: AppHeaderProps) {
   const isErView = props.diagramView === "er";
   const isTranslationView = props.diagramView === "translation";
   const isLogicalView = props.diagramView === "logical";
-  const currentViewLabel =
-    props.diagramView === "er"
+  const currentViewLabel = props.logicalSqlOpen
+    ? "SQL"
+    : props.diagramView === "er"
       ? "ER"
       : props.diagramView === "translation"
         ? t("header.views.translation")
@@ -66,6 +70,8 @@ export function AppHeader(props: AppHeaderProps) {
   const workspaceStateLabel =
     isLogicalView && props.logicalOutOfDate
       ? "Modello logico da riallineare"
+      : props.logicalSqlOpen
+        ? "Anteprima SQL attiva"
       : props.focusMode
         ? "Focus canvas attivo"
         : "Workspace attivo";
@@ -189,7 +195,9 @@ export function AppHeader(props: AppHeaderProps) {
       ? "Genera schema logico"
       : props.logicalOutOfDate
         ? "Riallinea logico"
-        : "Rigenera logico";
+        : props.logicalSqlOpen
+          ? "Torna alle decisioni"
+          : "Apri SQL";
 
   function handleWorkflowAction() {
     if (isErView) {
@@ -197,7 +205,17 @@ export function AppHeader(props: AppHeaderProps) {
       return;
     }
 
-    props.onGenerateLogicalModel();
+    if (isTranslationView || props.logicalOutOfDate) {
+      props.onGenerateLogicalModel();
+      return;
+    }
+
+    if (props.logicalSqlOpen) {
+      props.onOpenLogicalWorkflow();
+      return;
+    }
+
+    props.onOpenSql();
   }
 
   return (
@@ -224,34 +242,8 @@ export function AppHeader(props: AppHeaderProps) {
       </div>
 
       <div className="header-toolbar-row">
-        <div className="header-inline-group" role="group" aria-label="Azioni globali workspace">
-          <button type="button" className="header-button header-quick-button" onClick={props.onNewProject}>
-            Nuovo
-          </button>
-          <button type="button" className="header-button header-quick-button" onClick={props.onSaveProject}>
-            Salva
-          </button>
-          <button
-            type="button"
-            className="header-button header-quick-button"
-            onClick={props.onUndo}
-            disabled={!props.canUndo}
-            title={t("common.actions.undo")}
-          >
-            {t("common.actions.undo")}
-          </button>
-          <button
-            type="button"
-            className="header-button header-quick-button"
-            onClick={props.onRedo}
-            disabled={!props.canRedo}
-            title={t("common.actions.redo")}
-          >
-            {t("common.actions.redo")}
-          </button>
-        </div>
-
         <div className="header-inline-group header-inline-group-primary" role="group" aria-label="Azioni della fase corrente">
+          <span className="header-inline-label">Fase corrente</span>
           <button
             type="button"
             className="header-button header-primary-button"
@@ -259,75 +251,31 @@ export function AppHeader(props: AppHeaderProps) {
           >
             {workflowActionLabel}
           </button>
-          {isTranslationView ? (
-            <button type="button" className="header-button header-secondary-button" onClick={props.onResetTranslation}>
-              Reset traduzione
-            </button>
-          ) : null}
-          {isLogicalView ? (
-            <>
-              <button type="button" className="header-button header-secondary-button" onClick={props.onAutoLayoutLogical}>
-                Auto layout
-              </button>
-              <button type="button" className="header-button header-secondary-button" onClick={props.onFitLogical}>
-                Adatta
-              </button>
-            </>
-          ) : null}
         </div>
 
-        <div className="header-inline-group header-inline-group-mode">
-          <div className="mode-switch mode-switch-secondary" role="group" aria-label={t("header.editorModeGroupLabel")}>
-            <button
-              className={props.mode === "edit" && isErView ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onModeChange("edit")}
-              disabled={!isErView}
-            >
-              {t("header.modes.edit")}
-            </button>
-            <button
-              className={props.mode === "view" && isErView ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onModeChange("view")}
-              disabled={!isErView}
-            >
-              {t("header.modes.view")}
-            </button>
+        {isErView ? (
+          <div className="header-inline-group header-inline-group-mode">
+            <span className="header-inline-label">Modalita</span>
+            <div className="mode-switch mode-switch-secondary" role="group" aria-label={t("header.editorModeGroupLabel")}>
+              <button
+                className={props.mode === "edit" && isErView ? "mode-button active" : "mode-button"}
+                type="button"
+                onClick={() => props.onModeChange("edit")}
+                disabled={!isErView}
+              >
+                {t("header.modes.edit")}
+              </button>
+              <button
+                className={props.mode === "view" && isErView ? "mode-button active" : "mode-button"}
+                type="button"
+                onClick={() => props.onModeChange("view")}
+                disabled={!isErView}
+              >
+                {t("header.modes.view")}
+              </button>
+            </div>
           </div>
-          {!isErView ? <span className="header-inline-note">Disponibile solo nella fase ER.</span> : null}
-        </div>
-
-        <div className="header-inline-group" role="group" aria-label={t("header.quickActionsLabel")}>
-          <button
-            type="button"
-            className={
-              props.notesPanelOpen
-                ? "header-button header-quick-button active"
-                : "header-button header-quick-button"
-            }
-            onClick={props.onToggleNotesPanel}
-            aria-pressed={props.notesPanelOpen}
-          >
-            Note
-          </button>
-          <button
-            type="button"
-            className="header-button header-quick-button"
-            onClick={props.onToggleFocusMode}
-            aria-pressed={props.focusMode}
-          >
-            {props.focusMode ? "Esci focus" : "Focus"}
-          </button>
-          <button
-            type="button"
-            className="header-button header-quick-button"
-            onClick={props.onToggleToolRail}
-            disabled={props.focusMode}
-          >
-            {props.toolRailCollapsed ? "Apri tools" : "Comprimi tools"}
-          </button>
-        </div>
+        ) : null}
 
         <div className="header-inline-group header-inline-group-menu">
           <nav ref={navRef} className="header-nav" aria-label={t("header.secondaryActionsLabel")}>
@@ -347,7 +295,7 @@ export function AppHeader(props: AppHeaderProps) {
                 }
               >
                 <div className="nav-menu-section">
-                  <div className="nav-menu-label">{t("header.menu.sections.workspace")}</div>
+                  <div className="nav-menu-label">Fase</div>
                   {isTranslationView ? (
                     <button
                       type="button"
@@ -358,6 +306,12 @@ export function AppHeader(props: AppHeaderProps) {
                   ) : null}
                   {isLogicalView ? (
                     <>
+                      <button type="button" onClick={(event) => runMenuAction(event, props.onOpenSql)}>
+                        {props.logicalSqlOpen ? "SQL gia aperto" : "Apri SQL"}
+                      </button>
+                      <button type="button" onClick={(event) => runMenuAction(event, props.onOpenLogicalWorkflow)}>
+                        Torna alle decisioni
+                      </button>
                       <button
                         type="button"
                         onClick={(event) => runMenuAction(event, props.onGenerateLogicalModel)}
@@ -377,8 +331,44 @@ export function AppHeader(props: AppHeaderProps) {
                       </button>
                     </>
                   ) : null}
+                </div>
+
+                <div className="nav-menu-section">
+                  <div className="nav-menu-label">{t("header.menu.sections.workspace")}</div>
+                  {isErView ? (
+                    <button type="button" onClick={(event) => runMenuAction(event, props.onToggleCodePanel)}>
+                      {props.codePanelOpen ? "Chiudi diagram code" : "Apri diagram code"}
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleNotesPanel)}>
+                    {props.notesPanelOpen ? "Chiudi note" : "Apri note"}
+                  </button>
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleFocusMode)}>
+                    {props.focusMode ? "Disattiva focus" : "Attiva focus"}
+                  </button>
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleToolRail)}>
+                    {props.toolRailCollapsed ? "Apri strumenti" : "Comprimi strumenti"}
+                  </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
                     {t("header.menu.actions.regenerateErs")}
+                  </button>
+                </div>
+
+                <div className="nav-menu-section">
+                  <div className="nav-menu-label">Modifica</div>
+                  <button
+                    type="button"
+                    onClick={(event) => runMenuAction(event, props.onUndo)}
+                    disabled={!props.canUndo}
+                  >
+                    {t("common.actions.undo")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => runMenuAction(event, props.onRedo)}
+                    disabled={!props.canRedo}
+                  >
+                    {t("common.actions.redo")}
                   </button>
                 </div>
 

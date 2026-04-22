@@ -3919,7 +3919,6 @@ export default function App() {
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
         onBackWorkspace={openStudioSurface}
-        onOpenStudio={openStudioSurface}
         onOpenCodeStudio={openStudioSurface}
       />
     );
@@ -3932,6 +3931,7 @@ export default function App() {
         appVersion={APP_VERSION}
         diagramName={history.present.meta.name}
         diagramView={diagramView}
+        logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
         notesPanelOpen={notesPanelOpen}
         mode={mode}
@@ -3941,6 +3941,8 @@ export default function App() {
         focusMode={focusMode}
         toolRailCollapsed={effectiveToolbarCollapsed}
         onDiagramViewChange={handleDiagramViewChange}
+        onOpenSql={handleOpenSqlStage}
+        onOpenLogicalWorkflow={handleOpenLogicalStage}
         onModeChange={handleModeChange}
         onNewProject={handleNewProject}
         onUndo={handleUndoAction}

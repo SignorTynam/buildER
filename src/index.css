@@ -10212,3 +10212,170 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* UX refinement after review */
+.header-inline-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--editor-text-muted);
+}
+
+.header-inline-group-primary {
+  align-items: center;
+}
+
+.header-inline-group-primary .header-primary-button {
+  min-width: 148px;
+}
+
+.header-inline-group-mode .mode-switch {
+  margin-left: 2px;
+}
+
+.header-inline-group-menu .nav-group-menu > summary {
+  min-width: 84px;
+}
+
+.workspace-side-panel-tabs[role="group"] .workspace-side-tab[aria-pressed="true"] {
+  border-color: rgba(29, 79, 145, 0.24);
+  background: linear-gradient(180deg, #1d4f91 0%, #153d6f 100%);
+  color: #fff;
+}
+
+.workspace-side-panel-body[data-panel-view="properties"] {
+  background: transparent;
+}
+
+.tutorial-header-actions {
+  justify-content: flex-end;
+}
+
+.tutorial-hero {
+  align-items: start;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+}
+
+.tutorial-hero-copy {
+  gap: 18px;
+  padding: 24px;
+}
+
+.tutorial-hero-lead {
+  max-width: 64ch;
+}
+
+.tutorial-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tutorial-entry-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 18px;
+  background: rgba(255, 252, 244, 0.78);
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.tutorial-entry-card:hover:not(:disabled) {
+  border-color: rgba(24, 24, 21, 0.2);
+  transform: translateY(-1px);
+}
+
+.tutorial-entry-card strong {
+  font-size: 0.98rem;
+  color: rgba(18, 18, 16, 0.94);
+}
+
+.tutorial-entry-card span:last-child {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--tutorial-copy);
+}
+
+.tutorial-entry-card-primary {
+  border-color: rgba(27, 66, 117, 0.24);
+  background: linear-gradient(180deg, rgba(238, 245, 252, 0.98) 0%, rgba(251, 252, 255, 0.98) 100%);
+}
+
+.tutorial-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tutorial-overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 16px;
+  background: rgba(255, 252, 244, 0.58);
+}
+
+.tutorial-overview-card h2 {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.tutorial-overview-card p {
+  margin: 0;
+  font-size: 0.79rem;
+  line-height: 1.45;
+}
+
+.tutorial-stage-card {
+  padding: 20px;
+}
+
+.tutorial-stage-code {
+  max-height: 300px;
+}
+
+.tutorial-section-heading {
+  gap: 8px;
+}
+
+.tutorial-note-card {
+  position: static;
+  top: auto;
+  align-self: stretch;
+}
+
+.tutorial-note-divider {
+  display: none;
+}
+
+.tutorial-final-cta {
+  align-items: center;
+}
+
+@media (max-width: 1180px) {
+  .tutorial-entry-grid,
+  .tutorial-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .header-inline-group-primary {
+    width: 100%;
+  }
+
+  .header-inline-label {
+    width: 100%;
+  }
+}

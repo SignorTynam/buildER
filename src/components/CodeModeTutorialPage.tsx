@@ -2,7 +2,6 @@ interface CodeModeTutorialPageProps {
   appTitle: string;
   appVersion: string;
   onBackWorkspace: () => void;
-  onOpenStudio: () => void;
   onOpenCodeStudio: () => void;
 }
 
@@ -140,9 +139,6 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
           <button type="button" className="landing-secondary-link" onClick={props.onBackWorkspace}>
             Torna al workspace
           </button>
-          <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-            Apri la vista affiancata
-          </button>
         </div>
       </header>
 
@@ -150,25 +146,28 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <section className="tutorial-hero" id="tutorial-overview">
           <div className="tutorial-hero-copy">
             <p className="landing-hero-eyebrow">Tutorial operativo dedicato</p>
-            <h1>Scrivi ERS con un flusso serio: tastiera, parser, canvas, verifica.</h1>
+            <h1>Scrivi ERS con parser e canvas in parallelo, senza perdere il controllo del modello.</h1>
             <p className="tutorial-hero-lead">
-              Questa pagina spiega come usare davvero l'editor ERS di {props.appTitle}: cosa scrivere prima,
-              quando passare alla vista affiancata, come modellare attributi composti, e quali errori aspettarti mentre il parser
-              mantiene l&apos;ultimo stato valido del diagramma.
+              Usa questa guida come riferimento rapido: contenitore prima dei figli, sintassi valida prima della sincronizzazione,
+              canvas come verifica e non come sorgente primaria.
             </p>
 
-            <div className="tutorial-hero-actions">
-              <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-                Apri la vista affiancata
+            <div className="tutorial-entry-grid">
+              <button type="button" className="tutorial-entry-card tutorial-entry-card-primary" onClick={props.onOpenCodeStudio}>
+                <span className="landing-kicker">Scelta consigliata</span>
+                <strong>Apri la vista affiancata</strong>
+                <span>Scrivi ERS e controlla subito come il parser aggiorna il canvas.</span>
               </button>
-              <button type="button" className="landing-secondary-link" onClick={props.onOpenStudio}>
-                Apri Studio completo
+              <button type="button" className="tutorial-entry-card" onClick={props.onBackWorkspace}>
+                <span className="landing-kicker">Alternativa</span>
+                <strong>Torna al workspace</strong>
+                <span>Rientra nel canvas principale e usa questa pagina solo come riferimento.</span>
               </button>
             </div>
 
-            <div className="tutorial-mode-grid">
+            <div className="tutorial-overview-grid">
               {WORKSPACE_MODES.map((item) => (
-                <article key={item.title} className="tutorial-mode-card">
+                <article key={item.title} className="tutorial-overview-card">
                   <h2>{item.title}</h2>
                   <p>{item.text}</p>
                 </article>
@@ -180,7 +179,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <div className="tutorial-stage-head">
               <div>
                 <span className="landing-kicker">Sessione tipo</span>
-                <h2>Il file .ers e il tuo centro di controllo.</h2>
+                <h2>Il file .ers resta la sorgente primaria.</h2>
               </div>
               <div className="tutorial-stage-status">
                 <span>Sincronizzazione live</span>
@@ -194,8 +193,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <div className="tutorial-stage-footer">
               <strong>Regola pratica</strong>
               <p>
-                Se vuoi un attributo composto come nell&apos;editor, crei l&apos;ovale padre con <code>multivalued</code>{" "}
-                e poi colleghi tutti i figli necessari con <code>attribute-link</code>.
+                Definisci prima il contenitore, poi i figli, poi i link: il canvas conferma il risultato quando la sintassi torna valida.
               </p>
             </div>
           </aside>
@@ -204,10 +202,10 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <section className="tutorial-section" id="tutorial-workflow">
           <div className="tutorial-section-heading">
             <span>Flusso di lavoro</span>
-            <h2>Il percorso corretto e scrivere in ordine strutturale, non riga per riga a caso.</h2>
+            <h2>Scrivi in ordine strutturale, non riga per riga a caso.</h2>
             <p>
-              L'editor ERS rende veloce la modellazione solo se mantieni una disciplina minima: contenitore prima
-              dei figli, relazioni leggibili e controlli visivi nella vista affiancata quando serve.
+              L'editor ERS rende veloce la modellazione solo se mantieni una disciplina minima: contenitore prima dei figli
+              e controllo visivo nella vista affiancata quando serve.
             </p>
           </div>
 
@@ -225,9 +223,9 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <section className="tutorial-section" id="tutorial-syntax">
           <div className="tutorial-section-heading">
             <span>Sintassi</span>
-            <h2>Quattro pattern bastano per coprire quasi tutto il lavoro quotidiano.</h2>
+            <h2>I pattern essenziali bastano per coprire quasi tutto il lavoro quotidiano.</h2>
             <p>
-              Non serve memorizzare l&apos;intero DSL per partire. Questi frammenti coprono entita, relazioni,
+              Non serve memorizzare tutto il DSL per partire. Questi frammenti coprono entita, relazioni,
               attributi composti e generalizzazioni.
             </p>
           </div>
@@ -257,12 +255,6 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
                   <code>inheritance</code> porta con se anche <code>disjoint/overlap</code> e{" "}
                   <code>total/partial</code> sulla stessa riga.
                 </li>
-              </ul>
-
-              <div className="tutorial-note-divider" />
-
-              <span className="landing-kicker">Checklist veloce</span>
-              <ul className="tutorial-note-list">
                 {REVIEW_CHECKLIST.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
@@ -274,7 +266,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <section className="tutorial-section" id="tutorial-troubleshooting">
           <div className="tutorial-section-heading">
             <span>Errori comuni</span>
-            <h2>Gli intoppi tipici non sono nel canvas: sono quasi sempre nel modello mentale.</h2>
+            <h2>Gli intoppi tipici non sono nel canvas: quasi sempre sono nel modello mentale.</h2>
             <p>
               Quando qualcosa sembra non sincronizzarsi, nella maggior parte dei casi il parser sta difendendo il
               diagramma da una struttura ambigua o incompleta.
@@ -301,9 +293,6 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
                 La pagina tutorial serve come riferimento stabile: puoi leggerla, poi aprire direttamente la vista affiancata
                 senza perdere il contesto del flusso consigliato.
               </p>
-              <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-                Apri ERS affiancato
-              </button>
             </article>
           </div>
         </section>
@@ -311,12 +300,12 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <section className="tutorial-final-cta">
           <div>
             <span className="landing-kicker">Pronto a scrivere</span>
-            <h2>Apri lo spazio di lavoro nel punto giusto: vista affiancata se vuoi ERS, studio se vuoi controllo completo.</h2>
+            <h2>Scegli il punto di ingresso giusto: affiancata se vuoi scrivere ERS, workspace se vuoi tornare al canvas.</h2>
           </div>
 
           <div className="tutorial-final-actions">
-            <button type="button" className="landing-secondary-link" onClick={props.onOpenStudio}>
-              Studio completo
+            <button type="button" className="landing-secondary-link" onClick={props.onBackWorkspace}>
+              Torna al workspace
             </button>
             <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
               Apri la vista affiancata

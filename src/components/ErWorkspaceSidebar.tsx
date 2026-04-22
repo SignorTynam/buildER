@@ -82,13 +82,12 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
         </div>
         {heading.description ? <p className="workspace-side-panel-description">{heading.description}</p> : null}
 
-        <div className="workspace-side-panel-tabs" role="tablist" aria-label="Sezioni pannello laterale">
+        <div className="workspace-side-panel-tabs" role="group" aria-label="Selettore sezione pannello laterale">
           <button
             type="button"
             className={props.activeTab === "properties" ? "workspace-side-tab active" : "workspace-side-tab"}
             onClick={() => props.onSelectTab("properties")}
-            role="tab"
-            aria-selected={props.activeTab === "properties"}
+            aria-pressed={props.activeTab === "properties"}
           >
             Proprieta
           </button>
@@ -96,8 +95,7 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
             type="button"
             className={props.activeTab === "code" ? "workspace-side-tab active" : "workspace-side-tab"}
             onClick={() => props.onSelectTab("code")}
-            role="tab"
-            aria-selected={props.activeTab === "code"}
+            aria-pressed={props.activeTab === "code"}
           >
             Codice
           </button>
@@ -105,15 +103,14 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
             type="button"
             className={props.activeTab === "notes" ? "workspace-side-tab active" : "workspace-side-tab"}
             onClick={() => props.onSelectTab("notes")}
-            role="tab"
-            aria-selected={props.activeTab === "notes"}
+            aria-pressed={props.activeTab === "notes"}
           >
             Note
           </button>
         </div>
       </header>
 
-      <div className="workspace-side-panel-body">
+      <div className="workspace-side-panel-body" data-panel-view={props.activeTab}>
         {props.activeTab === "properties" ? (
           <InspectorPanel
             embedded
