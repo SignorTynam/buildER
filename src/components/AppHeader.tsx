@@ -174,31 +174,42 @@ export function AppHeader(props: AppHeaderProps) {
     }
   }
 
+  const headerClassName = [
+    "app-header",
+    props.focusMode ? "focus-mode" : "",
+    `app-header-view-${props.diagramView}`,
+    isErView ? `app-header-mode-${props.mode}` : "app-header-mode-passive",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <header className={props.focusMode ? "app-header focus-mode" : "app-header"}>
+    <header className={headerClassName}>
       <div className="app-title-block">
         <div className="app-title-inline">
           <h1>{props.appTitle}</h1>
           <div className="app-version-pill">v{props.appVersion}</div>
         </div>
-        <div className="app-subtitle">{props.diagramName}</div>
-        <div className="header-title-meta" aria-label="Stato workspace">
-          <span className="header-status-pill">{currentViewLabel}</span>
-          <span className="header-status-pill">{editorStateLabel}</span>
-          <span
-            className={
-              isLogicalView && props.logicalOutOfDate
-                ? "header-status-pill header-status-pill-warning"
-                : "header-status-pill header-status-pill-muted"
-            }
-          >
-            {workspaceStateLabel}
-          </span>
+        <div className="app-title-copy">
+          <div className="app-subtitle">{props.diagramName}</div>
+          <div className="header-title-meta" aria-label="Stato workspace">
+            <span className="header-status-pill">{currentViewLabel}</span>
+            <span className="header-status-pill">{editorStateLabel}</span>
+            <span
+              className={
+                isLogicalView && props.logicalOutOfDate
+                  ? "header-status-pill header-status-pill-warning"
+                  : "header-status-pill header-status-pill-muted"
+              }
+            >
+              {workspaceStateLabel}
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="header-switches">
-        <div className="header-control-group">
+        <div className="header-control-group header-control-group-view">
           <span className="header-group-label">Vista workspace</span>
           <div className="mode-switch mode-switch-primary" role="group" aria-label={t("header.viewGroupLabel")}>
             <button
@@ -225,7 +236,7 @@ export function AppHeader(props: AppHeaderProps) {
           </div>
         </div>
 
-        <div className="header-control-group">
+        <div className="header-control-group header-control-group-mode">
           <span className="header-group-label">Modalita editor</span>
           <div className="mode-switch mode-switch-secondary" role="group" aria-label={t("header.editorModeGroupLabel")}>
             <button

@@ -305,7 +305,7 @@ export function Toolbar(props: ToolbarProps) {
       }
 
       return (
-        <section className="toolbar-section">
+        <section className="toolbar-section toolbar-section-context">
           <div className="toolbar-section-head">
             <div className="toolbar-section-label">{t("toolbar.sections.selectionActions")}</div>
             <span className="toolbar-section-meta">Contestuali</span>
@@ -319,7 +319,7 @@ export function Toolbar(props: ToolbarProps) {
 
     if (context === "node") {
       return (
-        <section className="toolbar-section">
+        <section className="toolbar-section toolbar-section-context">
           <div className="toolbar-section-head">
             <div className="toolbar-section-label">{t("toolbar.sections.selectionActions")}</div>
             <span className="toolbar-section-meta">Azioni rapide</span>
@@ -446,7 +446,7 @@ export function Toolbar(props: ToolbarProps) {
 
     if (context === "edge") {
       return (
-        <section className="toolbar-section">
+        <section className="toolbar-section toolbar-section-context">
           <div className="toolbar-section-head">
             <div className="toolbar-section-label">{t("toolbar.sections.edgeActions")}</div>
             <span className="toolbar-section-meta">Azioni rapide</span>
@@ -488,7 +488,7 @@ export function Toolbar(props: ToolbarProps) {
     }
 
     return (
-      <section className="toolbar-section">
+      <section className="toolbar-section toolbar-section-context">
         <div className="toolbar-section-head">
           <div className="toolbar-section-label">{t("toolbar.sections.multiActions")}</div>
           <span className="toolbar-section-meta">Selezione multipla</span>
@@ -566,7 +566,7 @@ export function Toolbar(props: ToolbarProps) {
       }
 
       return (
-        <section className="toolbar-section">
+        <section className="toolbar-section toolbar-section-feedback">
           <div className="toolbar-section-head">
             <div className="toolbar-section-label">Regole ER</div>
             <span className="toolbar-section-meta">Verifica</span>
@@ -579,7 +579,7 @@ export function Toolbar(props: ToolbarProps) {
     }
 
     return (
-      <section className="toolbar-section">
+      <section className="toolbar-section toolbar-section-feedback">
         <div className="toolbar-section-head">
           <div className="toolbar-section-label">Regole ER</div>
           <span className="toolbar-section-meta">{visibleIssues.length}</span>
@@ -606,7 +606,13 @@ export function Toolbar(props: ToolbarProps) {
   }
 
   return (
-    <aside className={props.collapsed ? "toolbar-panel collapsed" : "toolbar-panel"}>
+    <aside
+      className={
+        props.collapsed
+          ? `toolbar-panel collapsed toolbar-panel-context-${context}`
+          : `toolbar-panel toolbar-panel-context-${context}`
+      }
+    >
       <div className={props.collapsed ? "panel-head-row panel-head-row-compact" : "panel-head-row"}>
         {!props.collapsed ? (
           <div>
@@ -630,7 +636,7 @@ export function Toolbar(props: ToolbarProps) {
       </div>
 
       {!props.collapsed ? (
-        <section className="toolbar-section toolbar-section-banner">
+        <section className="toolbar-section toolbar-section-banner toolbar-section-status">
           <div className="toolbar-context-banner">
             <span className="toolbar-context-badge">
               {activeToolDefinition?.label ?? props.activeTool}
@@ -645,7 +651,7 @@ export function Toolbar(props: ToolbarProps) {
         </section>
       ) : null}
 
-      <section className="toolbar-section">
+      <section className="toolbar-section toolbar-section-primary">
         <div className="toolbar-section-head">
           <div className="toolbar-section-label">{t("toolbar.sections.tools")}</div>
           {!props.collapsed ? (
@@ -654,7 +660,7 @@ export function Toolbar(props: ToolbarProps) {
             </span>
           ) : null}
         </div>
-        <div className="toolbar-list">
+        <div className="toolbar-list toolbar-list-primary">
           {availableTools.map((item) => {
             const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
             return (
@@ -680,7 +686,7 @@ export function Toolbar(props: ToolbarProps) {
       {renderIssuesSection()}
 
       {showPropertiesInspector ? (
-        <section className="toolbar-section toolbar-properties-shell">
+        <section className="toolbar-section toolbar-properties-shell toolbar-section-properties">
           <div className="toolbar-section-head">
             <div className="toolbar-section-label">Proprieta e regole</div>
             <span className="toolbar-section-meta">Punto principale di modifica</span>

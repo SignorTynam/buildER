@@ -1148,6 +1148,14 @@ export default function App() {
   const activeSidePanel: "code" | "notes" | null = notesPanelOpen ? "notes" : codePanelOpen ? "code" : null;
   const activeSidePanelWidth =
     activeSidePanel === "notes" ? visibleNotesPanelWidth : visibleCodePanelWidth;
+  const appShellClassName = [
+    "app-shell",
+    focusMode ? "focus-mode" : "",
+    `app-shell-view-${diagramView}`,
+    activeSidePanel ? "app-shell-sidepanel-open" : "app-shell-sidepanel-closed",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const workspaceShellStyle = {
     "--toolbar-width": `${visibleToolbarWidth}px`,
     "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
@@ -1165,6 +1173,23 @@ export default function App() {
     "--inspector-resizer-width": "0px",
     "--inspector-width": structuredWorkspaceActive ? "360px" : "0px",
   } as CSSProperties;
+  const workspaceShellClassName = [
+    "workspace-shell",
+    diagramView === "er" && effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
+    focusMode ? "workspace-shell-focus" : "",
+    diagramView === "er" && hasSelection ? "workspace-has-selection" : "workspace-idle",
+    activeSidePanel ? `workspace-shell-sidepanel-${activeSidePanel}` : "workspace-shell-sidepanel-none",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const erWorkspaceMainClassName = [
+    "workspace-main",
+    "diagram-with-code",
+    activeSidePanel ? "code-open" : "",
+    activeSidePanel ? `workspace-main-sidepanel-${activeSidePanel}` : "workspace-main-sidepanel-none",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
 
   function persistWorkspaceSessionNow() {
@@ -3806,6 +3831,14 @@ export default function App() {
     diagramView === "er" &&
     onboardingOpen &&
     onboardingSteps.length > 0;
+  const workspaceRegionClassName = [
+    "app-workspace-region",
+    `workspace-region-${diagramView}`,
+    notices.length > 0 ? "workspace-region-has-toast" : "",
+    showOnboardingGuide ? "workspace-region-has-onboarding" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   if (surface === "code-tutorial") {
     return (
@@ -3820,7 +3853,7 @@ export default function App() {
   }
 
   return (
-    <div className={focusMode ? "app-shell focus-mode" : "app-shell"}>
+    <div className={appShellClassName}>
       <AppHeader
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
@@ -3865,62 +3898,59 @@ export default function App() {
         onToggleToolRail={handleToggleToolRail}
       />
 
-      <div className="app-workspace-region">
-        {notices.length > 0 ? (
-          <section className="workspace-toast-center" aria-live="polite" aria-atomic="false">
-            <div className="workspace-toast-stack">
-              {notices.map((notice) => (
-                <article
-                  key={notice.id}
-                  className={
-                    notice.tone === "error"
-                      ? "workspace-toast workspace-toast-error"
-                      : notice.tone === "warning"
-                        ? "workspace-toast workspace-toast-warning"
-                        : "workspace-toast workspace-toast-success"
-                  }
-                  role={notice.tone === "error" ? "alert" : "status"}
-                >
-                  <div className="workspace-toast-body">
-                    <span className="workspace-toast-badge">
-                      {notice.tone === "error" ? "Errore" : notice.tone === "warning" ? "Avviso" : "Successo"}
-                    </span>
-                    <p>{notice.message}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="workspace-toast-close"
-                    onClick={() => dismissNotice(notice.id)}
-                    aria-label="Chiudi toast"
+      <div className={workspaceRegionClassName}>
+        <div className="workspace-overlay-region">
+          {notices.length > 0 ? (
+            <section className="workspace-toast-center" aria-live="polite" aria-atomic="false">
+              <div className="workspace-toast-stack">
+                {notices.map((notice) => (
+                  <article
+                    key={notice.id}
+                    className={
+                      notice.tone === "error"
+                        ? "workspace-toast workspace-toast-error"
+                        : notice.tone === "warning"
+                          ? "workspace-toast workspace-toast-warning"
+                          : "workspace-toast workspace-toast-success"
+                    }
+                    role={notice.tone === "error" ? "alert" : "status"}
                   >
-                    x
-                  </button>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
+                    <div className="workspace-toast-body">
+                      <span className="workspace-toast-badge">
+                        {notice.tone === "error" ? "Errore" : notice.tone === "warning" ? "Avviso" : "Successo"}
+                      </span>
+                      <p>{notice.message}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="workspace-toast-close"
+                      onClick={() => dismissNotice(notice.id)}
+                      aria-label="Chiudi toast"
+                    >
+                      x
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-        {showOnboardingGuide ? (
-          <OnboardingGuide
-            steps={onboardingSteps}
-            activeStepIndex={resolvedOnboardingStepIndex}
-            canEdit={mode === "edit"}
-            onEnableEdit={() => setMode("edit")}
-            onStepAction={handleOnboardingStepAction}
-            onSkip={handleSkipOnboarding}
-          />
-        ) : null}
+          {showOnboardingGuide ? (
+            <div className="workspace-onboarding-dock">
+              <OnboardingGuide
+                steps={onboardingSteps}
+                activeStepIndex={resolvedOnboardingStepIndex}
+                canEdit={mode === "edit"}
+                onEnableEdit={() => setMode("edit")}
+                onStepAction={handleOnboardingStepAction}
+                onSkip={handleSkipOnboarding}
+              />
+            </div>
+          ) : null}
+        </div>
 
         <div
-          className={[
-            "workspace-shell",
-            diagramView === "er" && effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
-            focusMode ? "workspace-shell-focus" : "",
-            diagramView === "er" && hasSelection ? "workspace-has-selection" : "workspace-idle",
-          ]
-            .filter(Boolean)
-            .join(" ")}
+          className={workspaceShellClassName}
           style={diagramView === "er" ? workspaceShellStyle : logicalWorkspaceShellStyle}
         >
           {diagramView === "er" ? (
@@ -3969,7 +3999,7 @@ export default function App() {
               />
 
               <div
-                className={activeSidePanel ? "workspace-main diagram-with-code code-open" : "workspace-main diagram-with-code"}
+                className={erWorkspaceMainClassName}
                 style={erWorkspaceMainStyle}
               >
                 <DiagramCanvas
@@ -4017,7 +4047,7 @@ export default function App() {
                   disabled={!activeSidePanel}
                 />
 
-                <div className="diagram-code-column">
+                <div className="diagram-code-column workspace-sidepanel-host">
                   {activeSidePanel === "notes" ? (
                     <NotesPanel
                       notes={history.present.notes}

@@ -2722,64 +2722,66 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }}
       onWheel={handleCanvasWheel}
     >
-      <div
-        className={`canvas-guidance-strip canvas-guidance-strip-${guidanceState}`}
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <div className="canvas-guidance-main">
-          <span className={`canvas-guidance-state canvas-guidance-state-${guidanceState}`}>{guidanceStateLabel}</span>
-          <div className="canvas-guidance-copy">
-            <strong>{guidanceTitle}</strong>
-            <p>{guidanceMessage}</p>
+      <div className="canvas-overlay-stack">
+        <div
+          className={`canvas-guidance-strip canvas-guidance-strip-${guidanceState}`}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <div className="canvas-guidance-main">
+            <span className={`canvas-guidance-state canvas-guidance-state-${guidanceState}`}>{guidanceStateLabel}</span>
+            <div className="canvas-guidance-copy">
+              <strong>{guidanceTitle}</strong>
+              <p>{guidanceMessage}</p>
+            </div>
+          </div>
+          <div className="canvas-guidance-shortcuts" aria-label="Shortcut rilevanti">
+            {guidanceShortcuts.map((shortcut) => (
+              <span key={shortcut} className="canvas-shortcut-chip">
+                {shortcut}
+              </span>
+            ))}
           </div>
         </div>
-        <div className="canvas-guidance-shortcuts" aria-label="Shortcut rilevanti">
-          {guidanceShortcuts.map((shortcut) => (
-            <span key={shortcut} className="canvas-shortcut-chip">
-              {shortcut}
-            </span>
-          ))}
-        </div>
+
+        {flowPrompt ? (
+          <div className="canvas-flow-prompt" role="status" aria-live="polite">
+            <div className="canvas-flow-prompt-copy">
+              <span className="canvas-flow-prompt-eyebrow">{flowPrompt.title}</span>
+              <strong>{flowPrompt.body}</strong>
+            </div>
+            <button type="button" className="canvas-flow-prompt-dismiss" onClick={flowPrompt.onDismiss}>
+              {flowPrompt.dismissLabel}
+            </button>
+          </div>
+        ) : null}
+
+        {visiblePersistentMessage ? (
+          <div className={`canvas-persistent-message canvas-persistent-message-${visiblePersistentMessage.tone}`}>
+            <div className="canvas-persistent-message-body">
+              <span className="canvas-persistent-message-badge">
+                {visiblePersistentMessage.tone === "error"
+                  ? "Errore"
+                  : visiblePersistentMessage.tone === "warning"
+                    ? "Avviso"
+                    : visiblePersistentMessage.tone === "success"
+                      ? "Aggiornamento"
+                      : "Info"}
+              </span>
+              <p>{visiblePersistentMessage.message}</p>
+            </div>
+            <button
+              type="button"
+              className="canvas-persistent-message-dismiss"
+              onClick={() => setDismissedMessageKey(visiblePersistentMessage.key)}
+              aria-label="Chiudi messaggio contestuale"
+            >
+              x
+            </button>
+          </div>
+        ) : null}
       </div>
-
-      {flowPrompt ? (
-        <div className="canvas-flow-prompt" role="status" aria-live="polite">
-          <div className="canvas-flow-prompt-copy">
-            <span className="canvas-flow-prompt-eyebrow">{flowPrompt.title}</span>
-            <strong>{flowPrompt.body}</strong>
-          </div>
-          <button type="button" className="canvas-flow-prompt-dismiss" onClick={flowPrompt.onDismiss}>
-            {flowPrompt.dismissLabel}
-          </button>
-        </div>
-      ) : null}
-
-      {visiblePersistentMessage ? (
-        <div className={`canvas-persistent-message canvas-persistent-message-${visiblePersistentMessage.tone}`}>
-          <div className="canvas-persistent-message-body">
-            <span className="canvas-persistent-message-badge">
-              {visiblePersistentMessage.tone === "error"
-                ? "Errore"
-                : visiblePersistentMessage.tone === "warning"
-                  ? "Avviso"
-                  : visiblePersistentMessage.tone === "success"
-                    ? "Aggiornamento"
-                    : "Info"}
-            </span>
-            <p>{visiblePersistentMessage.message}</p>
-          </div>
-          <button
-            type="button"
-            className="canvas-persistent-message-dismiss"
-            onClick={() => setDismissedMessageKey(visiblePersistentMessage.key)}
-            aria-label="Chiudi messaggio contestuale"
-          >
-            x
-          </button>
-        </div>
-      ) : null}
 
       <svg ref={props.svgRef} className="diagram-canvas">
         <defs>
