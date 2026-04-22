@@ -164,15 +164,6 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
                 <span>Rientra nel canvas principale e usa questa pagina solo come riferimento.</span>
               </button>
             </div>
-
-            <div className="tutorial-overview-grid">
-              {WORKSPACE_MODES.map((item) => (
-                <article key={item.title} className="tutorial-overview-card">
-                  <h2>{item.title}</h2>
-                  <p>{item.text}</p>
-                </article>
-              ))}
-            </div>
           </div>
 
           <aside className="tutorial-stage-card">
@@ -197,6 +188,22 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               </p>
             </div>
           </aside>
+        </section>
+
+        <section className="tutorial-section tutorial-section-compact">
+          <div className="tutorial-section-heading">
+            <span>Panoramica</span>
+            <h2>Tre modalita, tre obiettivi diversi.</h2>
+          </div>
+
+          <div className="tutorial-overview-grid">
+            {WORKSPACE_MODES.map((item) => (
+              <article key={item.title} className="tutorial-overview-card">
+                <h2>{item.title}</h2>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="tutorial-section" id="tutorial-workflow">

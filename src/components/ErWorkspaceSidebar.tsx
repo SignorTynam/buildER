@@ -46,8 +46,8 @@ interface ErWorkspaceSidebarProps {
 function getSidebarHeading(tab: ErWorkspaceSidebarTab, parseError?: string) {
   if (tab === "code") {
     return {
-      title: "Diagram code",
-      description: parseError ? "Correggi il sorgente ERS per riallineare canvas e codice." : "",
+      title: "Sorgente ERS",
+      description: parseError ? "Correggi il sorgente ERS per riallineare canvas e codice." : "Modifica la rappresentazione testuale del diagramma.",
       status: parseError ? "Errore ERS" : "ERS live",
       tone: parseError ? "warning" : "neutral",
     };
@@ -55,16 +55,16 @@ function getSidebarHeading(tab: ErWorkspaceSidebarTab, parseError?: string) {
 
   if (tab === "notes") {
     return {
-      title: "Note",
-      description: "",
+      title: "Note progetto",
+      description: "Annotazioni non strutturali e promemoria di lavoro.",
       status: "Appunti",
       tone: "neutral",
     };
   }
 
   return {
-    title: "Inspector",
-    description: "",
+    title: "Inspector ER",
+    description: "Proprieta, regole e warning dell'elemento selezionato.",
     status: "Regole ER",
     tone: "success",
   };
@@ -89,7 +89,7 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
             onClick={() => props.onSelectTab("properties")}
             aria-pressed={props.activeTab === "properties"}
           >
-            Proprieta
+            Inspector ER
           </button>
           <button
             type="button"
@@ -97,7 +97,7 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
             onClick={() => props.onSelectTab("code")}
             aria-pressed={props.activeTab === "code"}
           >
-            Codice
+            Sorgente ERS
           </button>
           <button
             type="button"

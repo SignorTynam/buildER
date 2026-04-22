@@ -3976,7 +3976,6 @@ export default function App() {
       <WorkspaceStageBar
         currentView={diagramView}
         sqlActive={logicalPanelMode === "sql"}
-        codeActive={diagramView === "er" && erSidebarTab === "code"}
         erIssuesCount={issues.length}
         translationPendingCount={translationPendingCount}
         logicalPendingCount={logicalPendingCount}
@@ -3986,7 +3985,6 @@ export default function App() {
         onOpenTranslation={handleOpenTranslationStage}
         onOpenLogical={handleOpenLogicalStage}
         onOpenSql={handleOpenSqlStage}
-        onOpenCode={handleOpenDiagramCodeStage}
       />
 
       <div className={workspaceRegionClassName}>

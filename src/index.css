@@ -10379,3 +10379,225 @@ body {
     width: 100%;
   }
 }
+
+/* Guidance-first hierarchy refinement */
+.workspace-stage-bar {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.1fr) minmax(0, 1.8fr);
+  align-items: stretch;
+}
+
+.workspace-stage-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.workspace-stage-meta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-stage-progress-label,
+.workspace-stage-guidance-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--editor-text-muted);
+}
+
+.workspace-stage-progress {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(27, 43, 65, 0.08);
+}
+
+.workspace-stage-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(29, 79, 145, 0.92) 0%, rgba(70, 130, 201, 0.88) 100%);
+}
+
+.workspace-stage-guidance {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(29, 79, 145, 0.12);
+  border-radius: 12px;
+  background: rgba(241, 246, 252, 0.9);
+}
+
+.workspace-stage-guidance strong {
+  font-size: 0.84rem;
+  color: var(--editor-text-strong);
+}
+
+.workspace-stage-guidance p {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--editor-text-muted);
+}
+
+.workspace-stage-list {
+  align-content: start;
+}
+
+.workspace-stage-card {
+  min-height: 52px;
+  padding: 8px 10px;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.workspace-stage-card.state-complete {
+  border-color: rgba(39, 113, 88, 0.14);
+  background: rgba(246, 250, 248, 0.96);
+}
+
+.workspace-stage-card.state-upcoming {
+  opacity: 0.82;
+}
+
+.workspace-stage-card.state-current {
+  opacity: 1;
+}
+
+.workspace-stage-card.state-current .workspace-stage-title {
+  color: var(--editor-accent-strong);
+}
+
+.workspace-stage-index {
+  flex: 0 0 auto;
+}
+
+.header-inline-group-primary {
+  padding-right: 4px;
+}
+
+.header-inline-group-mode {
+  border-left-color: rgba(27, 43, 65, 0.06);
+}
+
+.workspace-side-panel-head {
+  gap: 10px;
+}
+
+.workspace-side-panel-description {
+  max-width: 46ch;
+}
+
+.workspace-side-tab {
+  font-size: 0.71rem;
+  font-weight: 700;
+}
+
+.workspace-side-panel-tabs[role="group"] .workspace-side-tab[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.tutorial-section-compact {
+  padding-top: 0;
+}
+
+.tutorial-section-compact .tutorial-section-heading {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1180px) {
+  .app-header {
+    grid-template-columns: 1fr;
+  }
+
+  .header-toolbar-row {
+    justify-content: space-between;
+  }
+
+  .header-inline-group-mode {
+    display: none;
+  }
+
+  .workspace-stage-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-stage-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-stage-card .workspace-stage-status {
+    display: none;
+  }
+
+  .workspace-stage-guidance {
+    order: -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .header-title-meta .header-status-pill:last-child {
+    display: none;
+  }
+
+  .header-toolbar-row {
+    gap: 6px;
+  }
+
+  .header-inline-group {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .workspace-stage-meta-head {
+    flex-wrap: wrap;
+  }
+
+  .tutorial-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .header-toolbar-row {
+    align-items: stretch;
+  }
+
+  .header-inline-group,
+  .header-inline-group-primary,
+  .header-inline-group-menu {
+    width: 100%;
+  }
+
+  .header-inline-group-primary .header-primary-button,
+  .header-inline-group-menu .nav-group-menu > summary {
+    width: 100%;
+  }
+
+  .workspace-stage-list {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-stage-card {
+    min-height: 48px;
+  }
+
+  .tutorial-main {
+    gap: 28px;
+  }
+
+  .tutorial-entry-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -5,7 +5,6 @@ type WorkflowTone = "neutral" | "warning" | "success";
 interface WorkspaceStageBarProps {
   currentView: WorkspaceView;
   sqlActive: boolean;
-  codeActive: boolean;
   erIssuesCount: number;
   translationPendingCount: number;
   logicalPendingCount: number;
@@ -15,7 +14,6 @@ interface WorkspaceStageBarProps {
   onOpenTranslation: () => void;
   onOpenLogical: () => void;
   onOpenSql: () => void;
-  onOpenCode: () => void;
 }
 
 interface StageDescriptor {
@@ -24,7 +22,13 @@ interface StageDescriptor {
   status: string;
   tone: WorkflowTone;
   active: boolean;
+  state: "complete" | "current" | "upcoming";
   onSelect: () => void;
+}
+
+interface WorkflowGuidance {
+  label: string;
+  detail: string;
 }
 
 function getErStatus(issueCount: number): { status: string; tone: WorkflowTone } {
@@ -108,6 +112,76 @@ function getSqlStatus(tableCount: number, outOfDate: boolean): { status: string;
   };
 }
 
+function getWorkflowGuidance(props: WorkspaceStageBarProps): WorkflowGuidance {
+  if (props.currentView === "er") {
+    if (props.erIssuesCount > 0) {
+      return {
+        label: "Correggi il modello ER",
+        detail: "Risolvi warning e incoerenze prima di avviare la traduzione.",
+      };
+    }
+
+    return {
+      label: "Avvia la traduzione ER",
+      detail: "Il modello concettuale e pronto per passare alla fase guidata successiva.",
+    };
+  }
+
+  if (props.currentView === "translation") {
+    if (props.translationPendingCount > 0) {
+      return {
+        label: "Completa le decisioni di traduzione",
+        detail: "Chiudi i punti ancora aperti per poter materializzare lo schema logico.",
+      };
+    }
+
+    return {
+      label: "Genera lo schema logico",
+      detail: "La traduzione ER e allineata: puoi passare alla fase logica.",
+    };
+  }
+
+  if (props.sqlActive) {
+    if (props.logicalOutOfDate) {
+      return {
+        label: "Riallinea prima il logico",
+        detail: "L'anteprima SQL e superata: rigenera o riallinea il modello logico corrente.",
+      };
+    }
+
+    return {
+      label: "Rivedi o esporta SQL",
+      detail: "Usa il pannello SQL per controllare, copiare o scaricare il codice generato.",
+    };
+  }
+
+  if (props.logicalOutOfDate) {
+    return {
+      label: "Riallinea lo schema logico",
+      detail: "Il modello sorgente e cambiato: aggiorna prima la trasformazione logica.",
+    };
+  }
+
+  if (props.logicalPendingCount > 0) {
+    return {
+      label: "Completa i fix logici",
+      detail: "Applica le decisioni rimanenti prima di passare alla generazione SQL.",
+    };
+  }
+
+  if (props.logicalTableCount > 0) {
+    return {
+      label: "Apri l'anteprima SQL",
+      detail: "Lo schema logico e stabile: il prossimo passo consigliato e verificare il codice SQL.",
+    };
+  }
+
+  return {
+    label: "Genera lo schema logico",
+    detail: "Non sono ancora presenti tabelle logiche materializzate.",
+  };
+}
+
 export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
   const erStatus = getErStatus(props.erIssuesCount);
   const translationStatus = getTranslationStatus(props.translationPendingCount);
@@ -124,7 +198,8 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
       title: "Schema ER",
       status: erStatus.status,
       tone: erStatus.tone,
-      active: props.currentView === "er" && !props.codeActive,
+      active: props.currentView === "er",
+      state: props.currentView === "er" ? "current" : "complete",
       onSelect: props.onOpenEr,
     },
     {
@@ -133,6 +208,7 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
       status: translationStatus.status,
       tone: translationStatus.tone,
       active: props.currentView === "translation",
+      state: props.currentView === "er" ? "upcoming" : props.currentView === "translation" ? "current" : "complete",
       onSelect: props.onOpenTranslation,
     },
     {
@@ -141,6 +217,14 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
       status: logicalStatus.status,
       tone: logicalStatus.tone,
       active: props.currentView === "logical" && !props.sqlActive,
+      state:
+        props.currentView === "logical" && !props.sqlActive
+          ? "current"
+          : props.currentView === "logical" && props.sqlActive
+            ? "complete"
+            : props.currentView === "er" || props.currentView === "translation"
+              ? "upcoming"
+              : "complete",
       onSelect: props.onOpenLogical,
     },
     {
@@ -149,17 +233,33 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
       status: sqlStatus.status,
       tone: sqlStatus.tone,
       active: props.currentView === "logical" && props.sqlActive,
+      state: props.currentView === "logical" && props.sqlActive ? "current" : "upcoming",
       onSelect: props.onOpenSql,
     },
   ];
   const activeStage = stages.find((stage) => stage.active) ?? stages[0];
+  const activeIndex = stages.findIndex((stage) => stage.id === activeStage.id);
+  const guidance = getWorkflowGuidance(props);
+  const progressPercent = ((activeIndex + 1) / stages.length) * 100;
 
   return (
     <section className="workspace-stage-bar" aria-label="Workflow di progettazione">
       <div className={`workspace-stage-meta tone-${activeStage.tone}`}>
-        <span className="workspace-stage-bar-eyebrow">Workflow</span>
+        <div className="workspace-stage-meta-head">
+          <span className="workspace-stage-bar-eyebrow">Workflow</span>
+          <span className="workspace-stage-progress-label">{activeIndex + 1} / {stages.length}</span>
+        </div>
         <strong>{activeStage.title}</strong>
         <span className="workspace-stage-meta-status">{activeStage.status}</span>
+        <div className="workspace-stage-progress" aria-hidden="true">
+          <span className="workspace-stage-progress-fill" style={{ width: `${progressPercent}%` }} />
+        </div>
+      </div>
+
+      <div className="workspace-stage-guidance">
+        <span className="workspace-stage-guidance-label">Prossimo obiettivo</span>
+        <strong>{guidance.label}</strong>
+        <p>{guidance.detail}</p>
       </div>
 
       <div className="workspace-stage-list" role="list">
@@ -169,8 +269,8 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
             type="button"
             className={
               stage.active
-                ? `workspace-stage-card active tone-${stage.tone}`
-                : `workspace-stage-card tone-${stage.tone}`
+                ? `workspace-stage-card active tone-${stage.tone} state-${stage.state}`
+                : `workspace-stage-card tone-${stage.tone} state-${stage.state}`
             }
             onClick={stage.onSelect}
             role="listitem"
@@ -182,16 +282,6 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
             </span>
           </button>
         ))}
-      </div>
-
-      <div className="workspace-stage-utility">
-        <button
-          type="button"
-          className={props.codeActive ? "workspace-stage-utility-button active" : "workspace-stage-utility-button"}
-          onClick={props.onOpenCode}
-        >
-          Diagram code
-        </button>
       </div>
     </section>
   );

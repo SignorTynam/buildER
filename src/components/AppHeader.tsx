@@ -336,6 +336,16 @@ export function AppHeader(props: AppHeaderProps) {
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">{t("header.menu.sections.workspace")}</div>
                   {isErView ? (
+                    <>
+                      <button type="button" onClick={(event) => runMenuAction(event, () => props.onModeChange("edit"))}>
+                        Passa a modifica
+                      </button>
+                      <button type="button" onClick={(event) => runMenuAction(event, () => props.onModeChange("view"))}>
+                        Passa a lettura
+                      </button>
+                    </>
+                  ) : null}
+                  {isErView ? (
                     <button type="button" onClick={(event) => runMenuAction(event, props.onToggleCodePanel)}>
                       {props.codePanelOpen ? "Chiudi diagram code" : "Apri diagram code"}
                     </button>
