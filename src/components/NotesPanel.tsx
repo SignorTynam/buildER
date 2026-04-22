@@ -4,6 +4,7 @@ interface NotesPanelProps {
   notes: string;
   editable?: boolean;
   onChange?: (value: string) => void;
+  onClose?: () => void;
 }
 
 export function NotesPanel(props: NotesPanelProps) {
@@ -11,10 +12,30 @@ export function NotesPanel(props: NotesPanelProps) {
   const isReadOnly = !props.editable || !props.onChange;
 
   return (
-    <aside className="diagram-notes-panel" aria-label={t("notesPanel.shellAria")}>
-      <header className="diagram-notes-panel-head">
-        <h2>{t("notesPanel.title")}</h2>
-        <span>{isReadOnly ? t("common.status.readOnly") : t("common.status.editing")}</span>
+    <aside className="diagram-notes-panel technical-side-panel" aria-label={t("notesPanel.shellAria")}>
+      <header className="diagram-notes-panel-head technical-side-panel-head">
+        <div className="technical-side-panel-copy">
+          <span className="technical-side-panel-kicker">Project notes</span>
+          <h2>{t("notesPanel.title")}</h2>
+          <p>Annotazioni di lavoro e note sul modello corrente.</p>
+        </div>
+
+        <div className="technical-side-panel-head-actions">
+          <span className="code-panel-status">
+            {isReadOnly ? t("common.status.readOnly") : t("common.status.editing")}
+          </span>
+
+          {props.onClose ? (
+            <button
+              type="button"
+              className="technical-side-panel-close"
+              onClick={props.onClose}
+              aria-label="Chiudi pannello note"
+            >
+              Hide
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <textarea

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { BottomStatusBar } from "./components/BottomStatusBar";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
-import { ErWorkspaceSidebar, type ErWorkspaceSidebarTab } from "./components/ErWorkspaceSidebar";
+import { CodePanel } from "./components/CodePanel";
+import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { WorkspaceStageBar } from "./components/WorkspaceStageBar";
 import { useHistory } from "./hooks/useHistory";
@@ -495,7 +497,7 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
         ? parsed.codeDraft
         : serializeDiagramToErs(storedDiagram);
     const storedNotesPanelOpen = parsed.notesPanelOpen === true;
-    const storedCodePanelOpen = parsed.codePanelOpen === true && !storedNotesPanelOpen;
+    const storedCodePanelOpen = parsed.codePanelOpen === true;
 
     const storedTranslationWorkspace =
       parsed.version >= 3
@@ -1166,50 +1168,42 @@ export default function App() {
       : clampValue(toolbarWidth, toolbarResizeBounds.min, toolbarResizeBounds.max);
   const visibleCodePanelWidth = clampValue(codePanelWidth, codePanelResizeBounds.min, codePanelResizeBounds.max);
   const visibleNotesPanelWidth = clampValue(notesPanelWidth, notesPanelResizeBounds.min, notesPanelResizeBounds.max);
-  const activeSidePanel: "code" | "notes" | null = notesPanelOpen ? "notes" : codePanelOpen ? "code" : null;
-  const erSidebarTab: ErWorkspaceSidebarTab =
-    activeSidePanel === "notes" ? "notes" : activeSidePanel === "code" ? "code" : "properties";
-  const activeSidePanelWidth = erSidebarTab === "notes" ? visibleNotesPanelWidth : visibleCodePanelWidth;
+  const codePanelVisible = diagramView === "er" && codePanelOpen && !focusMode;
+  const notesPanelVisible = diagramView === "er" && notesPanelOpen && !focusMode;
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
     `app-shell-view-${diagramView}`,
-    erSidebarTab !== "properties" ? "app-shell-sidepanel-open" : "app-shell-sidepanel-closed",
+    codePanelVisible || notesPanelVisible ? "app-shell-sidepanel-open" : "app-shell-sidepanel-closed",
   ]
     .filter(Boolean)
     .join(" ");
-  const workspaceShellStyle = {
+  const erWorkspaceShellStyle = {
     "--toolbar-width": `${visibleToolbarWidth}px`,
     "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
-    "--inspector-resizer-width": "0px",
-    "--inspector-width": "0px",
+    "--code-panel-width": codePanelVisible ? `${visibleCodePanelWidth}px` : "0px",
+    "--code-panel-resizer-width": codePanelVisible ? `${RESIZER_WIDTH}px` : "0px",
+    "--notes-panel-width": notesPanelVisible ? `${visibleNotesPanelWidth}px` : "0px",
+    "--notes-panel-resizer-width": notesPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
-  const erWorkspaceMainStyle = {
-    "--diagram-code-panel-width": `${Math.min(activeSidePanelWidth, 340)}px`,
-    "--diagram-code-resizer-width": !focusMode ? `${RESIZER_WIDTH}px` : "0px",
-  } as CSSProperties;
-  const structuredWorkspaceActive = diagramView === "translation" || diagramView === "logical";
-  const logicalWorkspaceShellStyle = {
-    "--toolbar-width": structuredWorkspaceActive ? "192px" : "0px",
-    "--toolbar-resizer-width": "0px",
-    "--inspector-resizer-width": "0px",
-    "--inspector-width": structuredWorkspaceActive ? "320px" : "0px",
-  } as CSSProperties;
-  const workspaceShellClassName = [
+  const erWorkspaceShellClassName = [
     "workspace-shell",
-    diagramView === "er" && effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
+    "technical-workspace-shell",
+    "er-workspace-shell",
+    effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
     focusMode ? "workspace-shell-focus" : "",
-    diagramView === "er" && hasSelection ? "workspace-has-selection" : "workspace-idle",
-    diagramView === "er" ? `workspace-shell-sidepanel-${erSidebarTab}` : "workspace-shell-sidepanel-none",
+    hasSelection ? "workspace-has-selection" : "workspace-idle",
+    codePanelVisible ? "workspace-code-open" : "",
+    notesPanelVisible ? "workspace-notes-open" : "",
   ]
     .filter(Boolean)
     .join(" ");
-  const erWorkspaceMainClassName = [
-    "workspace-main",
-    "diagram-with-code",
-    "workspace-main-with-sidebar",
-    erSidebarTab !== "properties" ? "code-open" : "",
-    `workspace-main-sidepanel-${erSidebarTab}`,
+  const structuredWorkspaceShellClassName = [
+    "workspace-shell",
+    "technical-workspace-shell",
+    "structured-workspace-shell",
+    focusMode ? "workspace-shell-focus" : "",
+    `structured-workspace-shell-${diagramView}`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -2066,48 +2060,15 @@ export default function App() {
   }
 
   function handleToggleCodePanel() {
-    setCodePanelOpen((current) => {
-      const next = !current;
-      if (next) {
-        setNotesPanelOpen(false);
-      }
-
-      return next;
-    });
+    setCodePanelOpen((current) => !current);
   }
 
   function handleToggleNotesPanel() {
-    setNotesPanelOpen((current) => {
-      const next = !current;
-      if (next) {
-        setCodePanelOpen(false);
-      }
-
-      return next;
-    });
-  }
-
-  function handleSelectErSidebarTab(nextTab: ErWorkspaceSidebarTab) {
-    if (nextTab === "properties") {
-      setCodePanelOpen(false);
-      setNotesPanelOpen(false);
-      return;
-    }
-
-    if (nextTab === "code") {
-      setNotesPanelOpen(false);
-      setCodePanelOpen(true);
-      return;
-    }
-
-    setCodePanelOpen(false);
-    setNotesPanelOpen(true);
+    setNotesPanelOpen((current) => !current);
   }
 
   function handleOpenErStage() {
     setLogicalPanelMode("workflow");
-    setCodePanelOpen(false);
-    setNotesPanelOpen(false);
     if (diagramView !== "er") {
       handleDiagramViewChange("er");
     }
@@ -2126,15 +2087,6 @@ export default function App() {
   function handleOpenSqlStage() {
     setLogicalPanelMode("sql");
     handleDiagramViewChange("logical");
-  }
-
-  function handleOpenDiagramCodeStage() {
-    setLogicalPanelMode("workflow");
-    setNotesPanelOpen(false);
-    setCodePanelOpen(true);
-    if (diagramView !== "er") {
-      handleDiagramViewChange("er");
-    }
   }
 
   function handleNotesChange(nextNotes: string) {
@@ -3989,41 +3941,6 @@ export default function App() {
 
       <div className={workspaceRegionClassName}>
         <div className="workspace-overlay-region">
-          {notices.length > 0 ? (
-            <section className="workspace-toast-center" aria-live="polite" aria-atomic="false">
-              <div className="workspace-toast-stack">
-                {notices.map((notice) => (
-                  <article
-                    key={notice.id}
-                    className={
-                      notice.tone === "error"
-                        ? "workspace-toast workspace-toast-error"
-                        : notice.tone === "warning"
-                          ? "workspace-toast workspace-toast-warning"
-                          : "workspace-toast workspace-toast-success"
-                    }
-                    role={notice.tone === "error" ? "alert" : "status"}
-                  >
-                    <div className="workspace-toast-body">
-                      <span className="workspace-toast-badge">
-                        {notice.tone === "error" ? "Errore" : notice.tone === "warning" ? "Avviso" : "Successo"}
-                      </span>
-                      <p>{notice.message}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="workspace-toast-close"
-                      onClick={() => dismissNotice(notice.id)}
-                      aria-label="Chiudi toast"
-                    >
-                      x
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
           {showOnboardingGuide ? (
             <div className="workspace-onboarding-dock">
               <OnboardingGuide
@@ -4039,8 +3956,8 @@ export default function App() {
         </div>
 
         <div
-          className={workspaceShellClassName}
-          style={diagramView === "er" ? workspaceShellStyle : logicalWorkspaceShellStyle}
+          className={diagramView === "er" ? erWorkspaceShellClassName : structuredWorkspaceShellClassName}
+          style={diagramView === "er" ? erWorkspaceShellStyle : undefined}
         >
           {diagramView === "er" ? (
             <>
@@ -4050,7 +3967,7 @@ export default function App() {
                 activeTool={tool}
                 mode={mode}
                 collapsed={effectiveToolbarCollapsed}
-                showPropertiesInspector={false}
+                showPropertiesInspector={hasSelection}
                 canUndo={history.canUndo}
                 canRedo={history.canRedo}
                 selectionItemCount={selectionItemCount}
@@ -4072,6 +3989,9 @@ export default function App() {
                 onAlign={handleAlignSelection}
                 onIssueSelect={handleIssueNotice}
                 onToggleCollapse={handleToggleToolRail}
+                onOpenTranslation={handleOpenTranslationStage}
+                onSaveProject={handleSaveProject}
+                onExportSvg={handleExportSvg}
               />
 
               <button
@@ -4088,14 +4008,33 @@ export default function App() {
                 disabled={focusMode || effectiveToolbarCollapsed}
               />
 
-              <div
-                className={erWorkspaceMainClassName}
-                style={erWorkspaceMainStyle}
-              >
+              {codePanelVisible ? (
+                <button
+                  type="button"
+                  className="workspace-resizer workspace-resizer-active"
+                  onPointerDown={(event) => handlePanelResizeStart("code", event)}
+                  onDoubleClick={() => resetPanelWidth("code")}
+                  aria-label="Ridimensiona pannello codice"
+                  title="Trascina per ridimensionare il pannello codice"
+                />
+              ) : null}
+
+              {codePanelVisible ? (
+                <CodePanel
+                  code={codeDraft}
+                  editable={mode === "edit"}
+                  parseError={codeError}
+                  onCodeChange={updateCodeDraft}
+                  placeholder="Inserisci il codice ERS"
+                  onClose={handleToggleCodePanel}
+                />
+              ) : null}
+
+              <div className="workspace-main er-workspace-main">
                 <div className="workspace-canvas-region">
                   <header className="workspace-canvas-header">
                     <div className="workspace-canvas-copy">
-                      <span className="workspace-canvas-eyebrow">Schema concettuale</span>
+                      <span className="workspace-canvas-eyebrow">MODEL</span>
                       <h2>{history.present.meta.name}</h2>
                     </div>
                     <div className="workspace-canvas-stats">
@@ -4129,44 +4068,27 @@ export default function App() {
                     onStatusMessageChange={handleCanvasStatusMessage}
                   />
                 </div>
+              </div>
 
+              {notesPanelVisible ? (
                 <button
                   type="button"
                   className="workspace-resizer workspace-resizer-active"
-                  onPointerDown={(event) =>
-                    handlePanelResizeStart(erSidebarTab === "notes" ? "notes" : "code", event)
-                  }
-                  onDoubleClick={() => resetPanelWidth(erSidebarTab === "notes" ? "notes" : "code")}
-                  aria-label="Ridimensiona pannello laterale"
-                  title="Trascina per ridimensionare il pannello proprieta, codice e note"
-                  disabled={focusMode}
+                  onPointerDown={(event) => handlePanelResizeStart("notes", event)}
+                  onDoubleClick={() => resetPanelWidth("notes")}
+                  aria-label="Ridimensiona pannello note"
+                  title="Trascina per ridimensionare il pannello note"
                 />
+              ) : null}
 
-                <ErWorkspaceSidebar
-                  activeTab={erSidebarTab}
-                  diagram={history.present}
-                  selection={selection}
-                  mode={mode}
-                  issues={issues}
-                  code={codeDraft}
-                  codeError={codeError}
+              {notesPanelVisible ? (
+                <NotesPanel
                   notes={history.present.notes}
-                  onSelectTab={handleSelectErSidebarTab}
-                  onCodeChange={updateCodeDraft}
-                  onNotesChange={handleNotesChange}
-                  onDeleteSelection={handleDeleteSelection}
-                  onDuplicateSelection={handleDuplicateSelection}
-                  onAlign={handleAlignSelection}
-                  onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-                  onEntityInternalIdentifiersChange={handleEntityInternalIdentifiersChange}
-                  onEntityExternalIdentifiersChange={handleEntityExternalIdentifiersChange}
-                  onRenameSelection={handleRenameSelectionQuick}
-                  onNodeChange={handleNodeChange}
-                  onNodesChange={handleNodesChange}
-                  onEdgeChange={handleEdgeChange}
-                  onIssueSelect={handleIssueNotice}
+                  editable={mode === "edit"}
+                  onChange={handleNotesChange}
+                  onClose={handleToggleNotesPanel}
                 />
-              </div>
+              ) : null}
             </>
           ) : diagramView === "translation" ? (
             <TranslationWorkspace
@@ -4214,6 +4136,18 @@ export default function App() {
           )}
         </div>
       </div>
+
+      <BottomStatusBar
+        diagramView={diagramView}
+        logicalSqlOpen={logicalPanelMode === "sql"}
+        codePanelOpen={diagramView === "er" && codePanelOpen}
+        notesPanelOpen={diagramView === "er" && notesPanelOpen}
+        statusMessage={statusMessage}
+        notices={notices}
+        issues={issues}
+        selectionItemCount={selectionItemCount}
+        onDismissNotice={dismissNotice}
+      />
 
       <input
         ref={projectFileInputRef}

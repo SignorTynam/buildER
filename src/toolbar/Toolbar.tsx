@@ -57,6 +57,9 @@ interface ToolbarProps {
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
   onIssueSelect: (issue: ValidationIssue) => void;
   onToggleCollapse: () => void;
+  onOpenTranslation: () => void;
+  onSaveProject: () => void;
+  onExportSvg: () => void;
 }
 
 function ToolIcon({ tool }: { tool: ToolKind }) {
@@ -125,11 +128,7 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
   );
 }
 
-function ActionIcon({
-  kind,
-}: {
-  kind: "rename" | "delete" | "duplicate" | "attribute" | "weak" | "identifier" | "multivalue";
-}) {
+function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "connect" | "translate" | "save" | "export" | "undo" | "redo" | "identifier" | "multivalue" | "weak" }) {
   if (kind === "rename") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -156,11 +155,58 @@ function ActionIcon({
     );
   }
 
-  if (kind === "weak") {
+  if (kind === "connect") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
-        <rect x="3" y="6" width="18" height="12" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <rect x="6.5" y="9" width="11" height="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M6 8h4v4h4v4h4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="6" cy="8" r="1.5" fill="currentColor" />
+        <circle cx="10" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="14" cy="16" r="1.5" fill="currentColor" />
+        <circle cx="18" cy="16" r="1.5" fill="currentColor" />
+      </svg>
+    );
+  }
+
+  if (kind === "translate") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M5 7h10M10 4v3m0 0c0 4-2 7-5 9m5-9c1.2 2.7 3 5 6 7" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M15 10l4 10m-1.2-3h-5.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "save") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M5 5h11l3 3v11H5z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M8 5v5h7V5M8 19v-5h8v5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "export") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 18h14" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "undo") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M9 7L5 11l4 4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M6 11h7a5 5 0 010 10h-1" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "redo") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M15 7l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M18 11h-7a5 5 0 000 10h1" fill="none" stroke="currentColor" strokeWidth="1.8" />
       </svg>
     );
   }
@@ -185,9 +231,8 @@ function ActionIcon({
 
   return (
     <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
-      <circle cx="8" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      <line x1="11.5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.8" />
-      <line x1="15.5" y1="8" x2="15.5" y2="16" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="3" y="6" width="18" height="12" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="6.5" y="9" width="11" height="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   );
 }
@@ -222,43 +267,43 @@ function getContextSummary(
 ): { title: string; subtitle: string } {
   if (selectedNode?.type === "entity") {
     return {
-      title: t("toolbar.context.entitySelected"),
-      subtitle: "Le azioni rapide restano sopra. Le proprieta e le regole ER di questa entita sono nel pannello sotto.",
+      title: selectedNode.label,
+      subtitle: "Entita selezionata",
     };
   }
 
   if (selectedNode?.type === "relationship") {
     return {
-      title: t("toolbar.context.relationshipSelected"),
-      subtitle: "Usa le azioni contestuali per intervenire subito e il pannello proprieta per dettagli e regole collegate.",
+      title: selectedNode.label,
+      subtitle: "Relazione selezionata",
     };
   }
 
   if (selectedNode?.type === "attribute") {
     const hostLabel = getAttributeHostLabel(selectedNode, selectionItemCount, diagram);
     return {
-      title: hostLabel ? t("toolbar.context.attributeOf", { label: hostLabel }) : t("toolbar.context.attributeSelected"),
-      subtitle: "Il rail separa chiaramente azioni rapide e impostazioni dell'attributo per evitare competizione tra comandi e regole.",
+      title: selectedNode.label,
+      subtitle: hostLabel ? `Attributo di ${hostLabel}` : t("toolbar.context.attributeSelected"),
     };
   }
 
   if (selectedEdge) {
     return {
-      title: t("toolbar.context.edgeSelected"),
-      subtitle: "Le azioni rapide modificano il link selezionato. Le proprieta del collegamento restano nella sezione dedicata sotto.",
+      title: selectedEdge.label || "Collegamento",
+      subtitle: "Connessione selezionata",
     };
   }
 
   if (selectionItemCount > 1) {
     return {
-      title: t("toolbar.context.multiSelection"),
-      subtitle: "Allineamenti e pulizia della selezione restano contestuali, ma gli strumenti base non scompaiono piu.",
+      title: `${selectionItemCount} elementi`,
+      subtitle: "Selezione multipla",
     };
   }
 
   return {
-    title: t("toolbar.context.canvas"),
-    subtitle: "Gli strumenti principali di modellazione restano sempre visibili. Seleziona un elemento per far comparire azioni rapide e proprieta.",
+    title: "Canvas ER",
+    subtitle: "Nessuna selezione",
   };
 }
 
@@ -279,6 +324,7 @@ export function Toolbar(props: ToolbarProps) {
   const activeToolDefinition =
     toolDefinitions.find((item) => item.tool === props.activeTool) ??
     availableTools.find((item) => item.tool === props.activeTool);
+
   const context: ToolbarContext =
     props.selectionItemCount === 0
       ? "empty"
@@ -296,150 +342,183 @@ export function Toolbar(props: ToolbarProps) {
   );
   const selectionTargetIds = new Set([...props.selection.nodeIds, ...props.selection.edgeIds]);
   const selectionIssues = props.issues.filter((issue) => selectionTargetIds.has(issue.targetId));
-  const visibleIssues = selectionIssues.length > 0 ? selectionIssues : context === "empty" ? props.issues.slice(0, 4) : [];
-  const showPropertiesInspector = props.showPropertiesInspector !== false && !props.collapsed;
+  const visibleIssues = selectionIssues.length > 0 ? selectionIssues : props.issues.slice(0, 4);
+  const showPropertiesInspector =
+    props.showPropertiesInspector !== false && !props.collapsed && props.selectionItemCount > 0;
+
+  function renderQuickButton(
+    label: string,
+    kind: Parameters<typeof UtilityIcon>[0]["kind"],
+    onClick: () => void,
+    options?: {
+      active?: boolean;
+      disabled?: boolean;
+      title?: string;
+    },
+  ) {
+    return (
+      <button
+        type="button"
+        className={options?.active ? "toolbar-action-button active" : "toolbar-action-button"}
+        onClick={onClick}
+        disabled={options?.disabled}
+        title={options?.title ?? label}
+      >
+        <UtilityIcon kind={kind} />
+        <span className="tool-label">{label}</span>
+      </button>
+    );
+  }
 
   function renderContextActions() {
     if (context === "empty") {
-      if (props.collapsed) {
-        return null;
-      }
-
       return (
         <section className="toolbar-section toolbar-section-context">
           <div className="toolbar-section-head">
-            <div className="toolbar-section-label">{t("toolbar.sections.selectionActions")}</div>
-            <span className="toolbar-section-meta">Contestuali</span>
+            <div className="toolbar-section-label">Quick actions</div>
+            <span className="toolbar-section-meta">Model</span>
           </div>
-          <div className="toolbar-empty-hint">
-            Seleziona un nodo o un collegamento per vedere comandi rapidi senza perdere gli strumenti base.
+          <div className="toolbar-list toolbar-list-tight">
+            <button
+              type="button"
+              className={props.activeTool === "entity" ? "toolbar-action-button active" : "toolbar-action-button"}
+              onClick={() => props.onToolChange("entity")}
+              disabled={!canEdit}
+            >
+              <ToolIcon tool="entity" />
+              <span className="tool-label">{t("toolbar.tools.entity")}</span>
+            </button>
+            <button
+              type="button"
+              className={props.activeTool === "relationship" ? "toolbar-action-button active" : "toolbar-action-button"}
+              onClick={() => props.onToolChange("relationship")}
+              disabled={!canEdit}
+            >
+              <ToolIcon tool="relationship" />
+              <span className="tool-label">{t("toolbar.tools.relationship")}</span>
+            </button>
+            <button
+              type="button"
+              className={props.activeTool === "attribute" ? "toolbar-action-button active" : "toolbar-action-button"}
+              onClick={() => props.onToolChange("attribute")}
+              disabled={!canEdit}
+            >
+              <ToolIcon tool="attribute" />
+              <span className="tool-label">{t("toolbar.tools.attribute")}</span>
+            </button>
+            {renderQuickButton("Translate", "translate", props.onOpenTranslation, {
+              disabled: false,
+            })}
+            {renderQuickButton("Export", "export", props.onExportSvg)}
+            {renderQuickButton("Save", "save", props.onSaveProject)}
           </div>
         </section>
       );
     }
 
-    if (context === "node") {
+    if (context === "node" && props.selectedNode) {
+      if (props.selectedNode.type === "entity") {
+        const entity = props.selectedNode;
+        return (
+          <section className="toolbar-section toolbar-section-context">
+            <div className="toolbar-section-head">
+              <div className="toolbar-section-label">Entity actions</div>
+              <span className="toolbar-section-meta">Selection</span>
+            </div>
+            <div className="toolbar-list toolbar-list-tight">
+              {renderQuickButton("Attribute", "connect", props.onCreateAttributeForSelection, {
+                disabled: !canEdit,
+              })}
+              {renderQuickButton("Connect", "connect", () => props.onToolChange("connector"), {
+                active: props.activeTool === "connector",
+                disabled: !canEdit,
+              })}
+              {renderQuickButton("Weak", "weak", () => props.onNodeChange(entity.id, { isWeak: !entity.isWeak }), {
+                active: entity.isWeak === true,
+                disabled: !canEdit,
+              })}
+              {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+                disabled: !canEdit,
+              })}
+              {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+                disabled: !canEdit,
+              })}
+            </div>
+          </section>
+        );
+      }
+
+      if (props.selectedNode.type === "relationship") {
+        return (
+          <section className="toolbar-section toolbar-section-context">
+            <div className="toolbar-section-head">
+              <div className="toolbar-section-label">Relation actions</div>
+              <span className="toolbar-section-meta">Selection</span>
+            </div>
+            <div className="toolbar-list toolbar-list-tight">
+              {renderQuickButton("Connect", "connect", () => props.onToolChange("connector"), {
+                active: props.activeTool === "connector",
+                disabled: !canEdit,
+              })}
+              {renderQuickButton("Attribute", "connect", props.onCreateAttributeForSelection, {
+                disabled: !canEdit,
+              })}
+              {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+                disabled: !canEdit,
+              })}
+              {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+                disabled: !canEdit,
+              })}
+            </div>
+          </section>
+        );
+      }
+
+      const attribute = props.selectedNode;
+      const isLinkedToRel = props.diagram.edges.some((edge) => {
+        if (edge.type !== "attribute") {
+          return false;
+        }
+
+        const isLinked = edge.sourceId === attribute.id || edge.targetId === attribute.id;
+        if (!isLinked) {
+          return false;
+        }
+
+        const hostId = edge.sourceId === attribute.id ? edge.targetId : edge.sourceId;
+        const hostNode = props.diagram.nodes.find((node) => node.id === hostId);
+        return hostNode?.type === "relationship";
+      });
+
       return (
         <section className="toolbar-section toolbar-section-context">
           <div className="toolbar-section-head">
-            <div className="toolbar-section-label">{t("toolbar.sections.selectionActions")}</div>
-            <span className="toolbar-section-meta">Azioni rapide</span>
+            <div className="toolbar-section-label">Attribute actions</div>
+            <span className="toolbar-section-meta">Selection</span>
           </div>
           <div className="toolbar-list toolbar-list-tight">
-            {props.selectedNode && props.selectedNode.type === "entity" ? (() => {
-              const selectedEntity = props.selectedNode;
-              return (
-                <button
-                  type="button"
-                  className={selectedEntity.isWeak ? "toolbar-action-button active" : "toolbar-action-button"}
-                  onClick={() => props.onNodeChange(selectedEntity.id, { isWeak: !selectedEntity.isWeak })}
-                  disabled={!canEdit}
-                  title={t("toolbar.actions.weakEntity")}
-                >
-                  <ActionIcon kind="weak" />
-                  <span className="tool-label">{t("toolbar.actions.weakEntity")}</span>
-                </button>
-              );
-            })() : null}
-            {props.selectedNode && props.selectedNode.type === "attribute" ? (() => {
-              const attrNode = props.selectedNode;
-              const isLinkedToRel = props.diagram.edges.some((edge) => {
-                if (edge.type !== "attribute") {
-                  return false;
-                }
-
-                const isLinked = edge.sourceId === attrNode.id || edge.targetId === attrNode.id;
-                if (!isLinked) {
-                  return false;
-                }
-
-                const hostId = edge.sourceId === attrNode.id ? edge.targetId : edge.sourceId;
-                const hostNode = props.diagram.nodes.find((node) => node.id === hostId);
-                return hostNode?.type === "relationship";
-              });
-
-              return (
-                <>
-                  {!attrNode.isMultivalued && !attrNode.isCompositeInternal ? (
-                    <button
-                      type="button"
-                      className={attrNode.isIdentifier ? "toolbar-action-button active" : "toolbar-action-button"}
-                      onClick={() => props.onNodeChange(attrNode.id, { isIdentifier: !attrNode.isIdentifier })}
-                      disabled={!canEdit || isLinkedToRel}
-                      title={t("toolbar.actions.identifierAttribute")}
-                    >
-                      <ActionIcon kind="identifier" />
-                      <span className="tool-label">{t("toolbar.actions.identifier")}</span>
-                    </button>
-                  ) : null}
-                  {!attrNode.isIdentifier && !attrNode.isCompositeInternal ? (
-                    <button
-                      type="button"
-                      className={attrNode.isMultivalued ? "toolbar-action-button active" : "toolbar-action-button"}
-                      onClick={() => props.onNodeChange(attrNode.id, { isMultivalued: !attrNode.isMultivalued })}
-                      disabled={!canEdit}
-                      title={t("toolbar.actions.multivaluedAttribute")}
-                    >
-                      <ActionIcon kind="multivalue" />
-                      <span className="tool-label">{t("toolbar.actions.multivalued")}</span>
-                    </button>
-                  ) : null}
-                </>
-              );
-            })() : null}
-            {props.selectedNode &&
-            (props.selectedNode.type === "entity" ||
-              props.selectedNode.type === "relationship" ||
-              props.selectedNode.type === "attribute") ? (
-              <button
-                type="button"
-                className="toolbar-action-button"
-                onClick={props.onCreateAttributeForSelection}
-                disabled={!canEdit}
-                title={
-                  props.selectedNode.type === "attribute"
-                    ? t("toolbar.actions.addSubAttribute")
-                    : t("toolbar.actions.addAttribute")
-                }
-              >
-                <ActionIcon kind="attribute" />
-                <span className="tool-label">
-                  {props.selectedNode.type === "attribute"
-                    ? t("toolbar.actions.subAttribute")
-                    : t("toolbar.actions.addAttribute")}
-                </span>
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onRenameSelection}
-              disabled={!canEdit}
-              title={t("toolbar.actions.renameSelection")}
-            >
-              <ActionIcon kind="rename" />
-              <span className="tool-label">{t("common.actions.rename")}</span>
-            </button>
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onDuplicateSelection}
-              disabled={!canEdit}
-              title={t("toolbar.actions.duplicateSelection")}
-            >
-              <ActionIcon kind="duplicate" />
-              <span className="tool-label">{t("common.actions.duplicate")}</span>
-            </button>
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onDeleteSelection}
-              disabled={!canEdit}
-              title={t("toolbar.actions.deleteSelection")}
-            >
-              <ActionIcon kind="delete" />
-              <span className="tool-label">{t("common.actions.delete")}</span>
-            </button>
+            {!attribute.isMultivalued && !attribute.isCompositeInternal
+              ? renderQuickButton("Identifier", "identifier", () => props.onNodeChange(attribute.id, { isIdentifier: !attribute.isIdentifier }), {
+                  active: attribute.isIdentifier === true,
+                  disabled: !canEdit || isLinkedToRel,
+                })
+              : null}
+            {!attribute.isIdentifier && !attribute.isCompositeInternal
+              ? renderQuickButton("Multivalue", "multivalue", () => props.onNodeChange(attribute.id, { isMultivalued: !attribute.isMultivalued }), {
+                  active: attribute.isMultivalued === true,
+                  disabled: !canEdit,
+                })
+              : null}
+            {renderQuickButton("To parent", "connect", () => props.onToolChange("connector"), {
+              active: props.activeTool === "connector",
+              disabled: !canEdit,
+            })}
+            {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+              disabled: !canEdit,
+            })}
+            {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+              disabled: !canEdit,
+            })}
           </div>
         </section>
       );
@@ -449,40 +528,16 @@ export function Toolbar(props: ToolbarProps) {
       return (
         <section className="toolbar-section toolbar-section-context">
           <div className="toolbar-section-head">
-            <div className="toolbar-section-label">{t("toolbar.sections.edgeActions")}</div>
-            <span className="toolbar-section-meta">Azioni rapide</span>
+            <div className="toolbar-section-label">Link actions</div>
+            <span className="toolbar-section-meta">Selection</span>
           </div>
           <div className="toolbar-list toolbar-list-tight">
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onRenameSelection}
-              disabled={!canEdit}
-              title={t("toolbar.actions.renameEdge")}
-            >
-              <ActionIcon kind="rename" />
-              <span className="tool-label">{t("common.actions.rename")}</span>
-            </button>
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onDuplicateSelection}
-              disabled={!canEdit}
-              title={t("toolbar.actions.duplicateEdge")}
-            >
-              <ActionIcon kind="duplicate" />
-              <span className="tool-label">{t("common.actions.duplicate")}</span>
-            </button>
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onDeleteSelection}
-              disabled={!canEdit}
-              title={t("toolbar.actions.deleteEdge")}
-            >
-              <ActionIcon kind="delete" />
-              <span className="tool-label">{t("common.actions.delete")}</span>
-            </button>
+            {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+              disabled: !canEdit,
+            })}
+            {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+              disabled: !canEdit,
+            })}
           </div>
         </section>
       );
@@ -491,116 +546,28 @@ export function Toolbar(props: ToolbarProps) {
     return (
       <section className="toolbar-section toolbar-section-context">
         <div className="toolbar-section-head">
-          <div className="toolbar-section-label">{t("toolbar.sections.multiActions")}</div>
-          <span className="toolbar-section-meta">Selezione multipla</span>
+          <div className="toolbar-section-label">Selection actions</div>
+          <span className="toolbar-section-meta">Multi</span>
         </div>
         <div className="toolbar-list toolbar-list-tight">
-          {!props.collapsed ? (
-            <>
-              <button
-                type="button"
-                className="toolbar-action-button toolbar-action-button-text"
-                onClick={() => props.onAlign("left")}
-                disabled={!canEdit}
-                title={t("toolbar.actions.alignLeft")}
-              >
-                <span className="tool-label">{t("toolbar.actions.alignLeftShort")}</span>
-              </button>
-              <button
-                type="button"
-                className="toolbar-action-button toolbar-action-button-text"
-                onClick={() => props.onAlign("center")}
-                disabled={!canEdit}
-                title={t("toolbar.actions.alignCenter")}
-              >
-                <span className="tool-label">{t("toolbar.actions.alignCenterShort")}</span>
-              </button>
-              <button
-                type="button"
-                className="toolbar-action-button toolbar-action-button-text"
-                onClick={() => props.onAlign("top")}
-                disabled={!canEdit}
-                title={t("toolbar.actions.alignTop")}
-              >
-                <span className="tool-label">{t("toolbar.actions.alignTopShort")}</span>
-              </button>
-              <button
-                type="button"
-                className="toolbar-action-button toolbar-action-button-text"
-                onClick={() => props.onAlign("middle")}
-                disabled={!canEdit}
-                title={t("toolbar.actions.alignMiddle")}
-              >
-                <span className="tool-label">{t("toolbar.actions.alignMiddleShort")}</span>
-              </button>
-            </>
-          ) : null}
-          <button
-            type="button"
-            className="toolbar-action-button"
-            onClick={props.onDuplicateSelection}
-            disabled={!canEdit}
-            title={t("toolbar.actions.duplicateSelection")}
-          >
-            <ActionIcon kind="duplicate" />
-            <span className="tool-label">{t("common.actions.duplicate")}</span>
+          <button type="button" className="toolbar-action-button toolbar-action-button-text" onClick={() => props.onAlign("left")} disabled={!canEdit}>
+            <span className="tool-label">{t("toolbar.actions.alignLeftShort")}</span>
           </button>
-          <button
-            type="button"
-            className="toolbar-action-button"
-            onClick={props.onDeleteSelection}
-            disabled={!canEdit}
-            title={t("toolbar.actions.deleteSelection")}
-          >
-            <ActionIcon kind="delete" />
-            <span className="tool-label">{t("common.actions.delete")}</span>
+          <button type="button" className="toolbar-action-button toolbar-action-button-text" onClick={() => props.onAlign("center")} disabled={!canEdit}>
+            <span className="tool-label">{t("toolbar.actions.alignCenterShort")}</span>
           </button>
-        </div>
-      </section>
-    );
-  }
-
-  function renderIssuesSection() {
-    if (visibleIssues.length === 0) {
-      if (props.collapsed) {
-        return null;
-      }
-
-      return (
-        <section className="toolbar-section toolbar-section-feedback">
-          <div className="toolbar-section-head">
-            <div className="toolbar-section-label">Regole ER</div>
-            <span className="toolbar-section-meta">Verifica</span>
-          </div>
-          <div className="toolbar-empty-hint">
-            Nessun warning contestuale visibile. Le regole e i vincoli della selezione restano sotto, nel pannello proprieta.
-          </div>
-        </section>
-      );
-    }
-
-    return (
-      <section className="toolbar-section toolbar-section-feedback">
-        <div className="toolbar-section-head">
-          <div className="toolbar-section-label">Regole ER</div>
-          <span className="toolbar-section-meta">{visibleIssues.length}</span>
-        </div>
-        <div className="toolbar-issue-list">
-          {visibleIssues.map((issue) => (
-            <button
-              key={issue.id}
-              type="button"
-              className={
-                issue.level === "error" ? "toolbar-issue-card toolbar-issue-card-error" : "toolbar-issue-card"
-              }
-              onClick={() => props.onIssueSelect(issue)}
-            >
-              <span className={issue.level === "error" ? "toolbar-issue-level error" : "toolbar-issue-level warning"}>
-                {issue.level === "error" ? "Errore" : "Avviso"}
-              </span>
-              <span className="toolbar-issue-message">{issue.message}</span>
-            </button>
-          ))}
+          <button type="button" className="toolbar-action-button toolbar-action-button-text" onClick={() => props.onAlign("top")} disabled={!canEdit}>
+            <span className="tool-label">{t("toolbar.actions.alignTopShort")}</span>
+          </button>
+          <button type="button" className="toolbar-action-button toolbar-action-button-text" onClick={() => props.onAlign("middle")} disabled={!canEdit}>
+            <span className="tool-label">{t("toolbar.actions.alignMiddleShort")}</span>
+          </button>
+          {renderQuickButton(t("common.actions.duplicate"), "duplicate", props.onDuplicateSelection, {
+            disabled: !canEdit,
+          })}
+          {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+            disabled: !canEdit,
+          })}
         </div>
       </section>
     );
@@ -610,8 +577,8 @@ export function Toolbar(props: ToolbarProps) {
     <aside
       className={
         props.collapsed
-          ? `toolbar-panel collapsed toolbar-panel-context-${context}`
-          : `toolbar-panel toolbar-panel-context-${context}`
+          ? `toolbar-panel contextual-toolbar collapsed toolbar-panel-context-${context}`
+          : `toolbar-panel contextual-toolbar toolbar-panel-context-${context}`
       }
     >
       <div className={props.collapsed ? "panel-head-row panel-head-row-compact" : "panel-head-row"}>
@@ -637,18 +604,9 @@ export function Toolbar(props: ToolbarProps) {
       </div>
 
       {!props.collapsed ? (
-        <section className="toolbar-section toolbar-section-banner toolbar-section-status">
-          <div className="toolbar-context-banner">
-            <span className="toolbar-context-badge">
-              {activeToolDefinition?.label ?? props.activeTool}
-            </span>
-            <div>
-              <strong>{contextSummary.title}</strong>
-              <p>
-                Strumenti di base sempre disponibili. Azioni rapide al centro, proprieta e regole ER nella sezione finale.
-              </p>
-            </div>
-          </div>
+        <section className="toolbar-section toolbar-section-mode">
+          <div className="toolbar-mode-chip">{props.mode === "edit" ? "EDIT" : "VIEW"}</div>
+          <div className="toolbar-mode-chip muted">{activeToolDefinition?.label ?? props.activeTool}</div>
         </section>
       ) : null}
 
@@ -657,7 +615,7 @@ export function Toolbar(props: ToolbarProps) {
           <div className="toolbar-section-label">{t("toolbar.sections.tools")}</div>
           {!props.collapsed ? (
             <span className="toolbar-section-meta">
-              {activeToolDefinition ? `${activeToolDefinition.label} - ${activeToolDefinition.shortcut.toUpperCase()}` : props.activeTool}
+              {activeToolDefinition ? activeToolDefinition.shortcut.toUpperCase() : props.activeTool}
             </span>
           ) : null}
         </div>
@@ -684,13 +642,58 @@ export function Toolbar(props: ToolbarProps) {
       </section>
 
       {renderContextActions()}
-      {renderIssuesSection()}
+
+      {!props.collapsed ? (
+        <section className="toolbar-section toolbar-section-history">
+          <div className="toolbar-section-head">
+            <div className="toolbar-section-label">History</div>
+            <span className="toolbar-section-meta">Undo / Redo</span>
+          </div>
+          <div className="toolbar-list toolbar-list-tight">
+            {renderQuickButton(t("common.actions.undo"), "undo", props.onUndo, {
+              disabled: !props.canUndo,
+            })}
+            {renderQuickButton(t("common.actions.redo"), "redo", props.onRedo, {
+              disabled: !props.canRedo,
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="toolbar-section toolbar-section-feedback">
+        <div className="toolbar-section-head">
+          <div className="toolbar-section-label">Validation</div>
+          <span className="toolbar-section-meta">{visibleIssues.length}</span>
+        </div>
+
+        {visibleIssues.length > 0 ? (
+          <div className="toolbar-issue-list">
+            {visibleIssues.map((issue) => (
+              <button
+                key={issue.id}
+                type="button"
+                className={
+                  issue.level === "error" ? "toolbar-issue-card toolbar-issue-card-error" : "toolbar-issue-card"
+                }
+                onClick={() => props.onIssueSelect(issue)}
+              >
+                <span className={issue.level === "error" ? "toolbar-issue-level error" : "toolbar-issue-level warning"}>
+                  {issue.level === "error" ? "Error" : "Warn"}
+                </span>
+                <span className="toolbar-issue-message">{issue.message}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="toolbar-empty-hint">Nessun warning contestuale nella selezione corrente.</div>
+        )}
+      </section>
 
       {showPropertiesInspector ? (
         <section className="toolbar-section toolbar-properties-shell toolbar-section-properties">
           <div className="toolbar-section-head">
-            <div className="toolbar-section-label">Proprieta e regole</div>
-            <span className="toolbar-section-meta">Punto principale di modifica</span>
+            <div className="toolbar-section-label">Inspector</div>
+            <span className="toolbar-section-meta">Properties</span>
           </div>
           <InspectorPanel
             embedded

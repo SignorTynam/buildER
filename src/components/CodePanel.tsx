@@ -8,6 +8,7 @@ interface CodePanelProps {
   editable?: boolean;
   parseError?: string;
   onCodeChange?: (value: string) => void;
+  onClose?: () => void;
 }
 
 const AUTO_PAIR_TOKENS: Record<string, string> = {
@@ -121,16 +122,34 @@ export function CodePanel(props: CodePanelProps) {
   }, [props.code]);
 
   return (
-    <aside className="diagram-code-panel" aria-label={t("codePanel.shellAria")}>
-      <header className="diagram-code-panel-head">
-        <h2>{t("codePanel.title")}</h2>
-        <span className={props.parseError ? "code-panel-status error" : "code-panel-status"}>
-          {props.parseError
-            ? t("codePanel.error")
-            : isReadOnly
-              ? t("common.status.readOnly")
-              : t("common.status.write")}
-        </span>
+    <aside className="diagram-code-panel technical-side-panel" aria-label={t("codePanel.shellAria")}>
+      <header className="diagram-code-panel-head technical-side-panel-head">
+        <div className="technical-side-panel-copy">
+          <span className="technical-side-panel-kicker">Model code</span>
+          <h2>{t("codePanel.title")}</h2>
+          <p>Rappresentazione testuale sincronizzata del diagramma ER.</p>
+        </div>
+
+        <div className="technical-side-panel-head-actions">
+          <span className={props.parseError ? "code-panel-status error" : "code-panel-status"}>
+            {props.parseError
+              ? t("codePanel.error")
+              : isReadOnly
+                ? t("common.status.readOnly")
+                : t("common.status.write")}
+          </span>
+
+          {props.onClose ? (
+            <button
+              type="button"
+              className="technical-side-panel-close"
+              onClick={props.onClose}
+              aria-label="Chiudi pannello codice"
+            >
+              Hide
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <div className="diagram-code-editor-shell">

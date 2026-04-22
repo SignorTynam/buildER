@@ -46,6 +46,34 @@ interface AppHeaderProps {
   onToggleToolRail: () => void;
 }
 
+function getWorkspaceTitle(props: AppHeaderProps, t: ReturnType<typeof useI18n>["t"]): string {
+  if (props.diagramView === "translation") {
+    return "TRANSLATION";
+  }
+
+  if (props.diagramView === "logical") {
+    return props.logicalSqlOpen ? "SCHEMA / SQL" : t("header.views.logical").toUpperCase();
+  }
+
+  return "MODEL";
+}
+
+function getWorkspaceMeta(props: AppHeaderProps): string {
+  if (props.diagramView === "logical" && props.logicalOutOfDate) {
+    return "schema da riallineare";
+  }
+
+  if (props.diagramView === "logical" && props.logicalSqlOpen) {
+    return "anteprima sql";
+  }
+
+  if (props.diagramView === "translation") {
+    return "workflow tecnico";
+  }
+
+  return props.focusMode ? "focus canvas" : props.mode === "edit" ? "editing" : "read only";
+}
+
 export function AppHeader(props: AppHeaderProps) {
   const { locale, setLocale, t, getLanguageLabel, getLanguageMenuLabel } = useI18n();
   const navRef = useRef<HTMLElement | null>(null);
@@ -56,25 +84,10 @@ export function AppHeader(props: AppHeaderProps) {
     width: number;
     maxHeight: number;
   } | null>(null);
+
   const isErView = props.diagramView === "er";
   const isTranslationView = props.diagramView === "translation";
   const isLogicalView = props.diagramView === "logical";
-  const currentViewLabel = props.logicalSqlOpen
-    ? "SQL"
-    : props.diagramView === "er"
-      ? "ER"
-      : props.diagramView === "translation"
-        ? t("header.views.translation")
-        : t("header.views.logical");
-  const editorStateLabel = isErView ? t(`header.modes.${props.mode}`) : "Solo ER";
-  const workspaceStateLabel =
-    isLogicalView && props.logicalOutOfDate
-      ? "Modello logico da riallineare"
-      : props.logicalSqlOpen
-        ? "Anteprima SQL attiva"
-      : props.focusMode
-        ? "Focus canvas attivo"
-        : "Workspace attivo";
 
   function updateMenuPosition() {
     const menuGroup = menuGroupRef.current;
@@ -90,7 +103,7 @@ export function AppHeader(props: AppHeaderProps) {
 
     const viewportPadding = 12;
     const triggerRect = summary.getBoundingClientRect();
-    const width = Math.min(360, Math.max(280, window.innerWidth - viewportPadding * 2));
+    const width = Math.min(340, Math.max(260, window.innerWidth - viewportPadding * 2));
     const left = Math.max(
       viewportPadding,
       Math.min(triggerRect.right - width, window.innerWidth - width - viewportPadding),
@@ -182,272 +195,236 @@ export function AppHeader(props: AppHeaderProps) {
 
   const headerClassName = [
     "app-header",
+    "studio-topbar",
     props.focusMode ? "focus-mode" : "",
     `app-header-view-${props.diagramView}`,
-    isErView ? `app-header-mode-${props.mode}` : "app-header-mode-passive",
   ]
     .filter(Boolean)
     .join(" ");
 
-  const workflowActionLabel = isErView
-    ? "Apri traduzione"
-    : isTranslationView
-      ? "Genera schema logico"
-      : props.logicalOutOfDate
-        ? "Riallinea logico"
-        : props.logicalSqlOpen
-          ? "Torna alle decisioni"
-          : "Apri SQL";
-
-  function handleWorkflowAction() {
-    if (isErView) {
-      props.onDiagramViewChange("translation");
-      return;
-    }
-
-    if (isTranslationView || props.logicalOutOfDate) {
-      props.onGenerateLogicalModel();
-      return;
-    }
-
-    if (props.logicalSqlOpen) {
-      props.onOpenLogicalWorkflow();
-      return;
-    }
-
-    props.onOpenSql();
-  }
-
   return (
     <header className={headerClassName}>
-      <div className="app-title-block">
-        <div className="app-title-inline">
-          <h1>{props.appTitle}</h1>
-          <div className="app-version-pill">v{props.appVersion}</div>
-          <div className="app-subtitle">{props.diagramName}</div>
+      <div className="studio-topbar-brand" aria-label="Brand">
+        <div className="studio-topbar-mark" aria-hidden="true">
+          ER
         </div>
-        <div className="header-title-meta" aria-label="Stato workspace">
-          <span className="header-status-pill">{currentViewLabel}</span>
-          <span className="header-status-pill">{editorStateLabel}</span>
-          <span
-            className={
-              isLogicalView && props.logicalOutOfDate
-                ? "header-status-pill header-status-pill-warning"
-                : "header-status-pill header-status-pill-muted"
-            }
-          >
-            {workspaceStateLabel}
-          </span>
+        <div className="studio-topbar-brand-copy">
+          <strong>{props.appTitle}</strong>
+          <span>v{props.appVersion}</span>
         </div>
       </div>
 
-      <div className="header-toolbar-row">
-        <div className="header-inline-group header-inline-group-primary" role="group" aria-label="Azioni della fase corrente">
-          <span className="header-inline-label">Fase corrente</span>
-          <button
-            type="button"
-            className="header-button header-primary-button"
-            onClick={handleWorkflowAction}
-          >
-            {workflowActionLabel}
-          </button>
-        </div>
+      <div className="studio-topbar-project" aria-label="Progetto attivo">
+        <span className="studio-topbar-project-meta">
+          {getWorkspaceTitle(props, t)} / {getWorkspaceMeta(props)}
+        </span>
+        <strong>{props.diagramName}</strong>
+      </div>
 
+      <div className="studio-topbar-actions">
         {isErView ? (
-          <div className="header-inline-group header-inline-group-mode">
-            <span className="header-inline-label">Modalita</span>
-            <div className="mode-switch mode-switch-secondary" role="group" aria-label={t("header.editorModeGroupLabel")}>
-              <button
-                className={props.mode === "edit" && isErView ? "mode-button active" : "mode-button"}
-                type="button"
-                onClick={() => props.onModeChange("edit")}
-                disabled={!isErView}
-              >
-                {t("header.modes.edit")}
-              </button>
-              <button
-                className={props.mode === "view" && isErView ? "mode-button active" : "mode-button"}
-                type="button"
-                onClick={() => props.onModeChange("view")}
-                disabled={!isErView}
-              >
-                {t("header.modes.view")}
-              </button>
-            </div>
+          <div className="studio-topbar-toggle-group" role="group" aria-label="Pannelli laterali">
+            <button
+              type="button"
+              className={props.codePanelOpen ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
+              onClick={props.onToggleCodePanel}
+              aria-pressed={props.codePanelOpen}
+            >
+              Code
+            </button>
+            <button
+              type="button"
+              className={props.notesPanelOpen ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
+              onClick={props.onToggleNotesPanel}
+              aria-pressed={props.notesPanelOpen}
+            >
+              Notes
+            </button>
           </div>
         ) : null}
 
-        <div className="header-inline-group header-inline-group-menu">
-          <nav ref={navRef} className="header-nav" aria-label={t("header.secondaryActionsLabel")}>
-            <details ref={menuGroupRef} className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
-              <summary>Altro</summary>
-              <div
-                className="nav-menu nav-menu-wide nav-menu-floating"
-                style={
-                  menuStyle
-                    ? {
-                        top: `${menuStyle.top}px`,
-                        left: `${menuStyle.left}px`,
-                        width: `${menuStyle.width}px`,
-                        maxHeight: `${menuStyle.maxHeight}px`,
-                      }
-                    : { visibility: "hidden" }
-                }
-              >
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">Fase</div>
-                  {isTranslationView ? (
-                    <button
-                      type="button"
-                      onClick={(event) => runMenuAction(event, props.onResetTranslation)}
-                    >
-                      {t("header.quickActions.resetTranslation")}
+        {isErView ? (
+          <div className="studio-topbar-toggle-group" role="group" aria-label={t("header.editorModeGroupLabel")}>
+            <button
+              type="button"
+              className={props.mode === "edit" ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
+              onClick={() => props.onModeChange("edit")}
+              aria-pressed={props.mode === "edit"}
+            >
+              {t("header.modes.edit")}
+            </button>
+            <button
+              type="button"
+              className={props.mode === "view" ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
+              onClick={() => props.onModeChange("view")}
+              aria-pressed={props.mode === "view"}
+            >
+              {t("header.modes.view")}
+            </button>
+          </div>
+        ) : null}
+
+        <button type="button" className="studio-topbar-button" onClick={props.onNewProject}>
+          New
+        </button>
+        <button type="button" className="studio-topbar-button" onClick={props.onLoadProject}>
+          Open
+        </button>
+        <button type="button" className="studio-topbar-button" onClick={props.onSaveProject}>
+          Save
+        </button>
+
+        <nav ref={navRef} className="studio-topbar-menu" aria-label={t("header.secondaryActionsLabel")}>
+          <details ref={menuGroupRef} className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
+            <summary>Menu</summary>
+            <div
+              className="nav-menu nav-menu-floating"
+              style={
+                menuStyle
+                  ? {
+                      top: `${menuStyle.top}px`,
+                      left: `${menuStyle.left}px`,
+                      width: `${menuStyle.width}px`,
+                      maxHeight: `${menuStyle.maxHeight}px`,
+                    }
+                  : { visibility: "hidden" }
+              }
+            >
+              <div className="nav-menu-section">
+                <div className="nav-menu-label">Workflow</div>
+                <button type="button" onClick={(event) => runMenuAction(event, () => props.onDiagramViewChange("er"))}>
+                  MODEL
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => runMenuAction(event, () => props.onDiagramViewChange("translation"))}
+                >
+                  TRANSLATION
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onOpenLogicalWorkflow)}>
+                  SCHEMA
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onOpenSql)}>
+                  SQL
+                </button>
+                {isTranslationView ? (
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onResetTranslation)}>
+                    Reset translation
+                  </button>
+                ) : null}
+                {isLogicalView ? (
+                  <>
+                    <button type="button" onClick={(event) => runMenuAction(event, props.onGenerateLogicalModel)}>
+                      {props.logicalOutOfDate ? "Riallinea schema" : "Rigenera schema"}
                     </button>
-                  ) : null}
-                  {isLogicalView ? (
-                    <>
-                      <button type="button" onClick={(event) => runMenuAction(event, props.onOpenSql)}>
-                        {props.logicalSqlOpen ? "SQL gia aperto" : "Apri SQL"}
-                      </button>
-                      <button type="button" onClick={(event) => runMenuAction(event, props.onOpenLogicalWorkflow)}>
-                        Torna alle decisioni
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) => runMenuAction(event, props.onGenerateLogicalModel)}
-                      >
-                        {props.logicalOutOfDate
-                          ? t("header.quickActions.resetLogicalOutdated")
-                          : t("header.quickActions.resetLogical")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) => runMenuAction(event, props.onAutoLayoutLogical)}
-                      >
-                        {t("header.quickActions.autoLayout")}
-                      </button>
-                      <button type="button" onClick={(event) => runMenuAction(event, props.onFitLogical)}>
-                        {t("header.quickActions.fitLogical")}
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">{t("header.menu.sections.workspace")}</div>
-                  {isErView ? (
-                    <>
-                      <button type="button" onClick={(event) => runMenuAction(event, () => props.onModeChange("edit"))}>
-                        Passa a modifica
-                      </button>
-                      <button type="button" onClick={(event) => runMenuAction(event, () => props.onModeChange("view"))}>
-                        Passa a lettura
-                      </button>
-                    </>
-                  ) : null}
-                  {isErView ? (
-                    <button type="button" onClick={(event) => runMenuAction(event, props.onToggleCodePanel)}>
-                      {props.codePanelOpen ? "Chiudi diagram code" : "Apri diagram code"}
+                    <button type="button" onClick={(event) => runMenuAction(event, props.onAutoLayoutLogical)}>
+                      Auto layout
                     </button>
-                  ) : null}
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleNotesPanel)}>
-                    {props.notesPanelOpen ? "Chiudi note" : "Apri note"}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleFocusMode)}>
-                    {props.focusMode ? "Disattiva focus" : "Attiva focus"}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleToolRail)}>
-                    {props.toolRailCollapsed ? "Apri strumenti" : "Comprimi strumenti"}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
-                    {t("header.menu.actions.regenerateErs")}
-                  </button>
-                </div>
-
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">Modifica</div>
-                  <button
-                    type="button"
-                    onClick={(event) => runMenuAction(event, props.onUndo)}
-                    disabled={!props.canUndo}
-                  >
-                    {t("common.actions.undo")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => runMenuAction(event, props.onRedo)}
-                    disabled={!props.canRedo}
-                  >
-                    {t("common.actions.redo")}
-                  </button>
-                </div>
-
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">{t("header.menu.sections.file")}</div>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onNewProject)}>
-                    {t("header.menu.actions.newProject")}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onLoadProject)}>
-                    {t("header.menu.actions.loadProject")}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onLoadErs)}>
-                    {t("header.menu.actions.loadErs")}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onSaveProject)}>
-                    {t("header.menu.actions.saveProject")}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
-                    {t("header.menu.actions.saveErs")}
-                  </button>
-                </div>
-
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">{t("header.menu.sections.export")}</div>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
-                    PNG
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onExportSvg)}>
-                    SVG
-                  </button>
-                </div>
-
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">{t("header.menu.sections.help")}</div>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onOpenErsGuide)}>
-                    {t("header.menu.actions.ersGuide")}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
-                    {t("header.menu.actions.about")}
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onWhatsNew)}>
-                    {t("header.menu.actions.whatsNew")}
-                  </button>
-                </div>
-
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">
-                    {t("header.menu.sections.language")} - {getLanguageLabel(locale)}
-                  </div>
-                  {SUPPORTED_LOCALES.map((language) => (
-                    <button
-                      key={language}
-                      type="button"
-                      onClick={(event) =>
-                        runMenuAction(event, () => {
-                          setLocale(language);
-                        })
-                      }
-                      aria-pressed={locale === language}
-                    >
-                      {getLanguageMenuLabel(language)}
-                      {locale === language ? " *" : ""}
+                    <button type="button" onClick={(event) => runMenuAction(event, props.onFitLogical)}>
+                      Fit canvas
                     </button>
-                  ))}
-                </div>
+                  </>
+                ) : null}
               </div>
-            </details>
-          </nav>
-        </div>
+
+              <div className="nav-menu-section">
+                <div className="nav-menu-label">Workspace</div>
+                {isErView ? (
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleCodePanel)}>
+                    {props.codePanelOpen ? "Hide code" : "Show code"}
+                  </button>
+                ) : null}
+                {isErView ? (
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleNotesPanel)}>
+                    {props.notesPanelOpen ? "Hide notes" : "Show notes"}
+                  </button>
+                ) : null}
+                <button type="button" onClick={(event) => runMenuAction(event, props.onToggleFocusMode)}>
+                  {props.focusMode ? "Disable focus" : "Enable focus"}
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onToggleToolRail)}>
+                  {props.toolRailCollapsed ? "Expand toolbar" : "Collapse toolbar"}
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
+                  Reset ERS source
+                </button>
+              </div>
+
+              <div className="nav-menu-section">
+                <div className="nav-menu-label">Edit</div>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onUndo)} disabled={!props.canUndo}>
+                  {t("common.actions.undo")}
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onRedo)} disabled={!props.canRedo}>
+                  {t("common.actions.redo")}
+                </button>
+              </div>
+
+              <div className="nav-menu-section">
+                <div className="nav-menu-label">File</div>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onNewProject)}>
+                  {t("header.menu.actions.newProject")}
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onLoadProject)}>
+                  {t("header.menu.actions.loadProject")}
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onLoadErs)}>
+                  {t("header.menu.actions.loadErs")}
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onSaveProject)}>
+                  {t("header.menu.actions.saveProject")}
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
+                  {t("header.menu.actions.saveErs")}
+                </button>
+              </div>
+
+              <div className="nav-menu-section">
+                <div className="nav-menu-label">Export</div>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
+                  PNG
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onExportSvg)}>
+                  SVG
+                </button>
+              </div>
+
+              <div className="nav-menu-section">
+                <div className="nav-menu-label">Help</div>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onOpenErsGuide)}>
+                  ERS guide
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onWhatsNew)}>
+                  What's new
+                </button>
+                <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
+                  About
+                </button>
+              </div>
+
+              <div className="nav-menu-section">
+                <div className="nav-menu-label">
+                  {t("header.menu.sections.language")} / {getLanguageLabel(locale)}
+                </div>
+                {SUPPORTED_LOCALES.map((language) => (
+                  <button
+                    key={language}
+                    type="button"
+                    onClick={(event) =>
+                      runMenuAction(event, () => {
+                        setLocale(language);
+                      })
+                    }
+                    aria-pressed={locale === language}
+                  >
+                    {getLanguageMenuLabel(language)}
+                    {locale === language ? " *" : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </details>
+        </nav>
       </div>
     </header>
   );
