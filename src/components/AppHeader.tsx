@@ -53,6 +53,22 @@ export function AppHeader(props: AppHeaderProps) {
     width: number;
     maxHeight: number;
   } | null>(null);
+  const isErView = props.diagramView === "er";
+  const isTranslationView = props.diagramView === "translation";
+  const isLogicalView = props.diagramView === "logical";
+  const currentViewLabel =
+    props.diagramView === "er"
+      ? "ER"
+      : props.diagramView === "translation"
+        ? t("header.views.translation")
+        : t("header.views.logical");
+  const editorStateLabel = isErView ? t(`header.modes.${props.mode}`) : "Solo ER";
+  const workspaceStateLabel =
+    isLogicalView && props.logicalOutOfDate
+      ? "Modello logico da riallineare"
+      : props.focusMode
+        ? "Focus canvas attivo"
+        : "Workspace attivo";
 
   function updateMenuPosition() {
     const menuGroup = menuGroupRef.current;
@@ -166,10 +182,24 @@ export function AppHeader(props: AppHeaderProps) {
           <div className="app-version-pill">v{props.appVersion}</div>
         </div>
         <div className="app-subtitle">{props.diagramName}</div>
+        <div className="header-title-meta" aria-label="Stato workspace">
+          <span className="header-status-pill">{currentViewLabel}</span>
+          <span className="header-status-pill">{editorStateLabel}</span>
+          <span
+            className={
+              isLogicalView && props.logicalOutOfDate
+                ? "header-status-pill header-status-pill-warning"
+                : "header-status-pill header-status-pill-muted"
+            }
+          >
+            {workspaceStateLabel}
+          </span>
+        </div>
       </div>
 
       <div className="header-switches">
         <div className="header-control-group">
+          <span className="header-group-label">Vista workspace</span>
           <div className="mode-switch mode-switch-primary" role="group" aria-label={t("header.viewGroupLabel")}>
             <button
               className={props.diagramView === "er" ? "mode-button active" : "mode-button"}
@@ -196,29 +226,32 @@ export function AppHeader(props: AppHeaderProps) {
         </div>
 
         <div className="header-control-group">
+          <span className="header-group-label">Modalita editor</span>
           <div className="mode-switch mode-switch-secondary" role="group" aria-label={t("header.editorModeGroupLabel")}>
             <button
-              className={props.mode === "edit" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
+              className={props.mode === "edit" && isErView ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onModeChange("edit")}
-              disabled={props.diagramView !== "er"}
+              disabled={!isErView}
             >
               {t("header.modes.edit")}
             </button>
             <button
-              className={props.mode === "view" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
+              className={props.mode === "view" && isErView ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onModeChange("view")}
-              disabled={props.diagramView !== "er"}
+              disabled={!isErView}
             >
               {t("header.modes.view")}
             </button>
           </div>
+          {!isErView ? <span className="header-group-note">Disponibile solo nella vista ER.</span> : null}
         </div>
       </div>
 
       <div className="header-utility-bar">
         <div className="header-control-group header-control-group-actions">
+          <span className="header-group-label">Azioni frequenti</span>
           <div className="header-quick-actions" role="group" aria-label={t("header.quickActionsLabel")}>
             <button
               type="button"
@@ -238,7 +271,7 @@ export function AppHeader(props: AppHeaderProps) {
             >
               {t("common.actions.redo")}
             </button>
-            {props.diagramView === "er" ? (
+            {isErView ? (
               <>
                 <button
                   type="button"
@@ -248,9 +281,10 @@ export function AppHeader(props: AppHeaderProps) {
                       : "header-button header-quick-button"
                   }
                   onClick={props.onToggleCodePanel}
+                  aria-pressed={props.codePanelOpen}
                   title={props.codePanelOpen ? t("header.quickActions.hideCode") : t("header.quickActions.showCode")}
                 >
-                  {props.codePanelOpen ? t("header.quickActions.hideCode") : t("header.quickActions.showCode")}
+                  ERS
                 </button>
                 <button
                   type="button"
@@ -260,70 +294,18 @@ export function AppHeader(props: AppHeaderProps) {
                       : "header-button header-quick-button"
                   }
                   onClick={props.onToggleNotesPanel}
+                  aria-pressed={props.notesPanelOpen}
                   title={props.notesPanelOpen ? t("header.quickActions.hideNotes") : t("header.quickActions.showNotes")}
                 >
-                  {props.notesPanelOpen ? t("header.quickActions.hideNotes") : t("header.quickActions.showNotes")}
+                  Note
                 </button>
               </>
             ) : null}
-            {props.diagramView === "translation" ? (
-              <button
-                type="button"
-                className="header-button header-quick-button"
-                onClick={props.onResetTranslation}
-                title={t("header.quickActions.resetTranslationTitle")}
-              >
-                {t("header.quickActions.resetTranslation")}
-              </button>
-            ) : null}
-            {props.diagramView === "logical" ? (
-              <>
-                <button
-                  type="button"
-                  className="header-button header-quick-button"
-                  onClick={props.onGenerateLogicalModel}
-                  title={
-                    props.logicalOutOfDate
-                      ? t("header.quickActions.resetLogicalOutdatedTitle")
-                      : t("header.quickActions.resetLogicalTitle")
-                  }
-                >
-                  {props.logicalOutOfDate ? t("header.quickActions.resetLogicalOutdated") : t("header.quickActions.resetLogical")}
-                </button>
-                <button
-                  type="button"
-                  className="header-button header-quick-button"
-                  onClick={props.onAutoLayoutLogical}
-                  title={t("header.quickActions.autoLayoutTitle")}
-                >
-                  {t("header.quickActions.autoLayout")}
-                </button>
-                <button
-                  type="button"
-                  className="header-button header-quick-button"
-                  onClick={props.onFitLogical}
-                  title={t("header.quickActions.fitLogicalTitle")}
-                >
-                  {t("header.quickActions.fitLogical")}
-                </button>
-              </>
-            ) : null}
-            <button
-              type="button"
-              className={
-                props.focusMode
-                  ? "header-button header-quick-button active"
-                  : "header-button header-quick-button"
-              }
-              onClick={props.onToggleFocusMode}
-              title={props.focusMode ? t("header.quickActions.exitFocusTitle") : t("header.quickActions.focusTitle")}
-            >
-              {props.focusMode ? t("header.quickActions.exitFocus") : t("header.quickActions.focus")}
-            </button>
           </div>
         </div>
 
         <div className="header-control-group header-control-group-menu">
+          <span className="header-group-label">Azioni workspace</span>
           <nav ref={navRef} className="header-nav" aria-label={t("header.secondaryActionsLabel")}>
             <details ref={menuGroupRef} className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
               <summary>{t("header.menu.trigger")}</summary>
@@ -342,6 +324,38 @@ export function AppHeader(props: AppHeaderProps) {
               >
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">{t("header.menu.sections.workspace")}</div>
+                  {isTranslationView ? (
+                    <button
+                      type="button"
+                      onClick={(event) => runMenuAction(event, props.onResetTranslation)}
+                    >
+                      {t("header.quickActions.resetTranslation")}
+                    </button>
+                  ) : null}
+                  {isLogicalView ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(event) => runMenuAction(event, props.onGenerateLogicalModel)}
+                      >
+                        {props.logicalOutOfDate
+                          ? t("header.quickActions.resetLogicalOutdated")
+                          : t("header.quickActions.resetLogical")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => runMenuAction(event, props.onAutoLayoutLogical)}
+                      >
+                        {t("header.quickActions.autoLayout")}
+                      </button>
+                      <button type="button" onClick={(event) => runMenuAction(event, props.onFitLogical)}>
+                        {t("header.quickActions.fitLogical")}
+                      </button>
+                    </>
+                  ) : null}
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleFocusMode)}>
+                    {props.focusMode ? t("header.quickActions.exitFocus") : t("header.quickActions.focus")}
+                  </button>
                   <button
                     type="button"
                     onClick={(event) => runMenuAction(event, props.onToggleToolRail)}
@@ -400,7 +414,7 @@ export function AppHeader(props: AppHeaderProps) {
 
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">
-                    {t("header.menu.sections.language")} · {getLanguageLabel(locale)}
+                    {t("header.menu.sections.language")} - {getLanguageLabel(locale)}
                   </div>
                   {SUPPORTED_LOCALES.map((language) => (
                     <button
@@ -414,15 +428,9 @@ export function AppHeader(props: AppHeaderProps) {
                       aria-pressed={locale === language}
                     >
                       {getLanguageMenuLabel(language)}
-                      {locale === language ? " •" : ""}
+                      {locale === language ? " *" : ""}
                     </button>
                   ))}
-                </div>
-                <div className="nav-menu-section">
-                  <div className="nav-menu-label">{t("language.label")}</div>
-                  <button type="button" disabled>
-                    {t("language.current", { label: getLanguageLabel(locale) })}
-                  </button>
                 </div>
               </div>
             </details>

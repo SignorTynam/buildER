@@ -9,6 +9,7 @@ import type {
 } from "react";
 import { DiagramEdgeView } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
+import { getToolDefinitions } from "../utils/toolConfig";
 import {
   expandNodeIdsForMove,
   getExternalIdentifierImportedAttributes,
@@ -110,6 +111,21 @@ type InlineEditState =
   | { kind: "edge"; id: string; value: string }
   | null;
 
+type CanvasGuidanceTone = "info" | "success" | "warning" | "error";
+type CanvasGuidanceState =
+  | "idle"
+  | "selecting-source"
+  | "selecting-target"
+  | "dragging-routing"
+  | "editing-label"
+  | "invalid-action";
+
+interface PersistentCanvasMessage {
+  key: string;
+  message: string;
+  tone: CanvasGuidanceTone;
+}
+
 interface DiagramCanvasProps {
   diagram: DiagramDocument;
   selection: SelectionState;
@@ -143,6 +159,62 @@ interface DiagramCanvasProps {
   onRenameNode: (nodeId: string, label: string) => void;
   onRenameEdge: (edgeId: string, label: string) => void;
   onStatusMessageChange: (message: string) => void;
+}
+
+function getCanvasMessageTone(message: string): CanvasGuidanceTone {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) {
+    return "info";
+  }
+
+  if (
+    normalized.includes("errore") ||
+    normalized.includes("impossibile") ||
+    normalized.includes("non ") ||
+    normalized.includes("blocc")
+  ) {
+    return "error";
+  }
+
+  if (
+    normalized.includes("annull") ||
+    normalized.includes("attenzione") ||
+    normalized.includes("warning") ||
+    normalized.includes("seleziona") ||
+    normalized.includes("rimuov")
+  ) {
+    return "warning";
+  }
+
+  if (
+    normalized.includes("aggiunt") ||
+    normalized.includes("creat") ||
+    normalized.includes("aggiornat") ||
+    normalized.includes("salvat") ||
+    normalized.includes("esportat")
+  ) {
+    return "success";
+  }
+
+  return "info";
+}
+
+function shouldPersistCanvasMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const transientPatterns = [
+    /^zoom /,
+    /^viewport /,
+    /centrat/,
+    /adattat/,
+    /spostat[oa] con la tastiera/,
+    /regolat[oa] con la tastiera/,
+  ];
+
+  return !transientPatterns.some((pattern) => pattern.test(normalized));
 }
 
 const VIEWPORT_PADDING = 140;
@@ -917,6 +989,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [showPanHint, setShowPanHint] = useState(true);
+  const [persistentMessage, setPersistentMessage] = useState<PersistentCanvasMessage | null>(null);
+  const [dismissedMessageKey, setDismissedMessageKey] = useState<string | null>(null);
 
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
   const nodeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
@@ -1364,6 +1438,19 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       window.clearTimeout(timeoutId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!shouldPersistCanvasMessage(props.statusMessage)) {
+      return;
+    }
+
+    setPersistentMessage({
+      key: props.statusMessage,
+      message: props.statusMessage,
+      tone: getCanvasMessageTone(props.statusMessage),
+    });
+    setDismissedMessageKey(null);
+  }, [props.statusMessage]);
 
   useEffect(() => {
     if (props.tool !== "connector" && props.tool !== "inheritance") {
@@ -2465,6 +2552,158 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
   const compositeIdentifierInteractive = props.mode === "edit" && props.tool === "select";
+  const toolDefinitions = getToolDefinitions();
+  const activeToolDefinition = toolDefinitions.find((item) => item.tool === props.tool);
+  const selectedNode =
+    props.selection.nodeIds.length === 1 && props.selection.edgeIds.length === 0
+      ? nodeMap.get(props.selection.nodeIds[0])
+      : undefined;
+  const internalIdentifierHost =
+    selectedNode?.type === "attribute"
+      ? props.diagram.nodes.find(
+          (node) =>
+            node.type === "entity" &&
+            (node.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.includes(selectedNode.id)),
+        )
+      : undefined;
+  const externalIdentifierFlowActive =
+    props.mode === "edit" &&
+    props.tool === "select" &&
+    selectedNode?.type === "attribute" &&
+    internalIdentifierHost?.type === "entity";
+  const activeCompositeGroupKey =
+    interaction.kind === "drag"
+      ? compositeIdentifierLayouts.find((layout) =>
+          interaction.nodeIds.some((nodeId) => layout.memberAttributeIds.includes(nodeId)),
+        )?.groupKey
+      : null;
+  const activeExternalIdentifierId =
+    interaction.kind === "external-id-drag" || interaction.kind === "external-id-marker-drag"
+      ? interaction.externalIdentifierId
+      : null;
+  const visiblePersistentMessage =
+    persistentMessage && persistentMessage.key !== dismissedMessageKey ? persistentMessage : null;
+
+  let guidanceState: CanvasGuidanceState = "idle";
+  let guidanceStateLabel = "Idle";
+  let guidanceTitle = activeToolDefinition?.label ?? props.tool;
+  let guidanceMessage = props.mode === "view"
+    ? "Naviga e ispeziona il modello. Le modifiche restano bloccate finche non torni in modalita modifica."
+    : "Modella dal canvas, poi usa il rail per rifinire proprieta e regole ER della selezione.";
+  let guidanceShortcuts = ["Home centra", "9 adatta", "0 reset"];
+
+  if (inlineEdit) {
+    guidanceState = "editing-label";
+    guidanceStateLabel = "Editing label";
+    guidanceTitle = inlineEdit.kind === "node" ? "Rinomina nodo" : "Modifica etichetta ISA";
+    guidanceMessage = "Aggiorna l'etichetta direttamente sul canvas. Invio conferma e il blur salva automaticamente.";
+    guidanceShortcuts = ["Invio salva", "Click fuori conferma"];
+  } else if (
+    interaction.kind === "edge-drag" ||
+    interaction.kind === "external-id-drag" ||
+    interaction.kind === "external-id-marker-drag" ||
+    activeCompositeGroupKey
+  ) {
+    guidanceState = "dragging-routing";
+    guidanceStateLabel = "Dragging routing";
+    guidanceTitle =
+      interaction.kind === "edge-drag"
+        ? "Routing connector"
+        : interaction.kind === "external-id-marker-drag"
+          ? "Marker external identifier"
+          : interaction.kind === "external-id-drag"
+            ? "External identifier"
+            : "Backbone composite identifier";
+    guidanceMessage =
+      interaction.kind === "edge-drag"
+        ? "Trascina la label del connector per spostare il routing senza cambiare gli estremi."
+        : interaction.kind === "external-id-marker-drag"
+          ? "Regola il marker dell'identificatore esterno per chiarire il punto di lettura."
+          : interaction.kind === "external-id-drag"
+            ? "Regola il routing dell'identificatore esterno mantenendo leggibile la relazione di supporto."
+            : "Trascina il backbone per muovere insieme gli attributi membri dell'identificatore composto.";
+    guidanceShortcuts = ["Rilascia per salvare", "Shift + frecce per spostamenti piu ampi"];
+  } else if (pendingConnectionSource && pendingSourceNode) {
+    guidanceState = "selecting-target";
+    guidanceStateLabel = "Selecting target";
+    guidanceTitle = props.tool === "inheritance" ? "Flusso ISA" : "Flusso source -> target";
+    guidanceMessage = `Sorgente fissata su ${pendingSourceNode.label}. Seleziona ora la destinazione compatibile nel canvas.`;
+    guidanceShortcuts = ["Esc annulla", "Click target completa"];
+  } else if (externalIdentifierFlowActive && selectedNode?.type === "attribute" && internalIdentifierHost) {
+    guidanceState = "selecting-target";
+    guidanceStateLabel = "Selecting target";
+    guidanceTitle = "External identifier";
+    guidanceMessage = `Attributo identificatore ${selectedNode.label} pronto. Seleziona l'entita target o un attributo compatibile per creare l'identificatore esterno.`;
+    guidanceShortcuts = ["Click target crea", "Tab mette a fuoco i nodi"];
+  } else if ((props.tool === "connector" || props.tool === "inheritance") && props.mode === "edit") {
+    guidanceState = "selecting-source";
+    guidanceStateLabel = "Selecting source";
+    guidanceTitle = props.tool === "inheritance" ? "Ereditarieta" : "Connector";
+    guidanceMessage =
+      props.tool === "inheritance"
+        ? "Seleziona prima la sorgente dell'ereditarieta, poi il target ISA."
+        : "Seleziona la sorgente del collegamento. Il canvas ti guidera poi al target.";
+    guidanceShortcuts = ["Tab mette a fuoco i nodi", `${activeToolDefinition?.shortcut.toUpperCase() ?? "C"} mantiene il tool attivo`];
+  } else if (visiblePersistentMessage && (visiblePersistentMessage.tone === "warning" || visiblePersistentMessage.tone === "error")) {
+    guidanceState = "invalid-action";
+    guidanceStateLabel = "Invalid action";
+    guidanceTitle = "Controllo ER";
+    guidanceMessage = visiblePersistentMessage.message;
+    guidanceShortcuts = ["Correggi la selezione", "Consulta regole nel rail"];
+  } else if (props.tool === "move") {
+    guidanceTitle = activeToolDefinition?.label ?? "Pan";
+    guidanceMessage = "Usa drag o Spazio + drag per navigare il canvas senza alterare il diagramma.";
+    guidanceShortcuts = ["Spazio + drag pan", "+ / - zoom", "9 adatta"];
+  } else if (props.tool === "select" && props.selection.nodeIds.length + props.selection.edgeIds.length > 0) {
+    guidanceTitle = "Selezione attiva";
+    guidanceMessage = "Azioni rapide nel rail. Le proprieta della selezione e i warning ER restano nella sezione inferiore del pannello.";
+    guidanceShortcuts = ["Invio rinomina", "Canc elimina", "Frecce spostano"];
+  } else if (props.tool === "select") {
+    guidanceTitle = "Selezione";
+    guidanceMessage = "Seleziona, trascina o usa marquee. Le gesture avanzate diventano evidenti su hover e focus.";
+    guidanceShortcuts = ["Invio rinomina", "Tab focus", "Shift + drag aggiunge"];
+  }
+
+  const flowPrompt =
+    pendingConnectionSource && pendingSourceNode
+      ? {
+          title: props.tool === "inheritance" ? "Step 2 di 2 - ISA" : "Step 2 di 2 - Connector",
+          body:
+            props.tool === "inheritance"
+              ? `Origine: ${pendingSourceNode.label}. Seleziona il target dell'ereditarieta oppure annulla il flusso.`
+              : `Origine: ${pendingSourceNode.label}. Seleziona la destinazione del collegamento oppure annulla il flusso.`,
+          dismissLabel: "Annulla",
+          onDismiss: () => {
+            cancelPendingConnection();
+            props.onStatusMessageChange("Creazione collegamento annullata.");
+          },
+        }
+      : externalIdentifierFlowActive && selectedNode?.type === "attribute" && internalIdentifierHost
+        ? {
+            title: "Step 2 di 2 - Identificatore esterno",
+            body: `Sorgente: ${selectedNode.label} da ${internalIdentifierHost.label}. Ora scegli l'entita host o un attributo compatibile come target.`,
+            dismissLabel: "Deseleziona",
+            onDismiss: () => {
+              props.onSelectionChange({ nodeIds: [], edgeIds: [] });
+            },
+          }
+        : null;
+
+  const advancedAffordances =
+    props.mode === "edit" && props.tool === "select"
+      ? [
+          props.diagram.edges.some((edge) => edge.type === "connector")
+            ? { key: "connector-label", label: "Label connector", hint: "Trascina la cardinalita per regolare il routing." }
+            : null,
+          externalIdentifierLayouts.length > 0
+            ? { key: "external-id-marker", label: "Marker ext. ID", hint: "Hover o focus sul marker per trascinarlo." }
+            : null,
+          compositeIdentifierLayouts.length > 0
+            ? { key: "composite-backbone", label: "Backbone composite", hint: "Trascina il backbone per muovere il gruppo." }
+            : null,
+        ].filter((item): item is { key: string; label: string; hint: string } => item !== null)
+      : [];
+
   return (
     <div
       ref={containerRef}
@@ -2483,6 +2722,65 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }}
       onWheel={handleCanvasWheel}
     >
+      <div
+        className={`canvas-guidance-strip canvas-guidance-strip-${guidanceState}`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div className="canvas-guidance-main">
+          <span className={`canvas-guidance-state canvas-guidance-state-${guidanceState}`}>{guidanceStateLabel}</span>
+          <div className="canvas-guidance-copy">
+            <strong>{guidanceTitle}</strong>
+            <p>{guidanceMessage}</p>
+          </div>
+        </div>
+        <div className="canvas-guidance-shortcuts" aria-label="Shortcut rilevanti">
+          {guidanceShortcuts.map((shortcut) => (
+            <span key={shortcut} className="canvas-shortcut-chip">
+              {shortcut}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {flowPrompt ? (
+        <div className="canvas-flow-prompt" role="status" aria-live="polite">
+          <div className="canvas-flow-prompt-copy">
+            <span className="canvas-flow-prompt-eyebrow">{flowPrompt.title}</span>
+            <strong>{flowPrompt.body}</strong>
+          </div>
+          <button type="button" className="canvas-flow-prompt-dismiss" onClick={flowPrompt.onDismiss}>
+            {flowPrompt.dismissLabel}
+          </button>
+        </div>
+      ) : null}
+
+      {visiblePersistentMessage ? (
+        <div className={`canvas-persistent-message canvas-persistent-message-${visiblePersistentMessage.tone}`}>
+          <div className="canvas-persistent-message-body">
+            <span className="canvas-persistent-message-badge">
+              {visiblePersistentMessage.tone === "error"
+                ? "Errore"
+                : visiblePersistentMessage.tone === "warning"
+                  ? "Avviso"
+                  : visiblePersistentMessage.tone === "success"
+                    ? "Aggiornamento"
+                    : "Info"}
+            </span>
+            <p>{visiblePersistentMessage.message}</p>
+          </div>
+          <button
+            type="button"
+            className="canvas-persistent-message-dismiss"
+            onClick={() => setDismissedMessageKey(visiblePersistentMessage.key)}
+            aria-label="Chiudi messaggio contestuale"
+          >
+            x
+          </button>
+        </div>
+      ) : null}
+
       <svg ref={props.svgRef} className="diagram-canvas">
         <defs>
           <marker
@@ -2659,7 +2957,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           {compositeIdentifierLayouts.map((layout) => (
             <g
               key={`composite-id-${layout.groupKey}`}
-              className="composite-identifier"
+              className={
+                activeCompositeGroupKey === layout.groupKey
+                  ? "composite-identifier composite-identifier-active"
+                  : "composite-identifier"
+              }
               pointerEvents={compositeIdentifierInteractive ? "visiblePainted" : "none"}
               onPointerDown={
                 compositeIdentifierInteractive
@@ -2670,6 +2972,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               {layout.hostStems.map((stem) => (
                 <line
                   key={`composite-id-host-stem-${layout.groupKey}-${stem.attributeId}`}
+                  className="composite-identifier-path"
                   x1={stem.from.x}
                   y1={stem.from.y}
                   x2={stem.to.x}
@@ -2682,6 +2985,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               {layout.branches.map((branch) => (
                 <line
                   key={`composite-id-branch-${layout.groupKey}-${branch.attributeId}`}
+                  className="composite-identifier-path"
                   x1={branch.from.x}
                   y1={branch.from.y}
                   x2={branch.to.x}
@@ -2692,6 +2996,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 />
               ))}
               <line
+                className="composite-identifier-path composite-identifier-backbone"
                 x1={layout.backboneStart.x}
                 y1={layout.backboneStart.y}
                 x2={layout.backboneEnd.x}
@@ -2703,6 +3008,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               {layout.junctions.map((junction, index) => (
                 <circle
                   key={`composite-id-junction-${layout.groupKey}-${index}`}
+                  className="composite-identifier-junction"
                   cx={junction.x}
                   cy={junction.y}
                   r={4.5}
@@ -2712,6 +3018,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 />
               ))}
               <line
+                className="composite-identifier-path"
                 x1={layout.markerStemFrom.x}
                 y1={layout.markerStemFrom.y}
                 x2={layout.marker.x}
@@ -2721,6 +3028,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 strokeLinecap="round"
               />
               <circle
+                className="composite-identifier-marker"
                 cx={layout.marker.x}
                 cy={layout.marker.y}
                 r={8.5}
@@ -2734,6 +3042,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   {layout.hostStems.map((stem) => (
                     <line
                       key={`composite-id-host-stem-hit-${layout.groupKey}-${stem.attributeId}`}
+                      className="composite-identifier-hit"
                       x1={stem.from.x}
                       y1={stem.from.y}
                       x2={stem.to.x}
@@ -2743,6 +3052,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     />
                   ))}
                   <line
+                    className="composite-identifier-hit"
                     x1={layout.backboneStart.x}
                     y1={layout.backboneStart.y}
                     x2={layout.backboneEnd.x}
@@ -2753,6 +3063,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   {layout.branches.map((branch) => (
                     <line
                       key={`composite-id-branch-hit-${layout.groupKey}-${branch.attributeId}`}
+                      className="composite-identifier-hit"
                       x1={branch.from.x}
                       y1={branch.from.y}
                       x2={branch.to.x}
@@ -2761,7 +3072,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                       strokeWidth={12}
                     />
                   ))}
-                  <circle cx={layout.marker.x} cy={layout.marker.y} r={11} fill="transparent" />
+                  <circle className="composite-identifier-hit" cx={layout.marker.x} cy={layout.marker.y} r={11} fill="transparent" />
                 </>
               ) : null}
             </g>
@@ -2773,7 +3084,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               return (
                 <g
                   key={`external-id-${layout.externalIdentifierId}`}
-                  className="external-identifier external-identifier-imported"
+                  className={
+                    activeExternalIdentifierId === layout.externalIdentifierId
+                      ? "external-identifier external-identifier-imported external-identifier-active"
+                      : "external-identifier external-identifier-imported"
+                  }
                   onPointerDown={(event) =>
                     handleExternalIdentifierPointerDown(
                       event,
@@ -2782,8 +3097,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     )
                   }
                 >
-                  <path d={markerPath} fill="none" stroke="transparent" strokeWidth={16} />
+                  <path className="external-identifier-hit-path" d={markerPath} fill="none" stroke="transparent" strokeWidth={16} />
                   <path
+                    className="external-identifier-path"
                     d={markerPath}
                     fill="none"
                     stroke={DIAGRAM_STROKE}
@@ -2792,6 +3108,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     strokeLinejoin="round"
                   />
                   <circle
+                    className="external-identifier-junction"
                     cx={layout.junction.x}
                     cy={layout.junction.y}
                     r={4.3}
@@ -2800,6 +3117,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     strokeWidth={1.2}
                   />
                   <circle
+                    className="external-identifier-marker"
+                    cx={layout.marker.x}
+                    cy={layout.marker.y}
+                    r={6.5}
+                    fill="var(--diagram-canvas-fill)"
+                    stroke={DIAGRAM_STROKE}
+                    strokeWidth={1.8}
+                    pointerEvents="none"
+                  />
+                  <circle
+                    className="external-identifier-marker-hit"
                     cx={layout.marker.x}
                     cy={layout.marker.y}
                     r={10}
@@ -2823,7 +3151,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             return (
               <g
                 key={`external-id-${layout.externalIdentifierId}`}
-                className="external-identifier external-identifier-mixed"
+                className={
+                  activeExternalIdentifierId === layout.externalIdentifierId
+                    ? "external-identifier external-identifier-mixed external-identifier-active"
+                    : "external-identifier external-identifier-mixed"
+                }
                 onPointerDown={(event) =>
                   handleExternalIdentifierPointerDown(
                     event,
@@ -2832,8 +3164,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   )
                 }
               >
-                <path d={pathData} fill="none" stroke="transparent" strokeWidth={14} />
+                <path className="external-identifier-hit-path" d={pathData} fill="none" stroke="transparent" strokeWidth={14} />
                 <path
+                  className="external-identifier-path"
                   d={pathData}
                   fill="none"
                   stroke={DIAGRAM_STROKE}
@@ -2843,6 +3176,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 />
                 {layout.junction ? (
                   <circle
+                    className="external-identifier-junction"
                     cx={layout.junction.x}
                     cy={layout.junction.y}
                     r={4.3}
@@ -2853,6 +3187,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 ) : null}
                 {layout.attributeJunction ? (
                   <circle
+                    className="external-identifier-junction"
                     cx={layout.attributeJunction.x}
                     cy={layout.attributeJunction.y}
                     r={3.9}
@@ -2863,6 +3198,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 ) : null}
                 {layout.markerStemStart ? (
                   <line
+                    className="external-identifier-path"
                     x1={layout.markerStemStart.x}
                     y1={layout.markerStemStart.y}
                     x2={layout.marker.x}
@@ -2873,6 +3209,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   />
                 ) : null}
                 <circle
+                  className="external-identifier-marker"
+                  cx={layout.marker.x}
+                  cy={layout.marker.y}
+                  r={6.5}
+                  fill="var(--diagram-canvas-fill)"
+                  stroke={DIAGRAM_STROKE}
+                  strokeWidth={1.8}
+                  pointerEvents="none"
+                />
+                <circle
+                  className="external-identifier-marker-hit"
                   cx={layout.marker.x}
                   cy={layout.marker.y}
                   r={10}
@@ -2932,6 +3279,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       {showPanHint ? (
         <div className="canvas-pan-hint" aria-hidden="true">
           Spazio + drag per pan, 9 adatta, 0 reset.
+        </div>
+      ) : null}
+
+      {advancedAffordances.length > 0 ? (
+        <div className="canvas-affordance-rail" aria-label="Gesture avanzate disponibili">
+          {advancedAffordances.map((item) => (
+            <div key={item.key} className="canvas-affordance-chip">
+              <strong>{item.label}</strong>
+              <span>{item.hint}</span>
+            </div>
+          ))}
         </div>
       ) : null}
 
