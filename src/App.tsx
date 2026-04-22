@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
-import { CodePanel } from "./components/CodePanel";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
-import { NotesPanel } from "./components/NotesPanel";
+import { ErWorkspaceSidebar, type ErWorkspaceSidebarTab } from "./components/ErWorkspaceSidebar";
 import { OnboardingGuide } from "./components/OnboardingGuide";
+import { WorkspaceStageBar } from "./components/WorkspaceStageBar";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
 import { TranslationWorkspace } from "./translation/TranslationWorkspace";
@@ -69,6 +69,7 @@ import { GRID_SIZE, snapValue } from "./utils/geometry";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
 import {
   applyErTranslationChoice,
+  buildErTranslationOverview,
   buildErTranslationSourceSignature,
   canOpenLogicalView,
   canOpenTranslationView,
@@ -81,7 +82,11 @@ import {
   refreshLogicalWorkspace,
   updateLogicalWorkspaceModel,
 } from "./utils/logicalWorkspace";
-import { applyLogicalTranslationChoice } from "./utils/logicalTranslation";
+import {
+  applyLogicalTranslationChoice,
+  buildLogicalTranslationOverview,
+  getLogicalTranslationStepCompletion,
+} from "./utils/logicalTranslation";
 import {
   type LogicalColumnSqlPatch,
   updateLogicalColumnSqlMetadata,
@@ -1035,6 +1040,7 @@ export default function App() {
   const [logicalViewport, setLogicalViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.logicalViewport }));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => ({ ...sessionBootstrap.logicalSelection }));
   const [logicalTypeMode, setLogicalTypeMode] = useState(false);
+  const [logicalPanelMode, setLogicalPanelMode] = useState<"workflow" | "sql">("workflow");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const [statusMessage, setStatusMessage] = useState("");
@@ -1119,6 +1125,21 @@ export default function App() {
   const logicalOutOfDate =
     logicalGenerated &&
     logicalHistory.present.translation.meta.sourceSignature !== currentTranslatedSignature;
+  const translationOverview = useMemo(() => buildErTranslationOverview(translationHistory.present), [translationHistory.present]);
+  const translationPendingCount = translationOverview.steps
+    .filter((step) => step.id !== "review")
+    .reduce((total, step) => total + step.pending, 0);
+  const logicalTranslationOverview = useMemo(
+    () => buildLogicalTranslationOverview(translationHistory.present.translatedDiagram, logicalHistory.present),
+    [logicalHistory.present, translationHistory.present.translatedDiagram],
+  );
+  const logicalStepCompletion = useMemo(
+    () => getLogicalTranslationStepCompletion(logicalTranslationOverview),
+    [logicalTranslationOverview],
+  );
+  const logicalPendingCount = Object.entries(logicalStepCompletion)
+    .filter(([stepId]) => stepId !== "review")
+    .reduce((total, [, value]) => total + value.pending + value.invalid, 0);
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
@@ -1146,13 +1167,14 @@ export default function App() {
   const visibleCodePanelWidth = clampValue(codePanelWidth, codePanelResizeBounds.min, codePanelResizeBounds.max);
   const visibleNotesPanelWidth = clampValue(notesPanelWidth, notesPanelResizeBounds.min, notesPanelResizeBounds.max);
   const activeSidePanel: "code" | "notes" | null = notesPanelOpen ? "notes" : codePanelOpen ? "code" : null;
-  const activeSidePanelWidth =
-    activeSidePanel === "notes" ? visibleNotesPanelWidth : visibleCodePanelWidth;
+  const erSidebarTab: ErWorkspaceSidebarTab =
+    activeSidePanel === "notes" ? "notes" : activeSidePanel === "code" ? "code" : "properties";
+  const activeSidePanelWidth = erSidebarTab === "notes" ? visibleNotesPanelWidth : visibleCodePanelWidth;
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
     `app-shell-view-${diagramView}`,
-    activeSidePanel ? "app-shell-sidepanel-open" : "app-shell-sidepanel-closed",
+    erSidebarTab !== "properties" ? "app-shell-sidepanel-open" : "app-shell-sidepanel-closed",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1163,30 +1185,31 @@ export default function App() {
     "--inspector-width": "0px",
   } as CSSProperties;
   const erWorkspaceMainStyle = {
-    "--diagram-code-panel-width": activeSidePanel ? `${activeSidePanelWidth}px` : "0px",
-    "--diagram-code-resizer-width": activeSidePanel ? `${RESIZER_WIDTH}px` : "0px",
+    "--diagram-code-panel-width": `${Math.min(activeSidePanelWidth, 340)}px`,
+    "--diagram-code-resizer-width": !focusMode ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const structuredWorkspaceActive = diagramView === "translation" || diagramView === "logical";
   const logicalWorkspaceShellStyle = {
-    "--toolbar-width": structuredWorkspaceActive ? "220px" : "0px",
+    "--toolbar-width": structuredWorkspaceActive ? "192px" : "0px",
     "--toolbar-resizer-width": "0px",
     "--inspector-resizer-width": "0px",
-    "--inspector-width": structuredWorkspaceActive ? "360px" : "0px",
+    "--inspector-width": structuredWorkspaceActive ? "320px" : "0px",
   } as CSSProperties;
   const workspaceShellClassName = [
     "workspace-shell",
     diagramView === "er" && effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
     focusMode ? "workspace-shell-focus" : "",
     diagramView === "er" && hasSelection ? "workspace-has-selection" : "workspace-idle",
-    activeSidePanel ? `workspace-shell-sidepanel-${activeSidePanel}` : "workspace-shell-sidepanel-none",
+    diagramView === "er" ? `workspace-shell-sidepanel-${erSidebarTab}` : "workspace-shell-sidepanel-none",
   ]
     .filter(Boolean)
     .join(" ");
   const erWorkspaceMainClassName = [
     "workspace-main",
     "diagram-with-code",
-    activeSidePanel ? "code-open" : "",
-    activeSidePanel ? `workspace-main-sidepanel-${activeSidePanel}` : "workspace-main-sidepanel-none",
+    "workspace-main-with-sidebar",
+    erSidebarTab !== "properties" ? "code-open" : "",
+    `workspace-main-sidepanel-${erSidebarTab}`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -2062,6 +2085,56 @@ export default function App() {
 
       return next;
     });
+  }
+
+  function handleSelectErSidebarTab(nextTab: ErWorkspaceSidebarTab) {
+    if (nextTab === "properties") {
+      setCodePanelOpen(false);
+      setNotesPanelOpen(false);
+      return;
+    }
+
+    if (nextTab === "code") {
+      setNotesPanelOpen(false);
+      setCodePanelOpen(true);
+      return;
+    }
+
+    setCodePanelOpen(false);
+    setNotesPanelOpen(true);
+  }
+
+  function handleOpenErStage() {
+    setLogicalPanelMode("workflow");
+    setCodePanelOpen(false);
+    setNotesPanelOpen(false);
+    if (diagramView !== "er") {
+      handleDiagramViewChange("er");
+    }
+  }
+
+  function handleOpenTranslationStage() {
+    setLogicalPanelMode("workflow");
+    handleDiagramViewChange("translation");
+  }
+
+  function handleOpenLogicalStage() {
+    setLogicalPanelMode("workflow");
+    handleDiagramViewChange("logical");
+  }
+
+  function handleOpenSqlStage() {
+    setLogicalPanelMode("sql");
+    handleDiagramViewChange("logical");
+  }
+
+  function handleOpenDiagramCodeStage() {
+    setLogicalPanelMode("workflow");
+    setNotesPanelOpen(false);
+    setCodePanelOpen(true);
+    if (diagramView !== "er") {
+      handleDiagramViewChange("er");
+    }
   }
 
   function handleNotesChange(nextNotes: string) {
@@ -3898,6 +3971,22 @@ export default function App() {
         onToggleToolRail={handleToggleToolRail}
       />
 
+      <WorkspaceStageBar
+        currentView={diagramView}
+        sqlActive={logicalPanelMode === "sql"}
+        codeActive={diagramView === "er" && erSidebarTab === "code"}
+        erIssuesCount={issues.length}
+        translationPendingCount={translationPendingCount}
+        logicalPendingCount={logicalPendingCount}
+        logicalTableCount={logicalHistory.present.model.tables.length}
+        logicalOutOfDate={logicalOutOfDate}
+        onOpenEr={handleOpenErStage}
+        onOpenTranslation={handleOpenTranslationStage}
+        onOpenLogical={handleOpenLogicalStage}
+        onOpenSql={handleOpenSqlStage}
+        onOpenCode={handleOpenDiagramCodeStage}
+      />
+
       <div className={workspaceRegionClassName}>
         <div className="workspace-overlay-region">
           {notices.length > 0 ? (
@@ -3961,6 +4050,7 @@ export default function App() {
                 activeTool={tool}
                 mode={mode}
                 collapsed={effectiveToolbarCollapsed}
+                showPropertiesInspector={false}
                 canUndo={history.canUndo}
                 canRedo={history.canRedo}
                 selectionItemCount={selectionItemCount}
@@ -4002,68 +4092,80 @@ export default function App() {
                 className={erWorkspaceMainClassName}
                 style={erWorkspaceMainStyle}
               >
-                <DiagramCanvas
-                  diagram={history.present}
-                  selection={selection}
-                  tool={tool}
-                  mode={mode}
-                  viewport={viewport}
-                  issues={issues}
-                  statusMessage={statusMessage}
-                  svgRef={svgRef}
-                  onViewportChange={setViewport}
-                  onSelectionChange={setSelection}
-                  onPreviewDiagram={handlePreviewDiagram}
-                  onCommitDiagram={commitDiagram}
-                  onCreateNode={handleCreateNode}
-                  onCreateEdge={handleCreateEdge}
-                  onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
-                  onDeleteNode={handleDeleteNodeById}
-                  onDeleteEdge={handleDeleteEdgeById}
-                  onDeleteSelection={handleDeleteSelection}
-                  onDeleteExternalIdentifier={handleDeleteExternalIdentifier}
-                  onRenameNode={handleRenameNode}
-                  onRenameEdge={handleRenameEdge}
-                  onStatusMessageChange={handleCanvasStatusMessage}
-                />
+                <div className="workspace-canvas-region">
+                  <header className="workspace-canvas-header">
+                    <div className="workspace-canvas-copy">
+                      <span className="workspace-canvas-eyebrow">Schema concettuale</span>
+                      <h2>{history.present.meta.name}</h2>
+                    </div>
+                    <div className="workspace-canvas-stats">
+                      <span>{history.present.nodes.length} elementi</span>
+                      <strong>{issues.length} warning / errori</strong>
+                    </div>
+                  </header>
+
+                  <DiagramCanvas
+                    diagram={history.present}
+                    selection={selection}
+                    tool={tool}
+                    mode={mode}
+                    viewport={viewport}
+                    issues={issues}
+                    statusMessage={statusMessage}
+                    svgRef={svgRef}
+                    onViewportChange={setViewport}
+                    onSelectionChange={setSelection}
+                    onPreviewDiagram={handlePreviewDiagram}
+                    onCommitDiagram={commitDiagram}
+                    onCreateNode={handleCreateNode}
+                    onCreateEdge={handleCreateEdge}
+                    onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
+                    onDeleteNode={handleDeleteNodeById}
+                    onDeleteEdge={handleDeleteEdgeById}
+                    onDeleteSelection={handleDeleteSelection}
+                    onDeleteExternalIdentifier={handleDeleteExternalIdentifier}
+                    onRenameNode={handleRenameNode}
+                    onRenameEdge={handleRenameEdge}
+                    onStatusMessageChange={handleCanvasStatusMessage}
+                  />
+                </div>
 
                 <button
                   type="button"
-                  className={activeSidePanel ? "workspace-resizer workspace-resizer-active" : "workspace-resizer"}
+                  className="workspace-resizer workspace-resizer-active"
                   onPointerDown={(event) =>
-                    handlePanelResizeStart(activeSidePanel === "notes" ? "notes" : "code", event)
+                    handlePanelResizeStart(erSidebarTab === "notes" ? "notes" : "code", event)
                   }
-                  onDoubleClick={() => resetPanelWidth(activeSidePanel === "notes" ? "notes" : "code")}
-                  aria-label={
-                    activeSidePanel === "notes"
-                      ? "Ridimensiona pannello notes"
-                      : "Ridimensiona pannello codice"
-                  }
-                  title={
-                    activeSidePanel === "notes"
-                      ? "Trascina per ridimensionare il pannello notes"
-                      : "Trascina per ridimensionare il pannello codice"
-                  }
-                  disabled={!activeSidePanel}
+                  onDoubleClick={() => resetPanelWidth(erSidebarTab === "notes" ? "notes" : "code")}
+                  aria-label="Ridimensiona pannello laterale"
+                  title="Trascina per ridimensionare il pannello proprieta, codice e note"
+                  disabled={focusMode}
                 />
 
-                <div className="diagram-code-column workspace-sidepanel-host">
-                  {activeSidePanel === "notes" ? (
-                    <NotesPanel
-                      notes={history.present.notes}
-                      editable={mode === "edit"}
-                      onChange={handleNotesChange}
-                    />
-                  ) : (
-                    <CodePanel
-                      code={codeDraft}
-                      editable={mode === "edit"}
-                      parseError={codeError}
-                      onCodeChange={updateCodeDraft}
-                      placeholder="Inserisci il codice ERS"
-                    />
-                  )}
-                </div>
+                <ErWorkspaceSidebar
+                  activeTab={erSidebarTab}
+                  diagram={history.present}
+                  selection={selection}
+                  mode={mode}
+                  issues={issues}
+                  code={codeDraft}
+                  codeError={codeError}
+                  notes={history.present.notes}
+                  onSelectTab={handleSelectErSidebarTab}
+                  onCodeChange={updateCodeDraft}
+                  onNotesChange={handleNotesChange}
+                  onDeleteSelection={handleDeleteSelection}
+                  onDuplicateSelection={handleDuplicateSelection}
+                  onAlign={handleAlignSelection}
+                  onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+                  onEntityInternalIdentifiersChange={handleEntityInternalIdentifiersChange}
+                  onEntityExternalIdentifiersChange={handleEntityExternalIdentifiersChange}
+                  onRenameSelection={handleRenameSelectionQuick}
+                  onNodeChange={handleNodeChange}
+                  onNodesChange={handleNodesChange}
+                  onEdgeChange={handleEdgeChange}
+                  onIssueSelect={handleIssueNotice}
+                />
               </div>
             </>
           ) : diagramView === "translation" ? (
@@ -4095,10 +4197,12 @@ export default function App() {
               viewport={logicalViewport}
               selection={logicalSelection}
               typeMode={logicalTypeMode}
+              panelMode={logicalPanelMode}
               fitRequestToken={logicalFitRequestToken}
               onViewportChange={setLogicalViewport}
               onSelectionChange={setLogicalSelection}
               onTypeModeChange={handleLogicalTypeModeChange}
+              onPanelModeChange={setLogicalPanelMode}
               onApplyChoice={handleApplyLogicalTranslationChoice}
               onResetTranslation={handleResetLogicalTranslation}
               onPreviewModel={previewLogicalModel}

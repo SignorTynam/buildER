@@ -29,10 +29,12 @@ interface LogicalTranslationWorkspaceProps {
   viewport: Viewport;
   selection: LogicalSelection;
   typeMode: boolean;
+  panelMode: "workflow" | "sql";
   fitRequestToken: number;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
   onTypeModeChange: (nextValue: boolean) => void;
+  onPanelModeChange: (nextValue: "workflow" | "sql") => void;
   onApplyChoice: (item: LogicalTranslationItem, choice: LogicalTranslationChoice) => void;
   onResetTranslation: () => void;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
@@ -282,6 +284,8 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     (sum, step) => sum + (completion[step.id]?.pending ?? 0),
     0,
   );
+  const activeStepDescriptor = LOGICAL_TRANSLATION_STEPS.find((step) => step.id === activeStep);
+  const showSqlPanel = props.panelMode === "sql";
 
   useEffect(() => {
     const preferredStep = getPreferredStep(overview, completion);
@@ -434,21 +438,54 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         </div>
       </section>
 
-      <aside className="inspector-panel translation-panel" aria-label="Pannello decisioni logiche">
+      <aside
+        className="inspector-panel translation-panel"
+        aria-label={showSqlPanel ? "Pannello SQL del modello logico" : "Pannello decisioni logiche"}
+      >
         <section className="translation-panel-section">
-          <span className="translation-panel-eyebrow">Step corrente</span>
-          <h2>{LOGICAL_TRANSLATION_STEPS.find((step) => step.id === activeStep)?.label}</h2>
-          <p>{LOGICAL_TRANSLATION_STEPS.find((step) => step.id === activeStep)?.description}</p>
+          <span className="translation-panel-eyebrow">Pannello laterale</span>
+          <div className="translation-section-head">
+            <div>
+              <h2>{showSqlPanel ? "SQL generato" : activeStepDescriptor?.label}</h2>
+              <p>
+                {showSqlPanel
+                  ? "Anteprima persistente del codice SQL derivato dallo schema logico corrente."
+                  : activeStepDescriptor?.description}
+              </p>
+            </div>
+          </div>
+          <div className="translation-panel-tabs" role="tablist" aria-label="Sezioni del pannello logico">
+            <button
+              type="button"
+              className={!showSqlPanel ? "translation-panel-tab active" : "translation-panel-tab"}
+              onClick={() => props.onPanelModeChange("workflow")}
+              role="tab"
+              aria-selected={!showSqlPanel}
+            >
+              Decisioni
+            </button>
+            <button
+              type="button"
+              className={showSqlPanel ? "translation-panel-tab active" : "translation-panel-tab"}
+              onClick={() => props.onPanelModeChange("sql")}
+              role="tab"
+              aria-selected={showSqlPanel}
+            >
+              SQL
+            </button>
+          </div>
         </section>
 
-        {selectedElementLabel ? (
-          <section className="translation-panel-section">
-            <div className="translation-section-head">
-              <h3>Elemento selezionato</h3>
-            </div>
-            <p>{selectedElementLabel}</p>
-          </section>
-        ) : null}
+        {!showSqlPanel ? (
+          <>
+            {selectedElementLabel ? (
+              <section className="translation-panel-section">
+                <div className="translation-section-head">
+                  <h3>Elemento selezionato</h3>
+                </div>
+                <p>{selectedElementLabel}</p>
+              </section>
+            ) : null}
 
         <section className="translation-panel-section">
           <div className="translation-section-head">
@@ -483,31 +520,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               </span>
             </div>
           ) : null}
-        </section>
-
-        <section className="translation-panel-section translation-sql-preview-section">
-          <div className="translation-section-head">
-            <h3>SQL Preview</h3>
-            <span className="translation-inline-counter">{props.workspace.model.tables.length}</span>
-          </div>
-          <div className="translation-sql-actions">
-            <button type="button" onClick={() => void copySqlPreview()}>
-              {sqlCopyStatus === "copied" ? "Copiato" : sqlCopyStatus === "error" ? "Errore copia" : "Copia SQL"}
-            </button>
-            <button type="button" onClick={() => downloadSqlPreview(sqlPreview)}>
-              Download .sql
-            </button>
-          </div>
-          <textarea
-            className="translation-sql-preview"
-            readOnly
-            value={sqlPreview}
-            spellCheck={false}
-            aria-label="Anteprima SQL del modello logico"
-          />
-          <p className="translation-sql-hint">
-            Tipi mancanti: default visibile automatico applicato sul modello logico.
-          </p>
         </section>
 
         {activeStep !== "review" ? (
@@ -659,6 +671,56 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               ) : (
                 <div className="translation-empty-hint">Nessun conflitto aperto nella trasformazione logica corrente.</div>
               )}
+            </section>
+          </>
+        )}
+          </>
+        ) : (
+          <>
+            <section className="translation-panel-section translation-sql-preview-section">
+              <div className="translation-section-head">
+                <h3>Anteprima SQL</h3>
+                <span className="translation-inline-counter">{props.workspace.model.tables.length}</span>
+              </div>
+              <p>Il codice SQL riflette in tempo reale le decisioni logiche applicate nel workflow corrente.</p>
+              <div className="translation-sql-actions">
+                <button type="button" onClick={() => void copySqlPreview()}>
+                  {sqlCopyStatus === "copied" ? "Copiato" : sqlCopyStatus === "error" ? "Errore copia" : "Copia SQL"}
+                </button>
+                <button type="button" onClick={() => downloadSqlPreview(sqlPreview)}>
+                  Download .sql
+                </button>
+              </div>
+              <textarea
+                className="translation-sql-preview"
+                readOnly
+                value={sqlPreview}
+                spellCheck={false}
+                aria-label="Anteprima SQL del modello logico"
+              />
+              <p className="translation-sql-hint">
+                Tipi mancanti e default sono derivati dal modello logico attuale e aggiornati automaticamente.
+              </p>
+            </section>
+
+            <section className="translation-panel-section">
+              <div className="translation-section-head">
+                <h3>Stato generazione</h3>
+              </div>
+              <div className="translation-review-grid" role="list">
+                <div className="translation-review-card" role="listitem">
+                  <strong>Tabelle</strong>
+                  <span>{props.workspace.model.tables.length} materializzate</span>
+                </div>
+                <div className="translation-review-card" role="listitem">
+                  <strong>Warning</strong>
+                  <span>{props.workspace.translation.conflicts.length} aperti</span>
+                </div>
+                <div className="translation-review-card" role="listitem">
+                  <strong>Decisioni</strong>
+                  <span>{props.workspace.translation.decisions.length} applicate</span>
+                </div>
+              </div>
             </section>
           </>
         )}

@@ -183,61 +183,100 @@ export function AppHeader(props: AppHeaderProps) {
     .filter(Boolean)
     .join(" ");
 
+  const workflowActionLabel = isErView
+    ? "Apri traduzione"
+    : isTranslationView
+      ? "Genera schema logico"
+      : props.logicalOutOfDate
+        ? "Riallinea logico"
+        : "Rigenera logico";
+
+  function handleWorkflowAction() {
+    if (isErView) {
+      props.onDiagramViewChange("translation");
+      return;
+    }
+
+    props.onGenerateLogicalModel();
+  }
+
   return (
     <header className={headerClassName}>
       <div className="app-title-block">
         <div className="app-title-inline">
           <h1>{props.appTitle}</h1>
           <div className="app-version-pill">v{props.appVersion}</div>
-        </div>
-        <div className="app-title-copy">
           <div className="app-subtitle">{props.diagramName}</div>
-          <div className="header-title-meta" aria-label="Stato workspace">
-            <span className="header-status-pill">{currentViewLabel}</span>
-            <span className="header-status-pill">{editorStateLabel}</span>
-            <span
-              className={
-                isLogicalView && props.logicalOutOfDate
-                  ? "header-status-pill header-status-pill-warning"
-                  : "header-status-pill header-status-pill-muted"
-              }
-            >
-              {workspaceStateLabel}
-            </span>
-          </div>
+        </div>
+        <div className="header-title-meta" aria-label="Stato workspace">
+          <span className="header-status-pill">{currentViewLabel}</span>
+          <span className="header-status-pill">{editorStateLabel}</span>
+          <span
+            className={
+              isLogicalView && props.logicalOutOfDate
+                ? "header-status-pill header-status-pill-warning"
+                : "header-status-pill header-status-pill-muted"
+            }
+          >
+            {workspaceStateLabel}
+          </span>
         </div>
       </div>
 
-      <div className="header-switches">
-        <div className="header-control-group header-control-group-view">
-          <span className="header-group-label">Vista workspace</span>
-          <div className="mode-switch mode-switch-primary" role="group" aria-label={t("header.viewGroupLabel")}>
-            <button
-              className={props.diagramView === "er" ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onDiagramViewChange("er")}
-            >
-              ER
-            </button>
-            <button
-              className={props.diagramView === "translation" ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onDiagramViewChange("translation")}
-            >
-              {t("header.views.translation")}
-            </button>
-            <button
-              className={props.diagramView === "logical" ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onDiagramViewChange("logical")}
-            >
-              {t("header.views.logical")}
-            </button>
-          </div>
+      <div className="header-toolbar-row">
+        <div className="header-inline-group" role="group" aria-label="Azioni globali workspace">
+          <button type="button" className="header-button header-quick-button" onClick={props.onNewProject}>
+            Nuovo
+          </button>
+          <button type="button" className="header-button header-quick-button" onClick={props.onSaveProject}>
+            Salva
+          </button>
+          <button
+            type="button"
+            className="header-button header-quick-button"
+            onClick={props.onUndo}
+            disabled={!props.canUndo}
+            title={t("common.actions.undo")}
+          >
+            {t("common.actions.undo")}
+          </button>
+          <button
+            type="button"
+            className="header-button header-quick-button"
+            onClick={props.onRedo}
+            disabled={!props.canRedo}
+            title={t("common.actions.redo")}
+          >
+            {t("common.actions.redo")}
+          </button>
         </div>
 
-        <div className="header-control-group header-control-group-mode">
-          <span className="header-group-label">Modalita editor</span>
+        <div className="header-inline-group header-inline-group-primary" role="group" aria-label="Azioni della fase corrente">
+          <button
+            type="button"
+            className="header-button header-primary-button"
+            onClick={handleWorkflowAction}
+          >
+            {workflowActionLabel}
+          </button>
+          {isTranslationView ? (
+            <button type="button" className="header-button header-secondary-button" onClick={props.onResetTranslation}>
+              Reset traduzione
+            </button>
+          ) : null}
+          {isLogicalView ? (
+            <>
+              <button type="button" className="header-button header-secondary-button" onClick={props.onAutoLayoutLogical}>
+                Auto layout
+              </button>
+              <button type="button" className="header-button header-secondary-button" onClick={props.onFitLogical}>
+                Adatta
+              </button>
+            </>
+          ) : null}
+        </div>
+
+        <div className="header-inline-group header-inline-group-mode">
           <div className="mode-switch mode-switch-secondary" role="group" aria-label={t("header.editorModeGroupLabel")}>
             <button
               className={props.mode === "edit" && isErView ? "mode-button active" : "mode-button"}
@@ -256,70 +295,44 @@ export function AppHeader(props: AppHeaderProps) {
               {t("header.modes.view")}
             </button>
           </div>
-          {!isErView ? <span className="header-group-note">Disponibile solo nella vista ER.</span> : null}
-        </div>
-      </div>
-
-      <div className="header-utility-bar">
-        <div className="header-control-group header-control-group-actions">
-          <span className="header-group-label">Azioni frequenti</span>
-          <div className="header-quick-actions" role="group" aria-label={t("header.quickActionsLabel")}>
-            <button
-              type="button"
-              className="header-button header-quick-button"
-              onClick={props.onUndo}
-              disabled={!props.canUndo}
-              title={t("common.actions.undo")}
-            >
-              {t("common.actions.undo")}
-            </button>
-            <button
-              type="button"
-              className="header-button header-quick-button"
-              onClick={props.onRedo}
-              disabled={!props.canRedo}
-              title={t("common.actions.redo")}
-            >
-              {t("common.actions.redo")}
-            </button>
-            {isErView ? (
-              <>
-                <button
-                  type="button"
-                  className={
-                    props.codePanelOpen
-                      ? "header-button header-quick-button active"
-                      : "header-button header-quick-button"
-                  }
-                  onClick={props.onToggleCodePanel}
-                  aria-pressed={props.codePanelOpen}
-                  title={props.codePanelOpen ? t("header.quickActions.hideCode") : t("header.quickActions.showCode")}
-                >
-                  ERS
-                </button>
-                <button
-                  type="button"
-                  className={
-                    props.notesPanelOpen
-                      ? "header-button header-quick-button active"
-                      : "header-button header-quick-button"
-                  }
-                  onClick={props.onToggleNotesPanel}
-                  aria-pressed={props.notesPanelOpen}
-                  title={props.notesPanelOpen ? t("header.quickActions.hideNotes") : t("header.quickActions.showNotes")}
-                >
-                  Note
-                </button>
-              </>
-            ) : null}
-          </div>
+          {!isErView ? <span className="header-inline-note">Disponibile solo nella fase ER.</span> : null}
         </div>
 
-        <div className="header-control-group header-control-group-menu">
-          <span className="header-group-label">Azioni workspace</span>
+        <div className="header-inline-group" role="group" aria-label={t("header.quickActionsLabel")}>
+          <button
+            type="button"
+            className={
+              props.notesPanelOpen
+                ? "header-button header-quick-button active"
+                : "header-button header-quick-button"
+            }
+            onClick={props.onToggleNotesPanel}
+            aria-pressed={props.notesPanelOpen}
+          >
+            Note
+          </button>
+          <button
+            type="button"
+            className="header-button header-quick-button"
+            onClick={props.onToggleFocusMode}
+            aria-pressed={props.focusMode}
+          >
+            {props.focusMode ? "Esci focus" : "Focus"}
+          </button>
+          <button
+            type="button"
+            className="header-button header-quick-button"
+            onClick={props.onToggleToolRail}
+            disabled={props.focusMode}
+          >
+            {props.toolRailCollapsed ? "Apri tools" : "Comprimi tools"}
+          </button>
+        </div>
+
+        <div className="header-inline-group header-inline-group-menu">
           <nav ref={navRef} className="header-nav" aria-label={t("header.secondaryActionsLabel")}>
             <details ref={menuGroupRef} className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
-              <summary>{t("header.menu.trigger")}</summary>
+              <summary>Altro</summary>
               <div
                 className="nav-menu nav-menu-wide nav-menu-floating"
                 style={
@@ -364,18 +377,6 @@ export function AppHeader(props: AppHeaderProps) {
                       </button>
                     </>
                   ) : null}
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onToggleFocusMode)}>
-                    {props.focusMode ? t("header.quickActions.exitFocus") : t("header.quickActions.focus")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => runMenuAction(event, props.onToggleToolRail)}
-                    disabled={props.focusMode}
-                  >
-                    {props.toolRailCollapsed
-                      ? t("header.menu.actions.openTools")
-                      : t("header.menu.actions.collapseTools")}
-                  </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
                     {t("header.menu.actions.regenerateErs")}
                   </button>

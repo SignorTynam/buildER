@@ -31,6 +31,7 @@ interface ToolbarProps {
   activeTool: ToolKind;
   mode: EditorMode;
   collapsed: boolean;
+  showPropertiesInspector?: boolean;
   canUndo: boolean;
   canRedo: boolean;
   selectionItemCount: number;
@@ -296,7 +297,7 @@ export function Toolbar(props: ToolbarProps) {
   const selectionTargetIds = new Set([...props.selection.nodeIds, ...props.selection.edgeIds]);
   const selectionIssues = props.issues.filter((issue) => selectionTargetIds.has(issue.targetId));
   const visibleIssues = selectionIssues.length > 0 ? selectionIssues : context === "empty" ? props.issues.slice(0, 4) : [];
-  const showPropertiesInspector = !props.collapsed;
+  const showPropertiesInspector = props.showPropertiesInspector !== false && !props.collapsed;
 
   function renderContextActions() {
     if (context === "empty") {
