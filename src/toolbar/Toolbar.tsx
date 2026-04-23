@@ -32,15 +32,11 @@ interface ToolbarProps {
   mode: EditorMode;
   collapsed: boolean;
   showPropertiesInspector?: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
   selectionItemCount: number;
   issues: ValidationIssue[];
   selectedNode?: DiagramNode;
   selectedEdge?: DiagramEdge;
   onToolChange: (tool: ToolKind) => void;
-  onUndo: () => void;
-  onRedo: () => void;
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
   onCreateAttributeForSelection: () => void;
@@ -58,7 +54,6 @@ interface ToolbarProps {
   onIssueSelect: (issue: ValidationIssue) => void;
   onToggleCollapse: () => void;
   onOpenTranslation: () => void;
-  onSaveProject: () => void;
   onExportSvg: () => void;
 }
 
@@ -128,7 +123,7 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
   );
 }
 
-function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "connect" | "translate" | "save" | "export" | "undo" | "redo" | "identifier" | "multivalue" | "weak" }) {
+function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "connect" | "translate" | "export" | "identifier" | "multivalue" | "weak" }) {
   if (kind === "rename") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -176,37 +171,10 @@ function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "conn
     );
   }
 
-  if (kind === "save") {
-    return (
-      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
-        <path d="M5 5h11l3 3v11H5z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M8 5v5h7V5M8 19v-5h8v5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
   if (kind === "export") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
         <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 18h14" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (kind === "undo") {
-    return (
-      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
-        <path d="M9 7L5 11l4 4" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M6 11h7a5 5 0 010 10h-1" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (kind === "redo") {
-    return (
-      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
-        <path d="M15 7l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M18 11h-7a5 5 0 000 10h1" fill="none" stroke="currentColor" strokeWidth="1.8" />
       </svg>
     );
   }
@@ -237,76 +205,6 @@ function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "conn
   );
 }
 
-function getAttributeHostLabel(
-  selectedNode?: DiagramNode,
-  selectionItemCount?: number,
-  diagram?: DiagramDocument,
-) {
-  if (!selectedNode || selectedNode.type !== "attribute" || !diagram) {
-    return null;
-  }
-
-  const attributeEdge = diagram.edges.find(
-    (edge) => edge.type === "attribute" && (edge.sourceId === selectedNode.id || edge.targetId === selectedNode.id),
-  );
-  if (!attributeEdge) {
-    return selectionItemCount && selectionItemCount > 1 ? null : null;
-  }
-
-  const hostId = attributeEdge.sourceId === selectedNode.id ? attributeEdge.targetId : attributeEdge.sourceId;
-  const hostNode = diagram.nodes.find((node) => node.id === hostId);
-  return hostNode?.label.toUpperCase() ?? null;
-}
-
-function getContextSummary(
-  t: ReturnType<typeof useI18n>["t"],
-  diagram: DiagramDocument,
-  selectedNode: DiagramNode | undefined,
-  selectedEdge: DiagramEdge | undefined,
-  selectionItemCount: number,
-): { title: string; subtitle: string } {
-  if (selectedNode?.type === "entity") {
-    return {
-      title: selectedNode.label,
-      subtitle: "Entita selezionata",
-    };
-  }
-
-  if (selectedNode?.type === "relationship") {
-    return {
-      title: selectedNode.label,
-      subtitle: "Relazione selezionata",
-    };
-  }
-
-  if (selectedNode?.type === "attribute") {
-    const hostLabel = getAttributeHostLabel(selectedNode, selectionItemCount, diagram);
-    return {
-      title: selectedNode.label,
-      subtitle: hostLabel ? `Attributo di ${hostLabel}` : t("toolbar.context.attributeSelected"),
-    };
-  }
-
-  if (selectedEdge) {
-    return {
-      title: selectedEdge.label || "Collegamento",
-      subtitle: "Connessione selezionata",
-    };
-  }
-
-  if (selectionItemCount > 1) {
-    return {
-      title: `${selectionItemCount} elementi`,
-      subtitle: "Selezione multipla",
-    };
-  }
-
-  return {
-    title: "Canvas ER",
-    subtitle: "Nessuna selezione",
-  };
-}
-
 export function Toolbar(props: ToolbarProps) {
   const { t } = useI18n();
   const canEdit = props.mode === "edit";
@@ -333,13 +231,6 @@ export function Toolbar(props: ToolbarProps) {
         : props.selectedEdge
           ? "edge"
           : "multi";
-  const contextSummary = getContextSummary(
-    t,
-    props.diagram,
-    props.selectedNode,
-    props.selectedEdge,
-    props.selectionItemCount,
-  );
   const selectionTargetIds = new Set([...props.selection.nodeIds, ...props.selection.edgeIds]);
   const selectionIssues = props.issues.filter((issue) => selectionTargetIds.has(issue.targetId));
   const visibleIssues = selectionIssues.length > 0 ? selectionIssues : props.issues.slice(0, 4);
@@ -374,43 +265,11 @@ export function Toolbar(props: ToolbarProps) {
     if (context === "empty") {
       return (
         <section className="toolbar-section toolbar-section-context">
-          <div className="toolbar-section-head">
-            <div className="toolbar-section-label">Quick actions</div>
-            <span className="toolbar-section-meta">Model</span>
-          </div>
           <div className="toolbar-list toolbar-list-tight">
-            <button
-              type="button"
-              className={props.activeTool === "entity" ? "toolbar-action-button active" : "toolbar-action-button"}
-              onClick={() => props.onToolChange("entity")}
-              disabled={!canEdit}
-            >
-              <ToolIcon tool="entity" />
-              <span className="tool-label">{t("toolbar.tools.entity")}</span>
-            </button>
-            <button
-              type="button"
-              className={props.activeTool === "relationship" ? "toolbar-action-button active" : "toolbar-action-button"}
-              onClick={() => props.onToolChange("relationship")}
-              disabled={!canEdit}
-            >
-              <ToolIcon tool="relationship" />
-              <span className="tool-label">{t("toolbar.tools.relationship")}</span>
-            </button>
-            <button
-              type="button"
-              className={props.activeTool === "attribute" ? "toolbar-action-button active" : "toolbar-action-button"}
-              onClick={() => props.onToolChange("attribute")}
-              disabled={!canEdit}
-            >
-              <ToolIcon tool="attribute" />
-              <span className="tool-label">{t("toolbar.tools.attribute")}</span>
-            </button>
             {renderQuickButton("Translate", "translate", props.onOpenTranslation, {
               disabled: false,
             })}
             {renderQuickButton("Export", "export", props.onExportSvg)}
-            {renderQuickButton("Save", "save", props.onSaveProject)}
           </div>
         </section>
       );
@@ -421,10 +280,6 @@ export function Toolbar(props: ToolbarProps) {
         const entity = props.selectedNode;
         return (
           <section className="toolbar-section toolbar-section-context">
-            <div className="toolbar-section-head">
-              <div className="toolbar-section-label">Entity actions</div>
-              <span className="toolbar-section-meta">Selection</span>
-            </div>
             <div className="toolbar-list toolbar-list-tight">
               {renderQuickButton("Attribute", "connect", props.onCreateAttributeForSelection, {
                 disabled: !canEdit,
@@ -451,10 +306,6 @@ export function Toolbar(props: ToolbarProps) {
       if (props.selectedNode.type === "relationship") {
         return (
           <section className="toolbar-section toolbar-section-context">
-            <div className="toolbar-section-head">
-              <div className="toolbar-section-label">Relation actions</div>
-              <span className="toolbar-section-meta">Selection</span>
-            </div>
             <div className="toolbar-list toolbar-list-tight">
               {renderQuickButton("Connect", "connect", () => props.onToolChange("connector"), {
                 active: props.activeTool === "connector",
@@ -492,10 +343,6 @@ export function Toolbar(props: ToolbarProps) {
 
       return (
         <section className="toolbar-section toolbar-section-context">
-          <div className="toolbar-section-head">
-            <div className="toolbar-section-label">Attribute actions</div>
-            <span className="toolbar-section-meta">Selection</span>
-          </div>
           <div className="toolbar-list toolbar-list-tight">
             {!attribute.isMultivalued && !attribute.isCompositeInternal
               ? renderQuickButton("Identifier", "identifier", () => props.onNodeChange(attribute.id, { isIdentifier: !attribute.isIdentifier }), {
@@ -527,10 +374,6 @@ export function Toolbar(props: ToolbarProps) {
     if (context === "edge") {
       return (
         <section className="toolbar-section toolbar-section-context">
-          <div className="toolbar-section-head">
-            <div className="toolbar-section-label">Link actions</div>
-            <span className="toolbar-section-meta">Selection</span>
-          </div>
           <div className="toolbar-list toolbar-list-tight">
             {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
               disabled: !canEdit,
@@ -545,10 +388,6 @@ export function Toolbar(props: ToolbarProps) {
 
     return (
       <section className="toolbar-section toolbar-section-context">
-        <div className="toolbar-section-head">
-          <div className="toolbar-section-label">Selection actions</div>
-          <span className="toolbar-section-meta">Multi</span>
-        </div>
         <div className="toolbar-list toolbar-list-tight">
           <button type="button" className="toolbar-action-button toolbar-action-button-text" onClick={() => props.onAlign("left")} disabled={!canEdit}>
             <span className="tool-label">{t("toolbar.actions.alignLeftShort")}</span>
@@ -581,17 +420,12 @@ export function Toolbar(props: ToolbarProps) {
           : `toolbar-panel contextual-toolbar toolbar-panel-context-${context}`
       }
     >
-      <div className={props.collapsed ? "panel-head-row panel-head-row-compact" : "panel-head-row"}>
-        {!props.collapsed ? (
-          <div>
-            <div className="panel-heading">{contextSummary.title}</div>
-            <p className="panel-subheading">{contextSummary.subtitle}</p>
-          </div>
-        ) : (
+      <div className="panel-head-row panel-head-row-compact">
+        {props.collapsed ? (
           <div className="toolbar-collapsed-summary" aria-hidden="true">
             {props.selectionItemCount > 0 ? String(props.selectionItemCount) : activeToolDefinition?.shortcut.toUpperCase() ?? "T"}
           </div>
-        )}
+        ) : null}
         <button
           type="button"
           className="panel-toggle"
@@ -603,22 +437,7 @@ export function Toolbar(props: ToolbarProps) {
         </button>
       </div>
 
-      {!props.collapsed ? (
-        <section className="toolbar-section toolbar-section-mode">
-          <div className="toolbar-mode-chip">{props.mode === "edit" ? "EDIT" : "VIEW"}</div>
-          <div className="toolbar-mode-chip muted">{activeToolDefinition?.label ?? props.activeTool}</div>
-        </section>
-      ) : null}
-
       <section className="toolbar-section toolbar-section-primary">
-        <div className="toolbar-section-head">
-          <div className="toolbar-section-label">{t("toolbar.sections.tools")}</div>
-          {!props.collapsed ? (
-            <span className="toolbar-section-meta">
-              {activeToolDefinition ? activeToolDefinition.shortcut.toUpperCase() : props.activeTool}
-            </span>
-          ) : null}
-        </div>
         <div className="toolbar-list toolbar-list-primary">
           {availableTools.map((item) => {
             const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
@@ -643,30 +462,8 @@ export function Toolbar(props: ToolbarProps) {
 
       {renderContextActions()}
 
-      {!props.collapsed ? (
-        <section className="toolbar-section toolbar-section-history">
-          <div className="toolbar-section-head">
-            <div className="toolbar-section-label">History</div>
-            <span className="toolbar-section-meta">Undo / Redo</span>
-          </div>
-          <div className="toolbar-list toolbar-list-tight">
-            {renderQuickButton(t("common.actions.undo"), "undo", props.onUndo, {
-              disabled: !props.canUndo,
-            })}
-            {renderQuickButton(t("common.actions.redo"), "redo", props.onRedo, {
-              disabled: !props.canRedo,
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="toolbar-section toolbar-section-feedback">
-        <div className="toolbar-section-head">
-          <div className="toolbar-section-label">Validation</div>
-          <span className="toolbar-section-meta">{visibleIssues.length}</span>
-        </div>
-
-        {visibleIssues.length > 0 ? (
+      {visibleIssues.length > 0 ? (
+        <section className="toolbar-section toolbar-section-feedback">
           <div className="toolbar-issue-list">
             {visibleIssues.map((issue) => (
               <button
@@ -684,17 +481,11 @@ export function Toolbar(props: ToolbarProps) {
               </button>
             ))}
           </div>
-        ) : (
-          <div className="toolbar-empty-hint">Nessun warning contestuale nella selezione corrente.</div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       {showPropertiesInspector ? (
         <section className="toolbar-section toolbar-properties-shell toolbar-section-properties">
-          <div className="toolbar-section-head">
-            <div className="toolbar-section-label">Inspector</div>
-            <span className="toolbar-section-meta">Properties</span>
-          </div>
           <InspectorPanel
             embedded
             hideQuickActions

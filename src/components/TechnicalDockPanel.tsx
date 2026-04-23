@@ -36,44 +36,30 @@ const TAB_LABELS: Record<TechnicalPanelTab, string> = {
   sql: "SQL",
 };
 
-const TAB_DESCRIPTIONS: Record<TechnicalPanelTab, string> = {
-  review: "Stato operativo del workspace corrente.",
-  code: "Rappresentazione ERS sincronizzata con il diagramma.",
-  notes: "Annotazioni di progetto leggere e non invasive.",
-  sql: "Codice SQL generato dallo schema logico.",
-};
-
 export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
   const activeTab = props.availableTabs.includes(props.activeTab) ? props.activeTab : props.availableTabs[0] ?? "review";
 
   return (
     <aside className={`technical-dock-panel technical-dock-panel-${activeTab}`} aria-label="Pannello tecnico">
-      <header className="technical-dock-head">
-        <div className="technical-dock-title">
-          <span className="technical-side-panel-kicker">Technical dock</span>
-          <h2>{TAB_LABELS[activeTab]}</h2>
-          <p>{TAB_DESCRIPTIONS[activeTab]}</p>
+      <header className="technical-dock-head technical-dock-head-compact">
+        <div className="technical-dock-tabs" role="tablist" aria-label="Sezioni pannello tecnico">
+          {props.availableTabs.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={tab === activeTab ? "technical-dock-tab active" : "technical-dock-tab"}
+              onClick={() => props.onTabChange(tab)}
+              role="tab"
+              aria-selected={tab === activeTab}
+            >
+              {TAB_LABELS[tab]}
+            </button>
+          ))}
         </div>
-
         <button type="button" className="technical-side-panel-close" onClick={props.onClose}>
           Hide
         </button>
       </header>
-
-      <div className="technical-dock-tabs" role="tablist" aria-label="Sezioni pannello tecnico">
-        {props.availableTabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={tab === activeTab ? "technical-dock-tab active" : "technical-dock-tab"}
-            onClick={() => props.onTabChange(tab)}
-            role="tab"
-            aria-selected={tab === activeTab}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
 
       <div className="technical-dock-body">
         {activeTab === "code" && props.code ? (

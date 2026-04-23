@@ -999,7 +999,7 @@ summary:focus-visible {
 
 .technical-dock-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   background: var(--editor-panel);
   overflow: hidden;
@@ -1013,6 +1013,19 @@ summary:focus-visible {
   padding: 10px;
   border-bottom: 1px solid var(--editor-border);
   background: var(--editor-panel-muted);
+}
+
+.technical-dock-head-compact {
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.technical-dock-head-compact .technical-dock-tabs {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
 }
 
 .technical-dock-title {
@@ -1737,6 +1750,10 @@ summary:focus-visible {
 
 .translation-panel-section:first-child {
   padding-top: 0 !important;
+}
+
+.translation-panel-tabs-section {
+  padding-bottom: 8px !important;
 }
 
 .translation-item-card,

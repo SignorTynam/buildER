@@ -4127,15 +4127,11 @@ export default function App() {
                 mode={mode}
                 collapsed={effectiveToolbarCollapsed}
                 showPropertiesInspector={hasSelection}
-                canUndo={history.canUndo}
-                canRedo={history.canRedo}
                 selectionItemCount={selectionItemCount}
                 issues={issues}
                 selectedNode={selectedNode}
                 selectedEdge={selectedEdge}
                 onToolChange={setTool}
-                onUndo={history.undo}
-                onRedo={history.redo}
                 onDuplicateSelection={handleDuplicateSelection}
                 onDeleteSelection={handleDeleteSelection}
                 onCreateAttributeForSelection={handleCreateAttributeFromSelection}
@@ -4149,7 +4145,6 @@ export default function App() {
                 onIssueSelect={handleIssueNotice}
                 onToggleCollapse={handleToggleToolRail}
                 onOpenTranslation={handleOpenTranslationStage}
-                onSaveProject={handleSaveProject}
                 onExportSvg={handleExportSvg}
               />
 

@@ -47,18 +47,6 @@ function getStepTotalsLabel(total: number, pending: number, blocked: boolean): s
   return "completato";
 }
 
-function describeSelectedElement(workspace: ErTranslationWorkspaceDocument, selection: SelectionState): string | null {
-  if (selection.nodeIds.length === 1 && selection.edgeIds.length === 0) {
-    return workspace.translatedDiagram.nodes.find((node) => node.id === selection.nodeIds[0])?.label ?? null;
-  }
-
-  if (selection.edgeIds.length === 1 && selection.nodeIds.length === 0) {
-    return workspace.translatedDiagram.edges.find((edge) => edge.id === selection.edgeIds[0])?.label || "Collegamento";
-  }
-
-  return null;
-}
-
 export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [canvasStatus, setCanvasStatus] = useState("");
@@ -85,10 +73,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
         (conflict) => conflict.targetType === selectedItem.targetType && conflict.targetId === selectedItem.id,
       )
     : [];
-  const selectedElementLabel = useMemo(
-    () => describeSelectedElement(props.workspace, props.selection),
-    [props.selection, props.workspace],
-  );
 
   useEffect(() => {
     const preferredStep = getPreferredErTranslationStep(overview);
@@ -128,19 +112,11 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   }, [overview, props.selection]);
 
   const translatedIssues = useMemo(() => validateDiagram(props.workspace.translatedDiagram), [props.workspace.translatedDiagram]);
-  const totalPending = ER_TRANSLATION_STEPS.filter((step) => step.id !== "review").reduce(
-    (sum, step) => sum + (overview.steps.find((candidate) => candidate.id === step.id)?.pending ?? 0),
-    0,
-  );
+  const activeStepOverview = overview.steps.find((step) => step.id === activeStep);
 
   return (
     <>
       <aside className="toolbar-panel translation-step-rail" aria-label="Workflow di traduzione">
-        <div className="translation-step-rail-header">
-          <span>Traduzione</span>
-          <strong>{overview.isComplete ? "pipeline completata" : `${totalPending} fix ancora da applicare`}</strong>
-        </div>
-
         <div className="translation-step-list" role="list">
           {overview.steps.map((step) => (
             <button
@@ -201,23 +177,12 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
       </section>
 
       <aside className="inspector-panel translation-panel" aria-label="Pannello decisioni di traduzione">
-        <section className="translation-panel-section">
-          <span className="translation-panel-eyebrow">Step corrente</span>
-          <h2>{overview.steps.find((step) => step.id === activeStep)?.label}</h2>
-          <p>{overview.steps.find((step) => step.id === activeStep)?.description}</p>
-          {overview.steps.find((step) => step.id === activeStep)?.blockReason ? (
-            <div className="translation-warning-item level-warning">
-              {overview.steps.find((step) => step.id === activeStep)?.blockReason}
-            </div>
-          ) : null}
-        </section>
-
-        {selectedElementLabel ? (
-          <section className="translation-panel-section">
-            <div className="translation-section-head">
-              <h3>Elemento selezionato</h3>
-            </div>
-            <p>{selectedElementLabel}</p>
+        {activeStep !== "review" || activeStepOverview?.blockReason ? (
+          <section className="translation-panel-section translation-panel-summary">
+            {activeStep !== "review" && activeStepOverview?.description ? <p>{activeStepOverview.description}</p> : null}
+            {activeStepOverview?.blockReason ? (
+              <div className="translation-warning-item level-warning">{activeStepOverview.blockReason}</div>
+            ) : null}
           </section>
         ) : null}
 
@@ -326,18 +291,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           </>
         ) : (
           <>
-            <section className="translation-panel-section">
-              <div className="translation-review-grid" role="list">
-                {overview.steps.filter((step) => step.id !== "review").map((step) => (
-                  <div key={step.id} className="translation-review-card" role="listitem">
-                    <strong>{step.label}</strong>
-                    <span>{step.applied} decisioni applicate</span>
-                    <span>{step.pending} ancora aperti</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
             <section className="translation-panel-section">
               <h3>Decisioni applicate</h3>
               {props.workspace.translation.decisions.length > 0 ? (

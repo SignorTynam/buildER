@@ -139,18 +139,6 @@ function getPreferredStep(
   return "review";
 }
 
-function describeSelectedElement(workspace: LogicalWorkspaceDocument, selection: LogicalSelection): string | null {
-  if (selection.nodeId) {
-    return workspace.transformation.nodes.find((node) => node.id === selection.nodeId)?.label ?? null;
-  }
-
-  if (selection.edgeId) {
-    return workspace.transformation.edges.find((edge) => edge.id === selection.edgeId)?.label || "Collegamento";
-  }
-
-  return null;
-}
-
 function findSelectedLogicalColumn(
   workspace: LogicalWorkspaceDocument,
   selection: LogicalSelection,
@@ -245,10 +233,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const completion = useMemo(() => getLogicalTranslationStepCompletion(overview), [overview]);
   const [activeStep, setActiveStep] = useState<LogicalTranslationStep>(() => getPreferredStep(overview, completion));
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const selectedElementLabel = useMemo(
-    () => describeSelectedElement(props.workspace, props.selection),
-    [props.workspace, props.selection],
-  );
   const selectedColumnContext = useMemo(
     () => findSelectedLogicalColumn(props.workspace, props.selection),
     [props.workspace, props.selection],
@@ -280,11 +264,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const activeTargetKeys = useMemo(() => stepItems.map((item) => buildTargetKey(item)), [stepItems]);
   const focusedTargetKey = selectedItem ? buildTargetKey(selectedItem) : null;
 
-  const pendingCount = LOGICAL_TRANSLATION_STEPS.filter((step) => step.id !== "review").reduce(
-    (sum, step) => sum + (completion[step.id]?.pending ?? 0),
-    0,
-  );
-  const activeStepDescriptor = LOGICAL_TRANSLATION_STEPS.find((step) => step.id === activeStep);
   const showSqlPanel = props.panelMode === "sql";
   const showDecisionsPanel = props.panelMode === "decisions";
   const showReviewPanel = !showSqlPanel && !showDecisionsPanel;
@@ -363,17 +342,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   return (
     <>
       <aside className="toolbar-panel translation-step-rail" aria-label="Workflow logico manuale">
-        <div className="translation-step-rail-header">
-          <span>Trasformazione logica</span>
-          <strong>
-            {pendingCount > 0
-              ? `${pendingCount} fix logici ancora da applicare`
-              : props.workspace.translation.conflicts.length > 0
-                ? `${props.workspace.translation.conflicts.length} warning da risolvere`
-                : "workflow logico allineato"}
-          </strong>
-        </div>
-
         <div className="translation-step-list">
           {LOGICAL_TRANSLATION_STEPS.map((step) => {
             const totals = completion[step.id] ?? { total: 0, pending: 0, applied: 0, invalid: 0 };
@@ -433,20 +401,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         className="inspector-panel translation-panel"
         aria-label={showSqlPanel ? "Pannello SQL del modello logico" : "Inspector modello logico"}
       >
-        <section className="translation-panel-section">
-          <span className="translation-panel-eyebrow">Pannello laterale</span>
-          <div className="translation-section-head">
-            <div>
-              <h2>{showSqlPanel ? "SQL generato" : showDecisionsPanel ? "Decisioni applicate" : activeStepDescriptor?.label}</h2>
-              <p>
-                {showSqlPanel
-                  ? "Anteprima persistente del codice SQL derivato dallo schema logico corrente."
-                  : showDecisionsPanel
-                    ? "Registro compatto delle scelte applicate e dei warning ancora aperti."
-                  : activeStepDescriptor?.description}
-              </p>
-            </div>
-          </div>
+        <section className="translation-panel-section translation-panel-tabs-section">
           <div className="translation-panel-tabs" role="tablist" aria-label="Sezioni del pannello logico">
             <button
               type="button"
@@ -480,15 +435,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
         {showReviewPanel ? (
           <>
-            {selectedElementLabel ? (
-              <section className="translation-panel-section">
-                <div className="translation-section-head">
-                  <h3>Elemento selezionato</h3>
-                </div>
-                <p>{selectedElementLabel}</p>
-              </section>
-            ) : null}
-
         <section className="translation-panel-section">
           <div className="translation-section-head">
             <h3>Type Mode</h3>
@@ -629,22 +575,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ) : (
           <>
             <section className="translation-panel-section">
-              <div className="translation-review-grid" role="list">
-                {LOGICAL_TRANSLATION_STEPS.filter((step) => step.id !== "review").map((step) => {
-                  const totals = completion[step.id] ?? { total: 0, pending: 0, applied: 0, invalid: 0 };
-                  return (
-                    <div key={step.id} className="translation-review-card" role="listitem">
-                      <strong>{step.label}</strong>
-                      <span>{totals.applied} decisioni applicate</span>
-                      <span>{totals.pending} ancora aperti</span>
-                      {totals.invalid > 0 ? <span>{totals.invalid} da rivedere</span> : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="translation-panel-section">
               <h3>Decisioni applicate</h3>
               {props.workspace.translation.decisions.length > 0 ? (
                 <div className="translation-decision-list">
@@ -716,32 +646,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               )}
             </section>
 
-            <section className="translation-panel-section">
-              <div className="translation-section-head">
-                <h3>Stato schema</h3>
-              </div>
-              <div className="translation-review-grid" role="list">
-                {LOGICAL_TRANSLATION_STEPS.filter((step) => step.id !== "review").map((step) => {
-                  const totals = completion[step.id] ?? { total: 0, pending: 0, applied: 0, invalid: 0 };
-                  return (
-                    <div key={step.id} className="translation-review-card" role="listitem">
-                      <strong>{step.label}</strong>
-                      <span>{totals.applied} applicate</span>
-                      <span>{totals.pending} aperte</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
           </>
         ) : (
           <>
             <section className="translation-panel-section translation-sql-preview-section">
-              <div className="translation-section-head">
-                <h3>Anteprima SQL</h3>
-                <span className="translation-inline-counter">{props.workspace.model.tables.length}</span>
-              </div>
-              <p>Il codice SQL riflette in tempo reale le decisioni logiche applicate nel workflow corrente.</p>
               <div className="translation-sql-actions">
                 <button type="button" onClick={() => void copySqlPreview()}>
                   {sqlCopyStatus === "copied" ? "Copiato" : sqlCopyStatus === "error" ? "Errore copia" : "Copia SQL"}
@@ -757,29 +665,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 spellCheck={false}
                 aria-label="Anteprima SQL del modello logico"
               />
-              <p className="translation-sql-hint">
-                Tipi mancanti e default sono derivati dal modello logico attuale e aggiornati automaticamente.
-              </p>
-            </section>
-
-            <section className="translation-panel-section">
-              <div className="translation-section-head">
-                <h3>Stato generazione</h3>
-              </div>
-              <div className="translation-review-grid" role="list">
-                <div className="translation-review-card" role="listitem">
-                  <strong>Tabelle</strong>
-                  <span>{props.workspace.model.tables.length} materializzate</span>
-                </div>
-                <div className="translation-review-card" role="listitem">
-                  <strong>Warning</strong>
-                  <span>{props.workspace.translation.conflicts.length} aperti</span>
-                </div>
-                <div className="translation-review-card" role="listitem">
-                  <strong>Decisioni</strong>
-                  <span>{props.workspace.translation.decisions.length} applicate</span>
-                </div>
-              </div>
             </section>
           </>
         )}
