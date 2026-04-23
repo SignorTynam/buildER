@@ -9,6 +9,7 @@ interface CodePanelProps {
   parseError?: string;
   onCodeChange?: (value: string) => void;
   onClose?: () => void;
+  embedded?: boolean;
 }
 
 const AUTO_PAIR_TOKENS: Record<string, string> = {
@@ -122,8 +123,12 @@ export function CodePanel(props: CodePanelProps) {
   }, [props.code]);
 
   return (
-    <aside className="diagram-code-panel technical-side-panel" aria-label={t("codePanel.shellAria")}>
-      <header className="diagram-code-panel-head technical-side-panel-head">
+    <aside
+      className={props.embedded ? "diagram-code-panel technical-side-panel embedded" : "diagram-code-panel technical-side-panel"}
+      aria-label={t("codePanel.shellAria")}
+    >
+      {!props.embedded ? (
+        <header className="diagram-code-panel-head technical-side-panel-head">
         <div className="technical-side-panel-copy">
           <span className="technical-side-panel-kicker">Model code</span>
           <h2>{t("codePanel.title")}</h2>
@@ -150,7 +155,8 @@ export function CodePanel(props: CodePanelProps) {
             </button>
           ) : null}
         </div>
-      </header>
+        </header>
+      ) : null}
 
       <div className="diagram-code-editor-shell">
         <div ref={gutterRef} className="diagram-code-gutter" aria-hidden="true">

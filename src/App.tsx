@@ -4,9 +4,8 @@ import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { BottomStatusBar } from "./components/BottomStatusBar";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
-import { CodePanel } from "./components/CodePanel";
-import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
+import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { WorkspaceStageBar } from "./components/WorkspaceStageBar";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
@@ -182,6 +181,8 @@ interface WorkspaceSessionSnapshot {
   logicalSelection: LogicalSelection;
   codeDraft: string;
   codeDirty: boolean;
+  technicalPanelOpen: boolean;
+  technicalPanelTab: TechnicalPanelTab;
   codePanelOpen: boolean;
   codePanelWidth: number;
   notesPanelOpen: boolean;
@@ -208,6 +209,8 @@ interface WorkspaceSessionBootstrap {
   logicalSelection: LogicalSelection;
   codeDraft: string;
   codeDirty: boolean;
+  technicalPanelOpen: boolean;
+  technicalPanelTab: TechnicalPanelTab;
   codePanelOpen: boolean;
   codePanelWidth: number;
   notesPanelOpen: boolean;
@@ -248,12 +251,12 @@ const TOOLBAR_COLLAPSED_WIDTH = 48;
 const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 168 : 152;
 const MIN_TOOLBAR_WIDTH = 132;
 const MAX_TOOLBAR_WIDTH = 220;
-const DEFAULT_CODE_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.32), 300, 640);
+const DEFAULT_CODE_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.24), 300, 480);
 const MIN_CODE_PANEL_WIDTH = 280;
-const MAX_CODE_PANEL_WIDTH = 760;
-const DEFAULT_NOTES_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.3), 280, 620);
+const MAX_CODE_PANEL_WIDTH = 560;
+const DEFAULT_NOTES_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.22), 280, 440);
 const MIN_NOTES_PANEL_WIDTH = 260;
-const MAX_NOTES_PANEL_WIDTH = 700;
+const MAX_NOTES_PANEL_WIDTH = 520;
 const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
 const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v4";
@@ -452,6 +455,8 @@ function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
     codeDraft: serializeDiagramToErs(diagram),
     codeDirty: false,
+    technicalPanelOpen: false,
+    technicalPanelTab: "review",
     codePanelOpen: false,
     codePanelWidth: DEFAULT_CODE_PANEL_WIDTH,
     notesPanelOpen: false,
@@ -502,6 +507,22 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
         : serializeDiagramToErs(storedDiagram);
     const storedNotesPanelOpen = parsed.notesPanelOpen === true;
     const storedCodePanelOpen = parsed.codePanelOpen === true;
+    const storedTechnicalPanelTab: TechnicalPanelTab =
+      parsed.technicalPanelTab === "notes"
+        ? "notes"
+        : parsed.technicalPanelTab === "code"
+          ? "code"
+          : parsed.technicalPanelTab === "sql"
+            ? "sql"
+            : storedNotesPanelOpen
+              ? "notes"
+              : storedCodePanelOpen
+                ? "code"
+                : "review";
+    const storedTechnicalPanelOpen =
+      typeof parsed.technicalPanelOpen === "boolean"
+        ? parsed.technicalPanelOpen
+        : storedNotesPanelOpen || storedCodePanelOpen;
 
     const storedTranslationWorkspace =
       parsed.version >= 3
@@ -528,12 +549,14 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       logicalSelection: storedLogicalSelection,
       codeDraft: storedCodeDraft,
       codeDirty: parsed.codeDirty === true,
-      codePanelOpen: storedCodePanelOpen,
+      technicalPanelOpen: storedTechnicalPanelOpen,
+      technicalPanelTab: storedTechnicalPanelTab,
+      codePanelOpen: storedTechnicalPanelOpen && storedTechnicalPanelTab === "code",
       codePanelWidth:
         typeof parsed.codePanelWidth === "number" && Number.isFinite(parsed.codePanelWidth)
           ? parsed.codePanelWidth
           : fallback.codePanelWidth,
-      notesPanelOpen: storedNotesPanelOpen,
+      notesPanelOpen: storedTechnicalPanelOpen && storedTechnicalPanelTab === "notes",
       notesPanelWidth:
         typeof parsed.notesPanelWidth === "number" && Number.isFinite(parsed.notesPanelWidth)
           ? parsed.notesPanelWidth
@@ -1046,7 +1069,7 @@ export default function App() {
   const [logicalViewport, setLogicalViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.logicalViewport }));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => ({ ...sessionBootstrap.logicalSelection }));
   const [logicalTypeMode, setLogicalTypeMode] = useState(false);
-  const [logicalPanelMode, setLogicalPanelMode] = useState<"workflow" | "sql">("workflow");
+  const [logicalPanelMode, setLogicalPanelMode] = useState<"review" | "sql" | "decisions">("review");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const [statusMessage, setStatusMessage] = useState("");
@@ -1061,9 +1084,16 @@ export default function App() {
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(sessionBootstrap.codeDirty);
   const [codeError, setCodeError] = useState("");
-  const [codePanelOpen, setCodePanelOpen] = useState(sessionBootstrap.codePanelOpen);
+  const restoredTechnicalPanelTab: TechnicalPanelTab = sessionBootstrap.technicalPanelTab;
+  const [technicalPanelOpen, setTechnicalPanelOpen] = useState(sessionBootstrap.technicalPanelOpen);
+  const [technicalPanelTab, setTechnicalPanelTab] = useState<TechnicalPanelTab>(restoredTechnicalPanelTab);
+  const [codePanelOpen, setCodePanelOpen] = useState(
+    sessionBootstrap.codePanelOpen && restoredTechnicalPanelTab === "code",
+  );
   const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
-  const [notesPanelOpen, setNotesPanelOpen] = useState(sessionBootstrap.notesPanelOpen);
+  const [notesPanelOpen, setNotesPanelOpen] = useState(
+    sessionBootstrap.notesPanelOpen && restoredTechnicalPanelTab === "notes",
+  );
   const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
@@ -1158,37 +1188,39 @@ export default function App() {
     max: clampValue(Math.floor(windowWidth * 0.22), 168, MAX_TOOLBAR_WIDTH),
   };
   const codePanelResizeBounds = {
-    min: clampValue(Math.floor(windowWidth * 0.22), MIN_CODE_PANEL_WIDTH, 420),
-    max: clampValue(Math.floor(windowWidth * 0.5), 520, MAX_CODE_PANEL_WIDTH),
+    min: clampValue(Math.floor(windowWidth * 0.18), MIN_CODE_PANEL_WIDTH, 340),
+    max: clampValue(Math.floor(windowWidth * 0.32), 360, MAX_CODE_PANEL_WIDTH),
   };
   const notesPanelResizeBounds = {
-    min: clampValue(Math.floor(windowWidth * 0.2), MIN_NOTES_PANEL_WIDTH, 380),
-    max: clampValue(Math.floor(windowWidth * 0.46), 500, MAX_NOTES_PANEL_WIDTH),
+    min: clampValue(Math.floor(windowWidth * 0.17), MIN_NOTES_PANEL_WIDTH, 320),
+    max: clampValue(Math.floor(windowWidth * 0.3), 340, MAX_NOTES_PANEL_WIDTH),
   };
   const visibleToolbarWidth = focusMode
     ? 0
     : effectiveToolbarCollapsed
       ? TOOLBAR_COLLAPSED_WIDTH
       : clampValue(toolbarWidth, toolbarResizeBounds.min, toolbarResizeBounds.max);
-  const visibleCodePanelWidth = clampValue(codePanelWidth, codePanelResizeBounds.min, codePanelResizeBounds.max);
-  const visibleNotesPanelWidth = clampValue(notesPanelWidth, notesPanelResizeBounds.min, notesPanelResizeBounds.max);
-  const codePanelVisible = diagramView === "er" && codePanelOpen && !focusMode;
-  const notesPanelVisible = diagramView === "er" && notesPanelOpen && !focusMode;
+  const technicalPanelResizeBounds = technicalPanelTab === "notes" ? notesPanelResizeBounds : codePanelResizeBounds;
+  const technicalPanelWidth = technicalPanelTab === "notes" ? notesPanelWidth : codePanelWidth;
+  const visibleTechnicalPanelWidth = clampValue(
+    technicalPanelWidth,
+    technicalPanelResizeBounds.min,
+    technicalPanelResizeBounds.max,
+  );
+  const technicalPanelVisible = diagramView === "er" && technicalPanelOpen && !focusMode;
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
     `app-shell-view-${diagramView}`,
-    codePanelVisible || notesPanelVisible ? "app-shell-sidepanel-open" : "app-shell-sidepanel-closed",
+    technicalPanelVisible ? "app-shell-sidepanel-open" : "app-shell-sidepanel-closed",
   ]
     .filter(Boolean)
     .join(" ");
   const erWorkspaceShellStyle = {
     "--toolbar-width": `${visibleToolbarWidth}px`,
     "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
-    "--code-panel-width": codePanelVisible ? `${visibleCodePanelWidth}px` : "0px",
-    "--code-panel-resizer-width": codePanelVisible ? `${RESIZER_WIDTH}px` : "0px",
-    "--notes-panel-width": notesPanelVisible ? `${visibleNotesPanelWidth}px` : "0px",
-    "--notes-panel-resizer-width": notesPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
+    "--technical-panel-width": technicalPanelVisible ? `${visibleTechnicalPanelWidth}px` : "0px",
+    "--technical-panel-resizer-width": technicalPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const erWorkspaceShellClassName = [
     "workspace-shell",
@@ -1197,8 +1229,8 @@ export default function App() {
     effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
     focusMode ? "workspace-shell-focus" : "",
     hasSelection ? "workspace-has-selection" : "workspace-idle",
-    codePanelVisible ? "workspace-code-open" : "",
-    notesPanelVisible ? "workspace-notes-open" : "",
+    technicalPanelVisible ? "workspace-technical-open" : "",
+    technicalPanelVisible ? `workspace-technical-tab-${technicalPanelTab}` : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1293,6 +1325,8 @@ export default function App() {
       logicalSelection: { ...logicalSelection },
       codeDraft: codeDraftRef.current,
       codeDirty: codeDirtyRef.current,
+      technicalPanelOpen,
+      technicalPanelTab,
       codePanelOpen,
       codePanelWidth,
       notesPanelOpen,
@@ -1304,6 +1338,8 @@ export default function App() {
   }, [
     codeDraft,
     codeDirty,
+    technicalPanelOpen,
+    technicalPanelTab,
     codePanelOpen,
     codePanelWidth,
     notesPanelOpen,
@@ -1340,6 +1376,8 @@ export default function App() {
   }, [
     codeDraft,
     codeDirty,
+    technicalPanelOpen,
+    technicalPanelTab,
     codePanelOpen,
     codePanelWidth,
     notesPanelOpen,
@@ -1490,6 +1528,10 @@ export default function App() {
   useEffect(() => {
     setCodePanelWidth((current) => clampValue(current, codePanelResizeBounds.min, codePanelResizeBounds.max));
   }, [codePanelResizeBounds.max, codePanelResizeBounds.min]);
+
+  useEffect(() => {
+    setNotesPanelWidth((current) => clampValue(current, notesPanelResizeBounds.min, notesPanelResizeBounds.max));
+  }, [notesPanelResizeBounds.max, notesPanelResizeBounds.min]);
 
   useEffect(() => {
     if (surface !== "studio" || diagramView !== "er") {
@@ -2069,28 +2111,51 @@ export default function App() {
     });
   }
 
+  function openTechnicalPanelTab(nextTab: TechnicalPanelTab) {
+    setTechnicalPanelTab(nextTab);
+    setTechnicalPanelOpen(true);
+    setCodePanelOpen(nextTab === "code");
+    setNotesPanelOpen(nextTab === "notes");
+  }
+
+  function closeTechnicalPanel() {
+    setTechnicalPanelOpen(false);
+    setCodePanelOpen(false);
+    setNotesPanelOpen(false);
+  }
+
   function handleToggleCodePanel() {
-    setCodePanelOpen((current) => !current);
+    if (technicalPanelOpen && technicalPanelTab === "code") {
+      closeTechnicalPanel();
+      return;
+    }
+
+    openTechnicalPanelTab("code");
   }
 
   function handleToggleNotesPanel() {
-    setNotesPanelOpen((current) => !current);
+    if (technicalPanelOpen && technicalPanelTab === "notes") {
+      closeTechnicalPanel();
+      return;
+    }
+
+    openTechnicalPanelTab("notes");
   }
 
   function handleOpenErStage() {
-    setLogicalPanelMode("workflow");
+    setLogicalPanelMode("review");
     if (diagramView !== "er") {
       handleDiagramViewChange("er");
     }
   }
 
   function handleOpenTranslationStage() {
-    setLogicalPanelMode("workflow");
+    setLogicalPanelMode("review");
     handleDiagramViewChange("translation");
   }
 
   function handleOpenLogicalStage() {
-    setLogicalPanelMode("workflow");
+    setLogicalPanelMode("review");
     handleDiagramViewChange("logical");
   }
 
@@ -2320,6 +2385,23 @@ export default function App() {
         return;
       }
 
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "i") {
+        event.preventDefault();
+        if (diagramView === "er") {
+          if (technicalPanelOpen) {
+            closeTechnicalPanel();
+          } else {
+            openTechnicalPanelTab("review");
+          }
+          return;
+        }
+
+        if (diagramView === "logical") {
+          setLogicalPanelMode((current) => (current === "sql" ? "review" : "sql"));
+        }
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) {
@@ -2408,6 +2490,8 @@ export default function App() {
     mode,
     promptDialog,
     selection,
+    technicalPanelOpen,
+    technicalPanelTab,
     whatsNewOpen,
   ]);
 
@@ -3874,6 +3958,72 @@ export default function App() {
   ]
     .filter(Boolean)
     .join(" ");
+  const selectedModelElementLabel =
+    selectedNode?.label ??
+    selectedEdge?.label ??
+    (selectionItemCount > 1 ? `${selectionItemCount} elementi selezionati` : "Nessuna selezione");
+  const visibleModelIssues = issues.slice(0, 5);
+  const modelReviewPanel = (
+    <div className="technical-dock-review" aria-label="Overview modello ER">
+      <section className="technical-dock-section technical-dock-section-metrics">
+        <div className="technical-dock-metric">
+          <span>Elementi</span>
+          <strong>{history.present.nodes.length}</strong>
+        </div>
+        <div className="technical-dock-metric">
+          <span>Relazioni</span>
+          <strong>{history.present.edges.length}</strong>
+        </div>
+        <div className="technical-dock-metric">
+          <span>Issues</span>
+          <strong>{issues.length}</strong>
+        </div>
+      </section>
+
+      <section className="technical-dock-section">
+        <h3>Selezione</h3>
+        <p>{selectedModelElementLabel}</p>
+        <button
+          type="button"
+          className="technical-dock-inline-action"
+          onClick={() => setSelection({ nodeIds: [], edgeIds: [] })}
+          disabled={selectionItemCount === 0}
+        >
+          Clear selection
+        </button>
+      </section>
+
+      <section className="technical-dock-section">
+        <h3>Validazione</h3>
+        {visibleModelIssues.length > 0 ? (
+          <div className="technical-dock-list">
+            {visibleModelIssues.map((issue) => (
+              <button
+                key={issue.id}
+                type="button"
+                className={`technical-dock-list-item level-${issue.level}`}
+                onClick={() => handleIssueNotice(issue)}
+              >
+                <span>{issue.level}</span>
+                <strong>{issue.message}</strong>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p>Nessun warning contestuale nel modello corrente.</p>
+        )}
+      </section>
+
+      <section className="technical-dock-section">
+        <h3>Note progetto</h3>
+        <p>
+          {history.present.notes.trim().length > 0
+            ? "Le note sono disponibili nel tab Notes."
+            : "Nessuna nota salvata per questo diagramma."}
+        </p>
+      </section>
+    </div>
+  );
 
   if (surface === "code-tutorial") {
     return (
@@ -3946,7 +4096,6 @@ export default function App() {
         onOpenEr={handleOpenErStage}
         onOpenTranslation={handleOpenTranslationStage}
         onOpenLogical={handleOpenLogicalStage}
-        onOpenSql={handleOpenSqlStage}
       />
 
       <div className={workspaceRegionClassName}>
@@ -4018,28 +4167,6 @@ export default function App() {
                 disabled={focusMode || effectiveToolbarCollapsed}
               />
 
-              {codePanelVisible ? (
-                <button
-                  type="button"
-                  className="workspace-resizer workspace-resizer-active"
-                  onPointerDown={(event) => handlePanelResizeStart("code", event)}
-                  onDoubleClick={() => resetPanelWidth("code")}
-                  aria-label="Ridimensiona pannello codice"
-                  title="Trascina per ridimensionare il pannello codice"
-                />
-              ) : null}
-
-              {codePanelVisible ? (
-                <CodePanel
-                  code={codeDraft}
-                  editable={mode === "edit"}
-                  parseError={codeError}
-                  onCodeChange={updateCodeDraft}
-                  placeholder="Inserisci il codice ERS"
-                  onClose={handleToggleCodePanel}
-                />
-              ) : null}
-
               <div className="workspace-main er-workspace-main">
                 <div className="workspace-canvas-region">
                   <header className="workspace-canvas-header">
@@ -4080,23 +4207,38 @@ export default function App() {
                 </div>
               </div>
 
-              {notesPanelVisible ? (
+              {technicalPanelVisible ? (
                 <button
                   type="button"
                   className="workspace-resizer workspace-resizer-active"
-                  onPointerDown={(event) => handlePanelResizeStart("notes", event)}
-                  onDoubleClick={() => resetPanelWidth("notes")}
-                  aria-label="Ridimensiona pannello note"
-                  title="Trascina per ridimensionare il pannello note"
+                  onPointerDown={(event) =>
+                    handlePanelResizeStart(technicalPanelTab === "notes" ? "notes" : "code", event)
+                  }
+                  onDoubleClick={() => resetPanelWidth(technicalPanelTab === "notes" ? "notes" : "code")}
+                  aria-label="Ridimensiona dock tecnico"
+                  title="Trascina per ridimensionare il pannello tecnico"
                 />
               ) : null}
 
-              {notesPanelVisible ? (
-                <NotesPanel
-                  notes={history.present.notes}
-                  editable={mode === "edit"}
-                  onChange={handleNotesChange}
-                  onClose={handleToggleNotesPanel}
+              {technicalPanelVisible ? (
+                <TechnicalDockPanel
+                  activeTab={technicalPanelTab}
+                  availableTabs={["review", "code", "notes"]}
+                  code={{
+                    code: codeDraft,
+                    editable: mode === "edit",
+                    parseError: codeError,
+                    onCodeChange: updateCodeDraft,
+                    placeholder: "Inserisci il codice ERS",
+                  }}
+                  notes={{
+                    notes: history.present.notes,
+                    editable: mode === "edit",
+                    onChange: handleNotesChange,
+                  }}
+                  review={modelReviewPanel}
+                  onTabChange={openTechnicalPanelTab}
+                  onClose={closeTechnicalPanel}
                 />
               ) : null}
             </>
@@ -4367,7 +4509,7 @@ export default function App() {
               <details className="help-section">
                 <summary>Comandi Tastiera</summary>
                 <ul className="help-list">
-                  <li>Ctrl/Cmd+S salva il progetto `.ersp`, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
+                  <li>Ctrl/Cmd+S salva il progetto `.ersp`, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+I apre o chiude il dock tecnico, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
                   <li>Delete/Backspace elimina la selezione; Esc annulla la selezione corrente e chiude le finestre informazioni/novita.</li>
                   <li>Nel canvas usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare ed Esc per annullare un collegamento in corso.</li>
                 </ul>

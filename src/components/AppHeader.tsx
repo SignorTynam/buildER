@@ -305,7 +305,7 @@ export function AppHeader(props: AppHeaderProps) {
                   SCHEMA
                 </button>
                 <button type="button" onClick={(event) => runMenuAction(event, props.onOpenSql)}>
-                  SQL
+                  SQL panel
                 </button>
                 {isTranslationView ? (
                   <button type="button" onClick={(event) => runMenuAction(event, props.onResetTranslation)}>

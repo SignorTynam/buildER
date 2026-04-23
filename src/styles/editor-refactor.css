@@ -192,6 +192,8 @@ summary:focus-visible {
 .mode-button,
 .workspace-side-tab,
 .translation-panel-tab,
+.technical-dock-tab,
+.technical-dock-inline-action,
 .translation-reset-button,
 .technical-side-panel-close,
 .bottom-status-notice-close,
@@ -410,18 +412,16 @@ summary:focus-visible {
   grid-template-columns:
     var(--toolbar-width)
     var(--toolbar-resizer-width)
-    var(--code-panel-resizer-width)
-    var(--code-panel-width)
     minmax(0, 1fr)
-    var(--notes-panel-resizer-width)
-    var(--notes-panel-width);
+    var(--technical-panel-resizer-width)
+    minmax(0, var(--technical-panel-width));
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-muted);
 }
 
 .structured-workspace-shell {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr) 340px;
+  grid-template-columns: 172px minmax(0, 1fr) 300px;
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-muted);
 }
@@ -429,6 +429,7 @@ summary:focus-visible {
 .toolbar-panel,
 .diagram-code-panel,
 .diagram-notes-panel,
+.technical-dock-panel,
 .translation-step-rail,
 .translation-panel {
   height: 100%;
@@ -448,6 +449,7 @@ summary:focus-visible {
 }
 
 .diagram-notes-panel,
+.technical-dock-panel,
 .translation-panel {
   border-left: 1px solid var(--editor-border);
 }
@@ -865,6 +867,7 @@ summary:focus-visible {
 .toolbar-action-button.active,
 .workspace-side-tab.active,
 .translation-panel-tab.active,
+.technical-dock-tab.active,
 .translation-step-button.active,
 .translation-item-card.active,
 .translation-choice-card.recommended,
@@ -977,6 +980,165 @@ summary:focus-visible {
 .technical-side-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+}
+
+.technical-side-panel.embedded {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.technical-dock-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  background: var(--editor-panel);
+  overflow: hidden;
+}
+
+.technical-dock-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--editor-border);
+  background: var(--editor-panel-muted);
+}
+
+.technical-dock-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.technical-dock-title h2,
+.technical-dock-section h3 {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--editor-text-strong);
+}
+
+.technical-dock-title p,
+.technical-dock-section p {
+  margin: 0;
+  color: var(--editor-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.technical-dock-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--editor-border);
+  background: #f8f9f6;
+}
+
+.technical-dock-tab {
+  border-color: var(--editor-border);
+  color: var(--editor-text);
+}
+
+.technical-dock-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.technical-dock-body > .technical-side-panel.embedded {
+  height: 100%;
+  border: 0;
+}
+
+.technical-dock-review {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  padding: 10px;
+  overflow: auto;
+}
+
+.technical-dock-section {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.technical-dock-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.technical-dock-section-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.technical-dock-metric {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel-muted);
+}
+
+.technical-dock-metric span {
+  color: var(--editor-text-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.technical-dock-metric strong {
+  font-size: 0.92rem;
+  color: var(--editor-text-strong);
+}
+
+.technical-dock-list {
+  display: grid;
+  gap: 6px;
+}
+
+.technical-dock-list-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: flex-start;
+  padding: 7px 8px;
+  border: 1px solid var(--editor-border);
+  background: transparent;
+  color: var(--editor-text);
+  text-align: left;
+}
+
+.technical-dock-list-item.level-warning {
+  border-color: rgba(137, 99, 38, 0.28);
+  background: var(--editor-warning-soft);
+}
+
+.technical-dock-list-item.level-error {
+  border-color: rgba(152, 63, 49, 0.28);
+  background: var(--editor-error-soft);
+}
+
+.technical-dock-list-item span {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--editor-text-muted);
+}
+
+.technical-dock-list-item strong {
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.technical-dock-inline-action {
+  justify-self: start;
+  border-color: var(--editor-border);
+  color: var(--editor-text);
 }
 
 .technical-side-panel-head {
@@ -1115,6 +1277,8 @@ summary:focus-visible {
 
 .translation-reset-button:hover,
 .translation-panel-tab:hover,
+.technical-dock-tab:hover,
+.technical-dock-inline-action:hover,
 .workspace-side-tab:hover,
 .header-button:hover,
 .mode-button:hover {
@@ -1294,6 +1458,7 @@ summary:focus-visible {
 .mode-button.active,
 .workspace-side-tab.active,
 .translation-panel-tab.active,
+.technical-dock-tab.active,
 .header-button.primary {
   border-color: var(--editor-border-strong);
   background: var(--editor-panel-muted);
@@ -1445,18 +1610,16 @@ summary:focus-visible {
 }
 
 .structured-workspace-shell {
-  grid-template-columns: 172px minmax(0, 1fr) 310px;
+  grid-template-columns: 168px minmax(0, 1fr) 292px;
 }
 
 .er-workspace-shell {
   grid-template-columns:
     var(--toolbar-width)
     var(--toolbar-resizer-width)
-    var(--code-panel-resizer-width)
-    minmax(0, var(--code-panel-width))
     minmax(0, 1fr)
-    var(--notes-panel-resizer-width)
-    minmax(0, var(--notes-panel-width));
+    var(--technical-panel-resizer-width)
+    minmax(0, var(--technical-panel-width));
 }
 
 .contextual-toolbar.toolbar-panel {
@@ -1611,7 +1774,7 @@ summary:focus-visible {
 
 @media (max-width: 1380px) {
   .structured-workspace-shell {
-    grid-template-columns: 160px minmax(0, 1fr) 290px;
+    grid-template-columns: 150px minmax(0, 1fr) 270px;
   }
 
   .bottom-status-bar-main {
@@ -1656,6 +1819,7 @@ summary:focus-visible {
   .toolbar-panel,
   .diagram-code-panel,
   .diagram-notes-panel,
+  .technical-dock-panel,
   .translation-step-rail,
   .translation-panel {
     height: auto;

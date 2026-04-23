@@ -13,11 +13,10 @@ interface WorkspaceStageBarProps {
   onOpenEr: () => void;
   onOpenTranslation: () => void;
   onOpenLogical: () => void;
-  onOpenSql: () => void;
 }
 
 interface StageDescriptor {
-  id: "er" | "translation" | "logical" | "sql";
+  id: "er" | "translation" | "logical";
   label: string;
   meta: string;
   tone: WorkflowTone;
@@ -121,16 +120,8 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
             ? `${props.logicalTableCount} tables`
             : "empty",
       tone: props.logicalOutOfDate ? "warning" : getStageTone(props.logicalPendingCount, props.logicalTableCount === 0),
-      active: props.currentView === "logical" && !props.sqlActive,
+      active: props.currentView === "logical",
       onSelect: props.onOpenLogical,
-    },
-    {
-      id: "sql",
-      label: "SQL",
-      meta: props.logicalOutOfDate ? "stale" : props.logicalTableCount > 0 ? "preview" : "await schema",
-      tone: props.logicalOutOfDate ? "warning" : getStageTone(0, props.logicalTableCount === 0),
-      active: props.currentView === "logical" && props.sqlActive,
-      onSelect: props.onOpenSql,
     },
   ];
 

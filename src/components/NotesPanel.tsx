@@ -5,6 +5,7 @@ interface NotesPanelProps {
   editable?: boolean;
   onChange?: (value: string) => void;
   onClose?: () => void;
+  embedded?: boolean;
 }
 
 export function NotesPanel(props: NotesPanelProps) {
@@ -12,8 +13,14 @@ export function NotesPanel(props: NotesPanelProps) {
   const isReadOnly = !props.editable || !props.onChange;
 
   return (
-    <aside className="diagram-notes-panel technical-side-panel" aria-label={t("notesPanel.shellAria")}>
-      <header className="diagram-notes-panel-head technical-side-panel-head">
+    <aside
+      className={
+        props.embedded ? "diagram-notes-panel technical-side-panel embedded" : "diagram-notes-panel technical-side-panel"
+      }
+      aria-label={t("notesPanel.shellAria")}
+    >
+      {!props.embedded ? (
+        <header className="diagram-notes-panel-head technical-side-panel-head">
         <div className="technical-side-panel-copy">
           <span className="technical-side-panel-kicker">Project notes</span>
           <h2>{t("notesPanel.title")}</h2>
@@ -36,7 +43,8 @@ export function NotesPanel(props: NotesPanelProps) {
             </button>
           ) : null}
         </div>
-      </header>
+        </header>
+      ) : null}
 
       <textarea
         className="diagram-notes-editor"

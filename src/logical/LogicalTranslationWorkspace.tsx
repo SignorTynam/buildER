@@ -29,12 +29,12 @@ interface LogicalTranslationWorkspaceProps {
   viewport: Viewport;
   selection: LogicalSelection;
   typeMode: boolean;
-  panelMode: "workflow" | "sql";
+  panelMode: "review" | "sql" | "decisions";
   fitRequestToken: number;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
   onTypeModeChange: (nextValue: boolean) => void;
-  onPanelModeChange: (nextValue: "workflow" | "sql") => void;
+  onPanelModeChange: (nextValue: "review" | "sql" | "decisions") => void;
   onApplyChoice: (item: LogicalTranslationItem, choice: LogicalTranslationChoice) => void;
   onResetTranslation: () => void;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
@@ -286,6 +286,8 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   );
   const activeStepDescriptor = LOGICAL_TRANSLATION_STEPS.find((step) => step.id === activeStep);
   const showSqlPanel = props.panelMode === "sql";
+  const showDecisionsPanel = props.panelMode === "decisions";
+  const showReviewPanel = !showSqlPanel && !showDecisionsPanel;
 
   useEffect(() => {
     const preferredStep = getPreferredStep(overview, completion);
@@ -440,16 +442,18 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
       <aside
         className="inspector-panel translation-panel"
-        aria-label={showSqlPanel ? "Pannello SQL del modello logico" : "Pannello decisioni logiche"}
+        aria-label={showSqlPanel ? "Pannello SQL del modello logico" : "Inspector modello logico"}
       >
         <section className="translation-panel-section">
           <span className="translation-panel-eyebrow">Pannello laterale</span>
           <div className="translation-section-head">
             <div>
-              <h2>{showSqlPanel ? "SQL generato" : activeStepDescriptor?.label}</h2>
+              <h2>{showSqlPanel ? "SQL generato" : showDecisionsPanel ? "Decisioni applicate" : activeStepDescriptor?.label}</h2>
               <p>
                 {showSqlPanel
                   ? "Anteprima persistente del codice SQL derivato dallo schema logico corrente."
+                  : showDecisionsPanel
+                    ? "Registro compatto delle scelte applicate e dei warning ancora aperti."
                   : activeStepDescriptor?.description}
               </p>
             </div>
@@ -457,12 +461,12 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           <div className="translation-panel-tabs" role="tablist" aria-label="Sezioni del pannello logico">
             <button
               type="button"
-              className={!showSqlPanel ? "translation-panel-tab active" : "translation-panel-tab"}
-              onClick={() => props.onPanelModeChange("workflow")}
+              className={showReviewPanel ? "translation-panel-tab active" : "translation-panel-tab"}
+              onClick={() => props.onPanelModeChange("review")}
               role="tab"
-              aria-selected={!showSqlPanel}
+              aria-selected={showReviewPanel}
             >
-              Decisioni
+              Review
             </button>
             <button
               type="button"
@@ -473,10 +477,19 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             >
               SQL
             </button>
+            <button
+              type="button"
+              className={showDecisionsPanel ? "translation-panel-tab active" : "translation-panel-tab"}
+              onClick={() => props.onPanelModeChange("decisions")}
+              role="tab"
+              aria-selected={showDecisionsPanel}
+            >
+              Decisions
+            </button>
           </div>
         </section>
 
-        {!showSqlPanel ? (
+        {showReviewPanel ? (
           <>
             {selectedElementLabel ? (
               <section className="translation-panel-section">
@@ -674,6 +687,63 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             </section>
           </>
         )}
+          </>
+        ) : showDecisionsPanel ? (
+          <>
+            <section className="translation-panel-section">
+              <div className="translation-section-head">
+                <h3>Decisioni applicate</h3>
+                <span className="translation-inline-counter">{props.workspace.translation.decisions.length}</span>
+              </div>
+              {props.workspace.translation.decisions.length > 0 ? (
+                <div className="translation-decision-list">
+                  {props.workspace.translation.decisions.map((decision) => (
+                    <div key={decision.id} className={`translation-decision-card status-${decision.status}`}>
+                      <strong>{decision.summary}</strong>
+                      <span>{decision.rule}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="translation-empty-hint">Nessuna decisione ancora registrata.</div>
+              )}
+            </section>
+
+            <section className="translation-panel-section">
+              <div className="translation-section-head">
+                <h3>Conflitti e warning</h3>
+                <span className="translation-inline-counter">{props.workspace.translation.conflicts.length}</span>
+              </div>
+              {props.workspace.translation.conflicts.length > 0 ? (
+                <div className="translation-warning-list">
+                  {props.workspace.translation.conflicts.map((conflict) => (
+                    <div key={conflict.id} className={`translation-warning-item level-${conflict.level}`}>
+                      {conflict.message}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="translation-empty-hint">Nessun conflitto aperto nella trasformazione logica corrente.</div>
+              )}
+            </section>
+
+            <section className="translation-panel-section">
+              <div className="translation-section-head">
+                <h3>Stato schema</h3>
+              </div>
+              <div className="translation-review-grid" role="list">
+                {LOGICAL_TRANSLATION_STEPS.filter((step) => step.id !== "review").map((step) => {
+                  const totals = completion[step.id] ?? { total: 0, pending: 0, applied: 0, invalid: 0 };
+                  return (
+                    <div key={step.id} className="translation-review-card" role="listitem">
+                      <strong>{step.label}</strong>
+                      <span>{totals.applied} applicate</span>
+                      <span>{totals.pending} aperte</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </>
         ) : (
           <>
