@@ -105,7 +105,7 @@ function getStatusToneLabel(tone: NoticeTone | "info"): string {
 export function BottomStatusBar(props: BottomStatusBarProps) {
   const errorCount = props.issues.filter((issue) => issue.level === "error").length;
   const warningCount = props.issues.filter((issue) => issue.level === "warning").length;
-  const primaryNotice = props.notices[0];
+  const primaryNotice = props.notices[0] as WorkspaceNoticeItem | undefined;
   const fallbackStatus = getFallbackStatus(props);
   const primaryTone: NoticeTone | "info" =
     primaryNotice?.tone ?? (props.statusMessage.trim() ? fallbackStatus.tone : fallbackStatus.tone);
@@ -126,7 +126,9 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
         </div>
 
         <div className={`bottom-status-block bottom-status-block-message tone-${primaryTone}`}>
-          <span className="bottom-status-indicator">{getStatusToneLabel(primaryTone)}</span>
+          {primaryTone === "info" ? null : (
+            <span className="bottom-status-indicator">{getStatusToneLabel(primaryTone)}</span>
+          )}
           <p>{primaryMessage}</p>
           {primaryNotice ? (
             <button
@@ -141,7 +143,7 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
         </div>
 
         <div className="bottom-status-block bottom-status-block-meta" aria-label="Stato selezione e validazione">
-          <span>{props.selectionItemCount > 0 ? `${props.selectionItemCount} selezionati` : "Canvas idle"}</span>
+          {props.selectionItemCount > 0 ? <span>{props.selectionItemCount} selezionati</span> : null}
           <span>{errorCount} errori</span>
           <span>{warningCount} warning</span>
           {activePanels.map((panel) => (

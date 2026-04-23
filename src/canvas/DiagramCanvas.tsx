@@ -2590,7 +2590,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     persistentMessage && persistentMessage.key !== dismissedMessageKey ? persistentMessage : null;
 
   let guidanceState: CanvasGuidanceState = "idle";
-  let guidanceStateLabel = "Idle";
+  let guidanceStateLabel = "";
   let guidanceTitle = activeToolDefinition?.label ?? props.tool;
   let guidanceMessage = props.mode === "view"
     ? "Naviga e ispeziona il modello. Le modifiche restano bloccate finche non torni in modalita modifica."
@@ -2735,7 +2735,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           aria-atomic="true"
         >
           <div className="canvas-guidance-main">
-            <span className={`canvas-guidance-state canvas-guidance-state-${guidanceState}`}>{guidanceStateLabel}</span>
+            {guidanceStateLabel ? (
+              <span className={`canvas-guidance-state canvas-guidance-state-${guidanceState}`}>{guidanceStateLabel}</span>
+            ) : null}
             <div className="canvas-guidance-copy">
               <strong>{guidanceTitle}</strong>
               <p>{guidanceMessage}</p>
@@ -2765,15 +2767,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         {visiblePersistentMessage ? (
           <div className={`canvas-persistent-message canvas-persistent-message-${visiblePersistentMessage.tone}`}>
             <div className="canvas-persistent-message-body">
-              <span className="canvas-persistent-message-badge">
-                {visiblePersistentMessage.tone === "error"
-                  ? "Errore"
-                  : visiblePersistentMessage.tone === "warning"
-                    ? "Avviso"
-                    : visiblePersistentMessage.tone === "success"
-                      ? "Aggiornamento"
-                      : "Info"}
-              </span>
+              {visiblePersistentMessage.tone === "info" ? null : (
+                <span className="canvas-persistent-message-badge">
+                  {visiblePersistentMessage.tone === "error"
+                    ? "Errore"
+                    : visiblePersistentMessage.tone === "warning"
+                      ? "Avviso"
+                      : "Aggiornamento"}
+                </span>
+              )}
               <p>{visiblePersistentMessage.message}</p>
             </div>
             <button
