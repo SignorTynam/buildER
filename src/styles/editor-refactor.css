@@ -9,6 +9,7 @@
   --editor-text: #17201b;
   --editor-text-strong: #0e1612;
   --editor-text-muted: #5a665f;
+  --editor-text-faint: #77857d;
   --editor-topbar: #171b1d;
   --editor-topbar-text: #eef2ed;
   --editor-topbar-muted: rgba(238, 242, 237, 0.68);
@@ -24,6 +25,12 @@
   --editor-radius-sm: 4px;
   --editor-radius-md: 6px;
   --editor-radius-lg: 8px;
+  --editor-interactive-hover-bg: #eef2ec;
+  --editor-interactive-active-bg: #e6ece5;
+  --editor-interactive-hover-border: #a9b5ac;
+  --editor-interactive-active-border: #8b9a90;
+  --editor-interactive-focus-ring: rgba(53, 86, 79, 0.2);
+  --editor-interactive-disabled-bg: #f2f4f1;
   --editor-shadow: none;
   --diagram-node-fill: #ffffff;
   --diagram-stroke: #2f3933;
@@ -850,6 +857,11 @@ summary:focus-visible {
   color: var(--editor-text);
   text-align: left;
   box-shadow: none;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .toolbar-action-button,
@@ -871,7 +883,68 @@ summary:focus-visible {
 .translation-choice-card:hover,
 .translation-item-card:hover,
 .translation-artifact-chip:hover {
-  background: var(--editor-panel-muted);
+  border-color: var(--editor-interactive-hover-border);
+  background: var(--editor-interactive-hover-bg);
+}
+
+.tool-button:active,
+.toolbar-action-button:active,
+.translation-step-button:active,
+.translation-choice-card:active,
+.translation-item-card:active,
+.translation-artifact-chip:active,
+.workspace-side-tab:active,
+.translation-panel-tab:active,
+.technical-dock-tab:active,
+.header-button:active,
+.mode-button:active,
+.panel-toggle:active,
+.technical-side-panel-close:active,
+.translation-reset-button:active,
+.technical-dock-inline-action:active {
+  border-color: var(--editor-interactive-active-border);
+  background: var(--editor-interactive-active-bg);
+}
+
+.tool-button:focus-visible,
+.toolbar-action-button:focus-visible,
+.translation-step-button:focus-visible,
+.translation-choice-card:focus-visible,
+.translation-item-card:focus-visible,
+.translation-artifact-chip:focus-visible,
+.workspace-side-tab:focus-visible,
+.translation-panel-tab:focus-visible,
+.technical-dock-tab:focus-visible,
+.header-button:focus-visible,
+.mode-button:focus-visible,
+.panel-toggle:focus-visible,
+.technical-side-panel-close:focus-visible,
+.translation-reset-button:focus-visible,
+.technical-dock-inline-action:focus-visible {
+  outline: none;
+  border-color: var(--editor-interactive-active-border);
+  box-shadow: 0 0 0 3px var(--editor-interactive-focus-ring);
+}
+
+.tool-button:disabled,
+.toolbar-action-button:disabled,
+.translation-step-button:disabled,
+.translation-choice-card:disabled,
+.translation-item-card:disabled,
+.translation-artifact-chip:disabled,
+.workspace-side-tab:disabled,
+.translation-panel-tab:disabled,
+.technical-dock-tab:disabled,
+.header-button:disabled,
+.mode-button:disabled,
+.panel-toggle:disabled,
+.technical-side-panel-close:disabled,
+.translation-reset-button:disabled,
+.technical-dock-inline-action:disabled {
+  border-color: var(--editor-border);
+  background: var(--editor-interactive-disabled-bg);
+  color: var(--editor-text-faint);
+  cursor: not-allowed;
 }
 
 .tool-button.active,
@@ -883,8 +956,9 @@ summary:focus-visible {
 .translation-item-card.active,
 .translation-choice-card.recommended,
 .translation-step-button.attention {
-  border-color: var(--editor-border-strong);
+  border-color: var(--editor-interactive-active-border);
   background: var(--editor-panel-strong);
+  box-shadow: inset 0 0 0 1px rgba(79, 107, 100, 0.14);
 }
 
 .tool-shortcut {
@@ -986,6 +1060,41 @@ summary:focus-visible {
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-strong);
   box-shadow: none;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.toolbar-section-properties .inspector-panel-embedded select:hover,
+.toolbar-section-properties .inspector-panel-embedded input:hover,
+.toolbar-section-properties .inspector-panel-embedded textarea:hover,
+.field input:hover,
+.field select:hover,
+.field textarea:hover {
+  border-color: var(--editor-interactive-hover-border);
+  background: #fcfdfb;
+}
+
+.toolbar-section-properties .inspector-panel-embedded select:focus-visible,
+.toolbar-section-properties .inspector-panel-embedded input:focus-visible,
+.toolbar-section-properties .inspector-panel-embedded textarea:focus-visible,
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible {
+  outline: none;
+  border-color: var(--editor-interactive-active-border);
+  box-shadow: 0 0 0 3px var(--editor-interactive-focus-ring);
+}
+
+.toolbar-section-properties .inspector-panel-embedded select:disabled,
+.toolbar-section-properties .inspector-panel-embedded input:disabled,
+.toolbar-section-properties .inspector-panel-embedded textarea:disabled,
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background: var(--editor-interactive-disabled-bg);
+  color: var(--editor-text-faint);
 }
 
 .technical-side-panel {
@@ -1297,6 +1406,11 @@ summary:focus-visible {
   border-color: var(--editor-border);
   background: transparent;
   color: var(--editor-text);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .translation-reset-button:hover,
@@ -1306,7 +1420,8 @@ summary:focus-visible {
 .workspace-side-tab:hover,
 .header-button:hover,
 .mode-button:hover {
-  background: var(--editor-panel-muted);
+  border-color: var(--editor-interactive-hover-border);
+  background: var(--editor-interactive-hover-bg);
 }
 
 .translation-panel-section {
