@@ -492,6 +492,10 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       parsed.diagramView === "logical" ? "logical" : parsed.diagramView === "translation" ? "translation" : "er";
     const storedMode: EditorMode = parsed.mode === "view" ? "view" : "edit";
     const storedTool = sanitizeToolKind(parsed.tool);
+    const effectiveStoredTool: ToolKind =
+      storedMode === "view" && storedTool !== "select" && storedTool !== "move"
+        ? "select"
+        : storedTool;
     const storedCodeDraft =
       typeof parsed.codeDraft === "string" && parsed.codeDraft.trim().length > 0
         ? parsed.codeDraft
@@ -514,7 +518,7 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       logicalGenerated: parsed.logicalGenerated === true,
       surface: storedSurface,
       diagramView: storedDiagramView,
-      tool: storedTool,
+      tool: effectiveStoredTool,
       mode: storedMode,
       viewport: storedViewport,
       selection: storedSelection,
@@ -1472,6 +1476,12 @@ export default function App() {
       setToolbarCollapsed(true);
     }
   }, [windowWidth]);
+
+  useEffect(() => {
+    if (mode === "view" && tool !== "select" && tool !== "move") {
+      setTool("select");
+    }
+  }, [mode, tool]);
 
   useEffect(() => {
     setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));

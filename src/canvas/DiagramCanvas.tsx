@@ -1880,6 +1880,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (props.mode === "view" && props.tool !== "select" && props.tool !== "move") {
+      props.onStatusMessageChange("Modalita lettura attiva: passa a Modifica per aggiungere o cambiare elementi.");
+      return;
+    }
+
     if (event.button === 1 || spacePressed || props.tool === "move") {
       beginPanInteraction(event.pointerId, event.clientX, event.clientY);
       return;
