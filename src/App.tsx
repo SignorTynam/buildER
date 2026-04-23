@@ -4169,17 +4169,6 @@ export default function App() {
 
               <div className="workspace-main er-workspace-main">
                 <div className="workspace-canvas-region">
-                  <header className="workspace-canvas-header">
-                    <div className="workspace-canvas-copy">
-                      <span className="workspace-canvas-eyebrow">MODEL</span>
-                      <h2>{history.present.meta.name}</h2>
-                    </div>
-                    <div className="workspace-canvas-stats">
-                      <span>{history.present.nodes.length} elementi</span>
-                      <strong>{issues.length} warning / errori</strong>
-                    </div>
-                  </header>
-
                   <DiagramCanvas
                     diagram={history.present}
                     selection={selection}

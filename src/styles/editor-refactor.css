@@ -464,7 +464,7 @@ summary:focus-visible {
 .workspace-canvas-region,
 .translation-canvas-card {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   overflow: hidden;

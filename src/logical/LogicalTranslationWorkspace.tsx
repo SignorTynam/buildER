@@ -408,17 +408,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
       <section className="workspace-main logical-main">
         <div className="translation-canvas-card canvas-panel">
-          <header className="translation-stage-header">
-            <div>
-              <span className="translation-stage-eyebrow">Canvas Logico</span>
-              <h2>Trasformazione ER tradotto -&gt; Logico</h2>
-            </div>
-            <div className="translation-stage-summary">
-              <span>{props.workspace.model.tables.length} tabelle logiche materializzate</span>
-              <strong>{props.workspace.translation.conflicts.length} warning attivi</strong>
-            </div>
-          </header>
-
           <div className="translation-stage-canvas translation-stage-canvas-single">
             <LogicalTransformationCanvas
               workspace={props.workspace}

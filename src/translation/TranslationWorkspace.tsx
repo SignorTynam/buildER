@@ -171,17 +171,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
 
       <section className="workspace-main logical-main">
         <div className="translation-canvas-card canvas-panel">
-          <header className="translation-stage-header">
-            <div>
-              <span className="translation-stage-eyebrow">Canvas Traduzione</span>
-              <h2>ER tradotto in-place</h2>
-            </div>
-            <div className="translation-stage-summary">
-              <span>{props.workspace.translatedDiagram.nodes.length} nodi nel diagramma tradotto</span>
-              <strong>{translatedIssues.filter((issue) => issue.level === "warning").length} warning visibili</strong>
-            </div>
-          </header>
-
           <div className="translation-stage-canvas translation-stage-canvas-single">
             <DiagramCanvas
               diagram={props.workspace.translatedDiagram}
