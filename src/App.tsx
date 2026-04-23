@@ -244,10 +244,10 @@ const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
 const COMPOSITE_CHILD_VERTICAL_GAP = 80;
 const COMPOSITE_CHILD_VERTICAL_STEP = 44;
 const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
-const TOOLBAR_COLLAPSED_WIDTH = 62;
-const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 216 : 196;
-const MIN_TOOLBAR_WIDTH = 180;
-const MAX_TOOLBAR_WIDTH = 320;
+const TOOLBAR_COLLAPSED_WIDTH = 48;
+const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 168 : 152;
+const MIN_TOOLBAR_WIDTH = 132;
+const MAX_TOOLBAR_WIDTH = 220;
 const DEFAULT_CODE_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.32), 300, 640);
 const MIN_CODE_PANEL_WIDTH = 280;
 const MAX_CODE_PANEL_WIDTH = 760;
@@ -1151,7 +1151,7 @@ export default function App() {
     diagramView === "er" ? history.canRedo : diagramView === "translation" ? translationHistory.canRedo : logicalHistory.canRedo;
   const toolbarResizeBounds = {
     min: MIN_TOOLBAR_WIDTH,
-    max: clampValue(Math.floor(windowWidth * 0.28), 220, MAX_TOOLBAR_WIDTH),
+    max: clampValue(Math.floor(windowWidth * 0.22), 168, MAX_TOOLBAR_WIDTH),
   };
   const codePanelResizeBounds = {
     min: clampValue(Math.floor(windowWidth * 0.22), MIN_CODE_PANEL_WIDTH, 420),

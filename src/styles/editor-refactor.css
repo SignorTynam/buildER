@@ -1410,9 +1410,208 @@ summary:focus-visible {
   border: 0;
 }
 
+.technical-workspace-shell.workspace-shell {
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+.structured-workspace-shell > .translation-step-rail,
+.structured-workspace-shell > .workspace-main.logical-main,
+.structured-workspace-shell > .translation-panel {
+  grid-column: auto !important;
+  grid-row: auto !important;
+  transform: none !important;
+}
+
+.structured-workspace-shell > .workspace-main.logical-main {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  width: 100%;
+  height: 100%;
+}
+
+.structured-workspace-shell .translation-canvas-card,
+.structured-workspace-shell .logical-canvas-panel,
+.structured-workspace-shell .transformation-canvas-panel,
+.structured-workspace-shell .translation-stage-canvas,
+.structured-workspace-shell .translation-stage-canvas-single {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.structured-workspace-shell {
+  grid-template-columns: 172px minmax(0, 1fr) 310px;
+}
+
+.er-workspace-shell {
+  grid-template-columns:
+    var(--toolbar-width)
+    var(--toolbar-resizer-width)
+    var(--code-panel-resizer-width)
+    minmax(0, var(--code-panel-width))
+    minmax(0, 1fr)
+    var(--notes-panel-resizer-width)
+    minmax(0, var(--notes-panel-width));
+}
+
+.contextual-toolbar.toolbar-panel {
+  gap: 8px !important;
+  padding: 8px 6px !important;
+  background: #f4f6f2;
+}
+
+.contextual-toolbar .panel-head-row {
+  padding-bottom: 6px;
+}
+
+.contextual-toolbar .panel-heading {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.contextual-toolbar .panel-subheading {
+  font-size: 0.68rem;
+}
+
+.contextual-toolbar .toolbar-section {
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.contextual-toolbar .tool-button,
+.contextual-toolbar .toolbar-action-button,
+.contextual-toolbar .toolbar-issue-card {
+  min-height: 30px !important;
+  padding: 5px 6px !important;
+  border-radius: 0 !important;
+  grid-template-columns: 15px minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.contextual-toolbar .toolbar-action-button,
+.contextual-toolbar .toolbar-issue-card {
+  grid-template-columns: 15px minmax(0, 1fr);
+}
+
+.contextual-toolbar .tool-icon {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.contextual-toolbar .tool-label,
+.contextual-toolbar .translation-choice-title,
+.contextual-toolbar .toolbar-issue-message {
+  font-size: 0.7rem;
+}
+
+.contextual-toolbar .tool-shortcut {
+  display: none;
+}
+
+.contextual-toolbar .toolbar-section-mode,
+.contextual-toolbar .toolbar-section-history {
+  display: none;
+}
+
+.translation-step-rail {
+  padding: 10px 8px !important;
+}
+
+.translation-step-rail-header {
+  padding-bottom: 8px !important;
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.translation-step-button {
+  min-height: 42px !important;
+  padding: 8px 9px !important;
+  border-radius: 0 !important;
+}
+
+.translation-step-button-label {
+  font-size: 0.74rem !important;
+}
+
+.translation-step-button-meta {
+  margin-top: 2px !important;
+  font-size: 0.64rem !important;
+}
+
+.translation-panel {
+  padding: 10px !important;
+}
+
+.translation-panel-section {
+  padding: 10px 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.translation-panel-section:first-child {
+  padding-top: 0 !important;
+}
+
+.translation-item-card,
+.translation-choice-card,
+.translation-review-card,
+.translation-decision-card {
+  border-radius: 0 !important;
+  min-height: 34px;
+  padding: 7px 8px;
+}
+
+.workspace-mode-strip {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+.workspace-mode-button {
+  min-width: 132px;
+  min-height: 32px;
+  padding: 5px 9px;
+}
+
+.workspace-mode-button strong {
+  font-size: 0.68rem;
+}
+
+.workspace-mode-button span,
+.workspace-mode-status span {
+  font-size: 0.68rem;
+}
+
+.workspace-mode-status {
+  min-height: 32px;
+  padding: 5px 9px;
+}
+
+.bottom-status-bar-main {
+  min-height: 30px;
+  padding: 4px 12px;
+}
+
+.bottom-status-bar {
+  min-height: 31px;
+}
+
+.bottom-status-indicator {
+  min-height: 20px;
+  padding: 0.08rem 0.36rem;
+}
+
+.bottom-status-notice-close {
+  color: var(--editor-text-muted);
+}
+
 @media (max-width: 1380px) {
   .structured-workspace-shell {
-    grid-template-columns: 180px minmax(0, 1fr) 300px;
+    grid-template-columns: 160px minmax(0, 1fr) 290px;
   }
 
   .bottom-status-bar-main {

@@ -128,6 +128,16 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
         <div className={`bottom-status-block bottom-status-block-message tone-${primaryTone}`}>
           <span className="bottom-status-indicator">{getStatusToneLabel(primaryTone)}</span>
           <p>{primaryMessage}</p>
+          {primaryNotice ? (
+            <button
+              type="button"
+              className="bottom-status-notice-close"
+              onClick={() => props.onDismissNotice(primaryNotice.id)}
+              aria-label="Chiudi notifica"
+            >
+              x
+            </button>
+          ) : null}
         </div>
 
         <div className="bottom-status-block bottom-status-block-meta" aria-label="Stato selezione e validazione">
@@ -139,28 +149,6 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
           ))}
         </div>
       </div>
-
-      {props.notices.length > 0 ? (
-        <div className="bottom-status-notice-strip" role="list" aria-label="Notifiche attive">
-          {props.notices.slice(0, 3).map((notice) => (
-            <div
-              key={notice.id}
-              className={`bottom-status-notice tone-${notice.tone}${notice.sticky ? " sticky" : ""}`}
-              role="listitem"
-            >
-              <span>{notice.message}</span>
-              <button
-                type="button"
-                className="bottom-status-notice-close"
-                onClick={() => props.onDismissNotice(notice.id)}
-                aria-label="Chiudi notifica"
-              >
-                x
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
     </footer>
   );
 }
