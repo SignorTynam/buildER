@@ -4,6 +4,8 @@ import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { BottomStatusBar } from "./components/BottomStatusBar";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
+import { CommandMenuModal } from "./components/CommandMenuModal";
+import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { WorkspaceStageBar } from "./components/WorkspaceStageBar";
@@ -1074,6 +1076,8 @@ export default function App() {
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const [statusMessage, setStatusMessage] = useState("");
   const [notices, setNotices] = useState<WorkspaceNotice[]>([]);
+  const [commandMenuOpen, setCommandMenuOpen] = useState(false);
+  const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
@@ -1967,6 +1971,22 @@ export default function App() {
     setIntroOpen(false);
   }
 
+  function openCommandMenu() {
+    setAboutOpen(false);
+    setWhatsNewOpen(false);
+    setIntroOpen(false);
+    setKeyboardShortcutsOpen(false);
+    setCommandMenuOpen(true);
+  }
+
+  function openKeyboardShortcuts() {
+    setCommandMenuOpen(false);
+    setAboutOpen(false);
+    setWhatsNewOpen(false);
+    setIntroOpen(false);
+    setKeyboardShortcutsOpen(true);
+  }
+
   function setStatus(message: string) {
     setStatusMessage(message);
     if (!message.trim()) {
@@ -2454,6 +2474,16 @@ export default function App() {
           return;
         }
 
+        if (commandMenuOpen) {
+          setCommandMenuOpen(false);
+          return;
+        }
+
+        if (keyboardShortcutsOpen) {
+          setKeyboardShortcutsOpen(false);
+          return;
+        }
+
         if (introOpen) {
           setIntroOpen(false);
           return;
@@ -2482,10 +2512,12 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     aboutOpen,
+    commandMenuOpen,
     confirmDialog,
     diagramView,
     history,
     introOpen,
+    keyboardShortcutsOpen,
     logicalHistory,
     mode,
     promptDialog,
@@ -4047,42 +4079,15 @@ export default function App() {
         codePanelOpen={codePanelOpen}
         notesPanelOpen={notesPanelOpen}
         mode={mode}
-        canUndo={activeCanUndo}
-        canRedo={activeCanRedo}
         logicalOutOfDate={logicalOutOfDate}
         focusMode={focusMode}
-        toolRailCollapsed={effectiveToolbarCollapsed}
-        onDiagramViewChange={handleDiagramViewChange}
-        onOpenSql={handleOpenSqlStage}
-        onOpenLogicalWorkflow={handleOpenLogicalStage}
         onModeChange={handleModeChange}
         onNewProject={handleNewProject}
-        onUndo={handleUndoAction}
-        onRedo={handleRedoAction}
-        onGenerateLogicalModel={handleGenerateLogicalModel}
-        onResetTranslation={handleResetTranslation}
-        onAutoLayoutLogical={handleLogicalAutoLayout}
-        onFitLogical={handleLogicalFit}
         onToggleCodePanel={handleToggleCodePanel}
         onToggleNotesPanel={handleToggleNotesPanel}
         onSaveProject={handleSaveProject}
-        onSaveErs={handleSaveErs}
         onLoadProject={handleLoadProjectRequest}
-        onLoadErs={handleLoadErsRequest}
-        onExportPng={handleExportPng}
-        onExportSvg={handleExportSvg}
-        onResetErs={handleResetCodeFromDiagram}
-        onOpenErsGuide={openCodeTutorialSurface}
-        onAbout={() => {
-          setWhatsNewOpen(false);
-          setAboutOpen(true);
-        }}
-        onWhatsNew={() => {
-          setAboutOpen(false);
-          setWhatsNewOpen(true);
-        }}
-        onToggleFocusMode={handleToggleFocusMode}
-        onToggleToolRail={handleToggleToolRail}
+        onOpenCommandMenu={openCommandMenu}
       />
 
       <WorkspaceStageBar
@@ -4299,6 +4304,68 @@ export default function App() {
         accept=".ers,text/plain"
         onChange={handleLoadErsFile}
       />
+
+      {commandMenuOpen ? (
+        <CommandMenuModal
+          appTitle={APP_TITLE}
+          appVersion={APP_VERSION}
+          diagramName={history.present.meta.name}
+          diagramView={diagramView}
+          activeTool={tool}
+          logicalSqlOpen={logicalPanelMode === "sql"}
+          codePanelOpen={codePanelOpen}
+          notesPanelOpen={notesPanelOpen}
+          mode={mode}
+          canUndo={activeCanUndo}
+          canRedo={activeCanRedo}
+          logicalOutOfDate={logicalOutOfDate}
+          focusMode={focusMode}
+          toolRailCollapsed={effectiveToolbarCollapsed}
+          selectionItemCount={selectionItemCount}
+          onClose={() => setCommandMenuOpen(false)}
+          onOpenShortcuts={openKeyboardShortcuts}
+          onDiagramViewChange={handleDiagramViewChange}
+          onOpenSql={handleOpenSqlStage}
+          onOpenLogicalWorkflow={handleOpenLogicalStage}
+          onModeChange={handleModeChange}
+          onToolChange={(nextTool) => {
+            setTool(nextTool);
+            setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
+          }}
+          onNewProject={handleNewProject}
+          onUndo={handleUndoAction}
+          onRedo={handleRedoAction}
+          onDuplicateSelection={handleDuplicateSelection}
+          onDeleteSelection={handleDeleteSelection}
+          onRenameSelection={handleRenameSelectionQuick}
+          onGenerateLogicalModel={handleGenerateLogicalModel}
+          onResetTranslation={handleResetTranslation}
+          onAutoLayoutLogical={handleLogicalAutoLayout}
+          onFitLogical={handleLogicalFit}
+          onToggleCodePanel={handleToggleCodePanel}
+          onToggleNotesPanel={handleToggleNotesPanel}
+          onSaveProject={handleSaveProject}
+          onSaveErs={handleSaveErs}
+          onLoadProject={handleLoadProjectRequest}
+          onLoadErs={handleLoadErsRequest}
+          onExportPng={handleExportPng}
+          onExportSvg={handleExportSvg}
+          onResetErs={handleResetCodeFromDiagram}
+          onOpenErsGuide={openCodeTutorialSurface}
+          onAbout={() => {
+            setWhatsNewOpen(false);
+            setAboutOpen(true);
+          }}
+          onWhatsNew={() => {
+            setAboutOpen(false);
+            setWhatsNewOpen(true);
+          }}
+          onToggleFocusMode={handleToggleFocusMode}
+          onToggleToolRail={handleToggleToolRail}
+        />
+      ) : null}
+
+      {keyboardShortcutsOpen ? <KeyboardShortcutsModal onClose={() => setKeyboardShortcutsOpen(false)} /> : null}
 
       {confirmDialog ? (
         <div className="help-modal-backdrop" role="presentation" onClick={() => closeConfirmDialog(false)}>

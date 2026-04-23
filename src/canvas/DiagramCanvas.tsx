@@ -3230,17 +3230,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         </div>
       ) : null}
 
-      {advancedAffordances.length > 0 ? (
-        <div className="canvas-affordance-rail" aria-label="Gesture avanzate disponibili">
-          {advancedAffordances.map((item) => (
-            <div key={item.key} className="canvas-affordance-chip">
-              <strong>{item.label}</strong>
-              <span>{item.hint}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
       {inlineEdit && editorStyle ? (
         <form
           className="inline-editor"

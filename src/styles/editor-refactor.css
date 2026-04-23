@@ -1421,6 +1421,11 @@ summary:focus-visible {
   z-index: 40;
 }
 
+.command-modal-backdrop {
+  background: rgba(20, 24, 22, 0.44);
+  backdrop-filter: blur(2px);
+}
+
 .help-modal,
 .action-modal {
   width: min(520px, calc(100vw - 32px));
@@ -1437,6 +1442,181 @@ summary:focus-visible {
   padding: 10px 12px;
   border-bottom: 1px solid var(--editor-border);
   background: var(--editor-panel-muted);
+}
+
+.command-modal,
+.shortcuts-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(860px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: hidden;
+}
+
+.shortcuts-modal {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.command-modal-head h2,
+.command-modal-head p {
+  margin: 0;
+}
+
+.command-modal-head p {
+  margin-top: 3px;
+  color: var(--editor-text-muted);
+  font-size: 0.74rem;
+}
+
+.command-modal-content,
+.shortcuts-modal-content {
+  min-height: 0;
+  padding: 14px;
+  overflow: auto;
+}
+
+.command-modal-content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.command-menu-section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.command-menu-section-wide {
+  grid-column: 1 / -1;
+}
+
+.command-menu-section-title {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--editor-border);
+  color: var(--editor-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.command-menu-list,
+.command-menu-tool-grid {
+  display: grid;
+  gap: 5px;
+}
+
+.command-menu-tool-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.command-menu-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--editor-text);
+  text-align: left;
+}
+
+.command-menu-item:hover:not(:disabled),
+.command-menu-item.active {
+  border-color: var(--editor-border);
+  background: var(--editor-panel-muted);
+}
+
+.command-menu-item:disabled {
+  color: var(--editor-text-faint);
+  cursor: not-allowed;
+}
+
+.command-menu-item-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.command-menu-item-copy strong {
+  overflow: hidden;
+  color: var(--editor-text-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-menu-item-copy span {
+  overflow: hidden;
+  color: var(--editor-text-muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-menu-item kbd,
+.shortcut-row kbd {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--editor-border);
+  background: #ffffff;
+  color: var(--editor-text-muted);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.shortcuts-modal-content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.shortcut-section {
+  min-width: 0;
+}
+
+.shortcut-section h3 {
+  margin: 0 0 8px;
+  color: var(--editor-text-strong);
+  font-size: 0.92rem;
+}
+
+.shortcut-section dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(183, 190, 180, 0.42);
+}
+
+.shortcut-row dt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.shortcut-row dd {
+  margin: 0;
+  color: var(--editor-text);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .action-modal-content {
@@ -1873,5 +2053,14 @@ summary:focus-visible {
   .canvas-viewport-hud {
     right: 12px;
     bottom: 12px;
+  }
+
+  .command-modal-content,
+  .shortcuts-modal-content {
+    grid-template-columns: 1fr;
+  }
+
+  .command-menu-tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
