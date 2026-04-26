@@ -15,6 +15,15 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.0.0] - 2026-04-26
+
+### Changed
+- Versione applicativa aggiornata alla release 4.0 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.0 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.0 e alla relativa sezione novita.
+- Aggiunta una nuova voce 4.0 nel changelog senza rimuovere le release precedenti.
+- Preservato lo storico completo delle release 3.9 e precedenti.
+
 ## [3.9.0] - 2026-04-20
 
 ### Added

@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "3.9";
+export const APP_VERSION = "4.0";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,16 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.0",
+    date: "2026-04-26",
+    updates: [
+      "Versione applicativa aggiornata alla release 4.0.",
+      "Metadata, documentazione e riferimenti UI allineati alla nuova versione principale, senza rimuovere lo storico delle release precedenti.",
+      "Nuova UI per l'applicazione: restyling completo con design moderno, layout a 5 colonne, temi chiaro/scuro e interfaccia localizzata in italiano, inglese e albanese.",
+      "Rifacimento completo del workspace della vista Logica, integrandolo nativamente come first-class citizen della UI a 5 colonne, con miglioramenti significativi all'usabilita, alla flessibilita del layout e alla coerenza visiva dei diagrammi logici.",
+    ],
+  },
   {
     version: "3.9",
     date: "2026-04-20",
