@@ -88,15 +88,15 @@ function getFallbackStatus(props: BottomStatusBarProps): { tone: NoticeTone | "i
 
 function getStatusToneLabel(tone: NoticeTone | "info"): string {
   if (tone === "error") {
-    return "Error";
+    return "Errore";
   }
 
   if (tone === "warning") {
-    return "Warn";
+    return "Warning";
   }
 
   if (tone === "success") {
-    return "Ok";
+    return "OK";
   }
 
   return "Info";
@@ -107,14 +107,19 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
   const warningCount = props.issues.filter((issue) => issue.level === "warning").length;
   const primaryNotice = props.notices[0] as WorkspaceNoticeItem | undefined;
   const fallbackStatus = getFallbackStatus(props);
-  const primaryTone: NoticeTone | "info" =
-    primaryNotice?.tone ?? (props.statusMessage.trim() ? fallbackStatus.tone : fallbackStatus.tone);
+  const primaryTone: NoticeTone | "info" = primaryNotice?.tone ?? fallbackStatus.tone;
   const trimmedStatusMessage = props.statusMessage.trim();
   const primaryMessage =
     primaryNotice?.message ?? (trimmedStatusMessage || fallbackStatus.message);
   const activePanels = [
     props.codePanelOpen ? "Code" : "",
     props.notesPanelOpen ? "Notes" : "",
+  ].filter(Boolean);
+  const statusMeta = [
+    props.selectionItemCount > 0 ? `${props.selectionItemCount} selezionati` : "",
+    errorCount > 0 ? `${errorCount} errori` : "",
+    warningCount > 0 ? `${warningCount} warning` : "",
+    ...activePanels,
   ].filter(Boolean);
 
   return (
@@ -143,11 +148,8 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
         </div>
 
         <div className="bottom-status-block bottom-status-block-meta" aria-label="Stato selezione e validazione">
-          {props.selectionItemCount > 0 ? <span>{props.selectionItemCount} selezionati</span> : null}
-          <span>{errorCount} errori</span>
-          <span>{warningCount} warning</span>
-          {activePanels.map((panel) => (
-            <span key={panel}>{panel}</span>
+          {statusMeta.map((item) => (
+            <span key={item}>{item}</span>
           ))}
         </div>
       </div>

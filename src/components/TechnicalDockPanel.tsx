@@ -56,8 +56,8 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
             </button>
           ))}
         </div>
-        <button type="button" className="technical-side-panel-close" onClick={props.onClose}>
-          Hide
+        <button type="button" className="technical-side-panel-close" onClick={props.onClose} aria-label="Nascondi pannello tecnico">
+          Nascondi
         </button>
       </header>
 

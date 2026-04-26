@@ -37,13 +37,13 @@ function getSummary(props: WorkspaceStageBarProps): { tone: WorkflowTone; label:
     return props.erIssuesCount > 0
       ? {
           tone: "warning",
-          label: "Model validation active",
-          detail: `${props.erIssuesCount} warning o errori nel diagramma ER.`,
+          label: "Review modello",
+          detail: `${props.erIssuesCount} warning o errori richiedono attenzione.`,
         }
       : {
           tone: "success",
-          label: "Model ready",
-          detail: "Il canvas ER e pronto per la fase successiva.",
+          label: "Modello pronto",
+          detail: "Nessun warning aperto nel canvas ER.",
         };
   }
 
@@ -51,12 +51,12 @@ function getSummary(props: WorkspaceStageBarProps): { tone: WorkflowTone; label:
     return props.translationPendingCount > 0
       ? {
           tone: "warning",
-          label: "Translation in progress",
+          label: "Traduzione in corso",
           detail: `${props.translationPendingCount} decisioni ancora aperte.`,
         }
       : {
           tone: "success",
-          label: "Translation aligned",
+          label: "Traduzione allineata",
           detail: "Puoi procedere verso lo schema logico.",
         };
   }
@@ -65,12 +65,12 @@ function getSummary(props: WorkspaceStageBarProps): { tone: WorkflowTone; label:
     return props.logicalOutOfDate
       ? {
           tone: "warning",
-          label: "SQL out of date",
+          label: "SQL non aggiornato",
           detail: "Rigenera prima il modello logico.",
         }
       : {
           tone: "neutral",
-          label: "SQL preview",
+          label: "Anteprima SQL",
           detail: "Verifica il codice generato dal modello corrente.",
         };
   }
@@ -78,16 +78,16 @@ function getSummary(props: WorkspaceStageBarProps): { tone: WorkflowTone; label:
   return props.logicalOutOfDate
     ? {
         tone: "warning",
-        label: "Schema out of sync",
+        label: "Schema da riallineare",
         detail: "Il modello logico richiede riallineamento.",
       }
     : {
         tone: props.logicalPendingCount > 0 ? "warning" : "success",
-        label: props.logicalPendingCount > 0 ? "Schema review" : "Schema stable",
+        label: props.logicalPendingCount > 0 ? "Review schema" : "Schema stabile",
         detail:
           props.logicalPendingCount > 0
             ? `${props.logicalPendingCount} fix logici ancora aperti.`
-            : `${props.logicalTableCount} tabelle disponibili nel modello logico.`,
+            : "Modello logico allineato.",
       };
 }
 
@@ -95,30 +95,28 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
   const stages: StageDescriptor[] = [
     {
       id: "er",
-      label: "MODEL",
-      meta: props.erIssuesCount > 0 ? `${props.erIssuesCount} issues` : "ready",
+      label: "Modello ER",
+      meta: props.erIssuesCount > 0 ? "Da rivedere" : "Pronto",
       tone: getStageTone(props.erIssuesCount),
       active: props.currentView === "er",
       onSelect: props.onOpenEr,
     },
     {
       id: "translation",
-      label: "TRANSLATION",
-      meta: props.translationPendingCount > 0 ? `${props.translationPendingCount} open` : "aligned",
+      label: "Traduzione",
+      meta: props.translationPendingCount > 0 ? `${props.translationPendingCount} aperte` : "Allineata",
       tone: getStageTone(props.translationPendingCount),
       active: props.currentView === "translation",
       onSelect: props.onOpenTranslation,
     },
     {
       id: "logical",
-      label: "SCHEMA",
+      label: "Schema logico",
       meta: props.logicalOutOfDate
-        ? "out of sync"
+        ? "Da riallineare"
         : props.logicalPendingCount > 0
-          ? `${props.logicalPendingCount} open`
-          : props.logicalTableCount > 0
-            ? `${props.logicalTableCount} tables`
-            : "empty",
+          ? `${props.logicalPendingCount} aperti`
+          : "Allineato",
       tone: props.logicalOutOfDate ? "warning" : getStageTone(props.logicalPendingCount, props.logicalTableCount === 0),
       active: props.currentView === "logical",
       onSelect: props.onOpenLogical,

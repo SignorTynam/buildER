@@ -29,12 +29,12 @@ interface LogicalTranslationWorkspaceProps {
   viewport: Viewport;
   selection: LogicalSelection;
   typeMode: boolean;
-  panelMode: "review" | "sql" | "decisions";
+  panelMode: "review" | "sql";
   fitRequestToken: number;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
   onTypeModeChange: (nextValue: boolean) => void;
-  onPanelModeChange: (nextValue: "review" | "sql" | "decisions") => void;
+  onPanelModeChange: (nextValue: "review" | "sql") => void;
   onApplyChoice: (item: LogicalTranslationItem, choice: LogicalTranslationChoice) => void;
   onResetTranslation: () => void;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
@@ -265,8 +265,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const focusedTargetKey = selectedItem ? buildTargetKey(selectedItem) : null;
 
   const showSqlPanel = props.panelMode === "sql";
-  const showDecisionsPanel = props.panelMode === "decisions";
-  const showReviewPanel = !showSqlPanel && !showDecisionsPanel;
+  const showReviewPanel = !showSqlPanel;
 
   useEffect(() => {
     const preferredStep = getPreferredStep(overview, completion);
@@ -421,15 +420,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             >
               SQL
             </button>
-            <button
-              type="button"
-              className={showDecisionsPanel ? "translation-panel-tab active" : "translation-panel-tab"}
-              onClick={() => props.onPanelModeChange("decisions")}
-              role="tab"
-              aria-selected={showDecisionsPanel}
-            >
-              Decisions
-            </button>
           </div>
         </section>
 
@@ -575,22 +565,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ) : (
           <>
             <section className="translation-panel-section">
-              <h3>Decisioni applicate</h3>
-              {props.workspace.translation.decisions.length > 0 ? (
-                <div className="translation-decision-list">
-                  {props.workspace.translation.decisions.map((decision) => (
-                    <div key={decision.id} className={`translation-decision-card status-${decision.status}`}>
-                      <strong>{decision.summary}</strong>
-                      <span>{decision.rule}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="translation-empty-hint">Nessuna decisione ancora registrata.</div>
-              )}
-            </section>
-
-            <section className="translation-panel-section">
               <h3>Conflitti e warning</h3>
               {props.workspace.translation.conflicts.length > 0 ? (
                 <div className="translation-warning-list">
@@ -606,46 +580,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             </section>
           </>
         )}
-          </>
-        ) : showDecisionsPanel ? (
-          <>
-            <section className="translation-panel-section">
-              <div className="translation-section-head">
-                <h3>Decisioni applicate</h3>
-                <span className="translation-inline-counter">{props.workspace.translation.decisions.length}</span>
-              </div>
-              {props.workspace.translation.decisions.length > 0 ? (
-                <div className="translation-decision-list">
-                  {props.workspace.translation.decisions.map((decision) => (
-                    <div key={decision.id} className={`translation-decision-card status-${decision.status}`}>
-                      <strong>{decision.summary}</strong>
-                      <span>{decision.rule}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="translation-empty-hint">Nessuna decisione ancora registrata.</div>
-              )}
-            </section>
-
-            <section className="translation-panel-section">
-              <div className="translation-section-head">
-                <h3>Conflitti e warning</h3>
-                <span className="translation-inline-counter">{props.workspace.translation.conflicts.length}</span>
-              </div>
-              {props.workspace.translation.conflicts.length > 0 ? (
-                <div className="translation-warning-list">
-                  {props.workspace.translation.conflicts.map((conflict) => (
-                    <div key={conflict.id} className={`translation-warning-item level-${conflict.level}`}>
-                      {conflict.message}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="translation-empty-hint">Nessun conflitto aperto nella trasformazione logica corrente.</div>
-              )}
-            </section>
-
           </>
         ) : (
           <>

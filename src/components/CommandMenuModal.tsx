@@ -11,6 +11,7 @@ interface CommandMenuModalProps {
   diagramView: WorkspaceView;
   activeTool: ToolKind;
   logicalSqlOpen: boolean;
+  technicalPanelOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
   mode: EditorMode;
@@ -37,6 +38,7 @@ interface CommandMenuModalProps {
   onResetTranslation: () => void;
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
+  onToggleReviewPanel: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
   onSaveProject: () => void;
@@ -69,6 +71,7 @@ function CommandButton({ label, detail, shortcut, disabled, active, onClick }: C
       className={active ? "command-menu-item active" : "command-menu-item"}
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={active ? true : undefined}
     >
       <span className="command-menu-item-copy">
         <strong>{label}</strong>
@@ -122,32 +125,32 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             <div className="command-menu-section-title">Workflow</div>
             <div className="command-menu-list">
               <CommandButton
-                label="MODEL"
-                detail="Progettazione ER concettuale"
+                label="Modello ER"
+                detail="Canvas concettuale"
                 active={props.diagramView === "er"}
                 onClick={() => runCommand(() => props.onDiagramViewChange("er"))}
               />
               <CommandButton
-                label="TRANSLATION"
-                detail="Workflow tecnico ER -> ER tradotto"
+                label="Traduzione"
+                detail="Passi ER intermedi"
                 active={props.diagramView === "translation"}
                 onClick={() => runCommand(() => props.onDiagramViewChange("translation"))}
               />
               <CommandButton
-                label="SCHEMA"
-                detail="Schema logico relazionale"
+                label="Schema logico"
+                detail="Tabelle, chiavi e vincoli"
                 active={props.diagramView === "logical" && !props.logicalSqlOpen}
                 onClick={() => runCommand(props.onOpenLogicalWorkflow)}
               />
               <CommandButton
-                label="SQL panel"
-                detail="Apri SQL dentro lo schema logico"
+                label="SQL"
+                detail="Anteprima dello schema"
                 active={props.diagramView === "logical" && props.logicalSqlOpen}
                 onClick={() => runCommand(props.onOpenSql)}
               />
               <CommandButton
-                label="Reset translation"
-                detail="Riparti dal workflow di traduzione"
+                label="Reset traduzione"
+                detail="Riparti dai passi ER"
                 disabled={!isTranslationView}
                 onClick={() => runCommand(props.onResetTranslation)}
               />
@@ -164,7 +167,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
                 onClick={() => runCommand(props.onAutoLayoutLogical)}
               />
               <CommandButton
-                label="Fit logical canvas"
+                label="Adatta canvas logico"
                 detail="Centra e adatta lo schema"
                 disabled={!isLogicalView}
                 onClick={() => runCommand(props.onFitLogical)}
@@ -176,38 +179,44 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             <div className="command-menu-section-title">Workspace</div>
             <div className="command-menu-list">
               <CommandButton
-                label={props.codePanelOpen ? "Hide code" : "Show code"}
-                detail="Dock tecnico ERS"
+                label={props.technicalPanelOpen ? "Nascondi dock tecnico" : "Mostra Review"}
+                detail={props.technicalPanelOpen ? "Chiude Review, Code o Notes" : "Warning ed errori del modello"}
                 shortcut="Ctrl/Cmd I"
+                disabled={!isErView}
+                onClick={() => runCommand(props.onToggleReviewPanel)}
+              />
+              <CommandButton
+                label={props.codePanelOpen ? "Nascondi Code" : "Mostra Code"}
+                detail="Tab ERS nel dock tecnico"
                 disabled={!isErView}
                 onClick={() => runCommand(props.onToggleCodePanel)}
               />
               <CommandButton
-                label={props.notesPanelOpen ? "Hide notes" : "Show notes"}
-                detail="Annotazioni del progetto"
+                label={props.notesPanelOpen ? "Nascondi Notes" : "Mostra Notes"}
+                detail="Annotazioni nel tab dedicato"
                 disabled={!isErView}
                 onClick={() => runCommand(props.onToggleNotesPanel)}
               />
               <CommandButton
-                label={props.focusMode ? "Disable focus" : "Enable focus"}
+                label={props.focusMode ? "Disattiva focus" : "Attiva focus"}
                 detail="Nascondi pannelli non necessari"
                 shortcut="Ctrl/Cmd ."
                 onClick={() => runCommand(props.onToggleFocusMode)}
               />
               <CommandButton
-                label={props.toolRailCollapsed ? "Expand toolbar" : "Collapse toolbar"}
-                detail="Compatta la rail strumenti"
+                label={props.toolRailCollapsed ? "Espandi strumenti" : "Comprimi strumenti"}
+                detail="Cambia densita della rail"
                 onClick={() => runCommand(props.onToggleToolRail)}
               />
               <CommandButton
-                label="Edit mode"
-                detail="Abilita modifiche ER"
+                label="Modifica"
+                detail="Abilita modifiche nel modello ER"
                 active={isErView && props.mode === "edit"}
                 disabled={!isErView}
                 onClick={() => runCommand(() => props.onModeChange("edit"))}
               />
               <CommandButton
-                label="Read mode"
+                label="Lettura"
                 detail="Navigazione senza modifiche"
                 active={isErView && props.mode === "view"}
                 disabled={!isErView}
@@ -225,7 +234,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
                   <CommandButton
                     key={tool.tool}
                     label={tool.label}
-                    detail={tool.tool === "delete" ? "Tool di cancellazione" : "Attiva strumento canvas"}
+                    detail={tool.description}
                     shortcut={tool.shortcut.toUpperCase()}
                     active={isErView && props.activeTool === tool.tool}
                     disabled={disabled}
@@ -240,31 +249,31 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             <div className="command-menu-section-title">Edit</div>
             <div className="command-menu-list">
               <CommandButton
-                label="Undo"
+                label="Annulla"
                 shortcut="Ctrl/Cmd Z"
                 disabled={!props.canUndo}
                 onClick={() => runCommand(props.onUndo)}
               />
               <CommandButton
-                label="Redo"
+                label="Ripeti"
                 shortcut="Ctrl/Cmd Y"
                 disabled={!props.canRedo}
                 onClick={() => runCommand(props.onRedo)}
               />
               <CommandButton
-                label="Duplicate selection"
+                label="Duplica selezione"
                 shortcut="Ctrl/Cmd D"
                 disabled={!isErView || props.selectionItemCount === 0}
                 onClick={() => runCommand(props.onDuplicateSelection)}
               />
               <CommandButton
-                label="Rename selection"
+                label="Rinomina selezione"
                 shortcut="Enter"
                 disabled={!isErView || props.selectionItemCount !== 1}
                 onClick={() => runCommand(props.onRenameSelection)}
               />
               <CommandButton
-                label="Delete selection"
+                label="Elimina selezione"
                 shortcut="Del"
                 disabled={!isErView || props.selectionItemCount === 0}
                 onClick={() => runCommand(props.onDeleteSelection)}
@@ -275,24 +284,24 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
           <section className="command-menu-section">
             <div className="command-menu-section-title">File ed export</div>
             <div className="command-menu-list">
-              <CommandButton label="New project" onClick={() => runCommand(props.onNewProject)} />
-              <CommandButton label="Open project" onClick={() => runCommand(props.onLoadProject)} />
-              <CommandButton label="Open ERS" onClick={() => runCommand(props.onLoadErs)} />
-              <CommandButton label="Save project" shortcut="Ctrl/Cmd S" onClick={() => runCommand(props.onSaveProject)} />
-              <CommandButton label="Download ERS" onClick={() => runCommand(props.onSaveErs)} />
+              <CommandButton label="Nuovo progetto" onClick={() => runCommand(props.onNewProject)} />
+              <CommandButton label="Apri progetto" onClick={() => runCommand(props.onLoadProject)} />
+              <CommandButton label="Apri ERS" onClick={() => runCommand(props.onLoadErs)} />
+              <CommandButton label="Salva progetto" shortcut="Ctrl/Cmd S" onClick={() => runCommand(props.onSaveProject)} />
+              <CommandButton label="Scarica ERS" onClick={() => runCommand(props.onSaveErs)} />
               <CommandButton label="Export PNG" onClick={() => runCommand(props.onExportPng)} />
               <CommandButton label="Export SVG" onClick={() => runCommand(props.onExportSvg)} />
-              <CommandButton label="Reset ERS source" onClick={() => runCommand(props.onResetErs)} />
+              <CommandButton label="Rigenera sorgente ERS" onClick={() => runCommand(props.onResetErs)} />
             </div>
           </section>
 
           <section className="command-menu-section">
             <div className="command-menu-section-title">Help</div>
             <div className="command-menu-list">
-              <CommandButton label="Keyboard shortcuts" detail="Scorciatoie del progetto" onClick={() => runCommand(props.onOpenShortcuts)} />
-              <CommandButton label="ERS guide" onClick={() => runCommand(props.onOpenErsGuide)} />
-              <CommandButton label="What's new" onClick={() => runCommand(props.onWhatsNew)} />
-              <CommandButton label="About" onClick={() => runCommand(props.onAbout)} />
+              <CommandButton label="Scorciatoie tastiera" detail="Comandi supportati" onClick={() => runCommand(props.onOpenShortcuts)} />
+              <CommandButton label="Guida ERS" onClick={() => runCommand(props.onOpenErsGuide)} />
+              <CommandButton label="Novita" onClick={() => runCommand(props.onWhatsNew)} />
+              <CommandButton label="Informazioni" onClick={() => runCommand(props.onAbout)} />
             </div>
           </section>
 

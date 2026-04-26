@@ -1071,7 +1071,7 @@ export default function App() {
   const [logicalViewport, setLogicalViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.logicalViewport }));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => ({ ...sessionBootstrap.logicalSelection }));
   const [logicalTypeMode, setLogicalTypeMode] = useState(false);
-  const [logicalPanelMode, setLogicalPanelMode] = useState<"review" | "sql" | "decisions">("review");
+  const [logicalPanelMode, setLogicalPanelMode] = useState<"review" | "sql">("review");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const [statusMessage, setStatusMessage] = useState("");
@@ -2144,6 +2144,15 @@ export default function App() {
     setNotesPanelOpen(false);
   }
 
+  function handleToggleReviewPanel() {
+    if (technicalPanelOpen) {
+      closeTechnicalPanel();
+      return;
+    }
+
+    openTechnicalPanelTab("review");
+  }
+
   function handleToggleCodePanel() {
     if (technicalPanelOpen && technicalPanelTab === "code") {
       closeTechnicalPanel();
@@ -2408,11 +2417,7 @@ export default function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "i") {
         event.preventDefault();
         if (diagramView === "er") {
-          if (technicalPanelOpen) {
-            closeTechnicalPanel();
-          } else {
-            openTechnicalPanelTab("review");
-          }
+          handleToggleReviewPanel();
           return;
         }
 
@@ -3990,43 +3995,22 @@ export default function App() {
   ]
     .filter(Boolean)
     .join(" ");
-  const selectedModelElementLabel =
-    selectedNode?.label ??
-    selectedEdge?.label ??
-    (selectionItemCount > 1 ? `${selectionItemCount} elementi selezionati` : "Nessuna selezione");
-  const visibleModelIssues = issues.slice(0, 5);
+  const visibleModelIssues = [...issues]
+    .sort((left, right) => {
+      if (left.level === right.level) {
+        return 0;
+      }
+
+      return left.level === "error" ? -1 : 1;
+    })
+    .slice(0, 8);
   const modelReviewPanel = (
     <div className="technical-dock-review" aria-label="Overview modello ER">
-      <section className="technical-dock-section technical-dock-section-metrics">
-        <div className="technical-dock-metric">
-          <span>Elementi</span>
-          <strong>{history.present.nodes.length}</strong>
-        </div>
-        <div className="technical-dock-metric">
-          <span>Relazioni</span>
-          <strong>{history.present.edges.length}</strong>
-        </div>
-        <div className="technical-dock-metric">
-          <span>Issues</span>
-          <strong>{issues.length}</strong>
-        </div>
-      </section>
-
       <section className="technical-dock-section">
-        <h3>Selezione</h3>
-        <p>{selectedModelElementLabel}</p>
-        <button
-          type="button"
-          className="technical-dock-inline-action"
-          onClick={() => setSelection({ nodeIds: [], edgeIds: [] })}
-          disabled={selectionItemCount === 0}
-        >
-          Clear selection
-        </button>
-      </section>
-
-      <section className="technical-dock-section">
-        <h3>Validazione</h3>
+        <div className="technical-dock-section-head">
+          <h3>Review modello</h3>
+          <span>Warning ed errori</span>
+        </div>
         {visibleModelIssues.length > 0 ? (
           <div className="technical-dock-list">
             {visibleModelIssues.map((issue) => (
@@ -4036,23 +4020,17 @@ export default function App() {
                 className={`technical-dock-list-item level-${issue.level}`}
                 onClick={() => handleIssueNotice(issue)}
               >
-                <span>{issue.level}</span>
+                <span>{issue.level === "error" ? "Errore" : "Warning"}</span>
                 <strong>{issue.message}</strong>
               </button>
             ))}
           </div>
         ) : (
-          <p>Nessun warning contestuale nel modello corrente.</p>
+          <div className="technical-dock-empty">
+            <strong>Nessun warning aperto</strong>
+            <span>Il modello ER non richiede interventi di review.</span>
+          </div>
         )}
-      </section>
-
-      <section className="technical-dock-section">
-        <h3>Note progetto</h3>
-        <p>
-          {history.present.notes.trim().length > 0
-            ? "Le note sono disponibili nel tab Notes."
-            : "Nessuna nota salvata per questo diagramma."}
-        </p>
       </section>
     </div>
   );
@@ -4313,6 +4291,7 @@ export default function App() {
           diagramView={diagramView}
           activeTool={tool}
           logicalSqlOpen={logicalPanelMode === "sql"}
+          technicalPanelOpen={diagramView === "er" && technicalPanelOpen}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
           mode={mode}
@@ -4342,6 +4321,7 @@ export default function App() {
           onResetTranslation={handleResetTranslation}
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
+          onToggleReviewPanel={handleToggleReviewPanel}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}

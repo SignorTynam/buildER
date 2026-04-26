@@ -37,12 +37,12 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
     items: [
       { keys: "V", action: "Selezione" },
       { keys: "S", action: "Sposta / pan" },
-      { keys: "X", action: "Cancella" },
       { keys: "E", action: "Entita" },
       { keys: "R", action: "Relazione" },
       { keys: "A", action: "Attributo" },
       { keys: "C", action: "Collegamento" },
       { keys: "G", action: "Generalizzazione" },
+      { keys: "X", action: "Cancella" },
     ],
   },
   {

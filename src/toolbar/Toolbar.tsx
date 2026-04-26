@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { InspectorPanel } from "../inspector/InspectorPanel";
 import type {
   AttributeNode,
@@ -21,6 +22,7 @@ const PRIMARY_TOOLS: ToolKind[] = [
   "attribute",
   "connector",
   "inheritance",
+  "delete",
 ];
 
 type ToolbarContext = "empty" | "node" | "edge" | "multi";
@@ -123,7 +125,7 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
   );
 }
 
-function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "connect" | "translate" | "export" | "identifier" | "multivalue" | "weak" }) {
+function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "connect" | "attribute" | "translate" | "export" | "identifier" | "multivalue" | "weak" }) {
   if (kind === "rename") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -160,6 +162,10 @@ function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "conn
         <circle cx="18" cy="16" r="1.5" fill="currentColor" />
       </svg>
     );
+  }
+
+  if (kind === "attribute") {
+    return <ToolIcon tool="attribute" />;
   }
 
   if (kind === "translate") {
@@ -233,9 +239,25 @@ export function Toolbar(props: ToolbarProps) {
           : "multi";
   const selectionTargetIds = new Set([...props.selection.nodeIds, ...props.selection.edgeIds]);
   const selectionIssues = props.issues.filter((issue) => selectionTargetIds.has(issue.targetId));
-  const visibleIssues = selectionIssues.length > 0 ? selectionIssues : props.issues.slice(0, 4);
+  const visibleIssues = selectionIssues.slice(0, 3);
   const showPropertiesInspector =
     props.showPropertiesInspector !== false && !props.collapsed && props.selectionItemCount > 0;
+  const contextTitle =
+    context === "empty"
+      ? "Nessuna selezione"
+      : context === "node"
+        ? props.selectedNode?.label ?? "Elemento selezionato"
+        : context === "edge"
+          ? props.selectedEdge?.label ?? "Collegamento selezionato"
+          : `${props.selectionItemCount} elementi`;
+  const contextHint =
+    context === "empty"
+      ? "Azioni sul workspace"
+      : context === "node"
+        ? "Azioni per l'elemento attivo"
+        : context === "edge"
+          ? "Azioni per il collegamento"
+          : "Azioni sulla selezione";
 
   function renderQuickButton(
     label: string,
@@ -254,6 +276,7 @@ export function Toolbar(props: ToolbarProps) {
         onClick={onClick}
         disabled={options?.disabled}
         title={options?.title ?? label}
+        aria-pressed={options?.active ? true : undefined}
       >
         <UtilityIcon kind={kind} />
         <span className="tool-label">{label}</span>
@@ -261,34 +284,43 @@ export function Toolbar(props: ToolbarProps) {
     );
   }
 
+  function renderContextShell(children: ReactNode) {
+    return (
+      <section className="toolbar-section toolbar-section-context">
+        <div className="toolbar-section-head toolbar-section-head-stacked">
+          <span className="toolbar-section-label">{contextTitle}</span>
+          <span className="toolbar-section-meta">{contextHint}</span>
+        </div>
+        <div className="toolbar-list toolbar-list-tight">{children}</div>
+      </section>
+    );
+  }
+
   function renderContextActions() {
     if (context === "empty") {
-      return (
-        <section className="toolbar-section toolbar-section-context">
-          <div className="toolbar-list toolbar-list-tight">
-            {renderQuickButton("Translate", "translate", props.onOpenTranslation, {
+      return renderContextShell(
+        <>
+            {renderQuickButton("Traduci", "translate", props.onOpenTranslation, {
               disabled: false,
             })}
-            {renderQuickButton("Export", "export", props.onExportSvg)}
-          </div>
-        </section>
+            {renderQuickButton("Esporta SVG", "export", props.onExportSvg)}
+        </>,
       );
     }
 
     if (context === "node" && props.selectedNode) {
       if (props.selectedNode.type === "entity") {
         const entity = props.selectedNode;
-        return (
-          <section className="toolbar-section toolbar-section-context">
-            <div className="toolbar-list toolbar-list-tight">
-              {renderQuickButton("Attribute", "connect", props.onCreateAttributeForSelection, {
+        return renderContextShell(
+          <>
+              {renderQuickButton("Attributo", "attribute", props.onCreateAttributeForSelection, {
                 disabled: !canEdit,
               })}
-              {renderQuickButton("Connect", "connect", () => props.onToolChange("connector"), {
+              {renderQuickButton("Collega", "connect", () => props.onToolChange("connector"), {
                 active: props.activeTool === "connector",
                 disabled: !canEdit,
               })}
-              {renderQuickButton("Weak", "weak", () => props.onNodeChange(entity.id, { isWeak: !entity.isWeak }), {
+              {renderQuickButton("Debole", "weak", () => props.onNodeChange(entity.id, { isWeak: !entity.isWeak }), {
                 active: entity.isWeak === true,
                 disabled: !canEdit,
               })}
@@ -298,20 +330,18 @@ export function Toolbar(props: ToolbarProps) {
               {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
                 disabled: !canEdit,
               })}
-            </div>
-          </section>
+          </>,
         );
       }
 
       if (props.selectedNode.type === "relationship") {
-        return (
-          <section className="toolbar-section toolbar-section-context">
-            <div className="toolbar-list toolbar-list-tight">
-              {renderQuickButton("Connect", "connect", () => props.onToolChange("connector"), {
+        return renderContextShell(
+          <>
+              {renderQuickButton("Collega", "connect", () => props.onToolChange("connector"), {
                 active: props.activeTool === "connector",
                 disabled: !canEdit,
               })}
-              {renderQuickButton("Attribute", "connect", props.onCreateAttributeForSelection, {
+              {renderQuickButton("Attributo", "attribute", props.onCreateAttributeForSelection, {
                 disabled: !canEdit,
               })}
               {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
@@ -320,8 +350,7 @@ export function Toolbar(props: ToolbarProps) {
               {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
                 disabled: !canEdit,
               })}
-            </div>
-          </section>
+          </>,
         );
       }
 
@@ -341,22 +370,21 @@ export function Toolbar(props: ToolbarProps) {
         return hostNode?.type === "relationship";
       });
 
-      return (
-        <section className="toolbar-section toolbar-section-context">
-          <div className="toolbar-list toolbar-list-tight">
+      return renderContextShell(
+        <>
             {!attribute.isMultivalued && !attribute.isCompositeInternal
-              ? renderQuickButton("Identifier", "identifier", () => props.onNodeChange(attribute.id, { isIdentifier: !attribute.isIdentifier }), {
+              ? renderQuickButton("Identificatore", "identifier", () => props.onNodeChange(attribute.id, { isIdentifier: !attribute.isIdentifier }), {
                   active: attribute.isIdentifier === true,
                   disabled: !canEdit || isLinkedToRel,
                 })
               : null}
             {!attribute.isIdentifier && !attribute.isCompositeInternal
-              ? renderQuickButton("Multivalue", "multivalue", () => props.onNodeChange(attribute.id, { isMultivalued: !attribute.isMultivalued }), {
+              ? renderQuickButton("Multivalore", "multivalue", () => props.onNodeChange(attribute.id, { isMultivalued: !attribute.isMultivalued }), {
                   active: attribute.isMultivalued === true,
                   disabled: !canEdit,
                 })
               : null}
-            {renderQuickButton("To parent", "connect", () => props.onToolChange("connector"), {
+            {renderQuickButton("Collega al parent", "connect", () => props.onToolChange("connector"), {
               active: props.activeTool === "connector",
               disabled: !canEdit,
             })}
@@ -366,29 +394,25 @@ export function Toolbar(props: ToolbarProps) {
             {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
               disabled: !canEdit,
             })}
-          </div>
-        </section>
+        </>,
       );
     }
 
     if (context === "edge") {
-      return (
-        <section className="toolbar-section toolbar-section-context">
-          <div className="toolbar-list toolbar-list-tight">
+      return renderContextShell(
+        <>
             {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
               disabled: !canEdit,
             })}
             {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
               disabled: !canEdit,
             })}
-          </div>
-        </section>
+        </>,
       );
     }
 
-    return (
-      <section className="toolbar-section toolbar-section-context">
-        <div className="toolbar-list toolbar-list-tight">
+    return renderContextShell(
+      <>
           <button type="button" className="toolbar-action-button toolbar-action-button-text" onClick={() => props.onAlign("left")} disabled={!canEdit}>
             <span className="tool-label">{t("toolbar.actions.alignLeftShort")}</span>
           </button>
@@ -407,8 +431,7 @@ export function Toolbar(props: ToolbarProps) {
           {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
             disabled: !canEdit,
           })}
-        </div>
-      </section>
+      </>,
     );
   }
 
@@ -425,7 +448,13 @@ export function Toolbar(props: ToolbarProps) {
           <div className="toolbar-collapsed-summary" aria-hidden="true">
             {props.selectionItemCount > 0 ? String(props.selectionItemCount) : activeToolDefinition?.shortcut.toUpperCase() ?? "T"}
           </div>
-        ) : null}
+        ) : (
+          <div className="toolbar-context-summary">
+            <span className="toolbar-context-eyebrow">Strumenti canvas</span>
+            <strong>{activeToolDefinition?.label ?? "Strumento"}</strong>
+            {activeToolDefinition?.description ? <span>{activeToolDefinition.description}</span> : null}
+          </div>
+        )}
         <button
           type="button"
           className="panel-toggle"
@@ -448,11 +477,15 @@ export function Toolbar(props: ToolbarProps) {
                 className={props.activeTool === item.tool ? "tool-button active" : "tool-button"}
                 onClick={() => props.onToolChange(item.tool)}
                 disabled={disabled}
-                title={`${item.label} (${item.shortcut.toUpperCase()})`}
+                title={`${item.label}: ${item.description} (${item.shortcut.toUpperCase()})`}
                 aria-label={item.label}
+                aria-pressed={props.activeTool === item.tool}
               >
                 <ToolIcon tool={item.tool} />
-                <span className="tool-label">{item.label}</span>
+                <span className="tool-copy">
+                  <span className="tool-label">{item.label}</span>
+                  <span className="tool-description">{item.description}</span>
+                </span>
                 <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
               </button>
             );
@@ -464,6 +497,10 @@ export function Toolbar(props: ToolbarProps) {
 
       {visibleIssues.length > 0 ? (
         <section className="toolbar-section toolbar-section-feedback">
+          <div className="toolbar-section-head toolbar-section-head-stacked">
+            <span className="toolbar-section-label">Da correggere</span>
+            <span className="toolbar-section-meta">Solo selezione attiva</span>
+          </div>
           <div className="toolbar-issue-list">
             {visibleIssues.map((issue) => (
               <button
@@ -475,7 +512,7 @@ export function Toolbar(props: ToolbarProps) {
                 onClick={() => props.onIssueSelect(issue)}
               >
                 <span className={issue.level === "error" ? "toolbar-issue-level error" : "toolbar-issue-level warning"}>
-                  {issue.level === "error" ? "Error" : "Warn"}
+                  {issue.level === "error" ? "Errore" : "Warning"}
                 </span>
                 <span className="toolbar-issue-message">{issue.message}</span>
               </button>
