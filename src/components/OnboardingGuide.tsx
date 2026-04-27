@@ -11,8 +11,6 @@ interface OnboardingGuideStep<StepId extends string> {
 interface OnboardingGuideProps<StepId extends string> {
   steps: OnboardingGuideStep<StepId>[];
   activeStepIndex: number;
-  canEdit: boolean;
-  onEnableEdit: () => void;
   onStepAction: (stepId: StepId) => void;
   onSkip: () => void;
 }
@@ -57,11 +55,6 @@ export function OnboardingGuide<StepId extends string>(props: OnboardingGuidePro
       </ol>
 
       <div className="onboarding-guide-actions">
-        {!props.canEdit ? (
-          <button type="button" className="header-button" onClick={props.onEnableEdit}>
-            {t("onboarding.enableEdit")}
-          </button>
-        ) : null}
         <button type="button" className="mode-button active" onClick={() => props.onStepAction(activeStep.id)}>
           {activeStep.actionLabel}
         </button>

@@ -107,7 +107,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const isEmbedded = props.embedded === true;
   const showQuickActions = props.hideQuickActions !== true && !isEmbedded;
   const isCollapsed = props.collapsed === true && !isEmbedded;
-  const canEdit = props.mode !== "view";
+  const canEdit = true;
   const selectedNodeCount = props.selection.nodeIds.length;
   const selectedEdgeCount = props.selection.edgeIds.length;
   const selectionCount = selectedNodeCount + selectedEdgeCount;

@@ -1460,13 +1460,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         props.onStatusMessageChange("");
       }
     }
-
-    if (props.mode === "view") {
-      setPendingConnectionSource(null);
-      setConnectionPreviewPoint(null);
-      setInlineEdit(null);
-    }
-  }, [props.mode, props.onStatusMessageChange, props.statusMessage, props.tool]);
+  }, [props.onStatusMessageChange, props.statusMessage, props.tool]);
 
   useEffect(() => {
     if (!focusedTarget) {
@@ -1640,7 +1634,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function openInlineEditorForSelection() {
-    if (props.mode !== "edit" || props.tool !== "select") {
+    if (props.tool !== "select") {
       return;
     }
 
@@ -1662,7 +1656,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function moveSelectedNodes(deltaX: number, deltaY: number): boolean {
-    if (props.mode !== "edit" || props.selection.nodeIds.length === 0) {
+    if (props.selection.nodeIds.length === 0) {
       return false;
     }
 
@@ -1706,7 +1700,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function moveSelectedEdgeOffset(delta: number): boolean {
-    if (props.mode !== "edit" || props.selection.nodeIds.length > 0 || props.selection.edgeIds.length !== 1) {
+    if (props.selection.nodeIds.length > 0 || props.selection.edgeIds.length !== 1) {
       return false;
     }
 
@@ -1880,33 +1874,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (props.mode === "view" && props.tool !== "select" && props.tool !== "move") {
-      props.onStatusMessageChange("Modalita lettura attiva: passa a Modifica per aggiungere o cambiare elementi.");
-      return;
-    }
-
     if (event.button === 1 || spacePressed || props.tool === "move") {
       beginPanInteraction(event.pointerId, event.clientX, event.clientY);
       return;
     }
 
-    if (editableTool(props.tool) && props.mode === "edit") {
+    if (editableTool(props.tool)) {
       const newId = props.onCreateNode(props.tool, worldPoint);
       props.onSelectionChange({ nodeIds: [newId], edgeIds: [] });
       return;
     }
 
     cancelPendingConnection();
-
-    if (props.mode === "view") {
-      setInteraction({
-        kind: "pan",
-        pointerId: event.pointerId,
-        startClient: { x: event.clientX, y: event.clientY },
-        startViewport: props.viewport,
-      });
-      return;
-    }
 
     if (props.tool === "select") {
       setInteraction({
@@ -1968,11 +1947,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (props.mode === "view") {
-      props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
-      return;
-    }
-
     const memberAttributeIds = layout.memberAttributeIds.filter((attributeId) => {
       const node = nodeMap.get(attributeId);
       return node?.type === "attribute";
@@ -1999,16 +1973,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     event.currentTarget.focus();
 
     if (props.tool === "delete") {
-      if (props.mode === "edit") {
-        props.onDeleteNode(node.id);
-      }
+      props.onDeleteNode(node.id);
       return;
     }
 
     if (props.tool === "connector" || props.tool === "inheritance") {
-      if (props.mode === "edit") {
-        beginConnection(node);
-      }
+      beginConnection(node);
       return;
     }
 
@@ -2021,7 +1991,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (props.mode === "edit" && props.selection.nodeIds.length === 1 && props.selection.edgeIds.length === 0) {
+    if (props.selection.nodeIds.length === 1 && props.selection.edgeIds.length === 0) {
       const sourceNode = nodeMap.get(props.selection.nodeIds[0]);
       const sourceEntity =
         sourceNode?.type === "attribute"
@@ -2049,11 +2019,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }
     }
 
-    if (props.mode === "view") {
-      props.onSelectionChange({ nodeIds: [node.id], edgeIds: [] });
-      return;
-    }
-
     if (event.shiftKey) {
       props.onSelectionChange(addToSelection(props.selection, node.id));
       return;
@@ -2072,9 +2037,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     event.currentTarget.focus();
 
     if (props.tool === "delete") {
-      if (props.mode === "edit") {
-        props.onDeleteEdge(edge.id);
-      }
+      props.onDeleteEdge(edge.id);
       return;
     }
 
@@ -2093,7 +2056,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   function handleEdgeLabelPointerDown(event: ReactPointerEvent<SVGTextElement>, edge: DiagramEdge) {
     event.stopPropagation();
 
-    if (props.mode !== "edit" || props.tool !== "select" || edge.type !== "connector") {
+    if (props.tool !== "select" || edge.type !== "connector") {
       props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
       return;
     }
@@ -2138,9 +2101,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     event.stopPropagation();
 
     if (props.tool === "delete") {
-      if (props.mode === "edit") {
-        props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
-      }
+      props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
       return;
     }
 
@@ -2154,21 +2115,19 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
-    if (props.mode === "edit") {
-      const identifier = hostEntity.externalIdentifiers?.find(
-        (candidate) => candidate.id === externalIdentifierId,
-      );
-      setInteraction({
-        kind: "external-id-drag",
-        pointerId: event.pointerId,
-        startClient: { x: event.clientX, y: event.clientY },
-        originalDiagram: props.diagram,
-        hostEntityId,
-        externalIdentifierId,
-        startOffset: identifier?.offset ?? 0,
-      });
-      props.onStatusMessageChange("Trascina il simbolo per regolare il routing dell'identificatore esterno.");
-    }
+    const identifier = hostEntity.externalIdentifiers?.find(
+      (candidate) => candidate.id === externalIdentifierId,
+    );
+    setInteraction({
+      kind: "external-id-drag",
+      pointerId: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY },
+      originalDiagram: props.diagram,
+      hostEntityId,
+      externalIdentifierId,
+      startOffset: identifier?.offset ?? 0,
+    });
+    props.onStatusMessageChange("Trascina il simbolo per regolare il routing dell'identificatore esterno.");
   }
 
   function handleExternalIdentifierMarkerPointerDown(
@@ -2179,9 +2138,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     event.stopPropagation();
 
     if (props.tool === "delete") {
-      if (props.mode === "edit") {
-        props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
-      }
+      props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
       return;
     }
 
@@ -2195,22 +2152,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
-    if (props.mode === "edit") {
-      const identifier = hostEntity.externalIdentifiers?.find(
-        (candidate) => candidate.id === externalIdentifierId,
-      );
-      setInteraction({
-        kind: "external-id-marker-drag",
-        pointerId: event.pointerId,
-        startClient: { x: event.clientX, y: event.clientY },
-        originalDiagram: props.diagram,
-        hostEntityId,
-        externalIdentifierId,
-        startOffsetX: identifier?.markerOffsetX ?? 0,
-        startOffsetY: identifier?.markerOffsetY ?? 0,
-      });
-      props.onStatusMessageChange("Trascina il marker per regolare la posizione dell'identificatore esterno.");
-    }
+    const identifier = hostEntity.externalIdentifiers?.find(
+      (candidate) => candidate.id === externalIdentifierId,
+    );
+    setInteraction({
+      kind: "external-id-marker-drag",
+      pointerId: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY },
+      originalDiagram: props.diagram,
+      hostEntityId,
+      externalIdentifierId,
+      startOffsetX: identifier?.markerOffsetX ?? 0,
+      startOffsetY: identifier?.markerOffsetY ?? 0,
+    });
+    props.onStatusMessageChange("Trascina il marker per regolare la posizione dell'identificatore esterno.");
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2442,16 +2397,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function startInlineNodeEdit(event: MouseEvent<SVGGElement>, node: DiagramNode) {
     event.stopPropagation();
-    if (props.mode === "view") {
-      return;
-    }
-
     setInlineEdit({ kind: "node", id: node.id, value: node.label });
   }
 
   function startInlineEdgeEdit(event: MouseEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
-    if (props.mode === "view" || edge.type !== "inheritance") {
+    if (edge.type !== "inheritance") {
       return;
     }
 
@@ -2592,9 +2543,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   let guidanceState: CanvasGuidanceState = "idle";
   let guidanceStateLabel = "";
   let guidanceTitle = activeToolDefinition?.label ?? props.tool;
-  let guidanceMessage = props.mode === "view"
-    ? "Naviga e ispeziona il modello. Le modifiche restano bloccate finche non torni in modalita modifica."
-    : "Modella dal canvas, poi usa il rail per rifinire proprieta e regole ER della selezione.";
+  let guidanceMessage = "Modella dal canvas, poi usa il rail per rifinire proprieta e regole ER della selezione.";
   let guidanceShortcuts = ["Home centra", "9 adatta", "0 reset"];
 
   if (inlineEdit) {
@@ -2640,7 +2589,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     guidanceTitle = "External identifier";
     guidanceMessage = `Attributo identificatore ${selectedNode.label} pronto. Seleziona l'entita target o un attributo compatibile per creare l'identificatore esterno.`;
     guidanceShortcuts = ["Click target crea", "Tab mette a fuoco i nodi"];
-  } else if ((props.tool === "connector" || props.tool === "inheritance") && props.mode === "edit") {
+  } else if (props.tool === "connector" || props.tool === "inheritance") {
     guidanceState = "selecting-source";
     guidanceStateLabel = "Selecting source";
     guidanceTitle = props.tool === "inheritance" ? "Ereditarieta" : "Connector";
@@ -2695,7 +2644,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         : null;
 
   const advancedAffordances =
-    props.mode === "edit" && props.tool === "select"
+    props.tool === "select"
       ? [
           props.diagram.edges.some((edge) => edge.type === "connector")
             ? { key: "connector-label", label: "Label connector", hint: "Trascina la cardinalita per regolare il routing." }

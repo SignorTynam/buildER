@@ -1,4 +1,4 @@
-import type { EditorMode, ToolKind } from "../types/diagram";
+import type { ToolKind } from "../types/diagram";
 import type { WorkspaceView } from "../types/translation";
 import { SUPPORTED_LOCALES } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
@@ -14,7 +14,6 @@ interface CommandMenuModalProps {
   technicalPanelOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
-  mode: EditorMode;
   canUndo: boolean;
   canRedo: boolean;
   logicalOutOfDate: boolean;
@@ -26,7 +25,6 @@ interface CommandMenuModalProps {
   onDiagramViewChange: (view: WorkspaceView) => void;
   onOpenSql: () => void;
   onOpenLogicalWorkflow: () => void;
-  onModeChange: (mode: EditorMode) => void;
   onToolChange: (tool: ToolKind) => void;
   onNewProject: () => void;
   onUndo: () => void;
@@ -208,20 +206,6 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
                 detail="Cambia densita della rail"
                 onClick={() => runCommand(props.onToggleToolRail)}
               />
-              <CommandButton
-                label="Modifica"
-                detail="Abilita modifiche nel modello ER"
-                active={isErView && props.mode === "edit"}
-                disabled={!isErView}
-                onClick={() => runCommand(() => props.onModeChange("edit"))}
-              />
-              <CommandButton
-                label="Lettura"
-                detail="Navigazione senza modifiche"
-                active={isErView && props.mode === "view"}
-                disabled={!isErView}
-                onClick={() => runCommand(() => props.onModeChange("view"))}
-              />
             </div>
           </section>
 
@@ -229,7 +213,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             <div className="command-menu-section-title">Strumenti ER</div>
             <div className="command-menu-tool-grid">
               {toolDefinitions.map((tool) => {
-                const disabled = !isErView || (props.mode === "view" && tool.tool !== "select" && tool.tool !== "move");
+                const disabled = !isErView;
                 return (
                   <CommandButton
                     key={tool.tool}

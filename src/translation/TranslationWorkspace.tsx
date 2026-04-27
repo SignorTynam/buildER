@@ -300,7 +300,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                   : "translation-panel-section translation-review-summary tone-success"
               }
             >
-              <h3>Stato traduzione</h3>
               <p>
                 {props.workspace.translation.conflicts.length > 0
                   ? "Traduzione da rivedere: risolvi i warning aperti prima di procedere."

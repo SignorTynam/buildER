@@ -11,7 +11,7 @@ export type ToolKind =
   | "attribute"
   | "connector"
   | "inheritance";
-export type EditorMode = "edit" | "view";
+export type EditorMode = "edit";
 export type LineStyle = "solid" | "dashed";
 export type IsaDisjointness = "disjoint" | "overlap";
 export type IsaCompleteness = "total" | "partial";

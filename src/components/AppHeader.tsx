@@ -1,4 +1,3 @@
-import type { EditorMode } from "../types/diagram";
 import type { WorkspaceView } from "../types/translation";
 import { useI18n } from "../i18n/useI18n";
 
@@ -10,10 +9,8 @@ interface AppHeaderProps {
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
-  mode: EditorMode;
   logicalOutOfDate: boolean;
   focusMode: boolean;
-  onModeChange: (mode: EditorMode) => void;
   onNewProject: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
@@ -47,12 +44,11 @@ function getWorkspaceMeta(props: AppHeaderProps): string {
     return "workflow tecnico";
   }
 
-  return props.focusMode ? "focus canvas" : props.mode === "edit" ? "editing" : "read only";
+  return props.focusMode ? "focus canvas" : "editing";
 }
 
 export function AppHeader(props: AppHeaderProps) {
   const { t } = useI18n();
-  const isErView = props.diagramView === "er";
 
   const headerClassName = [
     "app-header",
@@ -101,28 +97,6 @@ export function AppHeader(props: AppHeaderProps) {
             Notes
           </button>
         </div>
-
-        {isErView ? (
-          <div className="studio-topbar-toggle-group" role="group" aria-label={t("header.editorModeGroupLabel")}>
-            <button
-              type="button"
-              className={props.mode === "edit" ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
-              onClick={() => props.onModeChange("edit")}
-              aria-pressed={props.mode === "edit"}
-            >
-              {t("header.modes.edit")}
-            </button>
-            <button
-              type="button"
-              className={props.mode === "view" ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
-              onClick={() => props.onModeChange("view")}
-              aria-pressed={props.mode === "view"}
-            >
-              {t("header.modes.view")}
-            </button>
-          </div>
-        ) : null}
-
         <button type="button" className="studio-topbar-button" onClick={props.onNewProject}>
           New
         </button>

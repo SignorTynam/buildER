@@ -469,7 +469,7 @@ export function Toolbar(props: ToolbarProps) {
       <section className="toolbar-section toolbar-section-primary">
         <div className="toolbar-list toolbar-list-primary">
           {availableTools.map((item) => {
-            const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
+            const disabled = false;
             return (
               <button
                 key={item.tool}

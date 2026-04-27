@@ -497,12 +497,7 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     const storedSurface: AppSurface = parsed.surface === "code-tutorial" ? "code-tutorial" : "studio";
     const storedDiagramView: WorkspaceView =
       parsed.diagramView === "logical" ? "logical" : parsed.diagramView === "translation" ? "translation" : "er";
-    const storedMode: EditorMode = parsed.mode === "view" ? "view" : "edit";
     const storedTool = sanitizeToolKind(parsed.tool);
-    const effectiveStoredTool: ToolKind =
-      storedMode === "view" && storedTool !== "select" && storedTool !== "move"
-        ? "select"
-        : storedTool;
     const storedCodeDraft =
       typeof parsed.codeDraft === "string" && parsed.codeDraft.trim().length > 0
         ? parsed.codeDraft
@@ -541,8 +536,8 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       logicalGenerated: parsed.logicalGenerated === true,
       surface: storedSurface,
       diagramView: storedDiagramView,
-      tool: effectiveStoredTool,
-      mode: storedMode,
+      tool: storedTool,
+      mode: "edit",
       viewport: storedViewport,
       selection: storedSelection,
       translationViewport: storedTranslationViewport,
@@ -1057,7 +1052,7 @@ export default function App() {
   const [surface, setSurface] = useState<AppSurface>(sessionBootstrap.surface);
   const [diagramView, setDiagramView] = useState<WorkspaceView>(sessionBootstrap.diagramView);
   const [tool, setTool] = useState<ToolKind>(sessionBootstrap.tool);
-  const [mode, setMode] = useState<EditorMode>(sessionBootstrap.mode);
+  const [mode] = useState<EditorMode>(sessionBootstrap.mode);
   const [viewport, setViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.viewport }));
   const [selection, setSelection] = useState<SelectionState>(() => ({
     nodeIds: [...sessionBootstrap.selection.nodeIds],
@@ -1527,12 +1522,6 @@ export default function App() {
       setToolbarCollapsed(true);
     }
   }, [windowWidth]);
-
-  useEffect(() => {
-    if (mode === "view" && tool !== "select" && tool !== "move") {
-      setTool("select");
-    }
-  }, [mode, tool]);
 
   useEffect(() => {
     setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));
@@ -2073,10 +2062,6 @@ export default function App() {
   }
 
   function handleOnboardingStepAction(stepId: OnboardingStepId) {
-    if (mode !== "edit") {
-      setMode("edit");
-    }
-
     if (stepId === "create-entity") {
       setTool("entity");
       setStatus("Step 1: crea una nuova entita con un click nel canvas.");
@@ -2458,11 +2443,6 @@ export default function App() {
 
         if (nextTool) {
           event.preventDefault();
-          if (mode === "view" && nextTool !== "select" && nextTool !== "move") {
-            setStatusWarning("Strumento non disponibile in modalita visualizzazione.");
-            return;
-          }
-
           setTool(nextTool);
           setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
           return;
@@ -2594,14 +2574,6 @@ export default function App() {
       ),
     );
     history.setPresent(normalized.diagram);
-  }
-
-  function handleModeChange(nextMode: EditorMode) {
-    setMode(nextMode);
-    if (nextMode === "view") {
-      setTool("select");
-      setStatus("");
-    }
   }
 
   function commitLogicalWorkspace(
@@ -3192,7 +3164,7 @@ export default function App() {
   }
 
   function handleCreateAttributeFromSelection() {
-    if (mode === "view" || selection.nodeIds.length !== 1 || selection.edgeIds.length > 0) {
+    if (selection.nodeIds.length !== 1 || selection.edgeIds.length > 0) {
       return;
     }
 
@@ -3238,10 +3210,6 @@ export default function App() {
     patch: Partial<EntityNode>,
     attributePatches: Record<string, Partial<AttributeNode>>,
   ) {
-    if (mode === "view") {
-      return;
-    }
-
     const entityNode = history.present.nodes.find(
       (node): node is EntityNode => node.id === entityId && node.type === "entity",
     );
@@ -3287,10 +3255,6 @@ export default function App() {
   }
 
   function handleEntityExternalIdentifiersChange(entityId: string, patch: Partial<EntityNode>) {
-    if (mode === "view") {
-      return;
-    }
-
     const entityNode = history.present.nodes.find(
       (node): node is EntityNode => node.id === entityId && node.type === "entity",
     );
@@ -3621,10 +3585,6 @@ export default function App() {
   }
 
   async function handleRenameSelectionQuick() {
-    if (mode === "view") {
-      return;
-    }
-
     if (selectedNode) {
       const nextLabel = await requestPromptDialog({
         title: "Rinomina elemento",
@@ -3684,10 +3644,6 @@ export default function App() {
   }
 
   function handleDeleteSelection() {
-    if (mode === "view") {
-      return;
-    }
-
     if (selection.nodeIds.length === 0 && selection.edgeIds.length === 0) {
       return;
     }
@@ -3699,10 +3655,6 @@ export default function App() {
   }
 
   function handleDeleteNodeById(nodeId: string) {
-    if (mode === "view") {
-      return;
-    }
-
     const nextDiagram = removeSelection(history.present, { nodeIds: [nodeId], edgeIds: [] });
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
@@ -3710,10 +3662,6 @@ export default function App() {
   }
 
   function handleDeleteEdgeById(edgeId: string) {
-    if (mode === "view") {
-      return;
-    }
-
     const nextDiagram = removeSelection(history.present, { nodeIds: [], edgeIds: [edgeId] });
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
@@ -3736,10 +3684,6 @@ export default function App() {
   }
 
   function handleDuplicateSelection() {
-    if (mode === "view") {
-      return;
-    }
-
     const duplicated = duplicateSelection(history.present, selection);
     if (!duplicated) {
       return;
@@ -3751,10 +3695,6 @@ export default function App() {
   }
 
   function handleAlignSelection(axis: "left" | "center" | "top" | "middle") {
-    if (mode === "view") {
-      return;
-    }
-
     if (selection.nodeIds.length < 2) {
       setStatusWarning("Seleziona almeno due nodi per allineare.");
       return;
@@ -4096,10 +4036,8 @@ export default function App() {
         logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
         notesPanelOpen={notesPanelOpen}
-        mode={mode}
         logicalOutOfDate={logicalOutOfDate}
         focusMode={focusMode}
-        onModeChange={handleModeChange}
         onNewProject={handleNewProject}
         onToggleCodePanel={handleToggleCodePanel}
         onToggleNotesPanel={handleToggleNotesPanel}
@@ -4128,8 +4066,6 @@ export default function App() {
               <OnboardingGuide
                 steps={onboardingSteps}
                 activeStepIndex={resolvedOnboardingStepIndex}
-                canEdit={mode === "edit"}
-                onEnableEdit={() => setMode("edit")}
                 onStepAction={handleOnboardingStepAction}
                 onSkip={handleSkipOnboarding}
               />
@@ -4329,7 +4265,6 @@ export default function App() {
           technicalPanelOpen={technicalPanelVisible}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
-          mode={mode}
           canUndo={activeCanUndo}
           canRedo={activeCanRedo}
           logicalOutOfDate={logicalOutOfDate}
@@ -4341,7 +4276,6 @@ export default function App() {
           onDiagramViewChange={handleDiagramViewChange}
           onOpenSql={handleOpenSqlStage}
           onOpenLogicalWorkflow={handleOpenLogicalStage}
-          onModeChange={handleModeChange}
           onToolChange={(nextTool) => {
             setTool(nextTool);
             setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
