@@ -185,18 +185,18 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
                 disabled={!isErView}
                 onClick={() => runCommand(props.onToggleReviewPanel)}
               />
-              <CommandButton
-                label={props.codePanelOpen ? "Nascondi Code" : "Mostra Code"}
-                detail="Tab ERS nel dock tecnico"
-                disabled={!isErView}
-                onClick={() => runCommand(props.onToggleCodePanel)}
-              />
-              <CommandButton
-                label={props.notesPanelOpen ? "Nascondi Notes" : "Mostra Notes"}
-                detail="Annotazioni nel tab dedicato"
-                disabled={!isErView}
-                onClick={() => runCommand(props.onToggleNotesPanel)}
-              />
+                <CommandButton
+                 label={props.codePanelOpen ? "Nascondi Code" : "Mostra Code"}
+                  detail="Tab ERS nel dock tecnico"
+                  disabled={false}
+                  onClick={() => runCommand(props.onToggleCodePanel)}
+                />
+                <CommandButton
+                 label={props.notesPanelOpen ? "Nascondi Notes" : "Mostra Notes"}
+                  detail="Annotazioni nel tab dedicato"
+                  disabled={false}
+                  onClick={() => runCommand(props.onToggleNotesPanel)}
+                />
               <CommandButton
                 label={props.focusMode ? "Disattiva focus" : "Attiva focus"}
                 detail="Nascondi pannelli non necessari"

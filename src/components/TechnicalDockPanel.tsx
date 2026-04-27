@@ -42,12 +42,12 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
   return (
     <aside className={`technical-dock-panel technical-dock-panel-${activeTab}`} aria-label="Pannello tecnico">
       <header className="technical-dock-head technical-dock-head-compact">
-        <div className="technical-dock-tabs" role="tablist" aria-label="Sezioni pannello tecnico">
+        <div className="technical-dock-tabs studio-tabs" role="tablist" aria-label="Sezioni pannello tecnico">
           {props.availableTabs.map((tab) => (
             <button
               key={tab}
               type="button"
-              className={tab === activeTab ? "technical-dock-tab active" : "technical-dock-tab"}
+              className={tab === activeTab ? "technical-dock-tab studio-tab active" : "technical-dock-tab studio-tab"}
               onClick={() => props.onTabChange(tab)}
               role="tab"
               aria-selected={tab === activeTab}

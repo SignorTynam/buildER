@@ -28,6 +28,7 @@ interface LogicalTranslationWorkspaceProps {
   workspace: LogicalWorkspaceDocument;
   viewport: Viewport;
   selection: LogicalSelection;
+  sidePanelHidden?: boolean;
   typeMode: boolean;
   panelMode: "review" | "sql";
   fitRequestToken: number;
@@ -396,15 +397,16 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         </div>
       </section>
 
+      {!props.sidePanelHidden ? (
       <aside
         className="inspector-panel translation-panel"
         aria-label={showSqlPanel ? "Pannello SQL del modello logico" : "Inspector modello logico"}
       >
         <section className="translation-panel-section translation-panel-tabs-section">
-          <div className="translation-panel-tabs" role="tablist" aria-label="Sezioni del pannello logico">
+          <div className="translation-panel-tabs studio-tabs" role="tablist" aria-label="Sezioni del pannello logico">
             <button
               type="button"
-              className={showReviewPanel ? "translation-panel-tab active" : "translation-panel-tab"}
+              className={showReviewPanel ? "translation-panel-tab studio-tab active" : "translation-panel-tab studio-tab"}
               onClick={() => props.onPanelModeChange("review")}
               role="tab"
               aria-selected={showReviewPanel}
@@ -413,7 +415,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             </button>
             <button
               type="button"
-              className={showSqlPanel ? "translation-panel-tab active" : "translation-panel-tab"}
+              className={showSqlPanel ? "translation-panel-tab studio-tab active" : "translation-panel-tab studio-tab"}
               onClick={() => props.onPanelModeChange("sql")}
               role="tab"
               aria-selected={showSqlPanel}
@@ -425,6 +427,21 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
         {showReviewPanel ? (
           <>
+        <section
+          className={
+            props.workspace.translation.conflicts.length > 0
+              ? "translation-panel-section translation-review-summary tone-warning"
+              : "translation-panel-section translation-review-summary tone-success"
+          }
+        >
+          <h3>Stato schema</h3>
+          <p>
+            {props.workspace.translation.conflicts.length > 0
+              ? "Schema da rivedere: controlla i conflitti aperti prima di consolidare il modello."
+              : "Schema logico allineato. Puoi verificare i tipi o aprire l'anteprima SQL."}
+          </p>
+        </section>
+
         <section className="translation-panel-section">
           <div className="translation-section-head">
             <h3>Type Mode</h3>
@@ -527,8 +544,8 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 </section>
 
                 {selectedMappings.length > 0 ? (
-                  <section className="translation-panel-section">
-                    <h3>Artefatti generati</h3>
+                  <details className="translation-technical-details">
+                    <summary>Dettagli tecnici</summary>
                     <div className="translation-artifact-list">
                       {selectedMappings.flatMap((mapping) =>
                         mapping.artifacts.map((artifact) => (
@@ -544,7 +561,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                         )),
                       )}
                     </div>
-                  </section>
+                  </details>
                 ) : null}
 
                 {selectedConflicts.length > 0 ? (
@@ -603,6 +620,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </>
         )}
       </aside>
+      ) : null}
     </>
   );
 }

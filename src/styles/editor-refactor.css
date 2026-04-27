@@ -3781,3 +3781,267 @@ textarea:disabled {
     overflow-x: auto;
   }
 }
+
+/* Cross-view workspace alignment */
+.studio-tabs,
+.technical-dock-tabs,
+.translation-panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-lg);
+  background: var(--studio-surface-muted);
+}
+
+.studio-tab,
+.technical-dock-tab,
+.translation-panel-tab,
+.workspace-side-tab {
+  min-height: 30px;
+  flex: 1 1 0;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--studio-radius-md);
+  background: transparent;
+  color: var(--studio-muted);
+  box-shadow: none;
+}
+
+.studio-tab.active,
+.technical-dock-tab.active,
+.translation-panel-tab.active,
+.workspace-side-tab.active {
+  border-color: var(--studio-border);
+  background: var(--studio-surface-strong);
+  color: var(--studio-accent-strong);
+  box-shadow: 0 1px 2px rgba(17, 26, 22, 0.06);
+}
+
+.structured-workspace-shell {
+  --structured-rail-width: 176px;
+  --structured-panel-width: 320px;
+  --technical-panel-width: 0px;
+  --technical-panel-resizer-width: 0px;
+  grid-template-columns: var(--structured-rail-width) minmax(0, 1fr) minmax(300px, var(--structured-panel-width));
+  background: var(--studio-border);
+}
+
+.structured-workspace-shell.workspace-technical-open {
+  grid-template-columns:
+    var(--structured-rail-width)
+    minmax(0, 1fr)
+    var(--technical-panel-resizer-width)
+    var(--technical-panel-width);
+}
+
+.structured-workspace-shell.workspace-technical-open > .translation-panel {
+  display: none;
+}
+
+.structured-workspace-shell > .technical-dock-panel {
+  min-width: 0;
+  border-left: 1px solid var(--studio-border);
+}
+
+.structured-workspace-shell > .workspace-resizer {
+  width: var(--technical-panel-resizer-width);
+  min-width: var(--technical-panel-resizer-width);
+}
+
+.translation-step-rail {
+  width: var(--structured-rail-width, auto);
+  min-width: 0;
+}
+
+.translation-panel,
+.technical-dock-panel,
+.inspector-panel {
+  scrollbar-color: var(--studio-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.translation-panel::-webkit-scrollbar,
+.technical-dock-panel::-webkit-scrollbar,
+.inspector-panel::-webkit-scrollbar,
+.translation-step-rail::-webkit-scrollbar {
+  width: 10px;
+}
+
+.translation-panel::-webkit-scrollbar-thumb,
+.technical-dock-panel::-webkit-scrollbar-thumb,
+.inspector-panel::-webkit-scrollbar-thumb,
+.translation-step-rail::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--studio-border-strong);
+  background-clip: padding-box;
+}
+
+.translation-canvas-card,
+.logical-canvas-panel,
+.transformation-canvas-panel {
+  --diagram-canvas-fill: #f7f8f4;
+  background:
+    linear-gradient(var(--diagram-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--diagram-grid) 1px, transparent 1px),
+    var(--diagram-canvas-fill) !important;
+  background-size: 28px 28px !important;
+}
+
+.translation-review-summary {
+  gap: 5px;
+}
+
+.translation-review-summary.tone-success {
+  border-color: rgba(47, 104, 79, 0.24);
+  background: var(--studio-success-soft);
+}
+
+.translation-review-summary.tone-warning {
+  border-color: rgba(138, 100, 38, 0.3);
+  background: var(--studio-warning-soft);
+}
+
+.translation-review-summary h3,
+.translation-review-summary p {
+  margin: 0;
+}
+
+.translation-item-card,
+.translation-choice-card,
+.translation-decision-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 0;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.translation-item-title,
+.translation-choice-title,
+.translation-item-description,
+.translation-choice-description,
+.translation-choice-preview,
+.translation-choice-summary,
+.translation-decision-card strong,
+.translation-decision-card span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.translation-item-title,
+.translation-choice-title,
+.translation-decision-card strong {
+  line-height: 1.32;
+}
+
+.translation-item-description,
+.translation-choice-description,
+.translation-choice-summary,
+.translation-decision-card span {
+  line-height: 1.45;
+}
+
+.translation-choice-preview {
+  display: block;
+  padding: 7px 8px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-md);
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.7rem;
+  line-height: 1.42;
+}
+
+.translation-technical-details {
+  padding: 8px 10px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-lg);
+  background: var(--studio-surface);
+}
+
+.translation-technical-details summary {
+  cursor: pointer;
+  color: var(--studio-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.translation-technical-details[open] {
+  display: grid;
+  gap: 8px;
+}
+
+.translation-artifact-list {
+  gap: 6px;
+}
+
+.translation-artifact-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  white-space: normal;
+  word-break: normal;
+}
+
+.translation-artifact-chip span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.translation-empty-hint {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+  line-height: 1.45;
+}
+
+@media (min-width: 1360px) {
+  .structured-workspace-shell {
+    --structured-rail-width: 184px;
+    --structured-panel-width: 332px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .structured-workspace-shell {
+    --structured-rail-width: 196px;
+    --structured-panel-width: 360px;
+  }
+}
+
+@media (max-width: 1380px) {
+  .structured-workspace-shell {
+    --structured-rail-width: 168px;
+    --structured-panel-width: 300px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .structured-workspace-shell,
+  .structured-workspace-shell.workspace-technical-open {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .structured-workspace-shell > .workspace-resizer {
+    display: none;
+  }
+
+  .translation-step-rail {
+    width: auto;
+  }
+}

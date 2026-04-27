@@ -23,27 +23,21 @@ interface BottomStatusBarProps {
 }
 
 function getWorkspaceLabel(props: BottomStatusBarProps): string {
+  const activePanels = [
+    props.codePanelOpen ? "CODE" : "",
+    props.notesPanelOpen ? "NOTES" : "",
+  ].filter(Boolean);
+  const panelSuffix = activePanels.length > 0 ? ` + ${activePanels.join(" + ")}` : "";
+
   if (props.diagramView === "translation") {
-    return "TRANSLATION";
+    return `TRANSLATION${panelSuffix}`;
   }
 
   if (props.diagramView === "logical") {
-    return props.logicalSqlOpen ? "SCHEMA + SQL" : "SCHEMA";
+    return `${props.logicalSqlOpen ? "SCHEMA + SQL" : "SCHEMA"}${panelSuffix}`;
   }
 
-  if (props.codePanelOpen && props.notesPanelOpen) {
-    return "MODEL + CODE + NOTES";
-  }
-
-  if (props.codePanelOpen) {
-    return "MODEL + CODE";
-  }
-
-  if (props.notesPanelOpen) {
-    return "MODEL + NOTES";
-  }
-
-  return "MODEL";
+  return `MODEL${panelSuffix}`;
 }
 
 function getFallbackStatus(props: BottomStatusBarProps): { tone: NoticeTone | "info"; message: string } {

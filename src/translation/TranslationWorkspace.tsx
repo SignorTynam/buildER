@@ -19,6 +19,7 @@ interface TranslationWorkspaceProps {
   workspace: ErTranslationWorkspaceDocument;
   viewport: Viewport;
   selection: SelectionState;
+  sidePanelHidden?: boolean;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: SelectionState) => void;
   onApplyChoice: (item: ErTranslationItem, choice: ErTranslationChoice) => void;
@@ -176,6 +177,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
         </div>
       </section>
 
+      {!props.sidePanelHidden ? (
       <aside className="inspector-panel translation-panel" aria-label="Pannello decisioni di traduzione">
         {activeStep !== "review" || activeStepOverview?.blockReason ? (
           <section className="translation-panel-section translation-panel-summary">
@@ -254,8 +256,8 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                 </section>
 
                 {selectedMappings.length > 0 ? (
-                  <section className="translation-panel-section">
-                    <h3>Artefatti generati</h3>
+                  <details className="translation-technical-details">
+                    <summary>Dettagli tecnici</summary>
                     <div className="translation-artifact-list" role="list">
                       {selectedMappings.flatMap((mapping) =>
                         mapping.artifacts.map((artifact) => (
@@ -271,7 +273,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                         )),
                       )}
                     </div>
-                  </section>
+                  </details>
                 ) : null}
 
                 {selectedConflicts.length > 0 ? (
@@ -291,20 +293,19 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           </>
         ) : (
           <>
-            <section className="translation-panel-section">
-              <h3>Decisioni applicate</h3>
-              {props.workspace.translation.decisions.length > 0 ? (
-                <div className="translation-decision-list" role="list">
-                  {props.workspace.translation.decisions.map((decision) => (
-                    <div key={decision.id} className={`translation-decision-card status-${decision.status}`}>
-                      <strong>{decision.summary}</strong>
-                      <span>{decision.rule}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="translation-empty-hint">Nessuna decisione ancora registrata.</div>
-              )}
+            <section
+              className={
+                props.workspace.translation.conflicts.length > 0
+                  ? "translation-panel-section translation-review-summary tone-warning"
+                  : "translation-panel-section translation-review-summary tone-success"
+              }
+            >
+              <h3>Stato traduzione</h3>
+              <p>
+                {props.workspace.translation.conflicts.length > 0
+                  ? "Traduzione da rivedere: risolvi i warning aperti prima di procedere."
+                  : "Traduzione completata. Puoi procedere allo schema logico."}
+              </p>
             </section>
 
             <section className="translation-panel-section">
@@ -321,9 +322,24 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                 <div className="translation-empty-hint">Nessun conflitto aperto nella traduzione corrente.</div>
               )}
             </section>
+
+            {props.workspace.translation.decisions.length > 0 ? (
+              <details className="translation-technical-details">
+                <summary>Dettagli tecnici</summary>
+                <div className="translation-decision-list" role="list">
+                  {props.workspace.translation.decisions.map((decision) => (
+                    <div key={decision.id} className={`translation-decision-card status-${decision.status}`}>
+                      <strong>{decision.summary}</strong>
+                      <span>{decision.rule}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </>
         )}
       </aside>
+      ) : null}
     </>
   );
 }

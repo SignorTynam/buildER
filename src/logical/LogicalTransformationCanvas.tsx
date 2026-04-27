@@ -838,6 +838,31 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     });
   }
 
+  function resetViewport() {
+    const rect = getViewportRect();
+    if (!rect || !hasUsableViewportRect(rect)) {
+      return;
+    }
+
+    const bounds = getBoundsForVisibleContent(renderedNodes, [...routeByEdgeId.values()]);
+    if (!bounds) {
+      props.onViewportChange({
+        x: rect.width / 2,
+        y: rect.height / 2,
+        zoom: 1,
+      });
+      return;
+    }
+
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
+    props.onViewportChange({
+      zoom: 1,
+      x: rect.width / 2 - centerX,
+      y: rect.height / 2 - centerY,
+    });
+  }
+
   function zoomAroundCenter(factor: number) {
     if (!containerRef.current) {
       return;
@@ -1619,7 +1644,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
           <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1 / 1.14)}>
             -
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={fitToContent}>
+          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport}>
             {Math.round(props.viewport.zoom * 100)}%
           </button>
           <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1.14)}>
@@ -1630,6 +1655,9 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
           </button>
           <button type="button" className="canvas-hud-button" onClick={centerContent}>
             Centra
+          </button>
+          <button type="button" className="canvas-hud-button" onClick={resetViewport}>
+            Reset
           </button>
         </div>
       </div>

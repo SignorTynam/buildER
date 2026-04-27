@@ -83,26 +83,24 @@ export function AppHeader(props: AppHeaderProps) {
       </div>
 
       <div className="studio-topbar-actions">
-        {isErView ? (
-          <div className="studio-topbar-toggle-group" role="group" aria-label="Pannelli laterali">
-            <button
-              type="button"
-              className={props.codePanelOpen ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
-              onClick={props.onToggleCodePanel}
-              aria-pressed={props.codePanelOpen}
-            >
-              Code
-            </button>
-            <button
-              type="button"
-              className={props.notesPanelOpen ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
-              onClick={props.onToggleNotesPanel}
-              aria-pressed={props.notesPanelOpen}
-            >
-              Notes
-            </button>
-          </div>
-        ) : null}
+        <div className="studio-topbar-toggle-group" role="group" aria-label="Pannelli laterali">
+          <button
+            type="button"
+            className={props.codePanelOpen ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
+            onClick={props.onToggleCodePanel}
+            aria-pressed={props.codePanelOpen}
+          >
+            Code
+          </button>
+          <button
+            type="button"
+            className={props.notesPanelOpen ? "studio-topbar-toggle active" : "studio-topbar-toggle"}
+            onClick={props.onToggleNotesPanel}
+            aria-pressed={props.notesPanelOpen}
+          >
+            Notes
+          </button>
+        </div>
 
         {isErView ? (
           <div className="studio-topbar-toggle-group" role="group" aria-label={t("header.editorModeGroupLabel")}>

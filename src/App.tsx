@@ -1211,7 +1211,10 @@ export default function App() {
     technicalPanelResizeBounds.min,
     technicalPanelResizeBounds.max,
   );
-  const technicalPanelVisible = diagramView === "er" && technicalPanelOpen && !focusMode;
+  const technicalPanelAvailableInView =
+    diagramView === "er" || technicalPanelTab === "code" || technicalPanelTab === "notes";
+  const technicalPanelVisible = technicalPanelOpen && technicalPanelAvailableInView && !focusMode;
+  const structuredSidePanelHidden = diagramView !== "er" && technicalPanelVisible;
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -1243,10 +1246,16 @@ export default function App() {
     "technical-workspace-shell",
     "structured-workspace-shell",
     focusMode ? "workspace-shell-focus" : "",
+    technicalPanelVisible ? "workspace-technical-open" : "",
+    technicalPanelVisible ? `workspace-technical-tab-${technicalPanelTab}` : "",
     `structured-workspace-shell-${diagramView}`,
   ]
     .filter(Boolean)
     .join(" ");
+  const structuredWorkspaceShellStyle = {
+    "--technical-panel-width": technicalPanelVisible ? `${visibleTechnicalPanelWidth}px` : "0px",
+    "--technical-panel-resizer-width": technicalPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
+  } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
 
   function persistWorkspaceSessionNow() {
@@ -4034,6 +4043,37 @@ export default function App() {
       </section>
     </div>
   );
+  const technicalDockAvailableTabs: TechnicalPanelTab[] =
+    diagramView === "er" ? ["review", "code", "notes"] : ["code", "notes"];
+  const technicalDockCode =
+    diagramView === "er" ? codeDraft : serializeDiagramToErs(translationHistory.present.translatedDiagram);
+  const technicalDockCodeDescription =
+    diagramView === "er"
+      ? "Inserisci il codice ERS"
+      : diagramView === "translation"
+        ? "Codice ERS tradotto in sola lettura"
+        : "Codice ERS sorgente dello schema logico in sola lettura";
+  const technicalDockPanel = technicalPanelVisible ? (
+    <TechnicalDockPanel
+      activeTab={technicalPanelTab}
+      availableTabs={technicalDockAvailableTabs}
+      code={{
+        code: technicalDockCode,
+        editable: diagramView === "er" && mode === "edit",
+        parseError: diagramView === "er" ? codeError : undefined,
+        onCodeChange: diagramView === "er" ? updateCodeDraft : undefined,
+        placeholder: technicalDockCodeDescription,
+      }}
+      notes={{
+        notes: history.present.notes,
+        editable: mode === "edit",
+        onChange: handleNotesChange,
+      }}
+      review={diagramView === "er" ? modelReviewPanel : undefined}
+      onTabChange={openTechnicalPanelTab}
+      onClose={closeTechnicalPanel}
+    />
+  ) : null;
 
   if (surface === "code-tutorial") {
     return (
@@ -4099,7 +4139,7 @@ export default function App() {
 
         <div
           className={diagramView === "er" ? erWorkspaceShellClassName : structuredWorkspaceShellClassName}
-          style={diagramView === "er" ? erWorkspaceShellStyle : undefined}
+          style={diagramView === "er" ? erWorkspaceShellStyle : structuredWorkspaceShellStyle}
         >
           {diagramView === "er" ? (
             <>
@@ -4187,33 +4227,14 @@ export default function App() {
                 />
               ) : null}
 
-              {technicalPanelVisible ? (
-                <TechnicalDockPanel
-                  activeTab={technicalPanelTab}
-                  availableTabs={["review", "code", "notes"]}
-                  code={{
-                    code: codeDraft,
-                    editable: mode === "edit",
-                    parseError: codeError,
-                    onCodeChange: updateCodeDraft,
-                    placeholder: "Inserisci il codice ERS",
-                  }}
-                  notes={{
-                    notes: history.present.notes,
-                    editable: mode === "edit",
-                    onChange: handleNotesChange,
-                  }}
-                  review={modelReviewPanel}
-                  onTabChange={openTechnicalPanelTab}
-                  onClose={closeTechnicalPanel}
-                />
-              ) : null}
+              {technicalDockPanel}
             </>
           ) : diagramView === "translation" ? (
             <TranslationWorkspace
               workspace={translationHistory.present}
               viewport={translationViewport}
               selection={translationSelection}
+              sidePanelHidden={structuredSidePanelHidden}
               onViewportChange={setTranslationViewport}
               onSelectionChange={setTranslationSelection}
               onApplyChoice={handleApplyErTranslationChoice}
@@ -4237,6 +4258,7 @@ export default function App() {
               workspace={logicalHistory.present}
               viewport={logicalViewport}
               selection={logicalSelection}
+              sidePanelHidden={structuredSidePanelHidden}
               typeMode={logicalTypeMode}
               panelMode={logicalPanelMode}
               fitRequestToken={logicalFitRequestToken}
@@ -4253,14 +4275,27 @@ export default function App() {
               onUpdateColumnSql={handleLogicalColumnSqlUpdate}
             />
           )}
+          {diagramView !== "er" && technicalPanelVisible ? (
+            <button
+              type="button"
+              className="workspace-resizer workspace-resizer-active"
+              onPointerDown={(event) =>
+                handlePanelResizeStart(technicalPanelTab === "notes" ? "notes" : "code", event)
+              }
+              onDoubleClick={() => resetPanelWidth(technicalPanelTab === "notes" ? "notes" : "code")}
+              aria-label="Ridimensiona dock tecnico"
+              title="Trascina per ridimensionare il pannello tecnico"
+            />
+          ) : null}
+          {diagramView !== "er" ? technicalDockPanel : null}
         </div>
       </div>
 
       <BottomStatusBar
         diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
-        codePanelOpen={diagramView === "er" && codePanelOpen}
-        notesPanelOpen={diagramView === "er" && notesPanelOpen}
+        codePanelOpen={codePanelOpen}
+        notesPanelOpen={notesPanelOpen}
         statusMessage={statusMessage}
         notices={notices}
         issues={issues}
@@ -4291,7 +4326,7 @@ export default function App() {
           diagramView={diagramView}
           activeTool={tool}
           logicalSqlOpen={logicalPanelMode === "sql"}
-          technicalPanelOpen={diagramView === "er" && technicalPanelOpen}
+          technicalPanelOpen={technicalPanelVisible}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
           mode={mode}
