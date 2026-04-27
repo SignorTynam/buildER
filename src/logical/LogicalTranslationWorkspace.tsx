@@ -434,7 +434,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               : "translation-panel-section translation-review-summary tone-success"
           }
         >
-          <h3>Stato schema</h3>
           <p>
             {props.workspace.translation.conflicts.length > 0
               ? "Schema da rivedere: controlla i conflitti aperti prima di consolidare il modello."
