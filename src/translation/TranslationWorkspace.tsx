@@ -255,27 +255,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                   </div>
                 </section>
 
-                {selectedMappings.length > 0 ? (
-                  <details className="translation-technical-details">
-                    <summary>Dettagli tecnici</summary>
-                    <div className="translation-artifact-list" role="list">
-                      {selectedMappings.flatMap((mapping) =>
-                        mapping.artifacts.map((artifact) => (
-                          <button
-                            key={`${mapping.decisionId}-${artifact.kind}-${artifact.id}`}
-                            type="button"
-                            className="translation-artifact-chip"
-                            onClick={() => props.onSelectionChange({ nodeIds: artifact.kind === "node" ? [artifact.id] : [], edgeIds: artifact.kind === "edge" ? [artifact.id] : [] })}
-                          >
-                            <span>{artifact.label}</span>
-                            <strong>{artifact.kind}</strong>
-                          </button>
-                        )),
-                      )}
-                    </div>
-                  </details>
-                ) : null}
-
                 {selectedConflicts.length > 0 ? (
                   <section className="translation-panel-section">
                     <h3>Warning aperti</h3>
@@ -322,19 +301,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
               )}
             </section>
 
-            {props.workspace.translation.decisions.length > 0 ? (
-              <details className="translation-technical-details">
-                <summary>Dettagli tecnici</summary>
-                <div className="translation-decision-list" role="list">
-                  {props.workspace.translation.decisions.map((decision) => (
-                    <div key={decision.id} className={`translation-decision-card status-${decision.status}`}>
-                      <strong>{decision.summary}</strong>
-                      <span>{decision.rule}</span>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            ) : null}
           </>
         )}
       </aside>

@@ -542,27 +542,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                   </div>
                 </section>
 
-                {selectedMappings.length > 0 ? (
-                  <details className="translation-technical-details">
-                    <summary>Dettagli tecnici</summary>
-                    <div className="translation-artifact-list">
-                      {selectedMappings.flatMap((mapping) =>
-                        mapping.artifacts.map((artifact) => (
-                          <button
-                            key={`${mapping.decisionId}-${artifact.kind}-${artifact.id}`}
-                            type="button"
-                            className="translation-artifact-chip"
-                            onClick={() => selectArtifact(artifact, props.workspace, props.onSelectionChange)}
-                          >
-                            <span>{artifact.label}</span>
-                            <strong>{artifact.kind}</strong>
-                          </button>
-                        )),
-                      )}
-                    </div>
-                  </details>
-                ) : null}
-
                 {selectedConflicts.length > 0 ? (
                   <section className="translation-panel-section">
                     <h3>Warning aperti</h3>
