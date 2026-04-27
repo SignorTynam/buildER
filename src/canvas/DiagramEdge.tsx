@@ -120,8 +120,9 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       : props.edge.type === "inheritance"
         ? props.edge.label
         : "";
+  const isEdgeHighlighted = !isGhost && (props.selected || props.focused) && !props.validationLevel;
   const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
-  const selectedStrokeColor = !isGhost && props.selected && !props.validationLevel ? DIAGRAM_FOCUS : strokeColor;
+  const selectedStrokeColor = isEdgeHighlighted ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeY = geometry.labelPoint.y - (inheritanceConstraintLabel ? 28 : 16);
   const baseOpacity = isGhost ? 0.58 : 1;
@@ -163,22 +164,11 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           strokeLinejoin="round"
         />
       ) : null}
-      {!isGhost && props.focused ? (
-        <path
-          d={pathData}
-          fill="none"
-          stroke={DIAGRAM_FOCUS}
-          strokeWidth={3.6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.62}
-        />
-      ) : null}
       <path
         d={pathData}
         fill="none"
         stroke={selectedStrokeColor}
-        strokeWidth={isGhost ? 1.8 : props.dragging ? 2.6 : 2}
+        strokeWidth={isGhost ? 1.8 : props.dragging ? 2.6 : isEdgeHighlighted ? 2.7 : 2}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeDasharray={primaryDashArray}
@@ -191,7 +181,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           y={geometry.labelPoint.y - (displayLabel ? 18 : 8)}
           textAnchor="middle"
           className="edge-label inheritance-constraint-label"
-          fill={strokeColor}
+          fill={selectedStrokeColor}
           opacity={labelOpacity}
           onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
         >
@@ -204,7 +194,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           y={geometry.labelPoint.y + (inheritanceConstraintLabel ? 10 : -6)}
           textAnchor="middle"
           className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
-          fill={strokeColor}
+          fill={selectedStrokeColor}
           opacity={labelOpacity}
           onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
         >

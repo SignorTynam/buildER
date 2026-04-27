@@ -151,7 +151,7 @@ export function CodePanel(props: CodePanelProps) {
               onClick={props.onClose}
               aria-label="Chiudi pannello codice"
             >
-              Hide
+              Nascondi
             </button>
           ) : null}
         </div>

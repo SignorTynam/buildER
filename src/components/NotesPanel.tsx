@@ -39,7 +39,7 @@ export function NotesPanel(props: NotesPanelProps) {
               onClick={props.onClose}
               aria-label="Chiudi pannello note"
             >
-              Hide
+              Nascondi
             </button>
           ) : null}
         </div>

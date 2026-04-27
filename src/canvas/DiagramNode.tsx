@@ -130,15 +130,16 @@ export function DiagramNodeView(props: DiagramNodeProps) {
   const { node } = props;
   const isGhost = props.ghost === true;
   const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
-  const selectedStrokeColor = !isGhost && props.selected && !props.validationLevel ? DIAGRAM_FOCUS : strokeColor;
+  const isShapeHighlighted = !isGhost && (props.selected || props.focused) && !props.validationLevel;
+  const selectedStrokeColor = isShapeHighlighted ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeCount = props.validationCount;
   const baseFill = isGhost ? "none" : DIAGRAM_NODE_FILL;
   const baseDash = isGhost ? "10 8" : undefined;
   const baseOpacity = isGhost ? 0.6 : 1;
   const labelOpacity = isGhost ? 0.74 : 1;
-  const shapeStrokeWidth = isGhost ? 1.8 : props.pending || props.dragging ? 2.4 : 2;
-  const weakShapeStrokeWidth = isGhost ? 1.6 : props.pending || props.dragging ? 2.1 : 1.8;
+  const shapeStrokeWidth = isGhost ? 1.8 : props.pending || props.dragging ? 2.4 : isShapeHighlighted ? 2.7 : 2;
+  const weakShapeStrokeWidth = isGhost ? 1.6 : props.pending || props.dragging ? 2.1 : isShapeHighlighted ? 2.3 : 1.8;
   const groupClassName = isGhost ? "diagram-node ghost" : props.selected ? "diagram-node selected" : "diagram-node";
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
   const groupFocusable = !isGhost && props.focusable ? "true" : "false";
@@ -169,18 +170,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeWidth={7}
           />
         ) : null}
-        {!isGhost && props.focused ? (
-          <rect
-            x={node.x - 10}
-            y={node.y - 10}
-            width={node.width + 20}
-            height={node.height + 20}
-            fill="none"
-            stroke={DIAGRAM_FOCUS}
-            strokeWidth={1.8}
-            opacity={0.62}
-          />
-        ) : null}
         <rect
           x={node.x}
           y={node.y}
@@ -199,7 +188,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             width={Math.max(0, node.width - inset * 2)}
             height={Math.max(0, node.height - inset * 2)}
             fill="none"
-            stroke={strokeColor}
+            stroke={selectedStrokeColor}
             strokeWidth={weakShapeStrokeWidth}
             strokeDasharray={baseDash}
             opacity={baseOpacity}
@@ -215,7 +204,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           className="entity-label"
           textAnchor="middle"
           dominantBaseline="middle"
-          fill={strokeColor}
+          fill={selectedStrokeColor}
           opacity={labelOpacity}
         >
           {node.label.toUpperCase()}
@@ -250,15 +239,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeWidth={7}
           />
         ) : null}
-        {!isGhost && props.focused ? (
-          <polygon
-            points={`${cx},${node.y - 10} ${node.x + node.width + 10},${cy} ${cx},${node.y + node.height + 10} ${node.x - 10},${cy}`}
-            fill="none"
-            stroke={DIAGRAM_FOCUS}
-            strokeWidth={1.8}
-            opacity={0.62}
-          />
-        ) : null}
         <polygon
           points={points}
           fill={baseFill}
@@ -271,7 +251,15 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           <circle cx={node.x + node.width + 8} cy={node.y + 8} r={6} fill={DIAGRAM_PENDING} />
         ) : null}
         {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 8, props.validationLevel, badgeCount) : null}
-        <text x={cx} y={cy} className="shape-label" textAnchor="middle" dominantBaseline="middle" fill={strokeColor} opacity={labelOpacity}>
+        <text
+          x={cx}
+          y={cy}
+          className="shape-label"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={selectedStrokeColor}
+          opacity={labelOpacity}
+        >
           {node.label}
         </text>
       </g>
@@ -307,18 +295,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeWidth={7}
           />
         ) : null}
-        {!isGhost && props.focused ? (
-          <rect
-            x={node.x - 12}
-            y={node.y - 10}
-            width={node.width + 24}
-            height={node.height + 20}
-            fill="none"
-            stroke={DIAGRAM_FOCUS}
-            strokeWidth={1.8}
-            opacity={0.62}
-          />
-        ) : null}
         {isMultivalued ? (
           <>
             <ellipse
@@ -327,7 +303,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
               rx={node.width / 2}
               ry={node.height / 2}
               fill={baseFill}
-              stroke={strokeColor}
+              stroke={selectedStrokeColor}
               strokeWidth={shapeStrokeWidth}
               strokeDasharray={baseDash}
               opacity={baseOpacity}
@@ -338,7 +314,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
               className="shape-label"
               textAnchor="middle"
               dominantBaseline="middle"
-              fill={strokeColor}
+              fill={selectedStrokeColor}
               opacity={labelOpacity}
             >
               {node.label}
@@ -354,9 +330,9 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                     cx={node.x + 10}
                     cy={cy}
                     r={7}
-                    fill={isGhost ? "none" : isIdentifier ? strokeColor : DIAGRAM_NODE_FILL}
-                    stroke={strokeColor}
-                    strokeWidth={2}
+                    fill={isGhost ? "none" : isIdentifier ? selectedStrokeColor : DIAGRAM_NODE_FILL}
+                    stroke={selectedStrokeColor}
+                    strokeWidth={isShapeHighlighted ? 2.4 : 2}
                     strokeDasharray={baseDash}
                     opacity={baseOpacity}
                   />
@@ -366,7 +342,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                     className="attribute-label"
                     textAnchor={labelLayout.textAnchor}
                     dominantBaseline={labelLayout.dominantBaseline}
-                    fill={strokeColor}
+                    fill={selectedStrokeColor}
                     opacity={labelOpacity}
                   >
                     {node.label}

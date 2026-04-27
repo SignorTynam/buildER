@@ -55,7 +55,7 @@ function getSidebarHeading(tab: ErWorkspaceSidebarTab, parseError?: string) {
 
   if (tab === "notes") {
     return {
-      title: "Note progetto",
+      title: "Note",
       description: "Annotazioni non strutturali e promemoria di lavoro.",
       status: "Appunti",
       tone: "neutral",

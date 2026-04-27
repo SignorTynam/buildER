@@ -1,16 +1,72 @@
 :root {
-  --studio-bg: #ebe6dc;
-  --studio-surface: rgba(255, 252, 246, 0.82);
-  --studio-surface-strong: rgba(255, 252, 246, 0.96);
-  --studio-line: rgba(42, 39, 31, 0.14);
-  --studio-line-strong: rgba(23, 23, 20, 0.72);
-  --studio-ink: #141412;
-  --studio-muted: #5d5a51;
-  --studio-accent: #305f58;
-  --studio-accent-soft: rgba(48, 95, 88, 0.12);
-  --studio-shadow: 0 18px 42px rgba(47, 42, 31, 0.08);
-  color: #111111;
-  background: #e9e9e3;
+  --studio-bg: #edf1ec;
+  --studio-bg-elevated: #f6f8f5;
+  --studio-surface: #f8faf7;
+  --studio-surface-strong: #ffffff;
+  --studio-surface-muted: #eef3ee;
+  --studio-border: #d5ddd4;
+  --studio-border-strong: #a8b7ab;
+  --studio-line: var(--studio-border);
+  --studio-line-strong: var(--studio-border-strong);
+  --studio-ink: #111a16;
+  --studio-muted: #5f6d65;
+  --studio-faint: #839188;
+  --studio-accent: #254f48;
+  --studio-accent-strong: #193a35;
+  --studio-accent-soft: rgba(37, 79, 72, 0.12);
+  --studio-danger: #9f3e34;
+  --studio-danger-soft: rgba(159, 62, 52, 0.11);
+  --studio-warning: #8a6426;
+  --studio-warning-soft: rgba(138, 100, 38, 0.13);
+  --studio-success: #2f684f;
+  --studio-success-soft: rgba(47, 104, 79, 0.11);
+  --studio-radius-sm: 4px;
+  --studio-radius-md: 6px;
+  --studio-radius-lg: 8px;
+  --studio-radius-xl: 10px;
+  --studio-radius-panel: 10px;
+  --studio-space-xs: 4px;
+  --studio-space-sm: 8px;
+  --studio-space-md: 12px;
+  --studio-space-lg: 16px;
+  --studio-control-height: 34px;
+  --studio-control-height-sm: 30px;
+  --studio-shadow-panel: 0 1px 2px rgba(17, 26, 22, 0.05), 0 10px 24px rgba(17, 26, 22, 0.07);
+  --studio-shadow-floating: 0 18px 42px rgba(17, 26, 22, 0.16);
+  --studio-focus-ring: 0 0 0 3px rgba(37, 79, 72, 0.22);
+  --studio-shadow: var(--studio-shadow-panel);
+  --editor-bg: var(--studio-bg);
+  --editor-panel: var(--studio-surface);
+  --editor-panel-strong: var(--studio-surface-strong);
+  --editor-border: var(--studio-border);
+  --editor-border-strong: var(--studio-border-strong);
+  --editor-text-strong: var(--studio-ink);
+  --editor-text-muted: var(--studio-muted);
+  --editor-accent: var(--studio-accent);
+  --editor-accent-soft: var(--studio-accent-soft);
+  --editor-danger: var(--studio-danger);
+  --editor-warning: var(--studio-warning);
+  --editor-success: var(--studio-success);
+  --editor-radius-sm: var(--studio-radius-sm);
+  --editor-radius-md: var(--studio-radius-md);
+  --editor-radius-lg: var(--studio-radius-lg);
+  --editor-shadow-panel: var(--studio-shadow-panel);
+  --diagram-node-fill: #ffffff;
+  --diagram-stroke: #27312c;
+  --diagram-text: #111a16;
+  --diagram-canvas-fill: #f7f8f4;
+  --diagram-grid: rgba(39, 49, 44, 0.055);
+  --diagram-focus: var(--studio-accent);
+  --diagram-selection-stroke: var(--studio-accent);
+  --diagram-selection-fill: rgba(37, 79, 72, 0.1);
+  --diagram-pending: var(--studio-warning);
+  --diagram-drag: var(--studio-muted);
+  --diagram-warning: var(--studio-warning);
+  --diagram-warning-fill: rgba(138, 100, 38, 0.17);
+  --diagram-error: var(--studio-danger);
+  --diagram-error-fill: rgba(159, 62, 52, 0.16);
+  color: var(--studio-ink);
+  background: var(--studio-bg);
   font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   font-synthesis: none;
   text-rendering: geometricPrecision;
@@ -30,10 +86,7 @@ body,
 }
 
 body {
-  background:
-    radial-gradient(circle at top left, rgba(193, 132, 76, 0.12), transparent 28%),
-    radial-gradient(circle at top right, rgba(48, 95, 88, 0.12), transparent 26%),
-    linear-gradient(180deg, #f3efe6 0%, var(--studio-bg) 46%, #e4dfd4 100%);
+  background: var(--studio-bg);
 }
 
 button,
