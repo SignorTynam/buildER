@@ -140,14 +140,14 @@ export function CodePanel(props: CodePanelProps) {
             {props.parseError
               ? t("codePanel.error")
               : isReadOnly
-                ? t("common.status.readOnly")
+                ? "Preview"
                 : t("common.status.write")}
           </span>
 
           {props.onClose ? (
             <button
               type="button"
-              className="technical-side-panel-close"
+              className="technical-side-panel-close panel-hide-button"
               onClick={props.onClose}
               aria-label="Chiudi pannello codice"
             >

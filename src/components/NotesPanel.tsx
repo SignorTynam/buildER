@@ -29,13 +29,13 @@ export function NotesPanel(props: NotesPanelProps) {
 
         <div className="technical-side-panel-head-actions">
           <span className="code-panel-status">
-            {isReadOnly ? t("common.status.readOnly") : t("common.status.editing")}
+            {isReadOnly ? "Preview" : t("common.status.editing")}
           </span>
 
           {props.onClose ? (
             <button
               type="button"
-              className="technical-side-panel-close"
+              className="technical-side-panel-close panel-hide-button"
               onClick={props.onClose}
               aria-label="Chiudi pannello note"
             >

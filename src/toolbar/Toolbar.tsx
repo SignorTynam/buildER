@@ -13,6 +13,7 @@ import type {
 } from "../types/diagram";
 import { useI18n } from "../i18n/useI18n";
 import { getToolDefinitions } from "../utils/toolConfig";
+import { CommandOptionRow, PanelShell, WarningCard } from "../components/panels";
 
 const PRIMARY_TOOLS: ToolKind[] = [
   "select",
@@ -436,12 +437,14 @@ export function Toolbar(props: ToolbarProps) {
   }
 
   return (
-    <aside
+    <PanelShell
       className={
         props.collapsed
           ? `toolbar-panel contextual-toolbar collapsed toolbar-panel-context-${context}`
           : `toolbar-panel contextual-toolbar toolbar-panel-context-${context}`
       }
+      ariaLabel="Strumenti canvas"
+      collapsed={props.collapsed}
     >
       <div className="panel-head-row panel-head-row-compact">
         {props.collapsed ? (
@@ -452,7 +455,7 @@ export function Toolbar(props: ToolbarProps) {
           <div className="toolbar-context-summary">
             <span className="toolbar-context-eyebrow">Strumenti canvas</span>
             <strong>{activeToolDefinition?.label ?? "Strumento"}</strong>
-            {activeToolDefinition?.description ? <span>{activeToolDefinition.description}</span> : null}
+            <span>{availableTools.length} comandi disponibili</span>
           </div>
         )}
         <button
@@ -471,23 +474,16 @@ export function Toolbar(props: ToolbarProps) {
           {availableTools.map((item) => {
             const disabled = false;
             return (
-              <button
+              <CommandOptionRow
                 key={item.tool}
-                type="button"
-                className={props.activeTool === item.tool ? "tool-button active" : "tool-button"}
+                className="tool-button"
+                label={item.label}
+                shortcut={item.shortcut.toUpperCase()}
+                active={props.activeTool === item.tool}
                 onClick={() => props.onToolChange(item.tool)}
                 disabled={disabled}
-                title={`${item.label}: ${item.description} (${item.shortcut.toUpperCase()})`}
-                aria-label={item.label}
-                aria-pressed={props.activeTool === item.tool}
-              >
-                <ToolIcon tool={item.tool} />
-                <span className="tool-copy">
-                  <span className="tool-label">{item.label}</span>
-                  <span className="tool-description">{item.description}</span>
-                </span>
-                <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
-              </button>
+                title={`${item.label} (${item.shortcut.toUpperCase()})`}
+              />
             );
           })}
         </div>
@@ -503,19 +499,16 @@ export function Toolbar(props: ToolbarProps) {
           </div>
           <div className="toolbar-issue-list">
             {visibleIssues.map((issue) => (
-              <button
+              <WarningCard
                 key={issue.id}
-                type="button"
                 className={
                   issue.level === "error" ? "toolbar-issue-card toolbar-issue-card-error" : "toolbar-issue-card"
                 }
+                level={issue.level}
                 onClick={() => props.onIssueSelect(issue)}
               >
-                <span className={issue.level === "error" ? "toolbar-issue-level error" : "toolbar-issue-level warning"}>
-                  {issue.level === "error" ? "Errore" : "Warning"}
-                </span>
-                <span className="toolbar-issue-message">{issue.message}</span>
-              </button>
+                {issue.message}
+              </WarningCard>
             ))}
           </div>
         </section>
@@ -544,6 +537,6 @@ export function Toolbar(props: ToolbarProps) {
           />
         </section>
       ) : null}
-    </aside>
+    </PanelShell>
   );
 }

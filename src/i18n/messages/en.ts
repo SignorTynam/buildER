@@ -47,7 +47,6 @@ export const en: DeepPartialMessages = {
       success: "Success",
       warning: "Warning",
       error: "Error",
-      readOnly: "Read only",
       write: "Write",
       editing: "Editing",
       none: "None",
@@ -61,16 +60,11 @@ export const en: DeepPartialMessages = {
   },
   header: {
     viewGroupLabel: "Diagram view",
-    editorModeGroupLabel: "Editor mode",
     quickActionsLabel: "Workspace quick actions",
     secondaryActionsLabel: "Secondary actions",
     views: {
       translation: "Translation",
       logical: "Logical",
-    },
-    modes: {
-      edit: "Edit",
-      view: "Read",
     },
     menu: {
       sections: {

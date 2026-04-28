@@ -47,7 +47,6 @@ export const it = {
       success: "Successo",
       warning: "Avviso",
       error: "Errore",
-      readOnly: "Sola lettura",
       write: "Scrittura",
       editing: "Modifica",
       none: "Nessuno",
@@ -61,16 +60,11 @@ export const it = {
   },
   header: {
     viewGroupLabel: "Vista diagramma",
-    editorModeGroupLabel: "Modalita editor",
     quickActionsLabel: "Azioni rapide workspace",
     secondaryActionsLabel: "Azioni secondarie",
     views: {
       translation: "Traduzione",
       logical: "Logico",
-    },
-    modes: {
-      edit: "Modifica",
-      view: "Lettura",
     },
     quickActions: {
       showCode: "Mostra codice",

@@ -14,6 +14,7 @@ import {
   getPreferredErTranslationStep,
 } from "../utils/erTranslation";
 import { validateDiagram } from "../utils/diagram";
+import { EmptyStateCard, PanelSection, PanelShell, WarningCard } from "../components/panels";
 
 interface TranslationWorkspaceProps {
   workspace: ErTranslationWorkspaceDocument;
@@ -54,6 +55,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const overview = useMemo(() => buildErTranslationOverview(props.workspace), [props.workspace]);
   const [activeStep, setActiveStep] = useState<ErTranslationStep>(() => getPreferredErTranslationStep(overview));
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
 
   const stepItems = overview.itemsByStep[activeStep];
   const selectedItem = useMemo(
@@ -64,11 +66,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
     () => (selectedItem ? getErTranslationChoicesForItem(props.workspace, selectedItem) : []),
     [props.workspace, selectedItem],
   );
-  const selectedMappings = selectedItem
-    ? props.workspace.translation.mappings.filter(
-        (mapping) => mapping.targetType === selectedItem.targetType && mapping.targetId === selectedItem.id,
-      )
-    : [];
   const selectedConflicts = selectedItem
     ? props.workspace.translation.conflicts.filter(
         (conflict) => conflict.targetType === selectedItem.targetType && conflict.targetId === selectedItem.id,
@@ -117,7 +114,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
 
   return (
     <>
-      <aside className="toolbar-panel translation-step-rail" aria-label="Workflow di traduzione">
+      <PanelShell className="toolbar-panel translation-step-rail studio-side-rail" ariaLabel="Workflow di traduzione">
         <div className="translation-step-list" role="list">
           {overview.steps.map((step) => (
             <button
@@ -141,10 +138,10 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           ))}
         </div>
 
-        <button type="button" className="translation-reset-button" onClick={props.onResetTranslation}>
+        <button type="button" className="translation-reset-button studio-button studio-button-secondary" onClick={props.onResetTranslation}>
           Reset traduzione
         </button>
-      </aside>
+      </PanelShell>
 
       <section className="workspace-main logical-main">
         <div className="translation-canvas-card canvas-panel">
@@ -178,14 +175,38 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
       </section>
 
       {!props.sidePanelHidden ? (
-      <aside className="inspector-panel translation-panel" aria-label="Pannello decisioni di traduzione">
+      <PanelShell
+        className={sidePanelCollapsed ? "inspector-panel translation-panel translation-panel-collapsed" : "inspector-panel translation-panel"}
+        ariaLabel="Pannello decisioni di traduzione"
+        collapsed={sidePanelCollapsed}
+      >
+        <div className="panel-head-row panel-head-row-compact panel-shell-head">
+          <div>
+            <div className="panel-heading">Review traduzione</div>
+            {!sidePanelCollapsed ? <p className="panel-subheading">Warning, scelte e stato dello step corrente.</p> : null}
+          </div>
+          <button
+            type="button"
+            className="panel-toggle panel-hide-button"
+            onClick={() => setSidePanelCollapsed((current) => !current)}
+            aria-expanded={!sidePanelCollapsed}
+            aria-label={sidePanelCollapsed ? "Mostra pannello traduzione" : "Nascondi pannello traduzione"}
+            title={sidePanelCollapsed ? "Mostra" : "Nascondi"}
+          >
+            {sidePanelCollapsed ? "<" : "Nascondi"}
+          </button>
+        </div>
+        {sidePanelCollapsed ? (
+          <div className="panel-collapsed-card">Traduzione</div>
+        ) : (
+        <>
         {activeStep !== "review" || activeStepOverview?.blockReason ? (
-          <section className="translation-panel-section translation-panel-summary">
+          <PanelSection className="translation-panel-section translation-panel-summary">
             {activeStep !== "review" && activeStepOverview?.description ? <p>{activeStepOverview.description}</p> : null}
             {activeStepOverview?.blockReason ? (
-              <div className="translation-warning-item level-warning">{activeStepOverview.blockReason}</div>
+              <WarningCard level="warning">{activeStepOverview.blockReason}</WarningCard>
             ) : null}
-          </section>
+          </PanelSection>
         ) : null}
 
         {activeStep !== "review" ? (
@@ -216,7 +237,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                   ))}
                 </div>
               ) : (
-                <div className="translation-empty-hint">Nessun elemento da gestire in questo step.</div>
+                <EmptyStateCard className="translation-empty-hint">Nessun elemento da gestire in questo step.</EmptyStateCard>
               )}
             </section>
 
@@ -260,10 +281,10 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                     <h3>Warning aperti</h3>
                     <div className="translation-warning-list" role="list">
                       {selectedConflicts.map((conflict) => (
-                        <div key={conflict.id} className={`translation-warning-item level-${conflict.level}`}>
-                          {conflict.message}
-                        </div>
-                      ))}
+                          <WarningCard key={conflict.id} level={conflict.level} className={`translation-warning-item level-${conflict.level}`}>
+                            {conflict.message}
+                          </WarningCard>
+                        ))}
                     </div>
                   </section>
                 ) : null}
@@ -291,19 +312,21 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
               {props.workspace.translation.conflicts.length > 0 ? (
                 <div className="translation-warning-list" role="list">
                   {props.workspace.translation.conflicts.map((conflict) => (
-                    <div key={conflict.id} className={`translation-warning-item level-${conflict.level}`}>
+                    <WarningCard key={conflict.id} level={conflict.level} className={`translation-warning-item level-${conflict.level}`}>
                       {conflict.message}
-                    </div>
+                    </WarningCard>
                   ))}
                 </div>
               ) : (
-                <div className="translation-empty-hint">Nessun conflitto aperto nella traduzione corrente.</div>
+                <EmptyStateCard className="translation-empty-hint">Nessun conflitto aperto nella traduzione corrente.</EmptyStateCard>
               )}
             </section>
 
           </>
         )}
-      </aside>
+        </>
+        )}
+      </PanelShell>
       ) : null}
     </>
   );

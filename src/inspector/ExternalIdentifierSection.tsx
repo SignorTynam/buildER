@@ -13,6 +13,7 @@ import {
   getExternalIdentifierKind,
   getExternalIdentifierSourceEntity,
 } from "../utils/diagram";
+import { CollapsiblePanel, EmptyStateCard } from "../components/panels";
 
 interface ExternalIdentifierSectionProps {
   entity: EntityNode;
@@ -383,9 +384,7 @@ export function ExternalIdentifierSection({
   }
 
   return (
-    <section className="context-card">
-      <div className="context-card-title">Identificatori esterni</div>
-
+    <CollapsiblePanel title="Identificatori esterni" defaultOpen className="context-card">
       <div className="identifier-list">
         {externalIdentifiers.map((identifier, index) => {
           const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
@@ -423,7 +422,7 @@ export function ExternalIdentifierSection({
         })}
 
         {externalIdentifiers.length === 0 ? (
-          <p className="action-hint">Nessun identificatore esterno definito.</p>
+          <EmptyStateCard className="action-hint">Nessun identificatore esterno definito.</EmptyStateCard>
         ) : null}
       </div>
 
@@ -454,6 +453,6 @@ export function ExternalIdentifierSection({
           onConfirm={handleSave}
         />
       ) : null}
-    </section>
+    </CollapsiblePanel>
   );
 }

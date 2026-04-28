@@ -1,6 +1,7 @@
 import { CodePanel } from "./CodePanel";
 import { NotesPanel } from "./NotesPanel";
 import { InspectorPanel } from "../inspector/InspectorPanel";
+import { PanelShell, PanelTabs } from "./panels";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -74,7 +75,7 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
   const heading = getSidebarHeading(props.activeTab, props.codeError);
 
   return (
-    <aside className={`workspace-side-panel workspace-side-panel-${props.activeTab}`} aria-label="Pannello laterale ER">
+    <PanelShell className={`workspace-side-panel workspace-side-panel-${props.activeTab}`} ariaLabel="Pannello laterale ER">
       <header className="workspace-side-panel-head">
         <div className="workspace-side-panel-topline">
           <h2>{heading.title}</h2>
@@ -82,32 +83,17 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
         </div>
         {heading.description ? <p className="workspace-side-panel-description">{heading.description}</p> : null}
 
-        <div className="workspace-side-panel-tabs" role="group" aria-label="Selettore sezione pannello laterale">
-          <button
-            type="button"
-            className={props.activeTab === "properties" ? "workspace-side-tab active" : "workspace-side-tab"}
-            onClick={() => props.onSelectTab("properties")}
-            aria-pressed={props.activeTab === "properties"}
-          >
-            Inspector ER
-          </button>
-          <button
-            type="button"
-            className={props.activeTab === "code" ? "workspace-side-tab active" : "workspace-side-tab"}
-            onClick={() => props.onSelectTab("code")}
-            aria-pressed={props.activeTab === "code"}
-          >
-            Sorgente ERS
-          </button>
-          <button
-            type="button"
-            className={props.activeTab === "notes" ? "workspace-side-tab active" : "workspace-side-tab"}
-            onClick={() => props.onSelectTab("notes")}
-            aria-pressed={props.activeTab === "notes"}
-          >
-            Note
-          </button>
-        </div>
+        <PanelTabs
+          activeTab={props.activeTab}
+          tabs={[
+            { id: "properties", label: "Inspector ER" },
+            { id: "code", label: "Sorgente ERS" },
+            { id: "notes", label: "Note" },
+          ]}
+          className="workspace-side-panel-tabs"
+          ariaLabel="Selettore sezione pannello laterale"
+          onTabChange={props.onSelectTab}
+        />
       </header>
 
       <div className="workspace-side-panel-body" data-panel-view={props.activeTab}>
@@ -142,6 +128,6 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
           <NotesPanel notes={props.notes} editable={props.mode === "edit"} onChange={props.onNotesChange} />
         )}
       </div>
-    </aside>
+    </PanelShell>
   );
 }

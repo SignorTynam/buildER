@@ -6,6 +6,7 @@ import type {
   EntityNode,
   InternalIdentifier,
 } from "../types/diagram";
+import { CollapsiblePanel, EmptyStateCard } from "../components/panels";
 
 interface InternalIdentifierSectionProps {
   entity: EntityNode;
@@ -281,9 +282,7 @@ export function InternalIdentifierSection({
   }
 
   return (
-    <section className="context-card">
-      <div className="context-card-title">Identificatori interni</div>
-
+    <CollapsiblePanel title="Identificatori interni" defaultOpen className="context-card">
       <div className="identifier-list">
         {internalIdentifiers.map((identifier, index) => {
           const labels = identifier.attributeIds
@@ -310,7 +309,7 @@ export function InternalIdentifierSection({
         })}
 
         {internalIdentifiers.length === 0 ? (
-          <p className="action-hint">Nessun identificatore interno definito.</p>
+          <EmptyStateCard className="action-hint">Nessun identificatore interno definito.</EmptyStateCard>
         ) : null}
       </div>
 
@@ -333,6 +332,6 @@ export function InternalIdentifierSection({
           onConfirm={handleSave}
         />
       ) : null}
-    </section>
+    </CollapsiblePanel>
   );
 }

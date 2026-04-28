@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CodePanel } from "./CodePanel";
 import { NotesPanel } from "./NotesPanel";
+import { PanelShell, PanelTabs } from "./panels";
 
 export type TechnicalPanelTab = "review" | "code" | "notes" | "sql";
 
@@ -38,25 +39,19 @@ const TAB_LABELS: Record<TechnicalPanelTab, string> = {
 
 export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
   const activeTab = props.availableTabs.includes(props.activeTab) ? props.activeTab : props.availableTabs[0] ?? "review";
+  const tabs = props.availableTabs.map((tab) => ({ id: tab, label: TAB_LABELS[tab] }));
 
   return (
-    <aside className={`technical-dock-panel technical-dock-panel-${activeTab}`} aria-label="Pannello tecnico">
+    <PanelShell className={`technical-dock-panel technical-dock-panel-${activeTab}`} ariaLabel="Pannello tecnico">
       <header className="technical-dock-head technical-dock-head-compact">
-        <div className="technical-dock-tabs studio-tabs" role="tablist" aria-label="Sezioni pannello tecnico">
-          {props.availableTabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={tab === activeTab ? "technical-dock-tab studio-tab active" : "technical-dock-tab studio-tab"}
-              onClick={() => props.onTabChange(tab)}
-              role="tab"
-              aria-selected={tab === activeTab}
-            >
-              {TAB_LABELS[tab]}
-            </button>
-          ))}
-        </div>
-        <button type="button" className="technical-side-panel-close" onClick={props.onClose} aria-label="Nascondi pannello tecnico">
+        <PanelTabs
+          activeTab={activeTab}
+          tabs={tabs}
+          className="technical-dock-tabs"
+          ariaLabel="Sezioni pannello tecnico"
+          onTabChange={props.onTabChange}
+        />
+        <button type="button" className="technical-side-panel-close panel-hide-button" onClick={props.onClose} aria-label="Nascondi pannello tecnico">
           Nascondi
         </button>
       </header>
@@ -85,6 +80,6 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
         {activeTab === "review" ? props.review : null}
         {activeTab === "sql" ? props.sql : null}
       </div>
-    </aside>
+    </PanelShell>
   );
 }

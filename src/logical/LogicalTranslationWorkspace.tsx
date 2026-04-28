@@ -22,6 +22,7 @@ import {
 } from "../utils/logicalSqlMetadata";
 import { generateLogicalSql } from "../utils/logicalSql";
 import { LogicalTransformationCanvas } from "./LogicalTransformationCanvas";
+import { EmptyStateCard, PanelSection, PanelShell, PanelTabs, WarningCard } from "../components/panels";
 
 interface LogicalTranslationWorkspaceProps {
   sourceDiagram: DiagramDocument;
@@ -234,6 +235,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const completion = useMemo(() => getLogicalTranslationStepCompletion(overview), [overview]);
   const [activeStep, setActiveStep] = useState<LogicalTranslationStep>(() => getPreferredStep(overview, completion));
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
   const selectedColumnContext = useMemo(
     () => findSelectedLogicalColumn(props.workspace, props.selection),
     [props.workspace, props.selection],
@@ -251,11 +253,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     () => (selectedItem ? getLogicalTranslationChoicesForItem(overview, selectedItem) : []),
     [overview, selectedItem],
   );
-  const selectedMappings = selectedItem
-    ? props.workspace.translation.mappings.filter(
-        (mapping) => mapping.targetType === selectedItem.targetType && mapping.targetId === selectedItem.id,
-      )
-    : [];
   const selectedConflicts = selectedItem
     ? props.workspace.translation.conflicts.filter(
         (conflict) => conflict.targetType === selectedItem.targetType && conflict.targetId === selectedItem.id,
@@ -341,7 +338,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
   return (
     <>
-      <aside className="toolbar-panel translation-step-rail" aria-label="Workflow logico manuale">
+      <PanelShell className="toolbar-panel translation-step-rail studio-side-rail" ariaLabel="Workflow logico manuale">
         <div className="translation-step-list">
           {LOGICAL_TRANSLATION_STEPS.map((step) => {
             const totals = completion[step.id] ?? { total: 0, pending: 0, applied: 0, invalid: 0 };
@@ -369,10 +366,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           })}
         </div>
 
-        <button type="button" className="translation-reset-button" onClick={props.onResetTranslation}>
+        <button type="button" className="translation-reset-button studio-button studio-button-secondary" onClick={props.onResetTranslation}>
           Reset trasformazione logica
         </button>
-      </aside>
+      </PanelShell>
 
       <section className="workspace-main logical-main">
         <div className="translation-canvas-card canvas-panel">
@@ -398,31 +395,42 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
       </section>
 
       {!props.sidePanelHidden ? (
-      <aside
-        className="inspector-panel translation-panel"
-        aria-label={showSqlPanel ? "Pannello SQL del modello logico" : "Inspector modello logico"}
+      <PanelShell
+        className={sidePanelCollapsed ? "inspector-panel translation-panel translation-panel-collapsed" : "inspector-panel translation-panel"}
+        ariaLabel={showSqlPanel ? "Pannello SQL del modello logico" : "Inspector modello logico"}
+        collapsed={sidePanelCollapsed}
       >
-        <section className="translation-panel-section translation-panel-tabs-section">
-          <div className="translation-panel-tabs studio-tabs" role="tablist" aria-label="Sezioni del pannello logico">
-            <button
-              type="button"
-              className={showReviewPanel ? "translation-panel-tab studio-tab active" : "translation-panel-tab studio-tab"}
-              onClick={() => props.onPanelModeChange("review")}
-              role="tab"
-              aria-selected={showReviewPanel}
-            >
-              Review
-            </button>
-            <button
-              type="button"
-              className={showSqlPanel ? "translation-panel-tab studio-tab active" : "translation-panel-tab studio-tab"}
-              onClick={() => props.onPanelModeChange("sql")}
-              role="tab"
-              aria-selected={showSqlPanel}
-            >
-              SQL
-            </button>
+        <div className="panel-head-row panel-head-row-compact panel-shell-head">
+          <div>
+            <div className="panel-heading">{showSqlPanel ? "Anteprima SQL" : "Review schema"}</div>
+            {!sidePanelCollapsed ? <p className="panel-subheading">Controlli, warning e output del modello logico.</p> : null}
           </div>
+          <button
+            type="button"
+            className="panel-toggle panel-hide-button"
+            onClick={() => setSidePanelCollapsed((current) => !current)}
+            aria-expanded={!sidePanelCollapsed}
+            aria-label={sidePanelCollapsed ? "Mostra pannello schema logico" : "Nascondi pannello schema logico"}
+            title={sidePanelCollapsed ? "Mostra" : "Nascondi"}
+          >
+            {sidePanelCollapsed ? "<" : "Nascondi"}
+          </button>
+        </div>
+        {sidePanelCollapsed ? (
+          <div className="panel-collapsed-card">Schema</div>
+        ) : (
+        <>
+        <section className="translation-panel-section translation-panel-tabs-section">
+          <PanelTabs
+            activeTab={props.panelMode}
+            tabs={[
+              { id: "review", label: "Review" },
+              { id: "sql", label: "SQL" },
+            ]}
+            className="translation-panel-tabs"
+            ariaLabel="Sezioni del pannello logico"
+            onTabChange={props.onPanelModeChange}
+          />
         </section>
 
         {showReviewPanel ? (
@@ -441,17 +449,19 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </p>
         </section>
 
-        <section className="translation-panel-section">
-          <div className="translation-section-head">
-            <h3>Type Mode</h3>
+        <PanelSection
+          className="translation-panel-section"
+          title="Type Mode"
+          actions={
             <button
               type="button"
-              className={props.typeMode ? "translation-reset-button active" : "translation-reset-button"}
+              className={props.typeMode ? "translation-reset-button studio-button studio-button-secondary active" : "translation-reset-button studio-button studio-button-secondary"}
               onClick={() => props.onTypeModeChange(!props.typeMode)}
             >
               {props.typeMode ? "Disattiva" : "Attiva"}
             </button>
-          </div>
+          }
+        >
           <p>
             {props.typeMode
               ? "Clicca una colonna nel canvas per modificare tipo SQL, nullable, unique e default in linea."
@@ -474,7 +484,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               </span>
             </div>
           ) : null}
-        </section>
+        </PanelSection>
 
         {activeStep !== "review" ? (
           <>
@@ -504,7 +514,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                   ))}
                 </div>
               ) : (
-                <div className="translation-empty-hint">Nessun elemento da gestire in questo step.</div>
+                <EmptyStateCard className="translation-empty-hint">Nessun elemento da gestire in questo step.</EmptyStateCard>
               )}
             </section>
 
@@ -547,10 +557,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                     <h3>Warning aperti</h3>
                     <div className="translation-warning-list">
                       {selectedConflicts.map((conflict) => (
-                        <div key={conflict.id} className={`translation-warning-item level-${conflict.level}`}>
-                          {conflict.message}
-                        </div>
-                      ))}
+                          <WarningCard key={conflict.id} level={conflict.level} className={`translation-warning-item level-${conflict.level}`}>
+                            {conflict.message}
+                          </WarningCard>
+                        ))}
                     </div>
                   </section>
                 ) : null}
@@ -564,13 +574,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               {props.workspace.translation.conflicts.length > 0 ? (
                 <div className="translation-warning-list">
                   {props.workspace.translation.conflicts.map((conflict) => (
-                    <div key={conflict.id} className={`translation-warning-item level-${conflict.level}`}>
+                    <WarningCard key={conflict.id} level={conflict.level} className={`translation-warning-item level-${conflict.level}`}>
                       {conflict.message}
-                    </div>
+                    </WarningCard>
                   ))}
                 </div>
               ) : (
-                <div className="translation-empty-hint">Nessun conflitto aperto nella trasformazione logica corrente.</div>
+                <EmptyStateCard className="translation-empty-hint">Nessun conflitto aperto nella trasformazione logica corrente.</EmptyStateCard>
               )}
             </section>
           </>
@@ -597,7 +607,9 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             </section>
           </>
         )}
-      </aside>
+        </>
+        )}
+      </PanelShell>
       ) : null}
     </>
   );

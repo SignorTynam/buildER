@@ -18,6 +18,7 @@ import {
 } from "../utils/cardinality";
 import { ExternalIdentifierSection } from "./ExternalIdentifierSection";
 import { InternalIdentifierSection } from "./InternalIdentifierSection";
+import { PanelCard, PanelShell } from "../components/panels";
 
 interface InspectorPanelProps {
   diagram: DiagramDocument;
@@ -143,7 +144,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
   if (isCollapsed) {
     if (isIdleContext) {
       return (
-        <aside className="inspector-panel collapsed inspector-panel-idle">
+        <PanelShell className="inspector-panel collapsed inspector-panel-idle" ariaLabel="Pannello contesto" collapsed>
           <div className="panel-head-row panel-head-row-compact">
             <button
               type="button"
@@ -155,12 +156,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
               {"<"}
             </button>
           </div>
-        </aside>
+        </PanelShell>
       );
     }
 
     return (
-      <aside className="inspector-panel collapsed">
+      <PanelShell className="inspector-panel collapsed" ariaLabel="Pannello contesto" collapsed>
         <div className="panel-head-row panel-head-row-compact">
           <button
             type="button"
@@ -179,7 +180,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
             <span>{selectionCount === 0 ? "Nessuna selezione" : `${selectionCount} elementi`}</span>
           </div>
         </div>
-      </aside>
+      </PanelShell>
     );
   }
 
@@ -531,12 +532,13 @@ export function InspectorPanel(props: InspectorPanelProps) {
   }
 
   return (
-    <aside
+    <PanelShell
       className={
         isEmbedded
           ? "inspector-panel inspector-panel-context inspector-panel-embedded"
           : "inspector-panel inspector-panel-context"
       }
+      ariaLabel="Pannello proprieta"
     >
       {!isEmbedded ? (
         <>
@@ -556,14 +558,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
             </button>
           </div>
 
-          <section className="context-card context-card-hero">
+          <PanelCard className="context-card context-card-hero">
             <div className="context-card-title">{selectionCount === 0 ? "Nessuna selezione attiva" : `${selectionCount} elementi attivi`}</div>
             <p className="context-card-subtitle">
               {selectionCount === 0
                 ? "Usa il rail a sinistra per creare entita o associazioni, poi seleziona l'elemento da rifinire."
                 : "Le azioni e i campi qui sotto sono limitati al contesto corrente."}
             </p>
-          </section>
+          </PanelCard>
         </>
       ) : null}
 
@@ -580,6 +582,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
           </div>
         </section>
       ) : null}
-    </aside>
+    </PanelShell>
   );
 }

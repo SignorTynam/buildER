@@ -4045,3 +4045,551 @@ textarea:disabled {
     width: auto;
   }
 }
+/* Unified Panels */
+:root {
+  --panel-bg: var(--studio-surface, rgba(255, 255, 255, 0.94));
+  --panel-border: var(--studio-border, rgba(25, 39, 52, 0.12));
+  --panel-border-strong: var(--studio-border-strong, rgba(25, 39, 52, 0.2));
+  --panel-radius: var(--studio-radius-lg, 18px);
+  --panel-section-radius: var(--studio-radius-md, 14px);
+  --panel-shadow: var(--studio-shadow-panel, 0 14px 32px rgba(18, 30, 44, 0.08));
+  --panel-section-bg: rgba(248, 250, 248, 0.92);
+  --panel-section-bg-strong: #ffffff;
+  --warning-bg: rgba(184, 123, 62, 0.1);
+  --warning-border: rgba(184, 123, 62, 0.24);
+  --error-bg: rgba(172, 61, 47, 0.1);
+  --error-border: rgba(172, 61, 47, 0.24);
+  --success-bg: rgba(34, 111, 84, 0.1);
+  --success-border: rgba(34, 111, 84, 0.22);
+  --text-main: var(--studio-ink, #17251f);
+  --text-muted: var(--studio-muted, rgba(23, 37, 31, 0.62));
+}
+
+.panel-shell,
+.toolbar-panel,
+.inspector-panel,
+.translation-panel,
+.technical-dock-panel,
+.workspace-side-panel,
+.diagram-code-panel,
+.diagram-notes-panel {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
+  color: var(--text-main);
+}
+
+.panel-shell {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.panel-shell.collapsed {
+  border-radius: var(--panel-radius);
+}
+
+.technical-dock-head,
+.workspace-side-panel-head,
+.panel-head-row {
+  border-bottom-color: var(--panel-border);
+}
+
+.panel-shell-head {
+  padding: 14px;
+  margin: 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.panel-shell-head .panel-toggle.panel-hide-button {
+  min-width: 34px;
+  padding-inline: 10px;
+}
+
+.panel-collapsed-card {
+  margin: 12px;
+  padding: 12px;
+  border: 1px dashed var(--panel-border-strong);
+  border-radius: 12px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.translation-panel-collapsed .panel-shell-head {
+  align-items: center;
+}
+
+.panel-tabs,
+.studio-tabs,
+.technical-dock-tabs,
+.translation-panel-tabs,
+.workspace-side-panel-tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  width: 100%;
+  min-height: 42px;
+  padding: 5px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: rgba(239, 244, 240, 0.84);
+}
+
+.panel-tab,
+.studio-tab,
+.technical-dock-tab,
+.translation-panel-tab,
+.workspace-side-tab {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.panel-tab:hover:not(:disabled),
+.studio-tab:hover:not(:disabled),
+.technical-dock-tab:hover:not(:disabled),
+.translation-panel-tab:hover:not(:disabled),
+.workspace-side-tab:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-main);
+}
+
+.panel-tab.active,
+.studio-tab.active,
+.technical-dock-tab.active,
+.translation-panel-tab.active,
+.workspace-side-tab.active {
+  border-color: rgba(28, 91, 68, 0.18);
+  background: #ffffff;
+  color: var(--studio-accent, #1f6b4f);
+  box-shadow: 0 5px 14px rgba(22, 39, 31, 0.08);
+}
+
+.panel-section,
+.panel-card,
+.context-card,
+.toolbar-section,
+.technical-dock-section,
+.translation-panel-section {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-section-radius);
+  background: var(--panel-section-bg);
+  padding: 14px;
+  box-shadow: none;
+}
+
+.panel-section + .panel-section,
+.panel-card + .panel-card,
+.context-card + .context-card,
+.toolbar-section + .toolbar-section,
+.technical-dock-section + .technical-dock-section,
+.translation-panel-section + .translation-panel-section {
+  margin-top: 12px;
+}
+
+.panel-section-head,
+.translation-section-head,
+.technical-dock-section-head,
+.toolbar-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.panel-section-copy {
+  min-width: 0;
+}
+
+.panel-section h2,
+.panel-section h3,
+.translation-panel-section h2,
+.translation-panel-section h3,
+.technical-dock-section h3,
+.context-card-title,
+.toolbar-section-label {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.panel-section p,
+.panel-section span,
+.translation-panel-section p,
+.translation-panel-section span,
+.context-card-subtitle,
+.action-hint,
+.toolbar-section-meta {
+  color: var(--text-muted);
+  line-height: 1.45;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.panel-section-actions {
+  flex: 0 0 auto;
+}
+
+.panel-hide-button,
+.technical-side-panel-close,
+.studio-button,
+.translation-reset-button,
+.translation-sql-actions button,
+.identifier-add-button,
+.identifier-actions button,
+.action-grid button,
+.action-modal-actions button {
+  min-height: 34px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.panel-hide-button:hover:not(:disabled),
+.technical-side-panel-close:hover:not(:disabled),
+.studio-button:hover:not(:disabled),
+.translation-reset-button:hover:not(:disabled),
+.translation-sql-actions button:hover:not(:disabled),
+.identifier-add-button:hover:not(:disabled),
+.identifier-actions button:hover:not(:disabled),
+.action-grid button:hover:not(:disabled),
+.action-modal-actions button:hover:not(:disabled) {
+  border-color: var(--studio-accent, #1f6b4f);
+  color: var(--studio-accent, #1f6b4f);
+}
+
+.panel-hide-button:disabled,
+.technical-side-panel-close:disabled,
+.studio-button:disabled,
+.translation-reset-button:disabled,
+.translation-sql-actions button:disabled,
+.identifier-add-button:disabled,
+.identifier-actions button:disabled,
+.action-grid button:disabled,
+.action-modal-actions button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.collapsible-panel {
+  padding: 0;
+}
+
+.collapsible-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--panel-section-radius);
+  background: transparent;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+}
+
+.collapsible-panel-toggle:hover {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.collapsible-panel-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(31, 107, 79, 0.1);
+  color: var(--studio-accent, #1f6b4f);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.collapsible-panel-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.collapsible-panel-copy strong {
+  font-size: 0.9rem;
+}
+
+.collapsible-panel-copy span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.collapsible-panel-body {
+  padding: 0 14px 14px;
+}
+
+.warning-card,
+.translation-warning-item.warning-card,
+.technical-dock-list-item.warning-card,
+.toolbar-issue-card.warning-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: 12px;
+  background: var(--warning-bg);
+  color: var(--text-main);
+  text-align: left;
+  box-shadow: none;
+}
+
+button.warning-card {
+  cursor: pointer;
+}
+
+button.warning-card:hover {
+  border-color: rgba(184, 123, 62, 0.38);
+  background: rgba(184, 123, 62, 0.14);
+}
+
+.warning-card.level-error,
+.translation-warning-item.warning-card.level-error,
+.technical-dock-list-item.warning-card.level-error,
+.toolbar-issue-card.warning-card.level-error {
+  border-color: var(--error-border);
+  background: var(--error-bg);
+}
+
+.warning-card.level-success,
+.translation-warning-item.warning-card.level-success {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.warning-card-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-main);
+  font-size: 0.69rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.warning-card-message {
+  min-width: 0;
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.42;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.empty-state-card,
+.translation-empty-hint,
+.technical-dock-empty {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 14px;
+  border: 1px dashed var(--panel-border-strong);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.command-option-row,
+.toolbar-panel .tool-button.command-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.command-option-row:hover:not(:disabled),
+.toolbar-panel .tool-button.command-option-row:hover:not(:disabled) {
+  border-color: rgba(31, 107, 79, 0.28);
+  background: rgba(245, 250, 247, 0.98);
+}
+
+.command-option-row.active,
+.toolbar-panel .tool-button.command-option-row.active {
+  border-color: rgba(31, 107, 79, 0.34);
+  background: rgba(31, 107, 79, 0.1);
+  color: var(--studio-accent, #1f6b4f);
+}
+
+.command-option-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.command-option-label {
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 780;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.keyboard-badge,
+.command-menu-item kbd,
+.tool-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  background: rgba(248, 250, 248, 0.98);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.toolbar-panel .tool-copy,
+.toolbar-panel .tool-description,
+.toolbar-panel .tool-icon {
+  display: none;
+}
+
+.toolbar-list,
+.toolbar-list-primary,
+.toolbar-list-tight,
+.translation-step-list,
+.translation-item-list,
+.translation-choice-list,
+.translation-warning-list,
+.technical-dock-list {
+  display: grid;
+  gap: 8px;
+}
+
+.translation-step-button,
+.translation-choice-card,
+.translation-item-card,
+.command-menu-item {
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.translation-step-button:hover,
+.translation-choice-card:hover:not(:disabled),
+.translation-item-card:hover,
+.command-menu-item:hover:not(:disabled) {
+  border-color: rgba(31, 107, 79, 0.28);
+  background: rgba(245, 250, 247, 0.98);
+}
+
+.translation-step-button.active,
+.translation-choice-card.recommended,
+.translation-item-card.active,
+.command-menu-item.active {
+  border-color: rgba(31, 107, 79, 0.34);
+  background: rgba(31, 107, 79, 0.09);
+}
+
+.translation-choice-description,
+.translation-item-description,
+.translation-choice-preview,
+.translation-choice-summary {
+  color: var(--text-muted);
+  line-height: 1.45;
+  white-space: normal;
+  word-break: normal;
+}
+
+.diagram-code-panel-content,
+.diagram-notes-editor,
+.translation-sql-preview {
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+@media (max-width: 920px) {
+  .panel-tabs,
+  .studio-tabs,
+  .technical-dock-tabs,
+  .translation-panel-tabs,
+  .workspace-side-panel-tabs {
+    grid-auto-flow: row;
+    grid-auto-rows: minmax(34px, auto);
+    grid-template-columns: 1fr;
+  }
+
+  .panel-section,
+  .panel-card,
+  .context-card,
+  .toolbar-section,
+  .technical-dock-section,
+  .translation-panel-section {
+    padding: 12px;
+  }
+
+  .warning-card,
+  .translation-warning-item.warning-card,
+  .technical-dock-list-item.warning-card,
+  .toolbar-issue-card.warning-card {
+    grid-template-columns: 1fr;
+  }
+}

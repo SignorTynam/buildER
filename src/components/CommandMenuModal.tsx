@@ -218,7 +218,6 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
                   <CommandButton
                     key={tool.tool}
                     label={tool.label}
-                    detail={tool.description}
                     shortcut={tool.shortcut.toUpperCase()}
                     active={isErView && props.activeTool === tool.tool}
                     disabled={disabled}

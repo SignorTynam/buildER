@@ -9,6 +9,7 @@ import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { WorkspaceStageBar } from "./components/WorkspaceStageBar";
+import { EmptyStateCard, PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
 import { TranslationWorkspace } from "./translation/TranslationWorkspace";
@@ -3955,32 +3956,27 @@ export default function App() {
     .slice(0, 8);
   const modelReviewPanel = (
     <div className="technical-dock-review" aria-label="Overview modello ER">
-      <section className="technical-dock-section">
-        <div className="technical-dock-section-head">
-          <h3>Review modello</h3>
-          <span>Warning ed errori</span>
-        </div>
+      <PanelSection className="technical-dock-section" title="Review modello" subtitle="Warning ed errori">
         {visibleModelIssues.length > 0 ? (
           <div className="technical-dock-list">
             {visibleModelIssues.map((issue) => (
-              <button
+              <WarningCard
                 key={issue.id}
-                type="button"
                 className={`technical-dock-list-item level-${issue.level}`}
+                level={issue.level}
                 onClick={() => handleIssueNotice(issue)}
               >
-                <span>{issue.level === "error" ? "Errore" : "Warning"}</span>
-                <strong>{issue.message}</strong>
-              </button>
+                {issue.message}
+              </WarningCard>
             ))}
           </div>
         ) : (
-          <div className="technical-dock-empty">
+          <EmptyStateCard className="technical-dock-empty">
             <strong>Nessun warning aperto</strong>
             <span>Il modello ER non richiede interventi di review.</span>
-          </div>
+          </EmptyStateCard>
         )}
-      </section>
+      </PanelSection>
     </div>
   );
   const technicalDockAvailableTabs: TechnicalPanelTab[] =
@@ -3991,8 +3987,8 @@ export default function App() {
     diagramView === "er"
       ? "Inserisci il codice ERS"
       : diagramView === "translation"
-        ? "Codice ERS tradotto in sola lettura"
-        : "Codice ERS sorgente dello schema logico in sola lettura";
+        ? "Preview del codice ERS tradotto"
+        : "Preview del codice ERS sorgente dello schema logico";
   const technicalDockPanel = technicalPanelVisible ? (
     <TechnicalDockPanel
       activeTab={technicalPanelTab}

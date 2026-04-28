@@ -47,7 +47,6 @@ export const sq: DeepPartialMessages = {
       success: "Sukses",
       warning: "Paralajmerim",
       error: "Gabim",
-      readOnly: "Vetem lexim",
       write: "Shkrim",
       editing: "Ndryshim",
       none: "Asnje",
@@ -61,16 +60,11 @@ export const sq: DeepPartialMessages = {
   },
   header: {
     viewGroupLabel: "Pamja e diagramit",
-    editorModeGroupLabel: "Menyra e editorit",
     quickActionsLabel: "Veprime te shpejta te workspace",
     secondaryActionsLabel: "Veprime dytesore",
     views: {
       translation: "Perkthim",
       logical: "Logjik",
-    },
-    modes: {
-      edit: "Ndrysho",
-      view: "Lexim",
     },
     menu: {
       sections: {
