@@ -454,8 +454,7 @@ export function Toolbar(props: ToolbarProps) {
         ) : (
           <div className="toolbar-context-summary">
             <span className="toolbar-context-eyebrow">Strumenti canvas</span>
-            <strong>{activeToolDefinition?.label ?? "Strumento"}</strong>
-            <span>{availableTools.length} comandi disponibili</span>
+            <strong>Strumenti</strong>
           </div>
         )}
         <button

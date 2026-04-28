@@ -58,25 +58,9 @@ function getFallbackStatus(props: BottomStatusBarProps): { tone: NoticeTone | "i
     };
   }
 
-  if (props.diagramView === "translation") {
-    return {
-      tone: "info",
-      message: "Traduzione logica guidata attiva: risolvi gli step aperti in ordine.",
-    };
-  }
-
-  if (props.diagramView === "logical") {
-    return {
-      tone: "info",
-      message: props.logicalSqlOpen
-        ? "Anteprima SQL sincronizzata con il modello logico corrente."
-        : "Schema relazionale attivo: controlla vincoli, chiavi e tipi.",
-    };
-  }
-
   return {
     tone: "info",
-    message: "Canvas pronto per la modellazione ER.",
+    message: "",
   };
 }
 
@@ -128,7 +112,7 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
           {primaryTone === "info" ? null : (
             <span className="bottom-status-indicator">{getStatusToneLabel(primaryTone)}</span>
           )}
-          <p>{primaryMessage}</p>
+          {primaryMessage ? <p>{primaryMessage}</p> : null}
           {primaryNotice ? (
             <button
               type="button"

@@ -9,7 +9,7 @@ import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { WorkspaceStageBar } from "./components/WorkspaceStageBar";
-import { EmptyStateCard, PanelSection, WarningCard } from "./components/panels";
+import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
 import { TranslationWorkspace } from "./translation/TranslationWorkspace";
@@ -1624,7 +1624,7 @@ export default function App() {
     markOnboardingCompleted();
     setOnboardingOpen(false);
     onboardingPreviousSnapshotRef.current = null;
-    showSuccessNotice("Tour completato. Ora puoi modellare liberamente.");
+    showSuccessNotice("Tour chiuso. Ora puoi modellare liberamente.");
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
   useEffect(() => {
@@ -3954,31 +3954,24 @@ export default function App() {
       return left.level === "error" ? -1 : 1;
     })
     .slice(0, 8);
-  const modelReviewPanel = (
+  const modelReviewPanel = visibleModelIssues.length > 0 ? (
     <div className="technical-dock-review" aria-label="Overview modello ER">
       <PanelSection className="technical-dock-section" title="Review modello" subtitle="Warning ed errori">
-        {visibleModelIssues.length > 0 ? (
-          <div className="technical-dock-list">
-            {visibleModelIssues.map((issue) => (
-              <WarningCard
-                key={issue.id}
-                className={`technical-dock-list-item level-${issue.level}`}
-                level={issue.level}
-                onClick={() => handleIssueNotice(issue)}
-              >
-                {issue.message}
-              </WarningCard>
-            ))}
-          </div>
-        ) : (
-          <EmptyStateCard className="technical-dock-empty">
-            <strong>Nessun warning aperto</strong>
-            <span>Il modello ER non richiede interventi di review.</span>
-          </EmptyStateCard>
-        )}
+        <div className="technical-dock-list">
+          {visibleModelIssues.map((issue) => (
+            <WarningCard
+              key={issue.id}
+              className={`technical-dock-list-item level-${issue.level}`}
+              level={issue.level}
+              onClick={() => handleIssueNotice(issue)}
+            >
+              {issue.message}
+            </WarningCard>
+          ))}
+        </div>
       </PanelSection>
     </div>
-  );
+  ) : null;
   const technicalDockAvailableTabs: TechnicalPanelTab[] =
     diagramView === "er" ? ["review", "code", "notes"] : ["code", "notes"];
   const technicalDockCode =

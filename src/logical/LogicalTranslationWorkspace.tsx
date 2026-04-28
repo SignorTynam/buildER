@@ -22,7 +22,7 @@ import {
 } from "../utils/logicalSqlMetadata";
 import { generateLogicalSql } from "../utils/logicalSql";
 import { LogicalTransformationCanvas } from "./LogicalTransformationCanvas";
-import { EmptyStateCard, PanelHeader, PanelSection, PanelShell, PanelTabs, PanelStepCard, WarningCard } from "../components/panels";
+import { PanelHeader, PanelSection, PanelShell, PanelTabs, PanelStepCard, WarningCard } from "../components/panels";
 
 interface LogicalTranslationWorkspaceProps {
   sourceDiagram: DiagramDocument;
@@ -57,22 +57,6 @@ const ALL_LOGICAL_STEPS: LogicalTranslationStep[] = [
 
 function getPreferredItem(items: LogicalTranslationItem[]): LogicalTranslationItem | null {
   return items.find((item) => item.status === "pending") ?? items.find((item) => item.status === "invalid") ?? items[0] ?? null;
-}
-
-function getStepTotalsLabel(totals: { total: number; pending: number; applied: number; invalid: number }): string {
-  if (totals.total === 0) {
-    return "nessun elemento";
-  }
-
-  if (totals.invalid > 0) {
-    return `${totals.invalid} da rivedere`;
-  }
-
-  if (totals.pending > 0) {
-    return `${totals.pending} da fissare`;
-  }
-
-  return "completato";
 }
 
 function buildTargetKey(item: Pick<LogicalTranslationItem, "targetType" | "id">): string {
@@ -352,11 +336,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 onClick={() => {
                   setActiveStep(step.id);
                   setSelectedItemId(getPreferredItem(overview.itemsByStep[step.id] ?? [])?.id ?? null);
-                }}
-              >
-                <span className="translation-step-button-label">{step.label}</span>
-                <span className="translation-step-button-meta">{getStepTotalsLabel(totals)}</span>
-              </PanelStepCard>
+              }}
+            >
+              <span className="translation-step-button-label">{step.label}</span>
+            </PanelStepCard>
             );
           })}
         </div>
@@ -397,7 +380,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
       >
         <PanelHeader
           title={showSqlPanel ? "Anteprima SQL" : "Review schema"}
-          subtitle={sidePanelCollapsed ? undefined : "Controlli, warning e output del modello logico."}
           actionLabel={sidePanelCollapsed ? "Mostra" : "Nascondi"}
           onAction={() => setSidePanelCollapsed((current) => !current)}
           className="panel-shell-head"
@@ -422,20 +404,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         {showReviewPanel ? (
           <>
         <PanelSection
-          className={
-            props.workspace.translation.conflicts.length > 0
-              ? "translation-panel-section translation-review-summary tone-warning"
-              : "translation-panel-section translation-review-summary tone-success"
-          }
-        >
-          <p>
-            {props.workspace.translation.conflicts.length > 0
-              ? "Schema da rivedere: controlla i conflitti aperti prima di consolidare il modello."
-              : "Schema logico allineato. Puoi verificare i tipi o aprire l'anteprima SQL."}
-          </p>
-        </PanelSection>
-
-        <PanelSection
           className="translation-panel-section"
           title="Type Mode"
           actions={
@@ -448,11 +416,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             </button>
           }
         >
-          <p>
-            {props.typeMode
-              ? "Clicca una colonna nel canvas per modificare tipo SQL, nullable, unique e default in linea."
-              : "Attiva Type Mode per aprire l'editor contestuale vicino alla colonna selezionata."}
-          </p>
           {selectedColumnContext ? (
             <div className="translation-sql-column-status">
               <strong>
@@ -474,35 +437,33 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
         {activeStep !== "review" ? (
           <>
+            {stepItems.length > 0 ? (
             <PanelSection className="translation-panel-section">
               <div className="translation-section-head">
                 <h3>Oggetti da risolvere</h3>
                 <span className="translation-inline-counter">{stepItems.length}</span>
               </div>
 
-              {stepItems.length > 0 ? (
-                <div className="translation-item-list">
-                  {stepItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={
-                        selectedItem?.id === item.id
-                          ? `translation-item-card active status-${item.status}`
-                          : `translation-item-card status-${item.status}`
-                      }
-                      onClick={() => setSelectedItemId(item.id)}
-                    >
-                      <span className="translation-item-title">{item.label}</span>
-                      <span className="translation-item-description">{item.description}</span>
-                      {item.currentSummary ? <span className="translation-choice-preview">{item.currentSummary}</span> : null}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <EmptyStateCard className="translation-empty-hint">Nessun elemento da gestire in questo step.</EmptyStateCard>
-              )}
+              <div className="translation-item-list">
+                {stepItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={
+                      selectedItem?.id === item.id
+                        ? `translation-item-card active status-${item.status}`
+                        : `translation-item-card status-${item.status}`
+                    }
+                    onClick={() => setSelectedItemId(item.id)}
+                  >
+                    <span className="translation-item-title">{item.label}</span>
+                    <span className="translation-item-description">{item.description}</span>
+                    {item.currentSummary ? <span className="translation-choice-preview">{item.currentSummary}</span> : null}
+                  </button>
+                ))}
+              </div>
             </PanelSection>
+            ) : null}
 
             {selectedItem ? (
               <>
@@ -554,22 +515,18 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             ) : null}
           </>
         ) : (
-          <>
+          props.workspace.translation.conflicts.length > 0 ? (
             <section className="translation-panel-section">
               <h3>Conflitti e warning</h3>
-              {props.workspace.translation.conflicts.length > 0 ? (
-                <div className="translation-warning-list">
-                  {props.workspace.translation.conflicts.map((conflict) => (
-                    <WarningCard key={conflict.id} level={conflict.level} className={`translation-warning-item level-${conflict.level}`}>
-                      {conflict.message}
-                    </WarningCard>
-                  ))}
-                </div>
-              ) : (
-                <EmptyStateCard className="translation-empty-hint">Nessun conflitto aperto nella trasformazione logica corrente.</EmptyStateCard>
-              )}
+              <div className="translation-warning-list">
+                {props.workspace.translation.conflicts.map((conflict) => (
+                  <WarningCard key={conflict.id} level={conflict.level} className={`translation-warning-item level-${conflict.level}`}>
+                    {conflict.message}
+                  </WarningCard>
+                ))}
+              </div>
             </section>
-          </>
+          ) : null
         )}
           </>
         ) : (

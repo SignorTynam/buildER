@@ -2587,7 +2587,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     guidanceState = "selecting-target";
     guidanceStateLabel = "Selecting target";
     guidanceTitle = "External identifier";
-    guidanceMessage = `Attributo identificatore ${selectedNode.label} pronto. Seleziona l'entita target o un attributo compatibile per creare l'identificatore esterno.`;
+    guidanceMessage = `Seleziona l'entita target o un attributo compatibile per creare l'identificatore esterno di ${selectedNode.label}.`;
     guidanceShortcuts = ["Click target crea", "Tab mette a fuoco i nodi"];
   } else if (props.tool === "connector" || props.tool === "inheritance") {
     guidanceState = "selecting-source";

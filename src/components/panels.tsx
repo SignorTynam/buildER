@@ -212,6 +212,52 @@ export function PanelStepCard(props: PanelStepCardProps) {
   return <PanelCard {...props} className={joinClasses("panel-step-card", props.className)} />;
 }
 
+interface WorkspaceViewBarProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export function WorkspaceViewBar({ children, className }: WorkspaceViewBarProps) {
+  return (
+    <nav className={joinClasses("workspace-view-bar", className)} aria-label="Viste workspace">
+      {children}
+    </nav>
+  );
+}
+
+interface WorkspaceViewButtonProps {
+  children: ReactNode;
+  active?: boolean;
+  badge?: number;
+  onClick: () => void;
+  className?: string;
+  ariaLabel?: string;
+}
+
+export function WorkspaceViewButton({
+  children,
+  active,
+  badge,
+  onClick,
+  className,
+  ariaLabel,
+}: WorkspaceViewButtonProps) {
+  const hasBadge = typeof badge === "number" && badge > 0;
+
+  return (
+    <button
+      type="button"
+      className={joinClasses("workspace-view-button", active ? "active" : "", className)}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      aria-label={ariaLabel}
+    >
+      <span>{children}</span>
+      {hasBadge ? <span className="workspace-view-badge">{badge}</span> : null}
+    </button>
+  );
+}
+
 interface WarningCardProps {
   children: ReactNode;
   type?: PanelTone;

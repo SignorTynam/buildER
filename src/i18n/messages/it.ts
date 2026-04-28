@@ -310,7 +310,7 @@ export const it = {
     currentStep: "Step corrente",
     selectedElement: "Elemento selezionato",
     pendingObjects: "Oggetti da risolvere",
-    noItemsThisStep: "Nessun elemento da gestire in questo step.",
+    noItemsThisStep: "",
     currentDecision: "Decisione attuale",
     availableRules: "Regole disponibili",
     generatedArtifacts: "Artefatti generati",
@@ -318,7 +318,7 @@ export const it = {
     reviewResolved: "{{applied}}/{{total}} risolti",
     reviewInvalid: "{{count}} invalidi",
     conflictsAndWarnings: "Conflitti e warning",
-    noConflicts: "Nessun conflitto aperto nella traduzione corrente.",
+    noConflicts: "",
     selectedColumn: "Colonna {{table}}.{{column}}",
     selectedForeignKey: "FK {{label}}",
     selectedEdge: "Collegamento {{label}}",
@@ -330,10 +330,10 @@ export const it = {
       pending: "In sospeso",
     },
     totals: {
-      none: "nessun elemento",
+      none: "",
       invalid: "{{count}} da rivedere",
       pending: "{{count}} da fissare",
-      complete: "completato",
+      complete: "",
     },
     steps: {
       entities: {

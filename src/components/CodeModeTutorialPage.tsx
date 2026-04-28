@@ -36,7 +36,7 @@ const WORKSPACE_MODES = [
   },
   {
     title: "Editor ERS nella vista affiancata",
-    text: "Usa il pannello ERS affiancato quando il modello e abbastanza stabile e vuoi lavorare piu velocemente da tastiera.",
+    text: "Usa il pannello ERS affiancato quando il modello e strutturato e vuoi lavorare piu velocemente da tastiera.",
   },
 ];
 
@@ -297,7 +297,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               <span className="landing-kicker">Quando usare questa pagina</span>
               <h3>Prima di una revisione, prima di importare un .ers, o quando passi dal canvas al testo.</h3>
               <p>
-                La pagina tutorial serve come riferimento stabile: puoi leggerla, poi aprire direttamente la vista affiancata
+                La pagina tutorial serve come riferimento operativo: puoi leggerla, poi aprire direttamente la vista affiancata
                 senza perdere il contesto del flusso consigliato.
               </p>
             </article>
@@ -306,7 +306,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
 
         <section className="tutorial-final-cta">
           <div>
-            <span className="landing-kicker">Pronto a scrivere</span>
+            <span className="landing-kicker">Scrittura ERS</span>
             <h2>Scegli il punto di ingresso giusto: affiancata se vuoi scrivere ERS, workspace se vuoi tornare al canvas.</h2>
           </div>
 

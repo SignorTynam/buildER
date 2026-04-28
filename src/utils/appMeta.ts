@@ -27,7 +27,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Ripristinata la Vista Logica come workflow guidato manuale post-traduzione, con step, item pending e regole esplicite nel nuovo LogicalTranslationWorkspace.",
       "Rimossa la conversione logica completa automatica in ingresso Vista Logica: il modello viene costruito in modo incrementale solo tramite decisioni utente.",
       "Separazione responsabilita consolidata: gerarchie ISA e attributi composti restano nella Vista Traduzione; la Vista Logica non ripropone piu lo step generalizzazioni.",
-      "Riallineato refresh/save-load del workspace logico per preservare decisioni manuali valide e invalidare in modo sicuro le decisioni legacy non coerenti.",
+      "Aggiornato refresh/save-load del workspace logico per preservare decisioni manuali valide e invalidare in modo sicuro le decisioni legacy non coerenti.",
       "Aggiunti test di regressione sul workflow logico manuale (assenza auto-conversione, aggiornamenti incrementali, gestione legacy) e aggiornato il pacchetto test npm.",
     ],
   },
@@ -51,7 +51,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     date: "2026-04-15",
     updates: [
       "Versione applicativa aggiornata alla release 3.7.",
-      "Completato restyling del workspace della vista Logico, integrandolo nativamente come first-class citizen della UI a 5 colonne.",
+      "Restyling del workspace della vista Logico integrato nativamente come first-class citizen della UI a 5 colonne.",
       "Risolto il problema di flessibilità verticale nel pannello Canvas Logico che limitava la sua visualizzazione (rimosso blocco fisso da 150px).",
       "Tradotte in italiano le opzioni dei vincoli e coperture ISA all'interno dell'inspector.",
       "Rifinito il rendering dei badge ISA con colori piu tenui e testo piu leggibile, per migliorare l'estetica e la chiarezza visiva.",
@@ -67,7 +67,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Routing curvo eliminato: posizione backbone calcolata automaticamente da bounding box entita e distribuzione attributi membri.",
       "Drag del backbone composito introdotto: gli attributi membri si muovono come gruppo coerente.",
       "Rendering ripulito: rimossi i collegamenti diagonali duplicati dei membri composti e introdotti stem ortogonali entita-backbone.",
-      "Recompute stabile del composto durante move, add/remove membri e reload del diagramma.",
+      "Recompute coerente del composto durante move, add/remove membri e reload del diagramma.",
     ],
   },
   {
@@ -166,7 +166,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     date: "2026-03-27",
     updates: [
       "Refactor geometria connector: anchor logico spostato al centro del bounding box per il calcolo di direzione, lato dominante e routing iniziale.",
-      "Routing ortogonale reso piu stabile: i trunk paralleli si spostano senza cambiare lato di uscita o ingresso dei nodi.",
+      "Routing ortogonale reso piu coerente: i trunk paralleli si spostano senza cambiare lato di uscita o ingresso dei nodi.",
       "Clipping finale sul bordo separato dalla logica di routing, con linee piu bilanciate durante drag, move e resize.",
       "Toast workspace rifatti in overlay: non spostano il layout, si chiudono da soli e sono riservati ad avvisi ed errori.",
     ],
@@ -222,7 +222,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     updates: [
       "Nuovo strumento Cancella (shortcut X): elimina con click diretto nodi e collegamenti.",
       "Flusso guidato per identificatore esterno: si crea selezionando identificatore sorgente e poi entita/attributo destinazione.",
-      "Rendering identificatore esterno migliorato: linea stabile, routing anti-collisione e rispetto della posizione relativa degli elementi.",
+      "Rendering identificatore esterno migliorato: linea coerente, routing anti-collisione e rispetto della posizione relativa degli elementi.",
       "Interazione completa identificatore esterno: trascinamento linea e pallina con offset persistenti.",
       "Rimozione identificatore esterno dedicata: con Delete sul simbolo oppure dal pulsante nell'Inspector, senza eliminare attributi.",
       "Validazioni cardinalita identificatore esterno aggiornate: richiesto (1,1) sul lato dipendente, nessun vincolo sull'altro lato.",

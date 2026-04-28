@@ -1092,7 +1092,7 @@ function buildGeneralizationChoices(hierarchy: GeneralizationHierarchy): Transla
       step: "generalizations",
       rule: "generalization-substitution",
       label: "Sostituzione",
-      description: `Assorbe i sottotipi nel supertipo mantenendo i nomi migrati con prefisso stabile per preservare la provenienza.`,
+      description: `Assorbe i sottotipi nel supertipo mantenendo i nomi migrati con prefisso coerente per preservare la provenienza.`,
       summary: `Gerarchia "${hierarchy.supertype.label}" sostituita con un supertipo arricchito e attributi tracciabili.`,
       previewLines: ["Output ER: resta il supertipo, gli attributi dei sottotipi vengono prefissati."],
     },

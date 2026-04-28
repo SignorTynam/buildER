@@ -738,7 +738,7 @@ function chooseOwnerForOneToOne(
   pushIssue(
     context,
     "AMBIGUOUS_MAPPING",
-    `Relazione 1:1 "${relationshipId}" ambigua: applicata regola stabile con FK su "${context.tableById.get(owner.tableId)?.name}".`,
+    `Relazione 1:1 "${relationshipId}" ambigua: applicata regola deterministica con FK su "${context.tableById.get(owner.tableId)?.name}".`,
     "warning",
     {
       tableId: owner.tableId,
