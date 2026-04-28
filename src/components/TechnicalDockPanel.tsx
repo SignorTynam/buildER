@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { CodePanel } from "./CodePanel";
 import { NotesPanel } from "./NotesPanel";
-import { PanelShell, PanelTabs } from "./panels";
+import { PanelHeader, PanelShell, PanelTabs } from "./panels";
 
 export type TechnicalPanelTab = "review" | "code" | "notes" | "sql";
 
@@ -43,7 +43,13 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
 
   return (
     <PanelShell className={`technical-dock-panel technical-dock-panel-${activeTab}`} ariaLabel="Pannello tecnico">
-      <header className="technical-dock-head technical-dock-head-compact">
+      <PanelHeader
+        title="Pannello tecnico"
+        subtitle={activeTab === "review" ? "Warning, scelte e stato dello step corrente." : activeTab === "code" ? "Sorgente ERS e controlli di editing." : activeTab === "notes" ? "Annotazioni di lavoro e promemoria." : "Anteprima SQL e stato del modello."}
+        actionLabel="Nascondi"
+        onAction={props.onClose}
+        className="technical-dock-head technical-dock-head-compact"
+      >
         <PanelTabs
           activeTab={activeTab}
           tabs={tabs}
@@ -51,10 +57,7 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
           ariaLabel="Sezioni pannello tecnico"
           onTabChange={props.onTabChange}
         />
-        <button type="button" className="technical-side-panel-close panel-hide-button" onClick={props.onClose} aria-label="Nascondi pannello tecnico">
-          Nascondi
-        </button>
-      </header>
+      </PanelHeader>
 
       <div className="technical-dock-body">
         {activeTab === "code" && props.code ? (

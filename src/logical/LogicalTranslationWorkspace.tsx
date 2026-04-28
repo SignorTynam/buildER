@@ -22,7 +22,7 @@ import {
 } from "../utils/logicalSqlMetadata";
 import { generateLogicalSql } from "../utils/logicalSql";
 import { LogicalTransformationCanvas } from "./LogicalTransformationCanvas";
-import { EmptyStateCard, PanelSection, PanelShell, PanelTabs, WarningCard } from "../components/panels";
+import { EmptyStateCard, PanelHeader, PanelSection, PanelShell, PanelTabs, PanelStepCard, WarningCard } from "../components/panels";
 
 interface LogicalTranslationWorkspaceProps {
   sourceDiagram: DiagramDocument;
@@ -344,16 +344,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             const totals = completion[step.id] ?? { total: 0, pending: 0, applied: 0, invalid: 0 };
             const hasWarnings = totals.invalid > 0;
             return (
-              <button
+              <PanelStepCard
                 key={step.id}
-                type="button"
-                className={
-                  activeStep === step.id
-                    ? "translation-step-button active"
-                    : hasWarnings
-                      ? "translation-step-button attention"
-                      : "translation-step-button"
-                }
+                className={hasWarnings ? "translation-step-button attention" : "translation-step-button"}
+                active={activeStep === step.id}
+                tone={hasWarnings ? "warning" : totals.total === 0 ? "neutral" : totals.pending > 0 ? "warning" : "success"}
                 onClick={() => {
                   setActiveStep(step.id);
                   setSelectedItemId(getPreferredItem(overview.itemsByStep[step.id] ?? [])?.id ?? null);
@@ -361,7 +356,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               >
                 <span className="translation-step-button-label">{step.label}</span>
                 <span className="translation-step-button-meta">{getStepTotalsLabel(totals)}</span>
-              </button>
+              </PanelStepCard>
             );
           })}
         </div>
@@ -400,27 +395,18 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ariaLabel={showSqlPanel ? "Pannello SQL del modello logico" : "Inspector modello logico"}
         collapsed={sidePanelCollapsed}
       >
-        <div className="panel-head-row panel-head-row-compact panel-shell-head">
-          <div>
-            <div className="panel-heading">{showSqlPanel ? "Anteprima SQL" : "Review schema"}</div>
-            {!sidePanelCollapsed ? <p className="panel-subheading">Controlli, warning e output del modello logico.</p> : null}
-          </div>
-          <button
-            type="button"
-            className="panel-toggle panel-hide-button"
-            onClick={() => setSidePanelCollapsed((current) => !current)}
-            aria-expanded={!sidePanelCollapsed}
-            aria-label={sidePanelCollapsed ? "Mostra pannello schema logico" : "Nascondi pannello schema logico"}
-            title={sidePanelCollapsed ? "Mostra" : "Nascondi"}
-          >
-            {sidePanelCollapsed ? "<" : "Nascondi"}
-          </button>
-        </div>
+        <PanelHeader
+          title={showSqlPanel ? "Anteprima SQL" : "Review schema"}
+          subtitle={sidePanelCollapsed ? undefined : "Controlli, warning e output del modello logico."}
+          actionLabel={sidePanelCollapsed ? "Mostra" : "Nascondi"}
+          onAction={() => setSidePanelCollapsed((current) => !current)}
+          className="panel-shell-head"
+        />
         {sidePanelCollapsed ? (
           <div className="panel-collapsed-card">Schema</div>
         ) : (
         <>
-        <section className="translation-panel-section translation-panel-tabs-section">
+        <PanelSection className="translation-panel-section translation-panel-tabs-section">
           <PanelTabs
             activeTab={props.panelMode}
             tabs={[
@@ -431,11 +417,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             ariaLabel="Sezioni del pannello logico"
             onTabChange={props.onPanelModeChange}
           />
-        </section>
+        </PanelSection>
 
         {showReviewPanel ? (
           <>
-        <section
+        <PanelSection
           className={
             props.workspace.translation.conflicts.length > 0
               ? "translation-panel-section translation-review-summary tone-warning"
@@ -447,7 +433,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               ? "Schema da rivedere: controlla i conflitti aperti prima di consolidare il modello."
               : "Schema logico allineato. Puoi verificare i tipi o aprire l'anteprima SQL."}
           </p>
-        </section>
+        </PanelSection>
 
         <PanelSection
           className="translation-panel-section"
@@ -488,7 +474,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
         {activeStep !== "review" ? (
           <>
-            <section className="translation-panel-section">
+            <PanelSection className="translation-panel-section">
               <div className="translation-section-head">
                 <h3>Oggetti da risolvere</h3>
                 <span className="translation-inline-counter">{stepItems.length}</span>
@@ -516,18 +502,18 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               ) : (
                 <EmptyStateCard className="translation-empty-hint">Nessun elemento da gestire in questo step.</EmptyStateCard>
               )}
-            </section>
+            </PanelSection>
 
             {selectedItem ? (
               <>
-                <section className="translation-panel-section">
+                <PanelSection className="translation-panel-section">
                   <div className="translation-section-head">
                     <h3>{selectedItem.label}</h3>
                   </div>
                   <p>{selectedItem.description}</p>
-                </section>
+                </PanelSection>
 
-                <section className="translation-panel-section">
+                <PanelSection className="translation-panel-section">
                   <div className="translation-section-head">
                     <h3>Regole disponibili</h3>
                     <span className="translation-inline-counter">{selectedChoices.length}</span>
@@ -550,10 +536,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                       </button>
                     ))}
                   </div>
-                </section>
+                </PanelSection>
 
                 {selectedConflicts.length > 0 ? (
-                  <section className="translation-panel-section">
+                  <PanelSection className="translation-panel-section">
                     <h3>Warning aperti</h3>
                     <div className="translation-warning-list">
                       {selectedConflicts.map((conflict) => (
@@ -562,7 +548,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                           </WarningCard>
                         ))}
                     </div>
-                  </section>
+                  </PanelSection>
                 ) : null}
               </>
             ) : null}
@@ -588,7 +574,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </>
         ) : (
           <>
-            <section className="translation-panel-section translation-sql-preview-section">
+            <PanelSection className="translation-panel-section translation-sql-preview-section">
               <div className="translation-sql-actions">
                 <button type="button" onClick={() => void copySqlPreview()}>
                   {sqlCopyStatus === "copied" ? "Copiato" : sqlCopyStatus === "error" ? "Errore copia" : "Copia SQL"}
@@ -604,7 +590,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 spellCheck={false}
                 aria-label="Anteprima SQL del modello logico"
               />
-            </section>
+            </PanelSection>
           </>
         )}
         </>

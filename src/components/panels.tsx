@@ -23,6 +23,34 @@ export function PanelShell({ children, className, ariaLabel, collapsed }: PanelS
   );
 }
 
+export interface PanelHeaderProps {
+  title: string;
+  subtitle?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  className?: string;
+  children?: ReactNode;
+}
+
+export function PanelHeader({ title, subtitle, actionLabel, onAction, className, children }: PanelHeaderProps) {
+  return (
+    <header className={joinClasses("panel-header", className)}>
+      <div className="panel-header-main">
+        <div className="panel-header-copy">
+          <h2>{title}</h2>
+          {subtitle ? <p>{subtitle}</p> : null}
+        </div>
+        {actionLabel && onAction ? (
+          <button type="button" className="panel-hide-button panel-header-action" onClick={onAction}>
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
+      {children ? <div className="panel-header-extra">{children}</div> : null}
+    </header>
+  );
+}
+
 export interface PanelTabDefinition<T extends string> {
   id: T;
   label: string;
@@ -53,6 +81,7 @@ export function PanelTabs<T extends string>({
           onClick={() => onTabChange(tab.id)}
           role="tab"
           aria-selected={tab.id === activeTab}
+          aria-current={tab.id === activeTab ? "page" : undefined}
         >
           {tab.label}
         </button>
@@ -111,8 +140,8 @@ export function CollapsiblePanel({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
       >
-        <span className="collapsible-panel-chevron" aria-hidden="true">
-          {open ? "v" : ">"}
+        <span className={open ? "collapsible-panel-chevron open" : "collapsible-panel-chevron"} aria-hidden="true">
+          ▸
         </span>
         <span className="collapsible-panel-copy">
           <strong>{title}</strong>
@@ -124,39 +153,92 @@ export function CollapsiblePanel({
   );
 }
 
-interface PanelCardProps {
-  children: ReactNode;
+type PanelTone = "neutral" | "success" | "warning" | "error" | "info";
+
+interface PanelCardBaseProps {
   className?: string;
+  active?: boolean;
+  tone?: PanelTone;
+  onClick?: () => void;
+  title?: string;
+  status?: string;
+  subtitle?: string;
+  ariaLabel?: string;
+  children?: ReactNode;
 }
 
-export function PanelCard({ children, className }: PanelCardProps) {
-  return <div className={joinClasses("panel-card", className)}>{children}</div>;
+export function PanelCard({
+  className,
+  active,
+  tone = "neutral",
+  onClick,
+  title,
+  status,
+  subtitle,
+  ariaLabel,
+  children,
+}: PanelCardBaseProps) {
+  const isInteractive = onClick !== undefined;
+  const Component = isInteractive ? "button" : "div";
+  const content = title ? (
+    <>
+      <div className="panel-card-copy">
+        <strong>{title}</strong>
+        {status ? <span className="panel-card-status">{status}</span> : null}
+        {subtitle ? <span className="panel-card-subtitle">{subtitle}</span> : null}
+      </div>
+      {children ? <div className="panel-card-content">{children}</div> : null}
+    </>
+  ) : (
+    children
+  );
+
+  return (
+    <Component
+      type={isInteractive ? "button" : undefined}
+      className={joinClasses("panel-card", `tone-${tone}`, active ? "active" : "", isInteractive ? "is-interactive" : "", className)}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      aria-pressed={isInteractive && active ? true : undefined}
+    >
+      {content}
+    </Component>
+  );
+}
+
+interface PanelStepCardProps extends PanelCardBaseProps {}
+
+export function PanelStepCard(props: PanelStepCardProps) {
+  return <PanelCard {...props} className={joinClasses("panel-step-card", props.className)} />;
 }
 
 interface WarningCardProps {
   children: ReactNode;
-  level?: "warning" | "error" | "info" | "success";
+  type?: PanelTone;
+  level?: PanelTone;
   className?: string;
   onClick?: () => void;
 }
 
-export function WarningCard({ children, level = "warning", className, onClick }: WarningCardProps) {
+export function WarningCard({ children, type, level, className, onClick }: WarningCardProps) {
+  const tone = type ?? level ?? "warning";
+  const label = tone === "error" ? "Errore" : tone === "success" ? "OK" : tone === "info" ? "Info" : "Warning";
   const content = (
     <>
-      <span className="warning-card-label">{level === "error" ? "Errore" : level === "success" ? "OK" : level === "info" ? "Info" : "Warning"}</span>
+      <span className="warning-card-label">{label}</span>
       <span className="warning-card-message">{children}</span>
     </>
   );
 
   if (onClick) {
     return (
-      <button type="button" className={joinClasses("warning-card", `level-${level}`, className)} onClick={onClick}>
+      <button type="button" className={joinClasses("warning-card", `tone-${tone}`, className)} onClick={onClick}>
         {content}
       </button>
     );
   }
 
-  return <div className={joinClasses("warning-card", `level-${level}`, className)}>{content}</div>;
+  return <div className={joinClasses("warning-card", `tone-${tone}`, className)}>{content}</div>;
 }
 
 interface EmptyStateCardProps {

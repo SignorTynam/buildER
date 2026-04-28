@@ -1,4 +1,5 @@
 import type { WorkspaceView } from "../types/translation";
+import { PanelCard, PanelStepCard } from "./panels";
 
 type WorkflowTone = "neutral" | "warning" | "success";
 
@@ -129,28 +130,21 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
     <section className="workspace-mode-strip" aria-label="Workflow di modellazione">
       <div className="workspace-mode-switcher" role="tablist" aria-label="Fasi del workflow">
         {stages.map((stage) => (
-          <button
+          <PanelStepCard
             key={stage.id}
-            type="button"
-            className={
-              stage.active
-                ? `workspace-mode-button active tone-${stage.tone}`
-                : `workspace-mode-button tone-${stage.tone}`
-            }
+            className={`workspace-mode-button tone-${stage.tone}`}
+            active={stage.active}
+            tone={stage.tone}
             onClick={stage.onSelect}
-            role="tab"
-            aria-selected={stage.active}
+            ariaLabel={stage.label}
           >
             <strong>{stage.label}</strong>
             <span>{stage.meta}</span>
-          </button>
+          </PanelStepCard>
         ))}
       </div>
 
-      <div className={`workspace-mode-status tone-${summary.tone}`}>
-        <strong>{summary.label}</strong>
-        <span>{summary.detail}</span>
-      </div>
+      <PanelCard className={`workspace-mode-status tone-${summary.tone}`} tone={summary.tone} title={summary.label} status={summary.detail} />
     </section>
   );
 }

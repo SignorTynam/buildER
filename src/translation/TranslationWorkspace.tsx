@@ -14,7 +14,7 @@ import {
   getPreferredErTranslationStep,
 } from "../utils/erTranslation";
 import { validateDiagram } from "../utils/diagram";
-import { EmptyStateCard, PanelSection, PanelShell, WarningCard } from "../components/panels";
+import { EmptyStateCard, PanelHeader, PanelSection, PanelShell, PanelStepCard, WarningCard } from "../components/panels";
 
 interface TranslationWorkspaceProps {
   workspace: ErTranslationWorkspaceDocument;
@@ -117,16 +117,11 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
       <PanelShell className="toolbar-panel translation-step-rail studio-side-rail" ariaLabel="Workflow di traduzione">
         <div className="translation-step-list" role="list">
           {overview.steps.map((step) => (
-            <button
+            <PanelStepCard
               key={step.id}
-              type="button"
-              className={
-                activeStep === step.id
-                  ? "translation-step-button active"
-                  : step.blocked
-                    ? "translation-step-button attention"
-                    : "translation-step-button"
-              }
+              className={step.blocked ? "translation-step-button attention" : "translation-step-button"}
+              active={activeStep === step.id}
+              tone={step.blocked ? "warning" : step.total === 0 ? "neutral" : step.pending > 0 ? "warning" : "success"}
               onClick={() => {
                 setActiveStep(step.id);
                 setSelectedItemId(getPreferredItem(overview.itemsByStep[step.id])?.id ?? null);
@@ -134,7 +129,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
             >
               <span className="translation-step-button-label">{step.label}</span>
               <span className="translation-step-button-meta">{getStepTotalsLabel(step.total, step.pending, step.blocked)}</span>
-            </button>
+            </PanelStepCard>
           ))}
         </div>
 
@@ -180,22 +175,13 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
         ariaLabel="Pannello decisioni di traduzione"
         collapsed={sidePanelCollapsed}
       >
-        <div className="panel-head-row panel-head-row-compact panel-shell-head">
-          <div>
-            <div className="panel-heading">Review traduzione</div>
-            {!sidePanelCollapsed ? <p className="panel-subheading">Warning, scelte e stato dello step corrente.</p> : null}
-          </div>
-          <button
-            type="button"
-            className="panel-toggle panel-hide-button"
-            onClick={() => setSidePanelCollapsed((current) => !current)}
-            aria-expanded={!sidePanelCollapsed}
-            aria-label={sidePanelCollapsed ? "Mostra pannello traduzione" : "Nascondi pannello traduzione"}
-            title={sidePanelCollapsed ? "Mostra" : "Nascondi"}
-          >
-            {sidePanelCollapsed ? "<" : "Nascondi"}
-          </button>
-        </div>
+        <PanelHeader
+          title="Review traduzione"
+          subtitle={sidePanelCollapsed ? undefined : "Warning, scelte e stato dello step corrente."}
+          actionLabel={sidePanelCollapsed ? "Mostra" : "Nascondi"}
+          onAction={() => setSidePanelCollapsed((current) => !current)}
+          className="panel-shell-head"
+        />
         {sidePanelCollapsed ? (
           <div className="panel-collapsed-card">Traduzione</div>
         ) : (

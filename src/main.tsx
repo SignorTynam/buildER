@@ -4,6 +4,7 @@ import App from "./App";
 import { I18nProvider } from "./i18n/I18nProvider";
 import "./index.css";
 import "./styles/editor-refactor.css";
+import "./styles/panels.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
