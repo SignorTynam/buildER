@@ -1819,3 +1819,170 @@ body,
     min-height: 56vh;
   }
 }
+
+/* Translation and logical review panels: compact single-column cards. */
+.structured-workspace-shell {
+  --structured-panel-width: minmax(360px, 420px);
+}
+
+.translation-panel,
+.translation-panel-section,
+.translation-choice-list,
+.translation-item-list,
+.translation-warning-list,
+.translation-decision-list,
+.translation-artifact-list {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.translation-panel {
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.translation-panel .panel-shell-head {
+  flex: 0 0 auto;
+}
+
+.translation-panel-section {
+  display: grid;
+  gap: 8px;
+  padding: 9px !important;
+}
+
+.translation-panel-section + .translation-panel-section {
+  margin-top: 6px;
+}
+
+.translation-section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.translation-section-head h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.translation-inline-counter {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.translation-choice-list,
+.translation-item-list {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+.translation-choice-card,
+.translation-item-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px !important;
+  overflow: hidden;
+  text-align: left;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.translation-choice-card > span,
+.translation-item-card > span {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.translation-choice-title,
+.translation-item-title {
+  color: var(--studio-ink);
+  font-size: 0.78rem;
+  font-weight: 760;
+  line-height: 1.28;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.translation-choice-description,
+.translation-item-description,
+.translation-choice-preview,
+.translation-choice-summary {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.translation-choice-description,
+.translation-item-description {
+  color: var(--studio-muted);
+  font-size: 0.71rem;
+  line-height: 1.34;
+}
+
+.translation-choice-preview,
+.translation-item-card .translation-choice-preview {
+  display: block;
+  padding: 7px 8px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-md);
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.68rem;
+  line-height: 1.38;
+}
+
+.translation-choice-card > .translation-choice-summary {
+  display: none;
+}
+
+.translation-sql-preview-section,
+.technical-dock-panel,
+.technical-dock-body,
+.technical-side-panel,
+.diagram-code-editor-shell,
+.diagram-code-panel-content,
+.diagram-notes-editor {
+  min-width: 0;
+}
+
+.technical-dock-panel,
+.technical-dock-body {
+  overflow-x: hidden;
+}
+
+.technical-dock-body > .technical-side-panel,
+.diagram-code-editor-shell,
+.diagram-code-panel-content,
+.diagram-notes-editor,
+.translation-sql-preview {
+  width: 100%;
+}
+
+@media (min-width: 1360px) {
+  .structured-workspace-shell {
+    --structured-panel-width: minmax(380px, 460px);
+  }
+}
+
+@media (min-width: 1600px) {
+  .structured-workspace-shell {
+    --structured-panel-width: minmax(400px, 500px);
+  }
+}
