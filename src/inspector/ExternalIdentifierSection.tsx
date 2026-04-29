@@ -397,16 +397,18 @@ export function ExternalIdentifierSection({
             diagram.nodes.find((node) => node.id === identifier.relationshipId && node.type === "relationship")?.label ??
             identifier.relationshipId;
           const kind = getExternalIdentifierKind(identifier);
+          const kindLabel = kind === "imported_only" ? "solo importato" : "importato + locale";
 
           return (
             <div key={identifier.id} className="identifier-row">
-              <span className="identifier-attrs">
-                {sourceEntity ? `${sourceEntity.label}: ${importedLabel || identifier.importedIdentifierId}` : identifier.importedIdentifierId}
-                {localLabel ? ` + ${localLabel}` : ""}
-              </span>
-              <span className="identifier-type">
-                {kind === "imported_only" ? "solo importato" : "importato + locale"} via {relationLabel}
-              </span>
+              <div className="identifier-main">
+                <span className="identifier-attrs">
+                  {sourceEntity ? `${sourceEntity.label}: ${importedLabel || identifier.importedIdentifierId}` : identifier.importedIdentifierId}
+                  {localLabel ? ` + ${localLabel}` : ""}
+                </span>
+                <span className="identifier-meta">via {relationLabel}</span>
+              </div>
+              <span className="identifier-type">{kindLabel}</span>
               {!readOnly ? (
                 <span className="identifier-actions">
                   <button type="button" onClick={() => setModalIndex(index)}>

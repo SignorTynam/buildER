@@ -385,7 +385,7 @@ export function Toolbar(props: ToolbarProps) {
                   disabled: !canEdit,
                 })
               : null}
-            {renderQuickButton("Collega al parent", "connect", () => props.onToolChange("connector"), {
+            {renderQuickButton("Collega", "connect", () => props.onToolChange("connector"), {
               active: props.activeTool === "connector",
               disabled: !canEdit,
             })}

@@ -1388,6 +1388,300 @@ body,
   color: var(--studio-muted);
 }
 
+/* ER side panel hardening: compact layout, no horizontal overflow, stable embedded inspector */
+.panel-shell,
+.toolbar-panel,
+.context-card,
+.toolbar-section,
+.toolbar-list,
+.toolbar-list-tight,
+.toolbar-list-primary,
+.toolbar-section-properties,
+.toolbar-properties-shell,
+.inspector-panel-embedded,
+.collapsible-panel,
+.collapsible-panel-body,
+.identifier-list,
+.identifier-row,
+.identifier-main {
+  min-width: 0;
+}
+
+.toolbar-panel {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.toolbar-panel.contextual-toolbar {
+  gap: 8px;
+  padding: 10px;
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-section {
+  gap: 8px;
+  padding: 9px;
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-list {
+  gap: 6px;
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button {
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  min-height: 34px;
+  padding: 7px 8px;
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button .tool-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.toolbar-panel.contextual-toolbar .command-option-row {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.toolbar-panel.contextual-toolbar .command-option-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar-panel.collapsed {
+  overflow-x: hidden;
+  padding: 8px 6px;
+}
+
+.toolbar-panel.collapsed .toolbar-section:not(.toolbar-section-primary),
+.toolbar-panel.collapsed .toolbar-context-summary,
+.toolbar-panel.collapsed .toolbar-section-label,
+.toolbar-panel.collapsed .toolbar-section-meta,
+.toolbar-panel.collapsed .tool-label,
+.toolbar-panel.collapsed .tool-shortcut,
+.toolbar-panel.collapsed .command-option-label {
+  display: none;
+}
+
+.toolbar-panel.collapsed .command-option-row,
+.toolbar-panel.collapsed .tool-button,
+.toolbar-panel.collapsed .toolbar-action-button {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-items: center;
+  width: 100%;
+  min-height: 34px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.toolbar-panel.collapsed .command-option-row {
+  height: 34px;
+}
+
+.toolbar-panel.collapsed .keyboard-badge {
+  justify-self: center;
+  align-self: center;
+}
+
+.toolbar-panel.collapsed .toolbar-action-button .tool-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.toolbar-section-properties,
+.toolbar-properties-shell {
+  padding: 8px;
+  overflow-x: hidden;
+}
+
+.toolbar-properties-shell .inspector-panel-embedded {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  background: var(--studio-surface);
+}
+
+.toolbar-properties-shell .inspector-panel-embedded .context-card {
+  padding: 8px;
+  border-radius: var(--studio-radius-md);
+  background: var(--studio-surface-strong);
+}
+
+.toolbar-properties-shell .inspector-panel-embedded .context-card-title {
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.collapsible-panel {
+  padding: 0;
+}
+
+.collapsible-panel-toggle {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  justify-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.collapsible-panel-chevron {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  font-size: 0.64rem;
+}
+
+.collapsible-panel-copy {
+  min-width: 0;
+  text-align: left;
+}
+
+.collapsible-panel-copy strong {
+  display: block;
+  min-width: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  text-transform: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.collapsible-panel-copy span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.collapsible-panel-body {
+  display: grid;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.identifier-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.identifier-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main badge"
+    "actions actions";
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-md);
+  background: var(--studio-surface-strong);
+  overflow: hidden;
+}
+
+.identifier-main {
+  grid-area: main;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.identifier-attrs {
+  min-width: 0;
+  font-size: 0.79rem;
+  font-weight: 680;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.identifier-meta {
+  min-width: 0;
+  color: var(--studio-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.identifier-type {
+  grid-area: badge;
+  align-self: start;
+  justify-self: end;
+  padding: 2px 8px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.identifier-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.identifier-actions button,
+.identifier-add-button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.identifier-actions button {
+  flex: 1 1 104px;
+}
+
+.identifier-add-button {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.identifier-list .empty-state-card {
+  padding: 9px 10px;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .toolbar-panel.contextual-toolbar {
+    padding: 8px;
+  }
+
+  .toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button {
+    grid-template-columns: 1fr;
+  }
+
+  .identifier-row {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "badge"
+      "actions";
+  }
+
+  .identifier-type {
+    justify-self: start;
+  }
+}
+
 .bottom-status-bar {
   min-height: 34px;
   border-top: 1px solid var(--studio-border);

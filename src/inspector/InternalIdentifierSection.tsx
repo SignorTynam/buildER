@@ -292,7 +292,9 @@ export function InternalIdentifierSection({
 
           return (
             <div key={identifier.id} className="identifier-row">
-              <span className="identifier-attrs">{labels || "Identificatore senza attributi"}</span>
+              <div className="identifier-main">
+                <span className="identifier-attrs">{labels || "Identificatore senza attributi"}</span>
+              </div>
               <span className="identifier-type">{type}</span>
               {!readOnly ? (
                 <span className="identifier-actions">
