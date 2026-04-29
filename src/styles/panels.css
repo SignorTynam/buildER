@@ -1428,9 +1428,22 @@ body,
 
 .toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button {
   grid-template-columns: 16px minmax(0, 1fr);
-  align-items: start;
-  min-height: 34px;
-  padding: 7px 8px;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 8px;
+  overflow: hidden;
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button .tool-icon {
+  display: block;
+  grid-column: 1;
+  width: 15px;
+  height: 15px;
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button .tool-label {
+  grid-column: 2;
+  min-width: 0;
 }
 
 .toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button .tool-label {
@@ -1439,6 +1452,14 @@ body,
   text-overflow: clip;
   overflow-wrap: anywhere;
   line-height: 1.2;
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button-text {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.toolbar-panel.contextual-toolbar .toolbar-list-tight .toolbar-action-button-text .tool-label {
+  grid-column: 1;
 }
 
 .toolbar-panel.contextual-toolbar .command-option-row {
@@ -1464,7 +1485,7 @@ body,
 .toolbar-panel.collapsed .tool-label,
 .toolbar-panel.collapsed .tool-shortcut,
 .toolbar-panel.collapsed .command-option-label {
-  display: none;
+  display: none !important;
 }
 
 .toolbar-panel.collapsed .command-option-row,
@@ -1495,6 +1516,7 @@ body,
 
 .toolbar-section-properties,
 .toolbar-properties-shell {
+  min-width: 0;
   padding: 8px;
   overflow-x: hidden;
 }
@@ -1503,7 +1525,10 @@ body,
   display: grid;
   gap: 8px;
   padding: 0;
+  border: 0;
   background: var(--studio-surface);
+  box-shadow: none;
+  overflow: visible;
 }
 
 .toolbar-properties-shell .inspector-panel-embedded .context-card {
@@ -1517,8 +1542,29 @@ body,
   line-height: 1.25;
 }
 
+.toolbar-properties-shell .inspector-panel-embedded .inspector-stack,
+.toolbar-properties-shell .inspector-panel-embedded .field,
+.toolbar-properties-shell .inspector-panel-embedded .field > span,
+.toolbar-properties-shell .inspector-panel-embedded input,
+.toolbar-properties-shell .inspector-panel-embedded select {
+  min-width: 0;
+}
+
+.toolbar-properties-shell .inspector-panel-embedded .field {
+  gap: 4px;
+  font-size: 0.72rem;
+}
+
+.toolbar-properties-shell .inspector-panel-embedded input:not([type="checkbox"]),
+.toolbar-properties-shell .inspector-panel-embedded select {
+  min-height: 30px;
+  padding-inline: 8px;
+  font-size: 0.76rem;
+}
+
 .collapsible-panel {
   padding: 0;
+  overflow: hidden;
 }
 
 .collapsible-panel-toggle {
@@ -1529,7 +1575,9 @@ body,
   gap: 8px;
   min-width: 0;
   padding: 8px 10px;
+  line-height: 1.25;
   text-align: left;
+  overflow: hidden;
 }
 
 .collapsible-panel-chevron {
@@ -1541,6 +1589,7 @@ body,
 
 .collapsible-panel-copy {
   min-width: 0;
+  max-width: 100%;
   text-align: left;
 }
 
@@ -1551,12 +1600,12 @@ body,
   line-height: 1.3;
   text-transform: none;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .collapsible-panel-copy span {
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .collapsible-panel-body {
@@ -1573,12 +1622,13 @@ body,
 
 .identifier-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "main badge"
-    "actions actions";
-  gap: 7px;
-  padding: 8px;
+    "main"
+    "badge"
+    "actions";
+  gap: 6px;
+  padding: 7px;
   border: 1px solid var(--studio-border);
   border-radius: var(--studio-radius-md);
   background: var(--studio-surface-strong);
@@ -1614,42 +1664,52 @@ body,
 .identifier-type {
   grid-area: badge;
   align-self: start;
-  justify-self: end;
-  padding: 2px 8px;
+  justify-self: start;
+  max-width: 100%;
+  padding: 2px 7px;
   border: 1px solid var(--studio-border);
   border-radius: 999px;
   background: var(--studio-surface);
   color: var(--studio-muted);
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  white-space: nowrap;
+  line-height: 1.15;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .identifier-actions {
   grid-area: actions;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 4px;
   align-items: center;
+  min-width: 0;
 }
 
 .identifier-actions button,
 .identifier-add-button {
-  min-height: 30px;
-  padding: 0 10px;
-  font-size: 0.76rem;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 0.7rem;
   font-weight: 700;
 }
 
 .identifier-actions button {
-  flex: 1 1 104px;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .identifier-add-button {
   width: 100%;
   margin-top: 2px;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .identifier-list .empty-state-card {

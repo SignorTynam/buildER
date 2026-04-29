@@ -141,7 +141,7 @@ export function CollapsiblePanel({
         aria-expanded={open}
       >
         <span className={open ? "collapsible-panel-chevron open" : "collapsible-panel-chevron"} aria-hidden="true">
-          ▸
+          &gt;
         </span>
         <span className="collapsible-panel-copy">
           <strong>{title}</strong>

@@ -725,6 +725,7 @@ summary:focus-visible {
 
 .toolbar-panel.collapsed {
   padding: 8px 6px;
+  overflow-x: hidden;
 }
 
 .toolbar-panel.collapsed .toolbar-section:not(.toolbar-section-primary),
@@ -733,15 +734,22 @@ summary:focus-visible {
 .toolbar-panel.collapsed .toolbar-section-meta,
 .toolbar-panel.collapsed .toolbar-section-label,
 .toolbar-panel.collapsed .tool-shortcut,
-.toolbar-panel.collapsed .tool-label {
+.toolbar-panel.collapsed .tool-label,
+.toolbar-panel.collapsed .command-option-label {
   display: none;
 }
 
+.toolbar-panel.collapsed .command-option-row,
 .toolbar-panel.collapsed .tool-button,
 .toolbar-panel.collapsed .toolbar-action-button {
   grid-template-columns: 1fr;
   justify-items: center;
   padding-inline: 0;
+  overflow: hidden;
+}
+
+.toolbar-panel.collapsed .keyboard-badge {
+  justify-self: center;
 }
 
 .toolbar-collapsed-summary {

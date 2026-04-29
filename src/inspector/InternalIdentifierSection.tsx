@@ -282,16 +282,16 @@ export function InternalIdentifierSection({
   }
 
   return (
-    <CollapsiblePanel title="Identificatori interni" defaultOpen className="context-card">
+    <CollapsiblePanel title="Identificatori interni" defaultOpen className="context-card identifier-section identifier-section-internal">
       <div className="identifier-list">
         {internalIdentifiers.map((identifier, index) => {
           const labels = identifier.attributeIds
             .map((attributeId) => attributes.find((attribute) => attribute.id === attributeId)?.label ?? attributeId)
             .join(", ");
-          const type = identifier.attributeIds.length === 1 ? "semplice" : "composto";
+          const type = identifier.attributeIds.length === 1 ? "Semplice" : "Composto";
 
           return (
-            <div key={identifier.id} className="identifier-row">
+            <div key={identifier.id} className="identifier-row identifier-row-internal">
               <div className="identifier-main">
                 <span className="identifier-attrs">{labels || "Identificatore senza attributi"}</span>
               </div>
@@ -322,7 +322,7 @@ export function InternalIdentifierSection({
           onClick={handleAdd}
           disabled={!canAddIdentifier}
         >
-          + Aggiungi identificatore
+          + Identificatore
         </button>
       ) : null}
 

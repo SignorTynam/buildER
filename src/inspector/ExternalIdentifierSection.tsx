@@ -384,7 +384,7 @@ export function ExternalIdentifierSection({
   }
 
   return (
-    <CollapsiblePanel title="Identificatori esterni" defaultOpen className="context-card">
+    <CollapsiblePanel title="Identificatori esterni" defaultOpen className="context-card identifier-section identifier-section-external">
       <div className="identifier-list">
         {externalIdentifiers.map((identifier, index) => {
           const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
@@ -397,10 +397,10 @@ export function ExternalIdentifierSection({
             diagram.nodes.find((node) => node.id === identifier.relationshipId && node.type === "relationship")?.label ??
             identifier.relationshipId;
           const kind = getExternalIdentifierKind(identifier);
-          const kindLabel = kind === "imported_only" ? "solo importato" : "importato + locale";
+          const kindLabel = kind === "imported_only" ? "Importato" : "Importato + locale";
 
           return (
-            <div key={identifier.id} className="identifier-row">
+            <div key={identifier.id} className="identifier-row identifier-row-external">
               <div className="identifier-main">
                 <span className="identifier-attrs">
                   {sourceEntity ? `${sourceEntity.label}: ${importedLabel || identifier.importedIdentifierId}` : identifier.importedIdentifierId}
@@ -435,7 +435,7 @@ export function ExternalIdentifierSection({
           onClick={() => setModalIndex(externalIdentifiers.length)}
           disabled={!canAddExternalIdentifier}
         >
-          + Aggiungi identificatore esterno
+          + Identificatore esterno
         </button>
       ) : null}
 

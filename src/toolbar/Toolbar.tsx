@@ -325,10 +325,10 @@ export function Toolbar(props: ToolbarProps) {
                 active: entity.isWeak === true,
                 disabled: !canEdit,
               })}
-              {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+              {renderQuickButton("Rinomina", "rename", props.onRenameSelection, {
                 disabled: !canEdit,
               })}
-              {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+              {renderQuickButton("Elimina", "delete", props.onDeleteSelection, {
                 disabled: !canEdit,
               })}
           </>,
@@ -345,10 +345,10 @@ export function Toolbar(props: ToolbarProps) {
               {renderQuickButton("Attributo", "attribute", props.onCreateAttributeForSelection, {
                 disabled: !canEdit,
               })}
-              {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+              {renderQuickButton("Rinomina", "rename", props.onRenameSelection, {
                 disabled: !canEdit,
               })}
-              {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+              {renderQuickButton("Elimina", "delete", props.onDeleteSelection, {
                 disabled: !canEdit,
               })}
           </>,
@@ -389,10 +389,10 @@ export function Toolbar(props: ToolbarProps) {
               active: props.activeTool === "connector",
               disabled: !canEdit,
             })}
-            {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+            {renderQuickButton("Rinomina", "rename", props.onRenameSelection, {
               disabled: !canEdit,
             })}
-            {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+            {renderQuickButton("Elimina", "delete", props.onDeleteSelection, {
               disabled: !canEdit,
             })}
         </>,
@@ -402,10 +402,10 @@ export function Toolbar(props: ToolbarProps) {
     if (context === "edge") {
       return renderContextShell(
         <>
-            {renderQuickButton(t("common.actions.rename"), "rename", props.onRenameSelection, {
+            {renderQuickButton("Rinomina", "rename", props.onRenameSelection, {
               disabled: !canEdit,
             })}
-            {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+            {renderQuickButton("Elimina", "delete", props.onDeleteSelection, {
               disabled: !canEdit,
             })}
         </>,
@@ -426,10 +426,10 @@ export function Toolbar(props: ToolbarProps) {
           <button type="button" className="toolbar-action-button toolbar-action-button-text" onClick={() => props.onAlign("middle")} disabled={!canEdit}>
             <span className="tool-label">{t("toolbar.actions.alignMiddleShort")}</span>
           </button>
-          {renderQuickButton(t("common.actions.duplicate"), "duplicate", props.onDuplicateSelection, {
+          {renderQuickButton("Duplica", "duplicate", props.onDuplicateSelection, {
             disabled: !canEdit,
           })}
-          {renderQuickButton(t("common.actions.delete"), "delete", props.onDeleteSelection, {
+          {renderQuickButton("Elimina", "delete", props.onDeleteSelection, {
             disabled: !canEdit,
           })}
       </>,
