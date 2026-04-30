@@ -59,6 +59,10 @@ function getPreferredItem(items: LogicalTranslationItem[]): LogicalTranslationIt
   return items.find((item) => item.status === "pending") ?? items.find((item) => item.status === "invalid") ?? items[0] ?? null;
 }
 
+function isOpenTranslationItem(item: LogicalTranslationItem): boolean {
+  return item.status === "pending" || item.status === "invalid";
+}
+
 function buildTargetKey(item: Pick<LogicalTranslationItem, "targetType" | "id">): string {
   return `${item.targetType}:${item.id}`;
 }
@@ -229,9 +233,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const selectedTargetKeyRef = useRef<string | null>(null);
 
   const stepItems = overview.itemsByStep[activeStep] ?? [];
+  const openStepItems = useMemo(() => stepItems.filter(isOpenTranslationItem), [stepItems]);
   const selectedItem = useMemo(
-    () => stepItems.find((item) => item.id === selectedItemId) ?? getPreferredItem(stepItems),
-    [selectedItemId, stepItems],
+    () => openStepItems.find((item) => item.id === selectedItemId) ?? getPreferredItem(openStepItems),
+    [openStepItems, selectedItemId],
   );
   const selectedChoices = useMemo(
     () => (selectedItem ? getLogicalTranslationChoicesForItem(overview, selectedItem) : []),
@@ -243,8 +248,16 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
       )
     : [];
 
-  const activeTargetKeys = useMemo(() => stepItems.map((item) => buildTargetKey(item)), [stepItems]);
+  const activeTargetKeys = useMemo(() => openStepItems.map((item) => buildTargetKey(item)), [openStepItems]);
   const focusedTargetKey = selectedItem ? buildTargetKey(selectedItem) : null;
+  const logicalOpenItemCount = useMemo(
+    () =>
+      LOGICAL_TRANSLATION_STEPS.filter((step) => step.id !== "review").reduce((total, step) => {
+        const totals = completion[step.id] ?? { pending: 0, invalid: 0 };
+        return total + totals.pending + totals.invalid;
+      }, 0),
+    [completion],
+  );
 
   const showSqlPanel = props.panelMode === "sql";
   const showReviewPanel = !showSqlPanel;
@@ -258,10 +271,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   }, [activeStep, completion, overview]);
 
   useEffect(() => {
-    if (!stepItems.find((item) => item.id === selectedItemId)) {
-      setSelectedItemId(getPreferredItem(stepItems)?.id ?? null);
+    if (!openStepItems.find((item) => item.id === selectedItemId)) {
+      setSelectedItemId(getPreferredItem(openStepItems)?.id ?? null);
     }
-  }, [selectedItemId, stepItems]);
+  }, [openStepItems, selectedItemId]);
 
   useEffect(() => {
     const targetKey = selectedItem ? buildTargetKey(selectedItem) : null;
@@ -451,15 +464,15 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
         {activeStep !== "review" ? (
           <>
-            {stepItems.length > 0 ? (
+            {openStepItems.length > 0 ? (
             <PanelSection className="translation-panel-section">
               <div className="translation-section-head">
                 <h3>Oggetti da risolvere</h3>
-                <span className="translation-inline-counter">{stepItems.length}</span>
+                <span className="translation-inline-counter">{openStepItems.length}</span>
               </div>
 
               <div className="translation-item-list">
-                {stepItems.map((item) => (
+                {openStepItems.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -476,7 +489,23 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 ))}
               </div>
             </PanelSection>
-            ) : null}
+            ) : (
+              <PanelSection className="translation-panel-section translation-resolved-panel">
+                <div className="translation-resolved-copy">
+                  <strong>Tutto risolto</strong>
+                  <span>
+                    {logicalOpenItemCount === 0 ? "Puoi generare SQL." : "Questo step e completo."}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="translation-resolved-action"
+                  onClick={() => props.onPanelModeChange("sql")}
+                >
+                  Genera SQL
+                </button>
+              </PanelSection>
+            )}
 
             {selectedItem ? (
               <>

@@ -2094,6 +2094,45 @@ body,
   margin: 0;
 }
 
+.translation-resolved-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-color: rgba(85, 114, 103, 0.32);
+  background: var(--panel-surface-active);
+}
+
+.translation-resolved-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.translation-resolved-copy strong {
+  color: var(--panel-text);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.translation-resolved-copy span {
+  color: var(--panel-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.translation-resolved-action {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(85, 114, 103, 0.36);
+  border-radius: var(--panel-radius);
+  background: var(--panel-surface);
+  color: var(--panel-text);
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .translation-panel-tabs-section {
   padding: 6px !important;
 }

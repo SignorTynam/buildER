@@ -7,6 +7,7 @@ import {
   applyLogicalTranslationChoice,
   buildLogicalTranslationOverview,
   createEmptyLogicalWorkspace,
+  getLogicalTranslationStepCompletion,
   getLogicalTranslationChoicesForItem,
   refreshLogicalWorkspace,
 } from "../src/utils/logicalTranslation.ts";
@@ -145,6 +146,30 @@ test("applicare una sola decisione su entity aggiorna solo la parte coinvolta", 
 
   const untouchedEntity = overview.itemsByStep.entities.find((item) => item.id === "entity-b");
   assert.equal(untouchedEntity?.status, "pending");
+});
+
+test("applicare una decisione rimuove l'oggetto dal conteggio pending", () => {
+  const diagram = createTwoEntityDiagram();
+  let workspace = createEmptyLogicalWorkspace(diagram);
+  let overview = buildLogicalTranslationOverview(diagram, workspace);
+
+  assert.equal(getLogicalTranslationStepCompletion(overview).entities.pending, 2);
+
+  const target = overview.itemsByStep.entities.find((item) => item.id === "entity-a");
+  assert.ok(target, "Entity A non trovata nello step entities");
+
+  const choice =
+    getLogicalTranslationChoicesForItem(overview, target).find((candidate) => candidate.recommended) ??
+    getLogicalTranslationChoicesForItem(overview, target)[0];
+  assert.ok(choice, "Nessuna scelta disponibile per entity A");
+
+  workspace = applyLogicalTranslationChoice(diagram, workspace, choice, target.targetType, target.id);
+  overview = buildLogicalTranslationOverview(diagram, workspace);
+
+  const completion = getLogicalTranslationStepCompletion(overview);
+  assert.equal(completion.entities.pending, 1);
+  assert.equal(completion.entities.applied, 1);
+  assert.equal(overview.itemsByStep.entities.find((item) => item.id === "entity-a")?.status, "applied");
 });
 
 test("decisioni legacy di generalizzazione nella vista logica vengono invalidate senza crash", () => {
