@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.0";
+export const APP_VERSION = "4.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,18 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.1",
+    date: "2026-04-30",
+    updates: [
+      "Versione applicativa aggiornata alla release 4.1.",
+      "Pannelli Review, Code e Notes ripuliti con empty state compatti e meno testo ridondante.",
+      "Card di traduzione e schema logico rese piu leggibili: regola e descrizione breve, senza output e dettagli ingombranti.",
+      "Toolbar canvas collassata migliorata: shortcut centrati, testo nascosto e nessuna invasione del canvas.",
+      "Inspector e impostazioni shape nel pannello Canvas resi piu compatti e stabili su larghezze ridotte.",
+      "Pannelli laterali Traduzione e Schema logico migliorati quando vengono nascosti: riapertura compatta senza pannello vuoto.",
+    ],
+  },
   {
     version: "4.0",
     date: "2026-04-26",

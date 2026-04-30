@@ -15,6 +15,19 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.1.0] - 2026-04-30
+
+### Changed
+- Versione applicativa aggiornata alla release 4.1 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.1 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.1 con una nuova sezione novita, preservando la sezione 4.0.
+- Aggiunta una nuova voce 4.1 nel changelog senza rimuovere le release precedenti.
+- Pannelli Review, Code e Notes ripuliti con empty state compatti e meno testo ridondante.
+- Card di Traduzione e Schema logico rese piu leggibili: regola e descrizione breve, senza output e dettagli ingombranti.
+- Toolbar canvas collassata migliorata: shortcut centrati, testo nascosto e nessuna invasione del canvas.
+- Inspector e impostazioni shape nel pannello Canvas resi piu compatti e stabili su larghezze ridotte.
+- Pannelli laterali Traduzione e Schema logico migliorati quando vengono nascosti: riapertura compatta senza pannello vuoto.
+
 ## [4.0.0] - 2026-04-26
 
 ### Changed
