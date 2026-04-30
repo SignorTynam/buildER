@@ -378,16 +378,24 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ariaLabel={showSqlPanel ? "Pannello SQL del modello logico" : "Inspector modello logico"}
         collapsed={sidePanelCollapsed}
       >
-        <PanelHeader
-          title={showSqlPanel ? "Anteprima SQL" : "Review schema"}
-          actionLabel={sidePanelCollapsed ? "Mostra" : "Nascondi"}
-          onAction={() => setSidePanelCollapsed((current) => !current)}
-          className="panel-shell-head"
-        />
         {sidePanelCollapsed ? (
-          <div className="panel-collapsed-card">Schema</div>
+          <button
+            type="button"
+            className="translation-panel-reopen"
+            onClick={() => setSidePanelCollapsed(false)}
+            aria-label="Mostra review schema"
+          >
+            Mostra
+          </button>
         ) : (
         <>
+        <PanelHeader
+          title={showSqlPanel ? "SQL" : "Review schema"}
+          actionLabel="Nascondi"
+          onAction={() => setSidePanelCollapsed(true)}
+          className="panel-shell-head"
+        />
+
         <PanelSection className="translation-panel-section translation-panel-tabs-section">
           <PanelTabs
             activeTab={props.panelMode}
@@ -403,20 +411,26 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
         {showReviewPanel ? (
           <>
-        <PanelSection
-          className="translation-panel-section"
-          title="Type Mode"
-          actions={
+        <PanelSection className="translation-panel-section logical-type-mode-section">
+          <div className="logical-type-mode-row">
+            <div className="logical-type-mode-copy">
+              <strong>Type Mode</strong>
+              {selectedColumnContext ? (
+                <span>{selectedColumnContext.tableName}.{selectedColumnContext.column.name}</span>
+              ) : null}
+            </div>
             <button
               type="button"
-              className={props.typeMode ? "translation-reset-button studio-button studio-button-secondary active" : "translation-reset-button studio-button studio-button-secondary"}
+              className={props.typeMode ? "logical-type-toggle active" : "logical-type-toggle"}
               onClick={() => props.onTypeModeChange(!props.typeMode)}
+              aria-pressed={props.typeMode}
             >
-              {props.typeMode ? "Disattiva" : "Attiva"}
+              <span className="logical-type-toggle-dot" aria-hidden="true" />
+              {props.typeMode ? "On" : "Off"}
             </button>
-          }
-        >
-          {selectedColumnContext ? (
+          </div>
+
+          {props.typeMode && selectedColumnContext ? (
             <div className="translation-sql-column-status">
               <strong>
                 {selectedColumnContext.tableName}.{selectedColumnContext.column.name}
@@ -458,7 +472,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                   >
                     <span className="translation-item-title">{item.label}</span>
                     <span className="translation-item-description">{item.description}</span>
-                    {item.currentSummary ? <span className="translation-choice-preview">{item.currentSummary}</span> : null}
                   </button>
                 ))}
               </div>
@@ -467,13 +480,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
             {selectedItem ? (
               <>
-                <PanelSection className="translation-panel-section">
-                  <div className="translation-section-head">
-                    <h3>{selectedItem.label}</h3>
-                  </div>
-                  <p>{selectedItem.description}</p>
-                </PanelSection>
-
                 <PanelSection className="translation-panel-section">
                   <div className="translation-section-head">
                     <h3>Regole disponibili</h3>
@@ -490,10 +496,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                       >
                         <span className="translation-choice-title">{choice.label}</span>
                         <span className="translation-choice-description">{choice.description}</span>
-                        {choice.previewLines && choice.previewLines.length > 0 ? (
-                          <span className="translation-choice-preview">{choice.previewLines.join(" ")}</span>
-                        ) : null}
-                        <span className="translation-choice-summary">{choice.summary}</span>
                       </button>
                     ))}
                   </div>
@@ -526,7 +528,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 ))}
               </div>
             </section>
-          ) : null
+          ) : (
+            <section className="translation-panel-section translation-empty-panel">
+              <p>Nessun elemento da mostrare.</p>
+            </section>
+          )
         )}
           </>
         ) : (

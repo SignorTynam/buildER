@@ -37,15 +37,22 @@ const TAB_LABELS: Record<TechnicalPanelTab, string> = {
   sql: "SQL",
 };
 
+const EMPTY_TAB_LABELS: Record<TechnicalPanelTab, string> = {
+  review: "Nessun elemento da mostrare.",
+  code: "Nessun codice disponibile.",
+  notes: "Nessuna nota.",
+  sql: "Nessuna anteprima SQL.",
+};
+
 export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
   const activeTab = props.availableTabs.includes(props.activeTab) ? props.activeTab : props.availableTabs[0] ?? "review";
   const tabs = props.availableTabs.map((tab) => ({ id: tab, label: TAB_LABELS[tab] }));
+  const emptyTabState = <div className="technical-empty-note">{EMPTY_TAB_LABELS[activeTab]}</div>;
 
   return (
     <PanelShell className={`technical-dock-panel technical-dock-panel-${activeTab}`} ariaLabel="Pannello tecnico">
       <PanelHeader
-        title="Pannello tecnico"
-        subtitle={activeTab === "review" ? "Warning, scelte e stato dello step corrente." : activeTab === "code" ? "Sorgente ERS e controlli di editing." : activeTab === "notes" ? "Annotazioni di lavoro e promemoria." : "Anteprima SQL e stato del modello."}
+        title={TAB_LABELS[activeTab]}
         actionLabel="Nascondi"
         onAction={props.onClose}
         className="technical-dock-head technical-dock-head-compact"
@@ -70,6 +77,7 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
             embedded
           />
         ) : null}
+        {activeTab === "code" && !props.code ? emptyTabState : null}
 
         {activeTab === "notes" && props.notes ? (
           <NotesPanel
@@ -79,9 +87,10 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
             embedded
           />
         ) : null}
+        {activeTab === "notes" && !props.notes ? emptyTabState : null}
 
-        {activeTab === "review" ? props.review : null}
-        {activeTab === "sql" ? props.sql : null}
+        {activeTab === "review" ? props.review ?? emptyTabState : null}
+        {activeTab === "sql" ? props.sql ?? emptyTabState : null}
       </div>
     </PanelShell>
   );

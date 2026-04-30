@@ -250,7 +250,7 @@ const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
 const COMPOSITE_CHILD_VERTICAL_GAP = 80;
 const COMPOSITE_CHILD_VERTICAL_STEP = 44;
 const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
-const TOOLBAR_COLLAPSED_WIDTH = 48;
+const TOOLBAR_COLLAPSED_WIDTH = 56;
 const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 220 : 188;
 const MIN_TOOLBAR_WIDTH = 160;
 const MAX_TOOLBAR_WIDTH = 280;
@@ -3956,7 +3956,7 @@ export default function App() {
     .slice(0, 8);
   const modelReviewPanel = visibleModelIssues.length > 0 ? (
     <div className="technical-dock-review" aria-label="Overview modello ER">
-      <PanelSection className="technical-dock-section" title="Review modello" subtitle="Warning ed errori">
+      <PanelSection className="technical-dock-section" title="Warning">
         <div className="technical-dock-list">
           {visibleModelIssues.map((issue) => (
             <WarningCard

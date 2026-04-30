@@ -1986,3 +1986,319 @@ body,
     --structured-panel-width: minmax(400px, 500px);
   }
 }
+
+/* Panel cleanup: concise review cards, compact collapse states, stable technical dock. */
+.toolbar-panel.collapsed {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
+  overflow-x: hidden;
+}
+
+.toolbar-panel.collapsed .panel-head-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.toolbar-panel.collapsed .toolbar-section-primary {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.toolbar-panel.collapsed .toolbar-list-primary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.toolbar-panel.collapsed .command-option-row.tool-button {
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+}
+
+.toolbar-panel.collapsed .keyboard-badge,
+.toolbar-panel.collapsed .toolbar-collapsed-summary,
+.toolbar-panel.collapsed .panel-toggle {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 0.74rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.toolbar-panel.collapsed .command-option-label {
+  display: none !important;
+}
+
+@supports selector(:has(*)) {
+  .structured-workspace-shell:has(> .translation-panel-collapsed) {
+    --structured-panel-width: 64px;
+  }
+}
+
+.translation-panel-collapsed {
+  display: grid;
+  place-items: start center;
+  padding: 8px !important;
+  overflow: hidden;
+}
+
+.translation-panel-reopen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background: var(--panel-surface);
+  color: var(--panel-text);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.translation-empty-panel,
+.technical-empty-note {
+  min-width: 0;
+  padding: 12px;
+  border: 1px dashed var(--panel-border);
+  border-radius: var(--panel-radius);
+  background: var(--panel-surface);
+  color: var(--panel-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.translation-empty-panel p {
+  margin: 0;
+}
+
+.translation-panel-tabs-section {
+  padding: 6px !important;
+}
+
+.translation-choice-card {
+  gap: 5px;
+  min-height: 0;
+  padding: 8px 10px !important;
+}
+
+.translation-choice-card > .translation-choice-preview,
+.translation-choice-card > .translation-choice-summary {
+  display: none !important;
+}
+
+.translation-item-card .translation-choice-preview {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.translation-panel-section > p,
+.translation-choice-description,
+.translation-item-description {
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.logical-type-mode-section {
+  gap: 8px;
+}
+
+.logical-type-mode-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.logical-type-mode-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.logical-type-mode-copy strong,
+.logical-type-mode-copy span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logical-type-mode-copy strong {
+  color: var(--panel-text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.logical-type-mode-copy span {
+  color: var(--panel-muted);
+  font-size: 0.7rem;
+}
+
+.logical-type-toggle {
+  display: inline-grid;
+  grid-template-columns: 14px auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--panel-surface);
+  color: var(--panel-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.logical-type-toggle.active {
+  border-color: rgba(85, 114, 103, 0.36);
+  background: var(--panel-surface-active);
+  color: var(--panel-border-strong);
+}
+
+.logical-type-toggle-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.logical-type-toggle.active .logical-type-toggle-dot {
+  opacity: 1;
+}
+
+.technical-dock-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.technical-dock-head {
+  padding: 10px;
+}
+
+.technical-dock-head .panel-header-main {
+  align-items: center;
+}
+
+.technical-dock-head .panel-header-copy h2 {
+  font-size: 0.92rem;
+}
+
+.technical-dock-head .panel-header-copy p {
+  display: none;
+}
+
+.technical-dock-tabs {
+  min-height: 36px;
+  padding: 4px;
+}
+
+.technical-dock-tabs .panel-tab {
+  min-height: 28px;
+  font-size: 0.74rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.technical-dock-body {
+  display: grid;
+  min-height: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.technical-dock-panel-code .technical-dock-body,
+.technical-dock-panel-notes .technical-dock-body {
+  overflow: hidden;
+}
+
+.technical-dock-review {
+  min-width: 0;
+  padding: 0;
+}
+
+.technical-dock-section {
+  padding: 9px !important;
+}
+
+.technical-dock-list {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.technical-dock-list-item.warning-card {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  padding: 9px 10px;
+}
+
+.technical-dock-list-item .warning-card-label {
+  justify-self: start;
+  padding: 3px 7px;
+  font-size: 0.68rem;
+}
+
+.technical-dock-list-item .warning-card-message {
+  min-width: 0;
+  overflow-wrap: break-word;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.technical-dock-body > .technical-side-panel.embedded,
+.diagram-code-panel.embedded,
+.diagram-notes-panel.embedded {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.diagram-code-editor-shell,
+.diagram-code-panel-content,
+.diagram-notes-editor {
+  min-width: 0;
+  min-height: 0;
+}
+
+.diagram-code-panel-content,
+.diagram-notes-editor {
+  width: 100%;
+  height: 100%;
+  resize: none;
+}

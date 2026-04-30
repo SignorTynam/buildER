@@ -158,16 +158,24 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
         ariaLabel="Pannello decisioni di traduzione"
         collapsed={sidePanelCollapsed}
       >
-        <PanelHeader
-          title="Review traduzione"
-          actionLabel={sidePanelCollapsed ? "Mostra" : "Nascondi"}
-          onAction={() => setSidePanelCollapsed((current) => !current)}
-          className="panel-shell-head"
-        />
         {sidePanelCollapsed ? (
-          <div className="panel-collapsed-card">Traduzione</div>
+          <button
+            type="button"
+            className="translation-panel-reopen"
+            onClick={() => setSidePanelCollapsed(false)}
+            aria-label="Mostra review traduzione"
+          >
+            Mostra
+          </button>
         ) : (
         <>
+        <PanelHeader
+          title="Review traduzione"
+          actionLabel="Nascondi"
+          onAction={() => setSidePanelCollapsed(true)}
+          className="panel-shell-head"
+        />
+
         {activeStepOverview?.blockReason ? (
           <PanelSection className="translation-panel-section translation-panel-summary">
             <WarningCard level="warning">{activeStepOverview.blockReason}</WarningCard>
@@ -208,13 +216,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
               <>
                 <section className="translation-panel-section">
                   <div className="translation-section-head">
-                    <h3>{selectedItem.label}</h3>
-                  </div>
-                  <p>{selectedItem.description}</p>
-                </section>
-
-                <section className="translation-panel-section">
-                  <div className="translation-section-head">
                     <h3>Regole disponibili</h3>
                     <span className="translation-inline-counter">{selectedChoices.length}</span>
                   </div>
@@ -230,10 +231,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                       >
                         <span className="translation-choice-title">{choice.label}</span>
                         <span className="translation-choice-description">{choice.description}</span>
-                        {choice.previewLines && choice.previewLines.length > 0 ? (
-                          <span className="translation-choice-preview">{choice.previewLines.join(" ")}</span>
-                        ) : null}
-                        <span className="translation-choice-summary">{choice.summary}</span>
                       </button>
                     ))}
                   </div>
@@ -266,7 +263,11 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                 ))}
               </div>
             </section>
-          ) : null
+          ) : (
+            <section className="translation-panel-section translation-empty-panel">
+              <p>Nessun elemento da mostrare.</p>
+            </section>
+          )
         )}
         </>
         )}
