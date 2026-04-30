@@ -67,7 +67,7 @@ export function AppHeader(props: AppHeaderProps) {
         </div>
         <div className="studio-topbar-brand-copy">
           <strong>{props.appTitle}</strong>
-          <span>v{props.appVersion}</span>
+          <span className="studio-topbar-version">v{props.appVersion}</span>
         </div>
       </div>
 
@@ -75,7 +75,7 @@ export function AppHeader(props: AppHeaderProps) {
         <span className="studio-topbar-project-meta">
           {getWorkspaceTitle(props, t)} / {getWorkspaceMeta(props)}
         </span>
-        <strong>{props.diagramName}</strong>
+        <strong className="studio-topbar-project-name">{props.diagramName}</strong>
       </div>
 
       <div className="studio-topbar-actions">
@@ -86,7 +86,10 @@ export function AppHeader(props: AppHeaderProps) {
             onClick={props.onToggleCodePanel}
             aria-pressed={props.codePanelOpen}
           >
-            Code
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M5 4L1 8l4 4M11 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span>Code</span>
           </button>
           <button
             type="button"
@@ -94,21 +97,44 @@ export function AppHeader(props: AppHeaderProps) {
             onClick={props.onToggleNotesPanel}
             aria-pressed={props.notesPanelOpen}
           >
-            Notes
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 3h10v10H3z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5 6h6M5 8h6M5 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <span>Notes</span>
           </button>
         </div>
-        <button type="button" className="studio-topbar-button" onClick={props.onNewProject}>
-          New
-        </button>
-        <button type="button" className="studio-topbar-button" onClick={props.onLoadProject}>
-          Open
-        </button>
-        <button type="button" className="studio-topbar-button" onClick={props.onSaveProject}>
-          Save
-        </button>
-        <button type="button" className="studio-topbar-button" onClick={props.onOpenCommandMenu}>
-          Menu
-        </button>
+        <div className="studio-topbar-button-group">
+          <button type="button" className="studio-topbar-button" onClick={props.onNewProject} title="Nuovo progetto">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <span>New</span>
+          </button>
+          <button type="button" className="studio-topbar-button" onClick={props.onLoadProject} title="Apri progetto">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 4v8a1 1 0 001 1h8a1 1 0 001-1V6.5L10.5 4H4a1 1 0 00-1 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10 4v3h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span>Open</span>
+          </button>
+          <button type="button" className="studio-topbar-button" onClick={props.onSaveProject} title="Salva progetto">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M12 13H4a1 1 0 01-1-1V4a1 1 0 011-1h6l3 3v6a1 1 0 01-1 1z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10 3v3H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5 9h6M5 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <span>Save</span>
+          </button>
+          <button type="button" className="studio-topbar-button studio-topbar-button-menu" onClick={props.onOpenCommandMenu} title="Menu comandi">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="4" r="1" fill="currentColor"/>
+              <circle cx="8" cy="8" r="1" fill="currentColor"/>
+              <circle cx="8" cy="12" r="1" fill="currentColor"/>
+            </svg>
+            <span>Menu</span>
+          </button>
+        </div>
       </div>
     </header>
   );

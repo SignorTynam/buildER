@@ -23,21 +23,23 @@ interface BottomStatusBarProps {
 }
 
 function getWorkspaceLabel(props: BottomStatusBarProps): string {
-  const activePanels = [
-    props.codePanelOpen ? "CODE" : "",
-    props.notesPanelOpen ? "NOTES" : "",
-  ].filter(Boolean);
-  const panelSuffix = activePanels.length > 0 ? ` + ${activePanels.join(" + ")}` : "";
-
   if (props.diagramView === "translation") {
-    return `TRANSLATION${panelSuffix}`;
+    return "TRANSLATION";
   }
 
   if (props.diagramView === "logical") {
-    return `${props.logicalSqlOpen ? "SCHEMA + SQL" : "SCHEMA"}${panelSuffix}`;
+    return props.logicalSqlOpen ? "SCHEMA + SQL" : "SCHEMA";
   }
 
-  return `MODEL${panelSuffix}`;
+  return "MODEL";
+}
+
+function getPanelLabels(props: BottomStatusBarProps): string {
+  const activePanels = [
+    props.codePanelOpen ? "Code" : "",
+    props.notesPanelOpen ? "Notes" : "",
+  ].filter(Boolean);
+  return activePanels.length > 0 ? activePanels.join(" + ") : "";
 }
 
 function getFallbackStatus(props: BottomStatusBarProps): { tone: NoticeTone | "info"; message: string } {
@@ -64,22 +66,6 @@ function getFallbackStatus(props: BottomStatusBarProps): { tone: NoticeTone | "i
   };
 }
 
-function getStatusToneLabel(tone: NoticeTone | "info"): string {
-  if (tone === "error") {
-    return "Errore";
-  }
-
-  if (tone === "warning") {
-    return "Warning";
-  }
-
-  if (tone === "success") {
-    return "OK";
-  }
-
-  return "Info";
-}
-
 export function BottomStatusBar(props: BottomStatusBarProps) {
   const errorCount = props.issues.filter((issue) => issue.level === "error").length;
   const warningCount = props.issues.filter((issue) => issue.level === "warning").length;
@@ -89,47 +75,85 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
   const trimmedStatusMessage = props.statusMessage.trim();
   const primaryMessage =
     primaryNotice?.message ?? (trimmedStatusMessage || fallbackStatus.message);
-  const activePanels = [
-    props.codePanelOpen ? "Code" : "",
-    props.notesPanelOpen ? "Notes" : "",
-  ].filter(Boolean);
-  const statusMeta = [
-    props.selectionItemCount > 0 ? `${props.selectionItemCount} selezionati` : "",
-    errorCount > 0 ? `${errorCount} errori` : "",
-    warningCount > 0 ? `${warningCount} warning` : "",
-    ...activePanels,
-  ].filter(Boolean);
+  const panelLabel = getPanelLabels(props);
 
   return (
     <footer className="bottom-status-bar" aria-live="polite">
-      <div className="bottom-status-bar-main">
-        <div className="bottom-status-block bottom-status-block-mode">
-          <span className="bottom-status-label">Workspace</span>
-          <strong>{getWorkspaceLabel(props)}</strong>
+      <div className="bottom-status-left">
+        <div className="bottom-status-workspace">
+          <span className="bottom-status-workspace-label">WORKSPACE</span>
+          <span className="bottom-status-workspace-value">{getWorkspaceLabel(props)}</span>
         </div>
+        {panelLabel && (
+          <div className="bottom-status-panels">
+            <span className="bottom-status-panels-label">+</span>
+            <span className="bottom-status-panels-value">{panelLabel}</span>
+          </div>
+        )}
+      </div>
 
-        <div className={`bottom-status-block bottom-status-block-message tone-${primaryTone}`}>
-          {primaryTone === "info" ? null : (
-            <span className="bottom-status-indicator">{getStatusToneLabel(primaryTone)}</span>
-          )}
-          {primaryMessage ? <p>{primaryMessage}</p> : null}
-          {primaryNotice ? (
-            <button
-              type="button"
-              className="bottom-status-notice-close"
-              onClick={() => props.onDismissNotice(primaryNotice.id)}
-              aria-label="Chiudi notifica"
-            >
-              x
-            </button>
-          ) : null}
-        </div>
+      <div className="bottom-status-center">
+        {primaryMessage && (
+          <div className={`bottom-status-message tone-${primaryTone}`}>
+            {primaryTone !== "info" && (
+              <span className={`bottom-status-indicator tone-${primaryTone}`}>
+                {primaryTone === "warning" && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M6 1L11 10H1L6 1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                    <circle cx="6" cy="8" r="0.5" fill="currentColor"/>
+                    <path d="M6 4v2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                )}
+                {primaryTone === "error" && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M4 4l4 4M8 4l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                )}
+                {primaryTone === "success" && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M3.5 6l2 2 3-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </span>
+            )}
+            <span className="bottom-status-message-text">{primaryMessage}</span>
+            {primaryNotice && (
+              <button
+                type="button"
+                className="bottom-status-dismiss"
+                onClick={() => props.onDismissNotice(primaryNotice.id)}
+                aria-label="Chiudi notifica"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                  <path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
-        <div className="bottom-status-block bottom-status-block-meta" aria-label="Stato selezione e validazione">
-          {statusMeta.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
-        </div>
+      <div className="bottom-status-right">
+        {props.selectionItemCount > 0 && (
+          <div className="bottom-status-meta-item">
+            <span className="bottom-status-meta-value">{props.selectionItemCount}</span>
+            <span className="bottom-status-meta-label">selezionati</span>
+          </div>
+        )}
+        {warningCount > 0 && (
+          <div className="bottom-status-meta-item bottom-status-meta-warning">
+            <span className="bottom-status-meta-value">{warningCount}</span>
+            <span className="bottom-status-meta-label">warning</span>
+          </div>
+        )}
+        {errorCount > 0 && (
+          <div className="bottom-status-meta-item bottom-status-meta-error">
+            <span className="bottom-status-meta-value">{errorCount}</span>
+            <span className="bottom-status-meta-label">errori</span>
+          </div>
+        )}
       </div>
     </footer>
   );
