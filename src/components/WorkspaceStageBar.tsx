@@ -87,11 +87,15 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
           className={`workspace-stage-tab ${props.currentView === "logical" ? "active" : ""}`}
           onClick={props.onOpenLogical}
           aria-current={props.currentView === "logical" ? "page" : undefined}
+          title={props.logicalOutOfDate ? "Schema logico da riallineare" : undefined}
         >
           <StageIcon stage="logical" />
           <span className="workspace-stage-tab-label">Schema logico</span>
           {props.logicalPendingCount > 0 && (
             <span className="workspace-stage-badge">{props.logicalPendingCount}</span>
+          )}
+          {props.logicalPendingCount === 0 && props.logicalOutOfDate && (
+            <span className="workspace-stage-badge workspace-stage-badge-warning">!</span>
           )}
         </button>
       </div>

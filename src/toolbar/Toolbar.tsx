@@ -126,7 +126,7 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
   );
 }
 
-function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "connect" | "attribute" | "translate" | "export" | "identifier" | "multivalue" | "weak" }) {
+function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "connect" | "attribute" | "translate" | "export" | "identifier" | "multivalue" | "weak" | "validate" }) {
   if (kind === "rename") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -182,6 +182,15 @@ function UtilityIcon({ kind }: { kind: "rename" | "delete" | "duplicate" | "conn
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
         <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 18h14" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "validate") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M5 12l4 4 10-10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M4 20h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity="0.45" />
       </svg>
     );
   }
@@ -245,7 +254,7 @@ export function Toolbar(props: ToolbarProps) {
     props.showPropertiesInspector !== false && !props.collapsed && props.selectionItemCount > 0;
   const contextTitle =
     context === "empty"
-      ? "Nessuna selezione"
+      ? "Workspace"
       : context === "node"
         ? props.selectedNode?.label ?? "Elemento selezionato"
         : context === "edge"
@@ -253,12 +262,21 @@ export function Toolbar(props: ToolbarProps) {
           : `${props.selectionItemCount} elementi`;
   const contextHint =
     context === "empty"
-      ? "Azioni sul workspace"
+      ? "Validate, translate, export"
       : context === "node"
         ? "Azioni per l'elemento attivo"
         : context === "edge"
           ? "Azioni per il collegamento"
           : "Azioni sulla selezione";
+
+  function handleValidateWorkspace() {
+    const firstIssue = props.issues[0];
+    if (!firstIssue) {
+      return;
+    }
+
+    props.onIssueSelect(firstIssue);
+  }
 
   function renderQuickButton(
     label: string,
@@ -301,6 +319,10 @@ export function Toolbar(props: ToolbarProps) {
     if (context === "empty") {
       return renderContextShell(
         <>
+            {renderQuickButton("Validate", "validate", handleValidateWorkspace, {
+              disabled: props.issues.length === 0,
+              title: props.issues.length === 0 ? "Nessun warning da mostrare" : "Apri il primo warning di validazione",
+            })}
             {renderQuickButton("Traduci", "translate", props.onOpenTranslation, {
               disabled: false,
             })}

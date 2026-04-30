@@ -32,7 +32,7 @@ interface TechnicalDockPanelProps {
 
 const TAB_LABELS: Record<TechnicalPanelTab, string> = {
   review: "Review",
-  code: "Code",
+  code: "ER Code",
   notes: "Notes",
   sql: "SQL",
 };

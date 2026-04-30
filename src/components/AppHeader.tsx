@@ -118,7 +118,12 @@ export function AppHeader(props: AppHeaderProps) {
             </svg>
             <span>Open</span>
           </button>
-          <button type="button" className="studio-topbar-button" onClick={props.onSaveProject} title="Salva progetto">
+          <button
+            type="button"
+            className="studio-topbar-button studio-topbar-button-primary"
+            onClick={props.onSaveProject}
+            title="Salva progetto"
+          >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M12 13H4a1 1 0 01-1-1V4a1 1 0 011-1h6l3 3v6a1 1 0 01-1 1z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M10 3v3H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
