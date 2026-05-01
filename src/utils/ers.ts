@@ -21,7 +21,6 @@ import {
 } from "./cardinality";
 import {
   canConnect,
-  getExternalIdentifierImportedAttributes,
   getMultivaluedAttributeSize,
   validateDiagram,
 } from "./diagram";
@@ -77,6 +76,7 @@ interface ParsedEdgeSpec {
   cardinality?: string;
   isaDisjointness?: IsaDisjointness;
   isaCompleteness?: IsaCompleteness;
+  isExternalIdentifierHost?: boolean;
 }
 
 interface ParsedInternalIdentifierSpec {
@@ -380,6 +380,66 @@ function tokenizeLine(line: string): string[] {
 function tokenizeStructuredLine(line: string): string[] {
   const tokens = line.match(/\{|\}|->|"(?:\\.|[^"\\])*"|[^\s{}]+/g);
   return tokens ?? [];
+}
+
+function isBlockCommentLine(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith("/*") && trimmed.endsWith("*/");
+}
+
+function stripDesignerTrailingComma(value: string): string {
+  return value.trim().replace(/,+\s*$/g, "").trim();
+}
+
+function normalizeDesignerCardinality(value: string): string | undefined {
+  const withoutExternal = value
+    .replace(/\bexternal\b/gi, "")
+    .replace(/\bidentifier\b/gi, "")
+    .trim();
+  const cleaned = stripDesignerTrailingComma(withoutExternal);
+  const wordMatch = cleaned.match(/^([a-z]+|\d+|N)\s*(?:\.\.\.|\.\.)\s*([a-z]+|\d+|N)$/i);
+
+  if (wordMatch) {
+    const normalizeBound = (bound: string): string => {
+      const lower = bound.toLowerCase();
+      if (lower === "zero") {
+        return "0";
+      }
+      if (lower === "one") {
+        return "1";
+      }
+      if (lower === "many" || lower === "n") {
+        return "N";
+      }
+      return bound;
+    };
+    return normalizeSupportedCardinality(`(${normalizeBound(wordMatch[1])},${normalizeBound(wordMatch[2])})`);
+  }
+
+  return normalizeSupportedCardinality(cleaned);
+}
+
+function formatDesignerCardinality(value: string | undefined): string {
+  const normalized = normalizeSupportedCardinality(value) ?? CONNECTOR_CARDINALITY_PLACEHOLDER;
+  const match = normalized.match(/^\(([^,]+),([^)]+)\)$/);
+  if (!match) {
+    return normalized;
+  }
+
+  const formatBound = (bound: string): string => {
+    if (bound === "0") {
+      return "zero";
+    }
+    if (bound === "1") {
+      return "one";
+    }
+    if (bound === "N") {
+      return "many";
+    }
+    return bound;
+  };
+
+  return `${formatBound(match[1])}..${formatBound(match[2])}`;
 }
 
 function readToken(tokens: string[], state: { index: number }, line: number, message: string): string {
@@ -966,6 +1026,288 @@ function buildLegacyExternalIdentifierLine(
   return parts.join(" ");
 }
 
+function parseDesignerAttributeDeclaration(
+  rawValue: string,
+  line: number,
+): Omit<StructuredAttributeSpec, "line"> & { isExternal: boolean } {
+  const value = stripDesignerTrailingComma(rawValue);
+  const match = value.match(/^([A-Za-z_][\w.-]*)(?:\s*\(([^)]*)\))?$/);
+
+  if (!match) {
+    throw new ErsParseError(line, `Attributo non valido: "${rawValue}".`);
+  }
+
+  const flags = (match[2] ?? "")
+    .split(/[,\s]+/g)
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item.length > 0);
+  const isIdentifier = flags.some((flag) => flag === "id" || flag === "identifier");
+  const isExternal = flags.includes("external");
+  const isMultivalued = flags.some((flag) => flag === "multivalued" || flag === "multi");
+  const cardinality = flags
+    .map((flag) => normalizeDesignerCardinality(flag))
+    .find((candidate): candidate is string => typeof candidate === "string");
+
+  return {
+    alias: match[1],
+    label: match[1],
+    isIdentifier,
+    isCompositeInternal: false,
+    isMultivalued,
+    cardinality,
+    isExternal,
+  };
+}
+
+function buildDesignerAttributeLegacyLines(
+  hostAlias: string,
+  rawValue: string,
+  line: number,
+): { alias: string; emitted: string[]; isIdentifier: boolean } {
+  const attribute = parseDesignerAttributeDeclaration(rawValue, line);
+  const emitted = emitLegacyAttributeLines(hostAlias, { ...attribute, line });
+
+  return {
+    alias: attribute.alias,
+    emitted,
+    isIdentifier: attribute.isIdentifier,
+  };
+}
+
+function parseDesignerIdentifierGroup(rawValue: string, line: number): string[] | undefined {
+  const match = rawValue.match(/^(?:identifier|composite)\s*\(([^)]*)\)\s*,?$/i);
+  if (!match) {
+    return undefined;
+  }
+
+  const aliases = match[1]
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  if (aliases.length < 2) {
+    throw new ErsParseError(line, "Un identificatore interno composto richiede almeno due attributi.");
+  }
+
+  aliases.forEach((alias) => assertUnqualifiedAlias(alias, line, "Il nome attributo"));
+  return aliases;
+}
+
+function expandDesignerEntity(
+  rawLines: string[],
+  startIndex: number,
+): { nextIndex: number; emitted: Array<{ line: number; text: string }> } | undefined {
+  const line = startIndex + 1;
+  const normalized = normalizeCommentFreeLine(rawLines[startIndex]);
+  const headerMatch = normalized.match(/^entity\s+([A-Za-z_][\w.-]*)(?:\s+"([^"]+)")?\s*(\{)?\s*$/);
+
+  if (!headerMatch) {
+    return undefined;
+  }
+
+  const alias = headerMatch[1];
+  const label = headerMatch[2] ?? alias;
+  const hasBlock = headerMatch[3] === "{";
+  const emitted: Array<{ line: number; text: string }> = [
+    { line, text: `entity ${alias} label ${quoteValue(label)}` },
+  ];
+
+  if (!hasBlock) {
+    return { nextIndex: startIndex, emitted };
+  }
+
+  for (let index = startIndex + 1; index < rawLines.length; index += 1) {
+    const current = normalizeCommentFreeLine(rawLines[index]);
+    if (current === "}") {
+      break;
+    }
+    if (/^(attribute|multivalued|composite)\b/.test(current) || /^identifier\s+(?!\()/.test(current)) {
+      return undefined;
+    }
+  }
+
+  let activeCompositeAlias: string | undefined;
+  const qualifiedAliasByLocalAlias = new Map<string, string>();
+
+  for (let index = startIndex + 1; index < rawLines.length; index += 1) {
+    const currentLine = index + 1;
+    const current = normalizeCommentFreeLine(rawLines[index]);
+
+    if (current.length === 0 || isBlockCommentLine(current)) {
+      continue;
+    }
+
+    const compact = current.trim();
+
+    if (compact === "}" || compact === "},") {
+      if (activeCompositeAlias) {
+        activeCompositeAlias = undefined;
+        continue;
+      }
+
+      return { nextIndex: index, emitted };
+    }
+
+    if (activeCompositeAlias) {
+      const child = buildDesignerAttributeLegacyLines(
+        qualifyAttributeAlias(alias, activeCompositeAlias),
+        compact,
+        currentLine,
+      );
+      qualifiedAliasByLocalAlias.set(
+        child.alias,
+        qualifyAttributeAlias(qualifyAttributeAlias(alias, activeCompositeAlias), child.alias),
+      );
+      child.emitted.forEach((text) => emitted.push({ line: currentLine, text }));
+      continue;
+    }
+
+    const identifierGroup = parseDesignerIdentifierGroup(compact, currentLine);
+    if (identifierGroup) {
+      emitted.push({
+        line: currentLine,
+        text: `internal-identifier ${alias} ${identifierGroup
+          .map((item) => qualifiedAliasByLocalAlias.get(item) ?? qualifyAttributeAlias(alias, item))
+          .join(" ")}`,
+      });
+      continue;
+    }
+
+    if (compact.endsWith("{")) {
+      const parent = buildDesignerAttributeLegacyLines(alias, compact.slice(0, -1), currentLine);
+      parent.emitted.forEach((text) => emitted.push({ line: currentLine, text }));
+      qualifiedAliasByLocalAlias.set(parent.alias, qualifyAttributeAlias(alias, parent.alias));
+      if (parent.isIdentifier) {
+        emitted.push({
+          line: currentLine,
+          text: `internal-identifier ${alias} ${qualifyAttributeAlias(alias, parent.alias)}`,
+        });
+      }
+      activeCompositeAlias = parent.alias;
+      continue;
+    }
+
+    const attribute = buildDesignerAttributeLegacyLines(alias, compact, currentLine);
+    attribute.emitted.forEach((text) => emitted.push({ line: currentLine, text }));
+    qualifiedAliasByLocalAlias.set(attribute.alias, qualifyAttributeAlias(alias, attribute.alias));
+    if (attribute.isIdentifier) {
+      emitted.push({
+        line: currentLine,
+        text: `internal-identifier ${alias} ${qualifyAttributeAlias(alias, attribute.alias)}`,
+      });
+    }
+  }
+
+  throw new ErsParseError(line, "Blocco entity non chiuso.");
+}
+
+function expandDesignerRelationship(
+  rawLines: string[],
+  startIndex: number,
+): { nextIndex: number; emitted: Array<{ line: number; text: string }> } | undefined {
+  const line = startIndex + 1;
+  const normalized = normalizeCommentFreeLine(rawLines[startIndex]);
+  const headerMatch = normalized.match(/^relationship\s+([A-Za-z_][\w.-]*)(?:\s+"([^"]+)")?\s*\(\s*$/);
+
+  if (!headerMatch) {
+    return undefined;
+  }
+
+  const alias = headerMatch[1];
+  const label = headerMatch[2] ?? alias;
+  const emitted: Array<{ line: number; text: string }> = [
+    { line, text: buildLegacyRelationshipLine(alias, label) },
+  ];
+
+  for (let index = startIndex + 1; index < rawLines.length; index += 1) {
+    const currentLine = index + 1;
+    const current = normalizeCommentFreeLine(rawLines[index]);
+
+    if (current.length === 0 || isBlockCommentLine(current)) {
+      continue;
+    }
+
+    const compact = current.trim();
+    if (compact === ")") {
+      return { nextIndex: index, emitted };
+    }
+
+    const connectionMatch = stripDesignerTrailingComma(compact).match(/^([A-Za-z_][\w.-]*)\s*:\s*(.+)$/);
+    if (!connectionMatch) {
+      throw new ErsParseError(currentLine, `Partecipazione relazione non valida: "${compact}".`);
+    }
+
+    const cardinality = normalizeDesignerCardinality(connectionMatch[2]);
+    if (!cardinality) {
+      throw new ErsParseError(currentLine, `Cardinalita relazione non valida: "${connectionMatch[2]}".`);
+    }
+    const externalSuffix = /\bexternal\b/i.test(connectionMatch[2]) ? " external" : "";
+
+    emitted.push({
+      line: currentLine,
+      text: `connector ${alias} -> ${connectionMatch[1]} card ${quoteValue(cardinality)}${externalSuffix}`,
+    });
+  }
+
+  throw new ErsParseError(line, "Blocco relationship non chiuso.");
+}
+
+function expandDesignerGeneralization(
+  rawLines: string[],
+  startIndex: number,
+): { nextIndex: number; emitted: Array<{ line: number; text: string }> } | undefined {
+  const line = startIndex + 1;
+  const normalized = normalizeCommentFreeLine(rawLines[startIndex]);
+  const headerMatch = normalized.match(/^([A-Za-z_][\w.-]*)\s*<=\s*\{\s*$/);
+
+  if (!headerMatch) {
+    return undefined;
+  }
+
+  const parentAlias = headerMatch[1];
+  const children: string[] = [];
+  let isaCompleteness: IsaCompleteness = "partial";
+  let isaDisjointness: IsaDisjointness = "disjoint";
+
+  for (let index = startIndex + 1; index < rawLines.length; index += 1) {
+    const currentLine = index + 1;
+    const current = normalizeCommentFreeLine(rawLines[index]);
+
+    if (current.length === 0 || isBlockCommentLine(current)) {
+      continue;
+    }
+
+    const compact = current.trim();
+    if (compact.startsWith("}")) {
+      const constraintMatch = compact.match(/\(([^)]*)\)/);
+      if (constraintMatch) {
+        const parts = constraintMatch[1]
+          .split(",")
+          .map((item) => item.trim().toLowerCase());
+        isaCompleteness = parts.includes("total") || parts.includes("t") ? "total" : "partial";
+        isaDisjointness =
+          parts.includes("overlap") || parts.includes("overlapping") || parts.includes("o")
+            ? "overlap"
+            : "disjoint";
+      }
+
+      return {
+        nextIndex: index,
+        emitted: children.map((childAlias) => ({
+          line: currentLine,
+          text: `inheritance ${childAlias} -> ${parentAlias} ${isaDisjointness} ${isaCompleteness}`,
+        })),
+      };
+    }
+
+    const childAlias = stripDesignerTrailingComma(compact);
+    assertUnqualifiedAlias(childAlias, currentLine, "Il nome entita figlia");
+    children.push(childAlias);
+  }
+
+  throw new ErsParseError(line, "Blocco generalization non chiuso.");
+}
+
 function collectStructuredBlockLines(
   rawLines: string[],
   startIndex: number,
@@ -1243,7 +1585,7 @@ function expandStructuredErs(rawSource: string): StructuredExpansion {
     const line = index + 1;
     const normalized = normalizeCommentFreeLine(rawLines[index]);
 
-    if (normalized.length === 0) {
+    if (normalized.length === 0 || isBlockCommentLine(normalized)) {
       pushLine("", line);
       continue;
     }
@@ -1255,6 +1597,31 @@ function expandStructuredErs(rawSource: string): StructuredExpansion {
     }
 
     const keyword = tokens[0];
+
+    const designerGeneralization = expandDesignerGeneralization(rawLines, index);
+    if (designerGeneralization) {
+      designerGeneralization.emitted.forEach((entry) => pushLine(entry.text, entry.line));
+      index = designerGeneralization.nextIndex;
+      continue;
+    }
+
+    if (keyword === "entity") {
+      const designerEntity = expandDesignerEntity(rawLines, index);
+      if (designerEntity) {
+        designerEntity.emitted.forEach((entry) => pushLine(entry.text, entry.line));
+        index = designerEntity.nextIndex;
+        continue;
+      }
+    }
+
+    if (keyword === "relationship") {
+      const designerRelationship = expandDesignerRelationship(rawLines, index);
+      if (designerRelationship) {
+        designerRelationship.emitted.forEach((entry) => pushLine(entry.text, entry.line));
+        index = designerRelationship.nextIndex;
+        continue;
+      }
+    }
 
     if (keyword === "entity" && looksLikeStructuredEntity(tokens)) {
       const expansion = expandStructuredEntity(rawLines, index);
@@ -1530,6 +1897,12 @@ function parseEdgeStatement(edgeType: EdgeKind, tokens: string[], line: number):
           throw new ErsParseError(line, "La direttiva card non e valida per inheritance.");
         }
         edge.cardinality = readStringValue(tokens, state, line, "Cardinalita mancante.");
+        break;
+      case "external":
+        if (edgeType !== "connector") {
+          throw new ErsParseError(line, "La direttiva external e valida solo per connector.");
+        }
+        edge.isExternalIdentifierHost = true;
         break;
       case "label":
         edge.label = readStringValue(tokens, state, line, "Label collegamento mancante.");
@@ -1807,6 +2180,33 @@ function buildAttributeDeclaration(
   return `  ${parts.join(" ")}`;
 }
 
+function buildDesignerAttributeDeclaration(
+  attribute: Extract<DiagramNode, { type: "attribute" }>,
+  hostAlias: string,
+  aliasByNodeId: Map<string, string>,
+  simpleIdentifierAttributeIds: Set<string>,
+  externalAttributeIds: Set<string>,
+): string {
+  const alias = getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId);
+  const flags: string[] = [];
+
+  if (simpleIdentifierAttributeIds.has(attribute.id) || attribute.isIdentifier === true) {
+    flags.push("id");
+  }
+  if (externalAttributeIds.has(attribute.id)) {
+    flags.push("external");
+  }
+  if (attribute.cardinality) {
+    flags.push(formatDesignerCardinality(attribute.cardinality));
+  }
+
+  return `${alias}${flags.length > 0 ? ` (${flags.join(", ")})` : ""}`;
+}
+
+function appendDesignerComma(lines: string[], index: number, total: number): string {
+  return index < total - 1 ? `${lines[index]},` : lines[index];
+}
+
 function buildStandaloneAttributeLine(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   alias: string,
@@ -1866,17 +2266,43 @@ function buildEntityBlock(
   attributesByHostId: Map<string, DiagramNode[]>,
 ): string[] {
   const entityAlias = aliasByNodeId.get(entity.id) ?? entity.id;
-  const lines = [
-    `${formatNamedDefinition("entity", entityAlias, entity.label)}${entity.isWeak === true ? " weak" : ""} {`,
-  ];
   const attributes = (attributesByHostId.get(entity.id) ?? [])
     .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
     .sort(compareNodes);
   const attributesById = new Map(attributes.map((attribute) => [attribute.id, attribute]));
   const { simpleAttributeIds, compositeAttributeGroups } = getEntityInternalIdentifierGroups(entity, attributes);
+  const externalAttributeIds = new Set((entity.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds));
+  const entries: string[] = [];
 
   attributes.forEach((attribute) => {
-    lines.push(buildAttributeDeclaration(attribute, entityAlias, aliasByNodeId, simpleAttributeIds));
+    const childAttributes = (attributesByHostId.get(attribute.id) ?? [])
+      .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
+      .sort(compareNodes);
+    const declaration = buildDesignerAttributeDeclaration(
+      attribute,
+      entityAlias,
+      aliasByNodeId,
+      simpleAttributeIds,
+      externalAttributeIds,
+    );
+
+    if (childAttributes.length === 0) {
+      entries.push(`    ${declaration}`);
+      return;
+    }
+
+    const parentAlias = aliasByNodeId.get(attribute.id) ?? attribute.id;
+    const childLines = childAttributes.map((childAttribute, index) => {
+      const childDeclaration = buildDesignerAttributeDeclaration(
+        childAttribute,
+        parentAlias,
+        aliasByNodeId,
+        new Set(),
+        new Set(),
+      );
+      return `        ${childDeclaration}${index < childAttributes.length - 1 ? "," : ""}`;
+    });
+    entries.push([`    ${declaration} {`, ...childLines, "    }"].join("\n"));
   });
 
   compositeAttributeGroups.forEach((group) => {
@@ -1886,10 +2312,18 @@ function buildEntityBlock(
       .map((attribute) => getLocalAttributeAlias(attribute, entityAlias, aliasByNodeId));
 
     if (localAliases.length > 1) {
-      lines.push(`  identifier ${localAliases.join(", ")}`);
+      entries.push(`    identifier (${localAliases.join(", ")})`);
     }
   });
 
+  if (entries.length === 0) {
+    return [`entity ${entityAlias}`];
+  }
+
+  const lines = [`entity ${entityAlias} {`];
+  entries.forEach((entry, index) => {
+    lines.push(appendDesignerComma(entries, index, entries.length));
+  });
   lines.push("}");
   return lines;
 }
@@ -1898,7 +2332,6 @@ function buildRelationLines(
   relationship: Extract<DiagramNode, { type: "relationship" }>,
   diagram: DiagramDocument,
   aliasByNodeId: Map<string, string>,
-  attributesByHostId: Map<string, DiagramNode[]>,
 ): string[] {
   const relationAlias = aliasByNodeId.get(relationship.id) ?? relationship.id;
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
@@ -1918,9 +2351,6 @@ function buildRelationLines(
       };
     })
     .sort((left, right) => left.entityAlias.localeCompare(right.entityAlias, "it", { sensitivity: "base" }));
-  const attributes = (attributesByHostId.get(relationship.id) ?? [])
-    .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
-    .sort(compareNodes);
   const relationshipExternalIdentifiers = diagram.nodes
     .filter((node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity")
     .flatMap((entity) =>
@@ -1928,75 +2358,20 @@ function buildRelationLines(
         .filter((identifier) => identifier.relationshipId === relationship.id)
         .map((identifier) => ({ entity, identifier })),
     );
-  const relationSimpleIdentifierAttributeIds = new Set<string>();
+  const externalHostEntityIds = new Set(relationshipExternalIdentifiers.map(({ entity }) => entity.id));
+  const lines = [`relationship ${relationAlias} (`];
 
-  if (
-    connectors.length === 2 &&
-    attributes.length === 0 &&
-    relationshipExternalIdentifiers.length === 0
-  ) {
-    return [
-      `${formatNamedDefinition("relation", relationAlias, relationship.label)} ${connectors[0].entityAlias} ${quoteValue(
-        connectors[0].cardinality,
-      )} ${connectors[1].entityAlias} ${quoteValue(connectors[1].cardinality)}`,
-    ];
-  }
-
-  const lines = [`${formatNamedDefinition("relation", relationAlias, relationship.label)} {`];
-
-  connectors.forEach((connector) => {
-    lines.push(`  connect ${connector.entityAlias} ${quoteValue(connector.cardinality)}`);
-  });
-
-  attributes.forEach((attribute) => {
+  connectors.forEach((connector, index) => {
+    const entityNode = diagram.nodes.find((node) => node.type === "entity" && (aliasByNodeId.get(node.id) ?? node.id) === connector.entityAlias);
+    const externalSuffix = entityNode && externalHostEntityIds.has(entityNode.id) ? " external" : "";
     lines.push(
-      buildAttributeDeclaration(attribute, relationAlias, aliasByNodeId, relationSimpleIdentifierAttributeIds),
+      `    ${connector.entityAlias}: ${formatDesignerCardinality(connector.cardinality)}${externalSuffix}${
+        index < connectors.length - 1 ? "," : ""
+      }`,
     );
   });
 
-  relationshipExternalIdentifiers.forEach(({ entity, identifier }) => {
-    const importedAttributeAliases = getExternalIdentifierImportedAttributes(diagram, identifier)
-      .map((attribute) => aliasByNodeId.get(attribute.id))
-      .filter((alias): alias is string => typeof alias === "string" && alias.length > 0);
-    const hostEntityAlias = aliasByNodeId.get(entity.id);
-    if (!hostEntityAlias || importedAttributeAliases.length === 0) {
-      return;
-    }
-
-    const externalParts = [
-      "  external",
-      "fromIdentifier",
-      quoteValue(importedAttributeAliases.join(",")),
-      "to",
-      hostEntityAlias,
-    ];
-    const localAttributeAliases = identifier.localAttributeIds
-      .map((attributeId) => aliasByNodeId.get(attributeId))
-      .filter((alias): alias is string => typeof alias === "string" && alias.length > 0);
-
-    if (localAttributeAliases.length > 0) {
-      externalParts.push("local", quoteValue(localAttributeAliases.join(",")));
-    }
-
-    if (typeof identifier.offset === "number" && identifier.offset !== 0) {
-      externalParts.push("offset", formatNumber(identifier.offset));
-    }
-
-    if (
-      typeof identifier.markerOffsetX === "number" ||
-      typeof identifier.markerOffsetY === "number"
-    ) {
-      externalParts.push(
-        "markerOffset",
-        formatNumber(identifier.markerOffsetX ?? 0),
-        formatNumber(identifier.markerOffsetY ?? 0),
-      );
-    }
-
-    lines.push(externalParts.join(" "));
-  });
-
-  lines.push("}");
+  lines.push(")");
   return lines;
 }
 
@@ -2034,7 +2409,7 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
   const relationLines = [...diagram.nodes]
     .filter((node): node is Extract<DiagramNode, { type: "relationship" }> => node.type === "relationship")
     .sort(compareNodes)
-    .flatMap((relationship) => buildRelationLines(relationship, diagram, aliasByNodeId, attributesByHostId));
+    .flatMap((relationship) => buildRelationLines(relationship, diagram, aliasByNodeId));
   const orphanAttributeLines = [...diagram.nodes]
     .filter(
       (node): node is Extract<DiagramNode, { type: "attribute" }> =>
@@ -2042,55 +2417,67 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     )
     .sort(compareNodes)
     .map((attribute) => buildStandaloneAttributeLine(attribute, aliasByNodeId.get(attribute.id) ?? attribute.id));
-  const nestedAttributeLines = buildNestedAttributeLegacyLines(diagram, aliasByNodeId);
+  const nestedAttributeLines: string[] = [];
   const notesContent = normalizeNotesContent(diagram.notes);
   const notesLines = notesContent.length > 0 ? [`notes ${quoteValue(notesContent)}`] : [];
-  const inheritanceLines = [...diagram.edges]
+  const inheritanceGroups = new Map<
+    string,
+    {
+      parentAlias: string;
+      children: string[];
+      isaCompleteness: IsaCompleteness;
+      isaDisjointness: IsaDisjointness;
+    }
+  >();
+  [...diagram.edges]
     .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance")
     .sort((left, right) => compareEdges(left, right, aliasByNodeId))
-    .map((edge) => {
-      const sourceAlias = aliasByNodeId.get(edge.sourceId) ?? edge.sourceId;
-      const targetAlias = aliasByNodeId.get(edge.targetId) ?? edge.targetId;
-      const parts = ["inheritance", sourceAlias, "->", targetAlias];
-
-      if (edge.isaDisjointness) {
-        parts.push(edge.isaDisjointness);
-      }
-      if (edge.isaCompleteness) {
-        parts.push(edge.isaCompleteness);
-      }
-      if (edge.label.trim()) {
-        parts.push("label", quoteValue(edge.label));
-      }
-      if (edge.lineStyle !== "solid") {
-        parts.push("style", edge.lineStyle);
-      }
-      if (typeof edge.manualOffset === "number" && edge.manualOffset !== 0) {
-        parts.push("offset", formatNumber(edge.manualOffset));
-      }
-
-      return parts.join(" ");
+    .forEach((edge) => {
+      const childAlias = aliasByNodeId.get(edge.sourceId) ?? edge.sourceId;
+      const parentAlias = aliasByNodeId.get(edge.targetId) ?? edge.targetId;
+      const isaCompleteness = edge.isaCompleteness ?? "partial";
+      const isaDisjointness = edge.isaDisjointness ?? "disjoint";
+      const key = `${parentAlias}:${isaCompleteness}:${isaDisjointness}`;
+      const group = inheritanceGroups.get(key) ?? {
+        parentAlias,
+        children: [],
+        isaCompleteness,
+        isaDisjointness,
+      };
+      group.children.push(childAlias);
+      inheritanceGroups.set(key, group);
     });
+  const inheritanceLines = Array.from(inheritanceGroups.values()).flatMap((group) => {
+    const disjointnessLabel = group.isaDisjointness === "disjoint" ? "exclusive" : "overlap";
+    return [
+      `${group.parentAlias} <= {`,
+      ...group.children.map((childAlias, index) => `    ${childAlias}${index < group.children.length - 1 ? "," : ""}`),
+      `} (${group.isaCompleteness}, ${disjointnessLabel})`,
+    ];
+  });
 
-  const sections = [
-    "# ER Studio source file",
-    "# Modifica la struttura qui. Posizioni e dimensioni restano nel canvas.",
-    `diagram ${quoteValue(diagram.meta.name)}`,
-  ];
+  const sections: string[] = [];
 
   if (entityLines.length > 0) {
-    sections.push("", "# Entities", ...entityLines);
+    sections.push("/* Entities */", ...entityLines);
   }
   if (relationLines.length > 0) {
-    sections.push("", "# Relations", ...relationLines);
+    if (sections.length > 0) {
+      sections.push("");
+    }
+    sections.push("/* Relationships */", ...relationLines);
   }
-  if (
-    orphanAttributeLines.length > 0 ||
-    nestedAttributeLines.length > 0 ||
-    notesLines.length > 0 ||
-    inheritanceLines.length > 0
-  ) {
-    sections.push("", ...orphanAttributeLines, ...nestedAttributeLines, ...notesLines, ...inheritanceLines);
+  if (inheritanceLines.length > 0) {
+    if (sections.length > 0) {
+      sections.push("");
+    }
+    sections.push("/* Generalizations */", ...inheritanceLines);
+  }
+  if (orphanAttributeLines.length > 0 || nestedAttributeLines.length > 0 || notesLines.length > 0) {
+    if (sections.length > 0) {
+      sections.push("");
+    }
+    sections.push(...orphanAttributeLines, ...nestedAttributeLines, ...notesLines);
   }
 
   return sections.join("\n");
@@ -2433,6 +2820,11 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
 
   const occurrenceByKey = new Map<string, number>();
   const parsedNodeById = new Map(parsedNodes.map((entry) => [entry.node.id, entry.node]));
+  const designerExternalConnectors: Array<{
+    line: number;
+    relationshipId: string;
+    hostEntityId: string;
+  }> = [];
   const edges: DiagramEdge[] = parsedEdges.map((edgeSpec) => {
     const sourceNode = resolveNodeAlias(edgeSpec.sourceAlias, aliasMap, edgeSpec.line);
     const targetNode = resolveNodeAlias(edgeSpec.targetAlias, aliasMap, edgeSpec.line);
@@ -2509,6 +2901,13 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
         };
         entityNode.relationshipParticipations = [...(entityNode.relationshipParticipations ?? []), participation];
         participationId = participation.id;
+        if (edgeSpec.isExternalIdentifierHost) {
+          designerExternalConnectors.push({
+            line: edgeSpec.line,
+            relationshipId: connectorContext.relationship.id,
+            hostEntityId: connectorContext.entity.id,
+          });
+        }
       }
     }
 
@@ -2665,6 +3064,51 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
         offset: spec.offset,
         markerOffsetX: spec.markerOffsetX,
         markerOffsetY: spec.markerOffsetY,
+      } as ExternalIdentifier,
+    ];
+  });
+
+  designerExternalConnectors.forEach((spec, index) => {
+    const hostEntityNode = entityNodeById.get(spec.hostEntityId);
+    if (!hostEntityNode) {
+      return;
+    }
+
+    const connectedEntityIds = edges
+      .filter((edge): edge is Extract<DiagramEdge, { type: "connector" }> => edge.type === "connector")
+      .filter((edge) => edge.sourceId === spec.relationshipId || edge.targetId === spec.relationshipId)
+      .map((edge) => (edge.sourceId === spec.relationshipId ? edge.targetId : edge.sourceId))
+      .filter((entityId) => entityId !== spec.hostEntityId);
+
+    const sourceEntity = connectedEntityIds
+      .map((entityId) => entityNodeById.get(entityId))
+      .find((entity): entity is Extract<DiagramNode, { type: "entity" }> =>
+        Boolean(entity && (entity.internalIdentifiers ?? []).length > 0),
+      );
+    const importedIdentifier = sourceEntity?.internalIdentifiers?.[0];
+    if (!sourceEntity || !importedIdentifier) {
+      return;
+    }
+
+    const duplicate = (hostEntityNode.externalIdentifiers ?? []).some(
+      (identifier) =>
+        identifier.relationshipId === spec.relationshipId &&
+        identifier.sourceEntityId === sourceEntity.id &&
+        identifier.importedIdentifierId === importedIdentifier.id &&
+        identifier.localAttributeIds.length === 0,
+    );
+    if (duplicate) {
+      return;
+    }
+
+    hostEntityNode.externalIdentifiers = [
+      ...(hostEntityNode.externalIdentifiers ?? []),
+      {
+        id: `externalIdentifier-designer-${hostEntityNode.id}-${index + 1}`,
+        relationshipId: spec.relationshipId,
+        sourceEntityId: sourceEntity.id,
+        importedIdentifierId: importedIdentifier.id,
+        localAttributeIds: [],
       } as ExternalIdentifier,
     ];
   });

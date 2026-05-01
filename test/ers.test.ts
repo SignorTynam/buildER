@@ -25,10 +25,11 @@ relation RELAZIONE2 ENTITA1 "(X,Y)" ENTITA2 "(X,Y)"`;
   const serialized = serializeDiagramToErs(parseErsDiagram(source));
 
   assert.match(serialized, /^entity PROGETTO \{$/m);
-  assert.match(serialized, /^  attribute Budget$/m);
-  assert.match(serialized, /^  attribute DataConsegna$/m);
-  assert.match(serialized, /^  identifier Nome$/m);
-  assert.match(serialized, /^relation RELAZIONE2 ENTITA2 "\(X,Y\)" PROGETTO "\(X,Y\)"$/m);
+  assert.match(serialized, /^    Budget,?$/m);
+  assert.match(serialized, /^    DataConsegna,?$/m);
+  assert.match(serialized, /^    Nome \(id\)$/m);
+  assert.match(serialized, /^relationship RELAZIONE2 \($/m);
+  assert.match(serialized, /^    PROGETTO: X\.\.Y$/m);
   assert.doesNotMatch(serialized, /\bENTITA1\b/);
   assert.doesNotMatch(serialized, /\bATTRIBUTO1\b/);
   assert.doesNotMatch(serialized, /\bATTRIBUTO2\b/);
@@ -128,6 +129,75 @@ relation R A "2...N" B "(1,1)"`;
   );
 
   const serialized = serializeDiagramToErs(parsed);
-  assert.match(serialized, /card "\(1,4\)"/);
-  assert.match(serialized, /A "\(2,N\)"/);
+  assert.match(serialized, /codice \(one\.\.4\)/);
+  assert.match(serialized, /A: 2\.\.many/);
+});
+
+test("ERS supporta sintassi designER e identificatori interni composti", () => {
+  const source = `/* Entities */
+entity TRENO {
+    NumTreno (id),
+    Attribute39 {
+        Attribute40,
+        Attribute41
+    }
+}
+entity PERSONA {
+    Nome,
+    Cognome,
+    identifier (Nome, Cognome)
+}
+entity TRATTA
+entity REGIONALE
+entity ALTA_VELOCITA
+
+/* Relationships */
+relationship RELATIONSHIP18 (
+    TRENO: zero..many,
+    TRATTA: one..one
+)
+
+/* Generalizations */
+TRENO <= {
+    REGIONALE,
+    ALTA_VELOCITA
+} (partial, exclusive)`;
+
+  const parsed = parseErsDiagram(source);
+  const persona = parsed.nodes.find((node) => node.type === "entity" && node.label === "PERSONA");
+  assert.equal(persona?.type, "entity");
+  assert.equal(persona?.type === "entity" ? persona.internalIdentifiers?.length : 0, 1);
+  assert.equal(
+    persona?.type === "entity"
+      ? persona.internalIdentifiers?.some((identifier) => identifier.attributeIds.length === 2)
+      : false,
+    true,
+  );
+
+  const serialized = serializeDiagramToErs(parsed);
+  assert.match(serialized, /^\/\* Entities \*\//m);
+  assert.match(serialized, /^relationship RELATIONSHIP18 \($/m);
+  assert.match(serialized, /TRENO <= \{/);
+  assert.match(serialized, /identifier \(Nome, Cognome\)/);
+});
+
+test("ERS designER ricostruisce identificatori esterni da partecipazioni external valide", () => {
+  const source = `/* Entities */
+entity A {
+    idA (id)
+}
+entity B
+
+/* Relationships */
+relationship R (
+    A: zero..many,
+    B: one..one external
+)`;
+
+  const parsed = parseErsDiagram(source);
+  const entityB = parsed.nodes.find((node) => node.type === "entity" && node.label === "B");
+  assert.equal(entityB?.type === "entity" ? entityB.externalIdentifiers?.length : 0, 1);
+
+  const serialized = serializeDiagramToErs(parsed);
+  assert.match(serialized, /^    B: one\.\.one external$/m);
 });
