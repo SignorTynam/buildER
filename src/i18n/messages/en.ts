@@ -405,7 +405,6 @@ export const en: DeepPartialMessages = {
       recommended: "recommended",
       selectTarget: "Select a hierarchy or attribute to restructure.",
       completeFirst: "Complete all hierarchies and multivalued attributes first.",
-      ready: "Translation ready",
       pendingGeneralizations: "Pending generalizations",
       pendingAttributes: "Pending multivalued attributes",
       unavailable: "Operation not available in the Restructuring view.",

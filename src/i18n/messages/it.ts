@@ -406,7 +406,6 @@ export const it = {
       recommended: "consigliata",
       selectTarget: "Seleziona una gerarchia o un attributo da ristrutturare.",
       completeFirst: "Completa prima gerarchie e attributi multivalore.",
-      ready: "Traduzione pronta",
       pendingGeneralizations: "Gerarchie pending",
       pendingAttributes: "Attributi multivalore pending",
       unavailable: "Operazione non disponibile nella vista Traduzione.",

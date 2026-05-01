@@ -405,7 +405,6 @@ export const sq: DeepPartialMessages = {
       recommended: "e rekomanduar",
       selectTarget: "Zgjidh një hierarki ose atribut për ristrukturim.",
       completeFirst: "Përfundo fillimisht hierarkitë dhe atributet shumëvlerëshe.",
-      ready: "Përkthimi është gati",
       pendingGeneralizations: "Hierarki në pritje",
       pendingAttributes: "Atribute shumëvlerëshe në pritje",
       unavailable: "Operacioni nuk është i disponueshëm në pamjen Restructuring.",

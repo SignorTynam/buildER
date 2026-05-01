@@ -181,7 +181,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const unavailableMessage = t("translation.restructuring.unavailable");
 
   return (
-    <section className="designer-translation-view">
+    <div className="designer-workspace designer-translation-view">
       <div className="designer-stage-label">{t("translation.restructuring.stageLabel")}</div>
 
       <div className="designer-context-toolbar designer-translation-toolbar" role="toolbar" aria-label="Restructuring tools">
@@ -212,7 +212,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
       </div>
 
       {fixOpen && selectedItem ? (
-        <div className="designer-fix-popover" role="menu" aria-label="Fix options">
+        <div className="designer-fix-popover" aria-label="Fix options">
           {selectedChoices.map((choice) => {
             const disabled = selectedItem.status === "blocked" || Boolean(choice.disabledReason);
             return (
@@ -241,14 +241,8 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           })}
         </div>
       ) : null}
-
-      <div className="designer-translation-status">
-        {overview.isComplete
-          ? t("translation.restructuring.ready")
-          : `${t("translation.restructuring.pendingGeneralizations")}: ${generalizationPending} - ${t("translation.restructuring.pendingAttributes")}: ${attributePending}`}
-      </div>
-
-      <div className="designer-translation-canvas">
+      
+      <div className="designer-canvas-region designer-translation-canvas">
         <DiagramCanvas
           diagram={props.workspace.translatedDiagram}
           selection={props.selection}
@@ -278,6 +272,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           onStatusMessageChange={setCanvasStatus}
         />
       </div>
-    </section>
+    </div>
   );
 }

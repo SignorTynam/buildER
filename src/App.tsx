@@ -1254,6 +1254,12 @@ export default function App() {
   ]
     .filter(Boolean)
     .join(" ");
+  const translationWorkspaceShellClassName = [
+    "workspace-shell",
+    "translation-workspace-shell",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const structuredWorkspaceShellStyle = {
     "--technical-panel-width": technicalPanelVisible ? `${visibleTechnicalPanelWidth}px` : "0px",
     "--technical-panel-resizer-width": technicalPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
@@ -4545,8 +4551,20 @@ export default function App() {
         </div>
 
         <div
-          className={diagramView === "er" ? erWorkspaceShellClassName : structuredWorkspaceShellClassName}
-          style={diagramView === "er" ? erWorkspaceShellStyle : structuredWorkspaceShellStyle}
+          className={
+            diagramView === "er"
+              ? erWorkspaceShellClassName
+              : diagramView === "translation"
+                ? translationWorkspaceShellClassName
+                : structuredWorkspaceShellClassName
+          }
+          style={
+            diagramView === "er"
+              ? erWorkspaceShellStyle
+              : diagramView === "translation"
+                ? undefined
+                : structuredWorkspaceShellStyle
+          }
         >
           {diagramView === "er" ? (
             <div className={codePanelOpen ? "designer-workspace code-open" : "designer-workspace"}>
