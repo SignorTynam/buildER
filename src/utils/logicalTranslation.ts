@@ -3285,6 +3285,67 @@ export function applyLogicalTranslationChoice(
   });
 }
 
+function getBulkChoicePriority(choice: LogicalTranslationChoice): number {
+  const priority: Record<LogicalTranslationRuleKind, number> = {
+    "entity-table-internal": 10,
+    "entity-table-external": 20,
+    "weak-entity-table": 25,
+    "relationship-foreign-key": 30,
+    "relationship-table": 40,
+    "multivalued-table": 50,
+    "generalization-table-per-type": 60,
+    "generalization-subtypes-only": 70,
+    "generalization-single-table": 80,
+    "entity-table-without-key": 90,
+  };
+  return (choice.recommended ? 0 : 100) + (priority[choice.rule] ?? 999);
+}
+
+function chooseBulkLogicalChoice(choices: LogicalTranslationChoice[]): LogicalTranslationChoice | null {
+  return [...choices].sort((left, right) => {
+    const byPriority = getBulkChoicePriority(left) - getBulkChoicePriority(right);
+    if (byPriority !== 0) {
+      return byPriority;
+    }
+
+    return left.id.localeCompare(right.id);
+  })[0] ?? null;
+}
+
+export function applyBulkLogicalFix(
+  diagram: DiagramDocument,
+  workspace: LogicalWorkspaceDocument,
+  step: Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">,
+): { workspace: LogicalWorkspaceDocument; appliedCount: number; skippedCount: number } {
+  let nextWorkspace = workspace;
+  let appliedCount = 0;
+  let skippedCount = 0;
+
+  for (;;) {
+    const overview = buildLogicalTranslationOverview(diagram, nextWorkspace);
+    const item = (overview.itemsByStep[step] ?? []).find((candidate) => candidate.status === "pending" || candidate.status === "invalid");
+    if (!item) {
+      break;
+    }
+
+    const choice = chooseBulkLogicalChoice(getLogicalTranslationChoicesForItem(overview, item));
+    if (!choice) {
+      skippedCount += 1;
+      break;
+    }
+
+    try {
+      nextWorkspace = applyLogicalTranslationChoice(diagram, nextWorkspace, choice, item.targetType, item.id);
+      appliedCount += 1;
+    } catch {
+      skippedCount += 1;
+      break;
+    }
+  }
+
+  return { workspace: nextWorkspace, appliedCount, skippedCount };
+}
+
 export function buildLogicalTranslationOverview(
   diagram: DiagramDocument,
   workspace: LogicalWorkspaceDocument,

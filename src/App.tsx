@@ -10,7 +10,6 @@ import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
-import { WorkspaceStageBar } from "./components/WorkspaceStageBar";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
@@ -34,6 +33,7 @@ import { EMPTY_LOGICAL_SELECTION } from "./types/logical";
 import type {
   LogicalModel,
   LogicalSelection,
+  LogicalStage,
   LogicalTranslationChoice,
   LogicalTranslationItem,
   LogicalTranslationState,
@@ -89,6 +89,7 @@ import {
   updateLogicalWorkspaceModel,
 } from "./utils/logicalWorkspace";
 import {
+  applyBulkLogicalFix,
   applyLogicalTranslationChoice,
   buildLogicalTranslationOverview,
   getLogicalTranslationStepCompletion,
@@ -97,6 +98,7 @@ import {
   type LogicalColumnSqlPatch,
   updateLogicalColumnSqlMetadata,
 } from "./utils/logicalSqlMetadata";
+import { generateLogicalSql } from "./utils/logicalSql";
 import {
   parseProjectFile,
   ProjectFileError,
@@ -179,6 +181,7 @@ interface WorkspaceSessionSnapshot {
   translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
+  logicalStage: LogicalStage;
   surface: AppSurface;
   diagramView: WorkspaceView;
   tool: ToolKind;
@@ -207,6 +210,7 @@ interface WorkspaceSessionBootstrap {
   translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
+  logicalStage: LogicalStage;
   surface: AppSurface;
   diagramView: WorkspaceView;
   tool: ToolKind;
@@ -453,6 +457,7 @@ function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     translationWorkspace,
     logicalWorkspace: createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
     logicalGenerated: false,
+    logicalStage: "translation",
     surface: "studio",
     diagramView: "er",
     tool: "select",
@@ -542,6 +547,7 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
           ? sanitizeLogicalWorkspace(parsed.logicalWorkspace, storedTranslationWorkspace.translatedDiagram)
           : createEmptyLogicalWorkspace(storedTranslationWorkspace.translatedDiagram),
       logicalGenerated: parsed.logicalGenerated === true,
+      logicalStage: parsed.logicalStage === "schema" ? "schema" : "translation",
       surface: storedSurface,
       diagramView: storedDiagramView,
       tool: storedTool,
@@ -1073,6 +1079,7 @@ export default function App() {
   }));
   const [logicalViewport, setLogicalViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.logicalViewport }));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => ({ ...sessionBootstrap.logicalSelection }));
+  const [logicalStage, setLogicalStage] = useState<LogicalStage>(sessionBootstrap.logicalStage);
   const [logicalTypeMode, setLogicalTypeMode] = useState(false);
   const [logicalPanelMode, setLogicalPanelMode] = useState<"review" | "sql">("review");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
@@ -1328,6 +1335,7 @@ export default function App() {
       translationWorkspace: translationHistory.present,
       logicalWorkspace: logicalHistory.present,
       logicalGenerated,
+      logicalStage,
       surface,
       diagramView,
       tool,
@@ -1373,6 +1381,7 @@ export default function App() {
     history.present,
     logicalGenerated,
     logicalHistory.present,
+    logicalStage,
     logicalSelection,
     logicalViewport,
     mode,
@@ -2196,6 +2205,7 @@ export default function App() {
   }
 
   function handleOpenSqlStage() {
+    setLogicalStage("schema");
     setLogicalPanelMode("sql");
     handleDiagramViewChange("logical");
   }
@@ -2287,6 +2297,7 @@ export default function App() {
       translationWorkspace?: ErTranslationWorkspaceDocument;
       logicalWorkspace?: LogicalWorkspaceDocument;
       logicalGenerated?: boolean;
+      logicalStage?: LogicalStage;
       diagramView?: WorkspaceView;
       viewport?: Viewport;
       translationViewport?: Viewport;
@@ -2329,6 +2340,7 @@ export default function App() {
     setWhatsNewOpen(false);
     setIntroOpen(false);
     setLogicalGenerated(nextLogicalGenerated);
+    setLogicalStage(options?.logicalStage === "schema" && nextLogicalGenerated ? "schema" : "translation");
     setDiagramView(nextDiagramView);
     setTranslationSelection({ nodeIds: [], edgeIds: [] });
     setTranslationViewport(options?.translationViewport ? { ...options.translationViewport } : { ...DEFAULT_VIEWPORT });
@@ -2685,6 +2697,7 @@ export default function App() {
 
     logicalHistory.reset(nextWorkspace);
     setLogicalGenerated(true);
+    setLogicalStage("translation");
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
     setLogicalViewport(DEFAULT_VIEWPORT);
     if (options?.switchToLogical) {
@@ -2772,6 +2785,7 @@ export default function App() {
       preservePositions: false,
       resetDecisions: true,
     });
+    setLogicalStage("translation");
   }
 
   function handleResetLogicalTranslation() {
@@ -2782,11 +2796,54 @@ export default function App() {
       return;
     }
 
-    regenerateLogicalWorkspace({
-      switchToLogical: true,
-      preservePositions: false,
-      resetDecisions: true,
-    });
+    const hasAppliedWork =
+      logicalHistory.present.translation.decisions.length > 0 ||
+      logicalHistory.present.model.tables.length > 0 ||
+      logicalHistory.present.model.foreignKeys.length > 0;
+    if (hasAppliedWork && !window.confirm("Vuoi cancellare tutte le modifiche della traduzione logica?")) {
+      return;
+    }
+
+    const previousWorkspace = logicalHistory.present;
+    const nextWorkspace = createEmptyLogicalWorkspace(translationHistory.present.translatedDiagram, previousWorkspace);
+    commitLogicalWorkspace(nextWorkspace, previousWorkspace);
+    setLogicalGenerated(true);
+    setLogicalStage("translation");
+    setLogicalPanelMode("review");
+    setLogicalTypeMode(false);
+    setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+    setLogicalViewport(DEFAULT_VIEWPORT);
+    setDiagramView("logical");
+    setStatus("Traduzione logica resettata.");
+  }
+
+  function handleApplyBulkLogicalFix(step: "entities" | "weak-entities" | "relationships" | "multivalued-attributes") {
+    const previousWorkspace = logicalHistory.present;
+    const result = applyBulkLogicalFix(translationHistory.present.translatedDiagram, previousWorkspace, step);
+    if (result.appliedCount === 0) {
+      setStatusWarning("Nessun elemento logico applicabile per questo step.");
+      return;
+    }
+
+    commitLogicalWorkspace(result.workspace, previousWorkspace);
+    setDiagramView("logical");
+    setLogicalStage("translation");
+    setLogicalTypeMode(false);
+    setStatus(`Fix logico applicato a ${result.appliedCount} elementi.`);
+  }
+
+  function handleLogicalDone() {
+    if (logicalPendingCount > 0 || logicalHistory.present.translation.conflicts.some((conflict) => conflict.level === "error")) {
+      setStatusWarning("Completa prima entita, entita deboli e relazioni.");
+      return;
+    }
+
+    setLogicalStage("schema");
+    setLogicalPanelMode("review");
+    setLogicalTypeMode(false);
+    setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+    setLogicalFitRequestToken((current) => current + 1);
+    setStatus("Schema logico attivo.");
   }
 
   function handleResetTranslation() {
@@ -2884,6 +2941,41 @@ export default function App() {
   ) {
     const previousModel = logicalHistory.present.model;
     const nextModel = updateLogicalColumnSqlMetadata(previousModel, tableId, columnId, patch);
+    commitLogicalModel(nextModel, previousModel);
+  }
+
+  function handleLogicalColumnMove(
+    tableId: string,
+    columnId: string,
+    direction: "up" | "down" | "top" | "bottom",
+  ) {
+    const previousModel = logicalHistory.present.model;
+    const nextModel = {
+      ...previousModel,
+      tables: previousModel.tables.map((table) => {
+        if (table.id !== tableId) {
+          return table;
+        }
+
+        const fromIndex = table.columns.findIndex((column) => column.id === columnId);
+        if (fromIndex < 0) {
+          return table;
+        }
+
+        const columns = [...table.columns];
+        const [column] = columns.splice(fromIndex, 1);
+        const toIndex =
+          direction === "top"
+            ? 0
+            : direction === "bottom"
+              ? columns.length
+              : direction === "up"
+                ? Math.max(0, fromIndex - 1)
+                : Math.min(columns.length, fromIndex + 1);
+        columns.splice(toIndex, 0, column);
+        return { ...table, columns };
+      }),
+    };
     commitLogicalModel(nextModel, previousModel);
   }
 
@@ -4197,6 +4289,7 @@ export default function App() {
         translationWorkspace: translationHistory.present,
         logicalWorkspace: logicalHistory.present,
         logicalGenerated,
+        logicalStage,
         diagramView,
         viewport,
         translationViewport,
@@ -4232,6 +4325,20 @@ export default function App() {
     const source = serializeDiagramToErs(translationHistory.present.translatedDiagram);
     downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}-restructured.ers`);
     setStatus("Codice ERS ristrutturato scaricato.");
+  }
+
+  function handleSaveLogicalSql() {
+    if (logicalHistory.present.model.tables.length === 0) {
+      setStatusWarning("Traduci almeno un elemento per generare codice SQL.");
+      return;
+    }
+
+    downloadTextFile(
+      generateLogicalSql(logicalHistory.present.model),
+      `${sanitizeFileNameBase(history.present.meta.name)}.sql`,
+      "text/sql;charset=utf-8",
+    );
+    setStatus("SQL scaricato.");
   }
 
   async function handleLoadProjectRequest() {
@@ -4270,6 +4377,7 @@ export default function App() {
         translationWorkspace: parsedProject.state.translationWorkspace,
         logicalWorkspace: parsedProject.state.logicalWorkspace,
         logicalGenerated: parsedProject.state.logicalGenerated,
+        logicalStage: parsedProject.state.logicalStage,
         diagramView: parsedProject.state.diagramView,
         viewport: parsedProject.state.viewport,
         translationViewport: parsedProject.state.translationViewport,
@@ -4521,21 +4629,6 @@ export default function App() {
         onDiagramNameChange={handleDiagramNameChange}
       />
 
-      {diagramView === "logical" ? (
-        <WorkspaceStageBar
-          currentView={diagramView}
-          sqlActive={logicalPanelMode === "sql"}
-          erIssuesCount={issues.length}
-          translationPendingCount={translationPendingCount}
-          logicalPendingCount={logicalPendingCount}
-          logicalTableCount={logicalHistory.present.model.tables.length}
-          logicalOutOfDate={logicalOutOfDate}
-          onOpenEr={handleOpenErStage}
-          onOpenTranslation={handleOpenTranslationStage}
-          onOpenLogical={handleOpenLogicalStage}
-        />
-      ) : null}
-
       <div className={workspaceRegionClassName}>
         <div className="workspace-overlay-region">
           {showOnboardingGuide ? (
@@ -4701,23 +4794,34 @@ export default function App() {
             <LogicalTranslationWorkspace
               sourceDiagram={translationHistory.present.translatedDiagram}
               workspace={logicalHistory.present}
+              logicalStage={logicalStage}
               viewport={logicalViewport}
               selection={logicalSelection}
               sidePanelHidden={structuredSidePanelHidden}
               typeMode={logicalTypeMode}
               panelMode={logicalPanelMode}
               fitRequestToken={logicalFitRequestToken}
+              canUndo={logicalHistory.canUndo}
+              canRedo={logicalHistory.canRedo}
+              onUndo={handleUndoAction}
+              onRedo={handleRedoAction}
               onViewportChange={setLogicalViewport}
               onSelectionChange={setLogicalSelection}
               onTypeModeChange={handleLogicalTypeModeChange}
               onPanelModeChange={setLogicalPanelMode}
               onApplyChoice={handleApplyLogicalTranslationChoice}
+              onApplyBulkFix={handleApplyBulkLogicalFix}
               onResetTranslation={handleResetLogicalTranslation}
+              onDone={handleLogicalDone}
+              onOpenDesign={handleOpenErStage}
+              onExportProject={handleSaveProject}
+              onSaveSql={handleSaveLogicalSql}
               onPreviewModel={previewLogicalModel}
               onCommitModel={commitLogicalModel}
               onRenameTable={handleLogicalTableRename}
               onRenameColumn={handleLogicalColumnRename}
               onUpdateColumnSql={handleLogicalColumnSqlUpdate}
+              onMoveColumn={handleLogicalColumnMove}
             />
           )}
           {diagramView !== "er" && technicalPanelVisible ? (

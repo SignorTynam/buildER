@@ -1,5 +1,5 @@
 import type { DiagramDocument, Viewport } from "../types/diagram";
-import type { LogicalModel, LogicalTranslationState, LogicalWorkspaceDocument } from "../types/logical";
+import type { LogicalModel, LogicalStage, LogicalTranslationState, LogicalWorkspaceDocument } from "../types/logical";
 import type { ErTranslationState, ErTranslationWorkspaceDocument, WorkspaceView } from "../types/translation";
 import { parseDiagram, serializeDiagram } from "./diagram";
 import { createEmptyErTranslationWorkspace, refreshErTranslationWorkspace } from "./erTranslation";
@@ -24,6 +24,7 @@ export type ProjectFileErrorCode =
 
 export interface ProjectFileViewState {
   current: ProjectFileWorkspaceView;
+  logicalStage?: LogicalStage;
   erViewport: Viewport;
   translationViewport: Viewport;
   logicalViewport: Viewport;
@@ -34,6 +35,7 @@ export interface ProjectFileState {
   translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
+  logicalStage: LogicalStage;
   diagramView: ProjectFileWorkspaceView;
   viewport: Viewport;
   translationViewport: Viewport;
@@ -49,6 +51,7 @@ export interface ProjectFileDocument {
   translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
+  logicalStage?: LogicalStage;
   view: ProjectFileViewState;
 }
 
@@ -308,6 +311,7 @@ function sanitizeCurrentProjectView(
   const fallbackDiagramView = options?.fallbackDiagramView ?? "er";
   return {
     current: sanitizeDiagramView(value.current, fallbackDiagramView),
+    logicalStage: value.logicalStage === "schema" ? "schema" : "translation",
     erViewport: sanitizeViewport(value.erViewport, fallbackViewport),
     translationViewport: sanitizeViewport(value.translationViewport, fallbackViewport),
     logicalViewport: sanitizeViewport(value.logicalViewport, fallbackViewport),
@@ -319,6 +323,7 @@ function normalizeProjectState(
   translationWorkspace: ErTranslationWorkspaceDocument,
   logicalWorkspace: LogicalWorkspaceDocument,
   logicalGenerated: boolean,
+  logicalStage: LogicalStage,
   savedAt: string,
   view: ProjectFileViewState,
 ): ProjectFileState {
@@ -333,6 +338,7 @@ function normalizeProjectState(
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
+    logicalStage: logicalGenerated && logicalStage === "schema" ? "schema" : "translation",
     diagramView,
     viewport: cloneViewport(view.erViewport),
     translationViewport: cloneViewport(view.translationViewport),
@@ -346,6 +352,7 @@ function createProjectFileDocument(
   translationWorkspace: ErTranslationWorkspaceDocument,
   logicalWorkspace: LogicalWorkspaceDocument,
   logicalGenerated: boolean,
+  logicalStage: LogicalStage,
   savedAt: string,
   view: ProjectFileViewState,
 ): ProjectFileDocument {
@@ -357,7 +364,11 @@ function createProjectFileDocument(
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
-    view,
+    logicalStage: logicalGenerated && logicalStage === "schema" ? "schema" : "translation",
+    view: {
+      ...view,
+      logicalStage: logicalGenerated && logicalStage === "schema" ? "schema" : "translation",
+    },
   };
 }
 
@@ -394,13 +405,22 @@ function parseLegacyProjectFile(
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
+    "translation",
     savedAt,
     view,
   );
 
   return {
     document,
-    state: normalizeProjectState(diagram, translationWorkspace, logicalWorkspace, logicalGenerated, savedAt, view),
+    state: normalizeProjectState(
+      diagram,
+      translationWorkspace,
+      logicalWorkspace,
+      logicalGenerated,
+      "translation",
+      savedAt,
+      view,
+    ),
     source: "legacy-project-json",
   };
 }
@@ -415,6 +435,8 @@ function parseCurrentProjectFile(
   const logicalWorkspace = sanitizeLogicalWorkspace(value.logicalWorkspace, translationWorkspace.translatedDiagram);
   const logicalGenerated = value.logicalGenerated === true;
   const view = sanitizeCurrentProjectView(value.view, options);
+  const logicalStage =
+    value.logicalStage === "schema" || view.logicalStage === "schema" ? "schema" : "translation";
   const savedAt =
     typeof value.savedAt === "string" && value.savedAt.trim().length > 0
       ? value.savedAt
@@ -424,13 +446,22 @@ function parseCurrentProjectFile(
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
+    logicalStage,
     savedAt,
     view,
   );
 
   return {
     document,
-    state: normalizeProjectState(diagram, translationWorkspace, logicalWorkspace, logicalGenerated, savedAt, view),
+    state: normalizeProjectState(
+      diagram,
+      translationWorkspace,
+      logicalWorkspace,
+      logicalGenerated,
+      logicalStage,
+      savedAt,
+      view,
+    ),
     source: "project-file",
   };
 }
@@ -453,13 +484,22 @@ function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptio
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
+    "translation",
     savedAt,
     view,
   );
 
   return {
     document,
-    state: normalizeProjectState(diagram, translationWorkspace, logicalWorkspace, logicalGenerated, savedAt, view),
+    state: normalizeProjectState(
+      diagram,
+      translationWorkspace,
+      logicalWorkspace,
+      logicalGenerated,
+      "translation",
+      savedAt,
+      view,
+    ),
     source: "legacy-diagram-json",
   };
 }
@@ -492,6 +532,7 @@ export function serializeProjectFile(state: ProjectFileState): string {
         : state.diagramView === "translation"
           ? "translation"
           : "er",
+    logicalStage: logicalGenerated && state.logicalStage === "schema" ? "schema" : "translation",
     erViewport: cloneViewport(state.viewport),
     translationViewport: cloneViewport(state.translationViewport),
     logicalViewport: cloneViewport(state.logicalViewport),
@@ -501,6 +542,7 @@ export function serializeProjectFile(state: ProjectFileState): string {
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
+    state.logicalStage,
     state.savedAt ?? new Date().toISOString(),
     view,
   );

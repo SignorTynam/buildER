@@ -1,6 +1,7 @@
 import type { EdgeKind, LineStyle, NodeKind, Viewport } from "./diagram";
 
 export type LogicalTableKind = "entity" | "associative" | "relationship";
+export type LogicalStage = "translation" | "schema";
 export const SQL_DATA_TYPE_OPTIONS = [
   "INTEGER",
   "TEXT",

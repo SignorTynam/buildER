@@ -24,6 +24,7 @@ test("il formato .ersp salva e ripristina vista corrente e viewport del progetto
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated: true,
+    logicalStage: "schema",
     diagramView: "logical",
     viewport: { x: 42, y: -18, zoom: 1.35 },
     translationViewport: { x: 64, y: 24, zoom: 0.92 },
@@ -41,6 +42,9 @@ test("il formato .ersp salva e ripristina vista corrente e viewport del progetto
   assert.equal(parsed.document.kind, PROJECT_FILE_KIND);
   assert.equal(parsed.state.diagram.meta.name, "Progetto completo");
   assert.equal(parsed.state.logicalGenerated, true);
+  assert.equal(parsed.state.logicalStage, "schema");
+  assert.equal(parsed.document.logicalStage, "schema");
+  assert.equal(parsed.document.view.logicalStage, "schema");
   assert.equal(parsed.state.diagramView, "logical");
   assert.deepEqual(parsed.state.viewport, { x: 42, y: -18, zoom: 1.35 });
   assert.deepEqual(parsed.state.translationViewport, { x: 64, y: 24, zoom: 0.92 });
@@ -106,6 +110,7 @@ test("il formato .ersp conserva cardinalita custom e note HTML", () => {
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated: false,
+    logicalStage: "translation",
     diagramView: "er",
     viewport: DEFAULT_VIEWPORT,
     translationViewport: DEFAULT_VIEWPORT,

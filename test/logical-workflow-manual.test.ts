@@ -4,6 +4,7 @@ import test from "node:test";
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
 import {
   LOGICAL_TRANSLATION_STEPS,
+  applyBulkLogicalFix,
   applyLogicalTranslationChoice,
   buildLogicalTranslationOverview,
   createEmptyLogicalWorkspace,
@@ -146,6 +147,21 @@ test("applicare una sola decisione su entity aggiorna solo la parte coinvolta", 
 
   const untouchedEntity = overview.itemsByStep.entities.find((item) => item.id === "entity-b");
   assert.equal(untouchedEntity?.status, "pending");
+});
+
+test("Fix Entities bulk applica la scelta raccomandata a tutte le entita forti pending", () => {
+  const diagram = createTwoEntityDiagram();
+  const workspace = createEmptyLogicalWorkspace(diagram);
+
+  const result = applyBulkLogicalFix(diagram, workspace, "entities");
+  const overview = buildLogicalTranslationOverview(diagram, result.workspace);
+  const completion = getLogicalTranslationStepCompletion(overview);
+
+  assert.equal(result.appliedCount, 2);
+  assert.equal(result.skippedCount, 0);
+  assert.equal(result.workspace.model.tables.length, 2);
+  assert.equal(completion.entities.pending, 0);
+  assert.equal(completion.entities.applied, 2);
 });
 
 test("applicare una decisione rimuove l'oggetto dal conteggio pending", () => {

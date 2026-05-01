@@ -38,6 +38,7 @@ interface LogicalTransformationCanvasProps {
   fitRequestToken: number;
   activeTargetKeys: string[];
   focusedTargetKey: string | null;
+  schemaOnly?: boolean;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
@@ -599,12 +600,22 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     [graph.nodes, tableColumnsById],
   );
   const nodeById = useMemo(() => new Map(renderedNodes.map((node) => [node.id, node])), [renderedNodes]);
-  const erNodes = useMemo(() => renderedNodes.filter((node) => node.kind === "er-node"), [renderedNodes]);
+  const erNodes = useMemo(
+    () => (props.schemaOnly ? [] : renderedNodes.filter((node) => node.kind === "er-node")),
+    [props.schemaOnly, renderedNodes],
+  );
   const tableNodes = useMemo(
     () => renderedNodes.filter((node) => node.kind === "logical-table"),
     [renderedNodes],
   );
-  const erEdges = useMemo(() => graph.edges.filter((edge) => edge.kind === "er-edge"), [graph.edges]);
+  const visibleRenderedNodes = useMemo(
+    () => (props.schemaOnly ? tableNodes : renderedNodes),
+    [props.schemaOnly, renderedNodes, tableNodes],
+  );
+  const erEdges = useMemo(
+    () => (props.schemaOnly ? [] : graph.edges.filter((edge) => edge.kind === "er-edge")),
+    [graph.edges, props.schemaOnly],
+  );
   const fkEdges = useMemo(() => graph.edges.filter((edge) => edge.kind === "foreign-key"), [graph.edges]);
   const syntheticNodeById = useMemo(
     () => new Map(renderedNodes.map((node) => [node.id, toSyntheticDiagramNode(node)])),
@@ -732,7 +743,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return false;
     }
 
-    const bounds = getBoundsForVisibleContent(renderedNodes, [...routeByEdgeId.values()]);
+    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()]);
     if (!bounds) {
       return false;
     }
@@ -824,7 +835,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
-    const bounds = getBoundsForVisibleContent(renderedNodes, [...routeByEdgeId.values()]);
+    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()]);
     if (!bounds) {
       return;
     }
@@ -844,7 +855,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
-    const bounds = getBoundsForVisibleContent(renderedNodes, [...routeByEdgeId.values()]);
+    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()]);
     if (!bounds) {
       props.onViewportChange({
         x: rect.width / 2,
