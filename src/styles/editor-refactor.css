@@ -64,6 +64,347 @@ body {
   color: var(--editor-text);
 }
 
+.app-shell-view-er {
+  grid-template-rows: 42px minmax(0, 1fr) auto;
+}
+
+.designer-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: auto minmax(170px, 280px) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 42px;
+  padding: 4px 10px;
+  background: #151414;
+  color: #ffffff;
+}
+
+.designer-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 180px;
+  font-family: Consolas, "Courier New", monospace;
+  letter-spacing: 0.18em;
+}
+
+.designer-brand strong {
+  font-size: 0.92rem;
+}
+
+.designer-brand span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.68rem;
+  letter-spacing: 0;
+}
+
+.designer-project-name {
+  justify-self: center;
+  width: min(280px, 28vw);
+  height: 34px;
+  border: 1px solid #3c3c3c;
+  background: #1d1d1d;
+  color: #b9bdc3;
+  padding: 0 12px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.88rem;
+}
+
+.designer-topbar-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 20px;
+}
+
+.designer-topbar-actions button {
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 4px 0;
+}
+
+.designer-topbar-actions .designer-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 1rem;
+  padding: 0;
+}
+
+.designer-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: #dfe3dc;
+}
+
+.designer-workspace.code-open {
+  grid-template-columns: minmax(320px, 25vw) minmax(0, 1fr);
+}
+
+.designer-canvas-region {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #dfe3dc;
+}
+
+.designer-canvas-region .canvas-panel {
+  height: 100%;
+  border: 0;
+  background: #dfe3dc;
+}
+
+.designer-canvas-region .diagram-canvas,
+.designer-canvas-region .diagram-canvas rect {
+  background: #dfe3dc;
+}
+
+.designer-canvas-region {
+  --diagram-canvas-fill: #dfe3dc;
+  --diagram-node-fill: #dfe3dc;
+}
+
+.designer-context-toolbar {
+  position: absolute;
+  z-index: 12;
+  top: 76px;
+  left: 54px;
+  width: 64px;
+  display: grid;
+  gap: 0;
+  border: 1px solid #cfd4d1;
+  border-radius: 5px;
+  background: #f8f9f7;
+  overflow: hidden;
+}
+
+.designer-toolbar-button {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 55px;
+  border: 0;
+  border-bottom: 1px solid #e0e4e1;
+  background: transparent;
+  color: #000000;
+  padding: 5px 3px;
+  text-align: center;
+}
+
+.designer-toolbar-button:last-child {
+  border-bottom: 0;
+}
+
+.designer-toolbar-button:disabled {
+  color: #9da29f;
+  cursor: not-allowed;
+}
+
+.designer-toolbar-icon {
+  font-size: 1.55rem;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.designer-toolbar-label {
+  max-width: 58px;
+  overflow-wrap: anywhere;
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+.designer-side-toggle {
+  position: absolute;
+  z-index: 14;
+  top: 10px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: #111111;
+  font-size: 0.72rem;
+}
+
+.designer-side-toggle span {
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.designer-side-toggle-left {
+  left: 14px;
+}
+
+.designer-side-toggle-right {
+  right: 14px;
+}
+
+.designer-code-dock {
+  width: 25vw;
+  min-width: 320px;
+  max-width: 460px;
+  height: 100%;
+  border: 0;
+  border-right: 1px solid #c4cac4;
+  background: #eef2ed;
+  overflow: hidden;
+}
+
+.designer-panel-caption {
+  height: 42px;
+  padding: 18px 20px 0;
+  color: #a2a9a5;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+}
+
+.designer-code-editor {
+  position: relative;
+  height: calc(100% - 78px);
+  margin: 0 0 0 0;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.designer-code-highlight,
+.designer-code-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0 28px 24px 74px;
+  border: 0;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.designer-code-highlight {
+  pointer-events: none;
+  color: #111111;
+  background: transparent;
+}
+
+.designer-code-input {
+  resize: none;
+  background: transparent;
+  color: transparent;
+  caret-color: #111111;
+  outline: none;
+}
+
+.designer-code-input::selection {
+  background: rgba(60, 110, 150, 0.25);
+}
+
+.ers-token-comment { color: #7b8ea0; }
+.ers-token-keyword { color: #0075a8; }
+.ers-token-name { color: #005d80; }
+.ers-token-modifier { color: #b00074; }
+.ers-token-string { color: #111111; }
+.ers-token-card { color: #8e0074; font-weight: 700; }
+
+.designer-code-error {
+  margin: 8px 20px 0 74px;
+  color: #9b2d24;
+  font-size: 0.74rem;
+}
+
+.designer-notes-overlay {
+  position: absolute;
+  z-index: 30;
+  top: 62px;
+  right: 0;
+  width: min(520px, 32vw);
+  min-width: 360px;
+  height: min(70vh, 640px);
+  border: 1px solid #c4c7c5;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.designer-notes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 88px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #d7d7d7;
+  background: #fafafa;
+}
+
+.designer-notes-toolbar button {
+  min-width: 26px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  color: #36393b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.designer-notes-hide {
+  margin-left: auto;
+}
+
+.designer-notes-editor {
+  height: calc(100% - 88px);
+  padding: 14px 16px;
+  overflow: auto;
+  outline: none;
+  background: #ffffff;
+  color: #1d2220;
+  line-height: 1.5;
+}
+
+.designer-notes-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #777777;
+  font-style: italic;
+}
+
+.canvas-viewport-hud {
+  right: 28px;
+  bottom: 28px;
+  left: auto;
+  top: auto;
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-zoom,
+.canvas-hud-cluster-viewport button:nth-child(n+4) {
+  display: none;
+}
+
+.canvas-hud-button {
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 9px;
+  background: #ffffff;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.canvas-guidance,
+.canvas-pan-hint {
+  display: none;
+}
+
 button,
 input,
 select,
@@ -3790,6 +4131,48 @@ textarea:disabled {
   }
 }
 
+/* designER-like ER workspace overrides */
+.app-shell.app-shell-view-er {
+  grid-template-rows: 42px minmax(0, 1fr) auto !important;
+}
+
+.app-shell-view-er .app-workspace-region {
+  padding: 0 !important;
+  background: #dfe3dc !important;
+}
+
+.app-shell-view-er .er-workspace-shell {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #dfe3dc !important;
+}
+
+.app-shell-view-er .designer-workspace,
+.app-shell-view-er .designer-canvas-region,
+.app-shell-view-er .canvas-panel,
+.app-shell-view-er .diagram-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.app-shell-view-er .canvas-panel,
+.app-shell-view-er .logical-canvas,
+.app-shell-view-er .diagram-canvas {
+  background: #dfe3dc !important;
+  background-image: none !important;
+}
+
+.app-shell-view-er .canvas-viewport-hud {
+  top: auto !important;
+  right: 28px !important;
+  bottom: 28px !important;
+  left: auto !important;
+}
+
 /* Cross-view workspace alignment */
 .studio-tabs,
 .technical-dock-tabs,
@@ -4600,4 +4983,50 @@ button.warning-card:hover {
   .toolbar-issue-card.warning-card {
     grid-template-columns: 1fr;
   }
+}
+
+/* designER-like ER workspace overrides */
+.app-shell.app-shell-view-er {
+  grid-template-rows: 42px minmax(0, 1fr) auto !important;
+}
+
+.app-shell-view-er .app-workspace-region {
+  padding: 0 !important;
+  background: #dfe3dc !important;
+}
+
+.app-shell-view-er .er-workspace-shell {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #dfe3dc !important;
+}
+
+.app-shell-view-er .designer-workspace,
+.app-shell-view-er .designer-canvas-region,
+.app-shell-view-er .canvas-panel,
+.app-shell-view-er .diagram-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.app-shell-view-er .canvas-panel,
+.app-shell-view-er .diagram-canvas {
+  background: #dfe3dc !important;
+  background-image: none !important;
+}
+
+.app-shell-view-er .designer-canvas-region {
+  --diagram-canvas-fill: #dfe3dc !important;
+  --diagram-node-fill: #dfe3dc !important;
+}
+
+.app-shell-view-er .canvas-viewport-hud {
+  top: auto !important;
+  right: 28px !important;
+  bottom: 28px !important;
+  left: auto !important;
 }

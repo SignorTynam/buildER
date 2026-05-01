@@ -4,6 +4,7 @@ import test from "node:test";
 import type { DiagramDocument } from "../src/types/diagram.ts";
 import { renameNodeAsNameIdentity } from "../src/utils/diagram.ts";
 import { parseErsDiagram, serializeDiagramToErs } from "../src/utils/ers.ts";
+import { normalizeCardinalityInput } from "../src/utils/cardinality.ts";
 
 test("la serializzazione ERS usa il nome corrente della shape invece dell'id legacy", () => {
   const source = `diagram "Nuovo diagramma"
@@ -93,4 +94,40 @@ test("la rinomina nome-identita aggiorna davvero l'id del nodo", () => {
   assert.equal(renamedEntity?.id, "PROGETTO");
   assert.equal(renamedEntity?.label, "PROGETTO");
   assert.equal(renamedEdge.sourceId, "PROGETTO");
+});
+
+test("le cardinalita custom vengono normalizzate e validate", () => {
+  assert.deepEqual(normalizeCardinalityInput("1...4"), { valid: true, value: "(1,4)" });
+  assert.deepEqual(normalizeCardinalityInput("2...N"), { valid: true, value: "(2,N)" });
+  assert.equal(normalizeCardinalityInput("5...2").valid, false);
+  assert.equal(normalizeCardinalityInput("abc").valid, false);
+});
+
+test("ERS serializza e rilegge cardinalita custom su connector e attributi", () => {
+  const source = `diagram "Card custom"
+
+entity A {
+  attribute codice card "1...4"
+}
+entity B {
+  identifier idB
+}
+relation R A "2...N" B "(1,1)"`;
+
+  const parsed = parseErsDiagram(source);
+  const attribute = parsed.nodes.find((node) => node.type === "attribute" && node.label === "codice");
+  const entityA = parsed.nodes.find((node) => node.type === "entity" && node.label === "A");
+  const relation = parsed.nodes.find((node) => node.type === "relationship" && node.label === "R");
+
+  assert.equal(attribute?.type === "attribute" ? attribute.cardinality : undefined, "(1,4)");
+  assert.equal(
+    entityA?.type === "entity"
+      ? entityA.relationshipParticipations?.find((participation) => participation.relationshipId === relation?.id)?.cardinality
+      : undefined,
+    "(2,N)",
+  );
+
+  const serialized = serializeDiagramToErs(parsed);
+  assert.match(serialized, /card "\(1,4\)"/);
+  assert.match(serialized, /A "\(2,N\)"/);
 });

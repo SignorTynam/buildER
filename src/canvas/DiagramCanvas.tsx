@@ -374,6 +374,10 @@ function editableTool(tool: ToolKind): tool is Extract<ToolKind, "entity" | "rel
   return tool === "entity" || tool === "relationship" || tool === "attribute";
 }
 
+function placeableCanvasTool(tool: ToolKind): tool is Extract<ToolKind, "entity" | "relationship"> {
+  return tool === "entity" || tool === "relationship";
+}
+
 function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -1463,6 +1467,41 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }, [props.onStatusMessageChange, props.statusMessage, props.tool]);
 
   useEffect(() => {
+    if (props.tool !== "connector" && props.tool !== "inheritance") {
+      return;
+    }
+
+    if (pendingConnectionSource || props.selection.nodeIds.length !== 1 || props.selection.edgeIds.length > 0) {
+      return;
+    }
+
+    const selectedSource = nodeMap.get(props.selection.nodeIds[0]);
+    if (!selectedSource) {
+      return;
+    }
+
+    if (
+      (props.tool === "connector" && selectedSource.type === "relationship") ||
+      (props.tool === "inheritance" && selectedSource.type === "entity")
+    ) {
+      setPendingConnectionSource(selectedSource.id);
+      setConnectionPreviewPoint(getNodeCenter(selectedSource));
+      props.onStatusMessageChange(
+        props.tool === "inheritance"
+          ? `Sorgente selezionata: ${selectedSource.label}. Seleziona parent entity o premi Esc per annullare.`
+          : `Sorgente selezionata: ${selectedSource.label}. Seleziona target entity o premi Esc per annullare.`,
+      );
+    }
+  }, [
+    nodeMap,
+    pendingConnectionSource,
+    props.onStatusMessageChange,
+    props.selection.edgeIds.length,
+    props.selection.nodeIds,
+    props.tool,
+  ]);
+
+  useEffect(() => {
     if (!focusedTarget) {
       return;
     }
@@ -1879,7 +1918,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (editableTool(props.tool)) {
+    if (props.tool === "attribute") {
+      props.onStatusMessageChange("Seleziona prima un'entita o una relazione.");
+      return;
+    }
+
+    if (placeableCanvasTool(props.tool)) {
       const newId = props.onCreateNode(props.tool, worldPoint);
       props.onSelectionChange({ nodeIds: [newId], edgeIds: [] });
       return;

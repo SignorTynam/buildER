@@ -610,10 +610,11 @@ function parseStructuredAttributeDeclaration(
     const directive = readIdentifier(tokens, state, line, "Direttiva attributo non valida.");
     if (directive === "card") {
       const nextCardinality = readStringValue(tokens, state, line, "Cardinalita attributo non valida.");
-      if (!isSupportedCardinality(nextCardinality)) {
+      const normalizedCardinality = normalizeSupportedCardinality(nextCardinality);
+      if (!normalizedCardinality) {
         throw new ErsParseError(line, `Cardinalita attributo non valida: "${nextCardinality}".`);
       }
-      cardinality = nextCardinality;
+      cardinality = normalizedCardinality;
       continue;
     }
 
@@ -1341,10 +1342,11 @@ function parseNodeStatement(
         }
         {
           const parsedCardinality = readStringValue(tokens, state, line, "Cardinalita attributo non valida.");
-          if (!isSupportedCardinality(parsedCardinality)) {
+          const normalizedCardinality = normalizeSupportedCardinality(parsedCardinality);
+          if (!normalizedCardinality) {
             throw new ErsParseError(line, `Cardinalita attributo non valida: "${parsedCardinality}".`);
           }
-          node.cardinality = normalizeSupportedCardinality(parsedCardinality);
+          node.cardinality = normalizedCardinality;
         }
         break;
       case "identifier":

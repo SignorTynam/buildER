@@ -22,15 +22,60 @@ export const CONNECTOR_CARDINALITIES = [
   "(N,N)",
 ] as const;
 
-export type ConnectorCardinality = (typeof CONNECTOR_CARDINALITIES)[number];
+export type ConnectorCardinality = string;
+
+export interface CardinalityParseResult {
+  valid: boolean;
+  value?: ConnectorCardinality;
+  reason?: string;
+}
+
+function parseCardinalityBound(value: string): number | "N" | null {
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "N") {
+    return "N";
+  }
+
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function normalizeCardinalityInput(value: string | undefined): CardinalityParseResult {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) {
+    return { valid: false, reason: "Cardinalita mancante." };
+  }
+
+  const compact = raw.replace(/\s+/g, "").toUpperCase();
+  const unwrapped = compact.startsWith("(") && compact.endsWith(")") ? compact.slice(1, -1) : compact;
+  const separatorMatch = unwrapped.match(/^([^,.]+?)(?:\.\.\.|\.{2}|,)([^,.]+)$/);
+  if (!separatorMatch) {
+    return { valid: false, reason: "Usa una forma come 1...4, 1..N o (1,N)." };
+  }
+
+  const min = parseCardinalityBound(separatorMatch[1]);
+  const max = parseCardinalityBound(separatorMatch[2]);
+  if (min === null || max === null) {
+    return { valid: false, reason: "Minimo e massimo devono essere interi >= 0 oppure N." };
+  }
+
+  if (typeof min === "number" && typeof max === "number" && min > max) {
+    return { valid: false, reason: "Il minimo non puo essere maggiore del massimo." };
+  }
+
+  return { valid: true, value: `(${min},${max})` };
+}
 
 export function isSupportedCardinality(value: string): value is ConnectorCardinality {
-  return (CONNECTOR_CARDINALITIES as readonly string[]).includes(value);
+  return normalizeCardinalityInput(value).valid;
 }
 
 export function normalizeSupportedCardinality(value: string | undefined): ConnectorCardinality | undefined {
-  const normalized = typeof value === "string" ? value.trim() : "";
-  return isSupportedCardinality(normalized) ? normalized : undefined;
+  return normalizeCardinalityInput(value).value;
 }
 
 export function getAttributeCardinalityOwner(
