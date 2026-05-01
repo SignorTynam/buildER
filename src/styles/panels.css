@@ -2458,6 +2458,10 @@ summary:focus-visible,
   color: var(--studio-ink);
 }
 
+.app-shell.app-shell-view-logical {
+  grid-template-rows: 42px minmax(0, 1fr) auto !important;
+}
+
 .app-header.studio-topbar {
   min-height: 54px;
   padding: 8px 14px;
