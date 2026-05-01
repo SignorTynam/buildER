@@ -1,5 +1,5 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
-import type { DiagramNode, Point } from "../types/diagram";
+import type { DiagramHighlightKind, DiagramNode, Point } from "../types/diagram";
 import { useI18n } from "../i18n/useI18n";
 
 const DIAGRAM_NODE_FILL = "var(--diagram-node-fill)";
@@ -11,6 +11,8 @@ const DIAGRAM_WARNING = "var(--diagram-warning)";
 const DIAGRAM_WARNING_FILL = "var(--diagram-warning-fill)";
 const DIAGRAM_ERROR = "var(--diagram-error)";
 const DIAGRAM_ERROR_FILL = "var(--diagram-error-fill)";
+const DIAGRAM_TRANSLATION_PENDING = "var(--diagram-translation-pending, #ff3b30)";
+const DIAGRAM_TRANSLATION_BLOCKED = "var(--diagram-translation-blocked, #b75b56)";
 
 type DiagramIssueLevel = "warning" | "error" | undefined;
 
@@ -118,6 +120,7 @@ interface DiagramNodeProps {
   focusable: boolean;
   validationLevel?: DiagramIssueLevel;
   validationCount?: number;
+  translationHighlight?: DiagramHighlightKind;
   attributeDirection?: Point;
   onFocus: (node: DiagramNode) => void;
   onBlur: (event: FocusEvent<SVGGElement>) => void;
@@ -129,17 +132,41 @@ export function DiagramNodeView(props: DiagramNodeProps) {
   const { t } = useI18n();
   const { node } = props;
   const isGhost = props.ghost === true;
-  const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
-  const isShapeHighlighted = !isGhost && (props.selected || props.focused) && !props.validationLevel;
-  const selectedStrokeColor = isShapeHighlighted ? DIAGRAM_FOCUS : strokeColor;
+  const translationStroke =
+    props.translationHighlight === "pending" || props.translationHighlight === "selected"
+      ? DIAGRAM_TRANSLATION_PENDING
+      : props.translationHighlight === "blocked"
+        ? DIAGRAM_TRANSLATION_BLOCKED
+        : undefined;
+  const strokeColor = isGhost ? DIAGRAM_DRAG : translationStroke ?? getValidationStroke(props.validationLevel);
+  const isShapeHighlighted =
+    !isGhost && (props.selected || props.focused || props.translationHighlight === "selected") && !props.validationLevel;
+  const selectedStrokeColor =
+    props.translationHighlight === "selected" ? DIAGRAM_TRANSLATION_PENDING : isShapeHighlighted ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeCount = props.validationCount;
   const baseFill = isGhost ? "none" : DIAGRAM_NODE_FILL;
   const baseDash = isGhost ? "10 8" : undefined;
   const baseOpacity = isGhost ? 0.6 : 1;
   const labelOpacity = isGhost ? 0.74 : 1;
-  const shapeStrokeWidth = isGhost ? 1.8 : props.pending || props.dragging ? 2.4 : isShapeHighlighted ? 2.7 : 2;
-  const weakShapeStrokeWidth = isGhost ? 1.6 : props.pending || props.dragging ? 2.1 : isShapeHighlighted ? 2.3 : 1.8;
+  const shapeStrokeWidth = isGhost
+    ? 1.8
+    : props.translationHighlight === "selected"
+      ? 3.2
+      : props.pending || props.dragging || props.translationHighlight
+        ? 2.4
+        : isShapeHighlighted
+          ? 2.7
+          : 2;
+  const weakShapeStrokeWidth = isGhost
+    ? 1.6
+    : props.translationHighlight === "selected"
+      ? 2.8
+      : props.pending || props.dragging || props.translationHighlight
+        ? 2.1
+        : isShapeHighlighted
+          ? 2.3
+          : 1.8;
   const groupClassName = isGhost ? "diagram-node ghost" : props.selected ? "diagram-node selected" : "diagram-node";
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
   const groupFocusable = !isGhost && props.focusable ? "true" : "false";

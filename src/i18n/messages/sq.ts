@@ -392,6 +392,24 @@ export const sq: DeepPartialMessages = {
     },
   },
   translation: {
+    restructuring: {
+      stageLabel: "RESTRUCTURING",
+      undo: "Zhbëj",
+      redo: "Ribëj",
+      reset: "Reset",
+      fix: "Fix",
+      design: "Design",
+      translate: "Translate",
+      export: "Export",
+      save: "Save",
+      recommended: "e rekomanduar",
+      selectTarget: "Zgjidh një hierarki ose atribut për ristrukturim.",
+      completeFirst: "Përfundo fillimisht hierarkitë dhe atributet shumëvlerëshe.",
+      ready: "Përkthimi është gati",
+      pendingGeneralizations: "Hierarki në pritje",
+      pendingAttributes: "Atribute shumëvlerëshe në pritje",
+      unavailable: "Operacioni nuk është i disponueshëm në pamjen Restructuring.",
+    },
     composite: {
       split: {
         label: "Ndaj",

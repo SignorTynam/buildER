@@ -177,7 +177,7 @@ TRENO <= {
   const serialized = serializeDiagramToErs(parsed);
   assert.match(serialized, /^\/\* Entities \*\//m);
   assert.match(serialized, /^relationship RELATIONSHIP18 \($/m);
-  assert.match(serialized, /TRENO <= \{/);
+  assert.match(serialized, /generalization TRENO_generalization_\d+ TRENO \(p,e\) \{/);
   assert.match(serialized, /identifier \(Nome, Cognome\)/);
 });
 
@@ -200,4 +200,24 @@ relationship R (
 
   const serialized = serializeDiagramToErs(parsed);
   assert.match(serialized, /^    B: one\.\.one external$/m);
+});
+
+test("ERS parse e serializza gruppi generalization espliciti", () => {
+  const parsed = parseErsDiagram(`entity PERSONA
+entity UOMO
+entity DONNA
+
+generalization G1 PERSONA (t,e) {
+  UOMO
+  DONNA
+}`);
+
+  assert.equal(parsed.generalizationGroups?.length, 1);
+  assert.equal(parsed.generalizationGroups?.[0]?.id, "G1");
+  assert.equal(parsed.generalizationGroups?.[0]?.subtypeIds.length, 2);
+
+  const serialized = serializeDiagramToErs(parsed);
+  assert.match(serialized, /generalization G1 PERSONA \(t,e\) \{/);
+  assert.match(serialized, /UOMO,/);
+  assert.match(serialized, /DONNA/);
 });

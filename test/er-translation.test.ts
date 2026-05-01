@@ -141,6 +141,69 @@ function createCompositeDiagram(): DiagramDocument {
   };
 }
 
+test("GeneralizationGroup condivisi e separati producono item distinti nella overview", () => {
+  const diagram = parseErsDiagram(`entity PERSONA {
+  identifier CF
+}
+entity UOMO
+entity DONNA
+entity IMPIEGATO
+entity STUDENTE
+
+generalization G_SESSO PERSONA (t,e) {
+  UOMO
+  DONNA
+}
+generalization G_RUOLO PERSONA (p,o) {
+  IMPIEGATO
+  STUDENTE
+}`);
+
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const overview = buildErTranslationOverview(workspace);
+  const generalizations = overview.itemsByStep.generalizations;
+
+  assert.equal(generalizations.length, 2);
+  assert.equal(generalizations.some((item) => item.id === "G_SESSO"), true);
+  assert.equal(generalizations.some((item) => item.id === "G_RUOLO"), true);
+});
+
+test("collapse up si applica solo al gruppo selezionato anche con stesso parent", () => {
+  const diagram = parseErsDiagram(`entity PERSONA {
+  identifier CF
+  attribute Nome
+}
+entity UOMO {
+  attribute Barba
+}
+entity DONNA {
+  attribute Maternita
+}
+entity IMPIEGATO
+entity STUDENTE
+
+generalization G_SESSO PERSONA (t,e) {
+  UOMO
+  DONNA
+}
+generalization G_RUOLO PERSONA (p,o) {
+  IMPIEGATO
+  STUDENTE
+}`);
+
+  const translated = applyGeneralizationTranslation(diagram, {
+    supertypeId: "G_SESSO",
+    rule: "generalization-collapse-up",
+  });
+
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.label === "UOMO"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.label === "DONNA"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.label === "IMPIEGATO"), true);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.label === "STUDENTE"), true);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_RUOLO"), true);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_SESSO"), false);
+});
+
 test("la pipeline ER->ER blocca gli attributi composti finche esistono generalizzazioni aperte", () => {
   const diagram = createOrderedWorkflowDiagram();
   let workspace = createEmptyErTranslationWorkspace(diagram);
@@ -254,8 +317,10 @@ entity ARG_PRATICO {
   attribute dispensa
 }
 
-inheritance ARG_TEORICO -> ARGOMENTO
-inheritance ARG_PRATICO -> ARGOMENTO
+generalization G_ARG ARGOMENTO (t,e) {
+  ARG_TEORICO
+  ARG_PRATICO
+}
 
 relation PARTECIPAZIONE ARGOMENTO "(0,N)" STATISTICA "(1,1)"
 entity STATISTICA {

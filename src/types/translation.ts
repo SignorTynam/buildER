@@ -23,6 +23,8 @@ export interface ErTranslationChoice {
   summary: string;
   previewLines?: string[];
   recommended?: boolean;
+  disabledReason?: string;
+  warning?: string;
   configuration?: Record<string, string | boolean | number | null | undefined>;
 }
 

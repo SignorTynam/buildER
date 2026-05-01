@@ -16,6 +16,26 @@ export type LineStyle = "solid" | "dashed";
 export type IsaDisjointness = "disjoint" | "overlap";
 export type IsaCompleteness = "total" | "partial";
 
+export interface GeneralizationGroup {
+  id: string;
+  supertypeId: string;
+  subtypeIds: string[];
+  isaCompleteness?: IsaCompleteness;
+  isaDisjointness?: IsaDisjointness;
+  label?: string;
+}
+
+export type DiagramHighlightKind = "pending" | "blocked" | "selected";
+
+export interface DiagramHighlights {
+  pendingNodeIds?: string[];
+  pendingEdgeIds?: string[];
+  blockedNodeIds?: string[];
+  blockedEdgeIds?: string[];
+  selectedNodeIds?: string[];
+  selectedEdgeIds?: string[];
+}
+
 export interface Point {
   x: number;
   y: number;
@@ -102,6 +122,7 @@ export interface InheritanceEdge extends BaseEdge {
   type: "inheritance";
   isaDisjointness?: IsaDisjointness;
   isaCompleteness?: IsaCompleteness;
+  generalizationGroupId?: string;
 }
 
 export type DiagramEdge = ConnectorEdge | AttributeEdge | InheritanceEdge;
@@ -114,6 +135,7 @@ export interface DiagramDocument {
   notes: string;
   nodes: DiagramNode[];
   edges: DiagramEdge[];
+  generalizationGroups?: GeneralizationGroup[];
 }
 
 export interface Viewport {

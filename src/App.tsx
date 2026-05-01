@@ -1214,8 +1214,7 @@ export default function App() {
     technicalPanelResizeBounds.min,
     technicalPanelResizeBounds.max,
   );
-  const technicalPanelAvailableInView =
-    diagramView === "er" || technicalPanelTab === "code" || technicalPanelTab === "notes";
+  const technicalPanelAvailableInView = diagramView === "er";
   const technicalPanelVisible = technicalPanelOpen && technicalPanelAvailableInView && !focusMode;
   const structuredSidePanelHidden = diagramView !== "er" && technicalPanelVisible;
   const appShellClassName = [
@@ -2643,10 +2642,14 @@ export default function App() {
     commitLogicalWorkspace(nextWorkspace, previousSnapshot);
   }
 
-  function resetTranslationWorkspace(options?: { switchToTranslation?: boolean }) {
+  function resetTranslationWorkspace(options?: { switchToTranslation?: boolean; preserveHistory?: boolean }) {
     const previousWorkspace = translationHistory.present;
     const nextWorkspace = createEmptyErTranslationWorkspace(history.present, previousWorkspace);
-    translationHistory.reset(nextWorkspace);
+    if (options?.preserveHistory) {
+      translationHistory.commit(nextWorkspace, previousWorkspace);
+    } else {
+      translationHistory.reset(nextWorkspace);
+    }
     setTranslationSelection({ nodeIds: [], edgeIds: [] });
     setTranslationViewport(DEFAULT_VIEWPORT);
     setLogicalGenerated(false);
@@ -2786,7 +2789,15 @@ export default function App() {
       return;
     }
 
-    resetTranslationWorkspace({ switchToTranslation: true });
+    const hasAppliedWork =
+      translationHistory.present.translation.decisions.length > 0 ||
+      translationHistory.present.translation.mappings.length > 0 ||
+      translationHistory.present.translation.conflicts.length > 0;
+    if (hasAppliedWork && !window.confirm("Vuoi cancellare tutte le modifiche di ristrutturazione?")) {
+      return;
+    }
+
+    resetTranslationWorkspace({ switchToTranslation: true, preserveHistory: true });
   }
 
   function handleLogicalAutoLayout() {
@@ -2872,10 +2883,14 @@ export default function App() {
 
   function handleApplyErTranslationChoice(item: ErTranslationItem, choice: ErTranslationChoice) {
     const previousWorkspace = translationHistory.present;
-    const nextWorkspace = applyErTranslationChoice(history.present, previousWorkspace, choice, item.targetType, item.id);
-    commitTranslationWorkspace(nextWorkspace, previousWorkspace);
-    setDiagramView("translation");
-    setStatus(choice.summary);
+    try {
+      const nextWorkspace = applyErTranslationChoice(history.present, previousWorkspace, choice, item.targetType, item.id);
+      commitTranslationWorkspace(nextWorkspace, previousWorkspace);
+      setDiagramView("translation");
+      setStatus(choice.summary);
+    } catch (error) {
+      setStatusWarning(error instanceof Error ? error.message : "Decisione di ristrutturazione non applicabile.");
+    }
   }
 
   function handleApplyLogicalTranslationChoice(item: LogicalTranslationItem, choice: LogicalTranslationChoice) {
@@ -4207,6 +4222,12 @@ export default function App() {
     setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
   }
 
+  function handleSaveRestructuredErs() {
+    const source = serializeDiagramToErs(translationHistory.present.translatedDiagram);
+    downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}-restructured.ers`);
+    setStatus("Codice ERS ristrutturato scaricato.");
+  }
+
   async function handleLoadProjectRequest() {
     if (!(await confirmDiscardChanges("caricare un progetto"))) {
       return;
@@ -4494,7 +4515,7 @@ export default function App() {
         onDiagramNameChange={handleDiagramNameChange}
       />
 
-      {diagramView !== "er" ? (
+      {diagramView === "logical" ? (
         <WorkspaceStageBar
           currentView={diagramView}
           sqlActive={logicalPanelMode === "sql"}
@@ -4633,10 +4654,18 @@ export default function App() {
               viewport={translationViewport}
               selection={translationSelection}
               sidePanelHidden={structuredSidePanelHidden}
+              canUndo={translationHistory.canUndo}
+              canRedo={translationHistory.canRedo}
+              onUndo={handleUndoAction}
+              onRedo={handleRedoAction}
               onViewportChange={setTranslationViewport}
               onSelectionChange={setTranslationSelection}
               onApplyChoice={handleApplyErTranslationChoice}
               onResetTranslation={handleResetTranslation}
+              onOpenDesign={() => handleDiagramViewChange("er")}
+              onOpenLogical={handleGenerateLogicalModel}
+              onExportProject={handleSaveProject}
+              onSaveRestructuredErs={handleSaveRestructuredErs}
               onPreviewDiagram={(diagram) => {
                 translationHistory.setPresent({
                   ...translationHistory.present,

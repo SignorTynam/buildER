@@ -393,6 +393,24 @@ export const it = {
     },
   },
   translation: {
+    restructuring: {
+      stageLabel: "RESTRUCTURING",
+      undo: "Annulla",
+      redo: "Ripeti",
+      reset: "Reset",
+      fix: "Fix",
+      design: "Design",
+      translate: "Translate",
+      export: "Export",
+      save: "Save",
+      recommended: "consigliata",
+      selectTarget: "Seleziona una gerarchia o un attributo da ristrutturare.",
+      completeFirst: "Completa prima gerarchie e attributi multivalore.",
+      ready: "Traduzione pronta",
+      pendingGeneralizations: "Gerarchie pending",
+      pendingAttributes: "Attributi multivalore pending",
+      unavailable: "Operazione non disponibile nella vista Traduzione.",
+    },
     composite: {
       split: {
         label: "Split",

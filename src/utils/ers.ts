@@ -5,6 +5,7 @@ import type {
   EdgeKind,
   ExternalIdentifier,
   EntityRelationshipParticipation,
+  GeneralizationGroup,
   InternalIdentifier,
   IsaCompleteness,
   IsaDisjointness,
@@ -77,6 +78,7 @@ interface ParsedEdgeSpec {
   isaDisjointness?: IsaDisjointness;
   isaCompleteness?: IsaCompleteness;
   isExternalIdentifierHost?: boolean;
+  generalizationGroupAlias?: string;
 }
 
 interface ParsedInternalIdentifierSpec {
@@ -94,6 +96,15 @@ interface ParsedExternalIdentifierSpec {
   offset?: number;
   markerOffsetX?: number;
   markerOffsetY?: number;
+}
+
+interface ParsedGeneralizationGroupSpec {
+  line: number;
+  alias: string;
+  supertypeAlias: string;
+  subtypeAliases: string[];
+  isaCompleteness?: IsaCompleteness;
+  isaDisjointness?: IsaDisjointness;
 }
 
 interface StructuredExpansion {
@@ -1290,19 +1301,138 @@ function expandDesignerGeneralization(
             ? "overlap"
             : "disjoint";
       }
+      const groupAlias = `${parentAlias}_generalization_${line}`;
 
       return {
         nextIndex: index,
-        emitted: children.map((childAlias) => ({
-          line: currentLine,
-          text: `inheritance ${childAlias} -> ${parentAlias} ${isaDisjointness} ${isaCompleteness}`,
-        })),
+        emitted: [
+          {
+            line: currentLine,
+            text: `generalization-group ${groupAlias} ${parentAlias} ${isaDisjointness} ${isaCompleteness}`,
+          },
+          ...children.map((childAlias) => ({
+            line: currentLine,
+            text: `inheritance ${childAlias} -> ${parentAlias} group ${groupAlias} ${isaDisjointness} ${isaCompleteness}`,
+          })),
+        ],
       };
     }
 
     const childAlias = stripDesignerTrailingComma(compact);
     assertUnqualifiedAlias(childAlias, currentLine, "Il nome entita figlia");
     children.push(childAlias);
+  }
+
+  throw new ErsParseError(line, "Blocco generalization non chiuso.");
+}
+
+function parseGeneralizationGroupStatement(tokens: string[], line: number): ParsedGeneralizationGroupSpec {
+  const state = { index: 1 };
+  const alias = readIdentifier(tokens, state, line, "Nome gruppo generalization mancante.");
+  const supertypeAlias = readIdentifier(tokens, state, line, "Supertipo generalization mancante.");
+  let isaDisjointness: IsaDisjointness | undefined;
+  let isaCompleteness: IsaCompleteness | undefined;
+
+  while (state.index < tokens.length) {
+    const directive = readIdentifier(tokens, state, line, "Vincolo generalization non valido.");
+    if (directive === "disjoint" || directive === "exclusive") {
+      isaDisjointness = "disjoint";
+      continue;
+    }
+    if (directive === "overlap") {
+      isaDisjointness = "overlap";
+      continue;
+    }
+    if (directive === "total") {
+      isaCompleteness = "total";
+      continue;
+    }
+    if (directive === "partial") {
+      isaCompleteness = "partial";
+      continue;
+    }
+    throw new ErsParseError(line, `Vincolo generalization non riconosciuto: "${directive}".`);
+  }
+
+  return {
+    line,
+    alias,
+    supertypeAlias,
+    subtypeAliases: [],
+    isaCompleteness,
+    isaDisjointness,
+  };
+}
+
+function parseDesignerIsaConstraint(value: string | undefined): {
+  isaCompleteness?: IsaCompleteness;
+  isaDisjointness?: IsaDisjointness;
+} {
+  const parts = (value ?? "")
+    .replace(/[()]/g, "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  return {
+    isaCompleteness: parts.includes("t") || parts.includes("total") ? "total" : parts.includes("p") || parts.includes("partial") ? "partial" : undefined,
+    isaDisjointness:
+      parts.includes("o") || parts.includes("overlap")
+        ? "overlap"
+        : parts.includes("e") || parts.includes("exclusive") || parts.includes("disjoint")
+          ? "disjoint"
+          : undefined,
+  };
+}
+
+function expandNamedGeneralization(
+  rawLines: string[],
+  startIndex: number,
+): { nextIndex: number; emitted: Array<{ line: number; text: string }> } | undefined {
+  const line = startIndex + 1;
+  const normalized = normalizeCommentFreeLine(rawLines[startIndex]);
+  const headerMatch = normalized.match(/^generalization\s+([A-Za-z_][\w.-]*)\s+([A-Za-z_][\w.-]*)\s*(\([^)]*\))?\s*\{\s*$/);
+
+  if (!headerMatch) {
+    return undefined;
+  }
+
+  const alias = headerMatch[1];
+  const parentAlias = headerMatch[2];
+  const constraints = parseDesignerIsaConstraint(headerMatch[3]);
+  const subtypes: string[] = [];
+
+  for (let index = startIndex + 1; index < rawLines.length; index += 1) {
+    const currentLine = index + 1;
+    const current = normalizeCommentFreeLine(rawLines[index]);
+    if (current.length === 0 || isBlockCommentLine(current)) {
+      continue;
+    }
+
+    if (current.trim() === "}") {
+      const constraintParts = [
+        constraints.isaDisjointness,
+        constraints.isaCompleteness,
+      ].filter((part): part is NonNullable<typeof part> => typeof part === "string");
+      return {
+        nextIndex: index,
+        emitted: [
+          {
+            line,
+            text: `generalization-group ${alias} ${parentAlias}${constraintParts.length > 0 ? ` ${constraintParts.join(" ")}` : ""}`,
+          },
+          ...subtypes.map((subtypeAlias) => ({
+            line: currentLine,
+            text: `inheritance ${subtypeAlias} -> ${parentAlias} group ${alias}${constraintParts.length > 0 ? ` ${constraintParts.join(" ")}` : ""}`,
+          })),
+        ],
+      };
+    }
+
+    stripDesignerTrailingComma(current)
+      .split(/[,\s]+/g)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((subtypeAlias) => subtypes.push(subtypeAlias));
   }
 
   throw new ErsParseError(line, "Blocco generalization non chiuso.");
@@ -1623,6 +1753,15 @@ function expandStructuredErs(rawSource: string): StructuredExpansion {
       }
     }
 
+    if (keyword === "generalization") {
+      const namedGeneralization = expandNamedGeneralization(rawLines, index);
+      if (namedGeneralization) {
+        namedGeneralization.emitted.forEach((entry) => pushLine(entry.text, entry.line));
+        index = namedGeneralization.nextIndex;
+        continue;
+      }
+    }
+
     if (keyword === "entity" && looksLikeStructuredEntity(tokens)) {
       const expansion = expandStructuredEntity(rawLines, index);
       expansion.emitted.forEach((entry) => pushLine(entry.text, entry.line));
@@ -1903,6 +2042,12 @@ function parseEdgeStatement(edgeType: EdgeKind, tokens: string[], line: number):
           throw new ErsParseError(line, "La direttiva external e valida solo per connector.");
         }
         edge.isExternalIdentifierHost = true;
+        break;
+      case "group":
+        if (edgeType !== "inheritance") {
+          throw new ErsParseError(line, "La direttiva group e valida solo per inheritance.");
+        }
+        edge.generalizationGroupAlias = readIdentifier(tokens, state, line, "Group id mancante.");
         break;
       case "label":
         edge.label = readStringValue(tokens, state, line, "Label collegamento mancante.");
@@ -2420,6 +2565,7 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
   const nestedAttributeLines: string[] = [];
   const notesContent = normalizeNotesContent(diagram.notes);
   const notesLines = notesContent.length > 0 ? [`notes ${quoteValue(notesContent)}`] : [];
+  const explicitGeneralizationGroups = diagram.generalizationGroups ?? [];
   const inheritanceGroups = new Map<
     string,
     {
@@ -2429,7 +2575,18 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
       isaDisjointness: IsaDisjointness;
     }
   >();
-  [...diagram.edges]
+  if (explicitGeneralizationGroups.length > 0) {
+    explicitGeneralizationGroups.forEach((group) => {
+      const parentAlias = aliasByNodeId.get(group.supertypeId) ?? group.supertypeId;
+      inheritanceGroups.set(group.id, {
+        parentAlias,
+        children: group.subtypeIds.map((subtypeId) => aliasByNodeId.get(subtypeId) ?? subtypeId),
+        isaCompleteness: group.isaCompleteness ?? "partial",
+        isaDisjointness: group.isaDisjointness ?? "disjoint",
+      });
+    });
+  } else {
+    [...diagram.edges]
     .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance")
     .sort((left, right) => compareEdges(left, right, aliasByNodeId))
     .forEach((edge) => {
@@ -2447,12 +2604,12 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
       group.children.push(childAlias);
       inheritanceGroups.set(key, group);
     });
-  const inheritanceLines = Array.from(inheritanceGroups.values()).flatMap((group) => {
-    const disjointnessLabel = group.isaDisjointness === "disjoint" ? "exclusive" : "overlap";
+  }
+  const inheritanceLines = Array.from(inheritanceGroups.entries()).flatMap(([groupId, group]) => {
     return [
-      `${group.parentAlias} <= {`,
+      `generalization ${groupId} ${group.parentAlias} (${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "disjoint" ? "e" : "o"}) {`,
       ...group.children.map((childAlias, index) => `    ${childAlias}${index < group.children.length - 1 ? "," : ""}`),
-      `} (${group.isaCompleteness}, ${disjointnessLabel})`,
+      `}`,
     ];
   });
 
@@ -2728,6 +2885,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
   const parsedEdges: ParsedEdgeSpec[] = [];
   const parsedInternalIdentifiers: ParsedInternalIdentifierSpec[] = [];
   const parsedExternalIdentifiers: ParsedExternalIdentifierSpec[] = [];
+  const parsedGeneralizationGroups: ParsedGeneralizationGroupSpec[] = [];
   const aliasMap = new Map<string, ParsedNodeSpec>();
   let diagramName = "Diagramma ER";
   const explicitNotesChunks: string[] = [];
@@ -2815,6 +2973,11 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
       return;
     }
 
+    if (keyword === "generalization-group" || keyword === "generalizationGroup") {
+      parsedGeneralizationGroups.push(parseGeneralizationGroupStatement(tokens, line));
+      return;
+    }
+
     throw new ErsParseError(line, `Istruzione non riconosciuta: "${keyword}".`);
   });
 
@@ -2855,6 +3018,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
         type: "inheritance" as const,
         isaDisjointness: edgeSpec.isaDisjointness,
         isaCompleteness: edgeSpec.isaCompleteness,
+        generalizationGroupId: edgeSpec.generalizationGroupAlias,
       };
     }
 
@@ -3113,6 +3277,23 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     ];
   });
 
+  const generalizationGroups: GeneralizationGroup[] = parsedGeneralizationGroups
+    .map((spec) => {
+      const supertype = resolveNodeAlias(spec.supertypeAlias, aliasMap, spec.line, "entity");
+      const subtypeIds = edges
+        .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance")
+        .filter((edge) => edge.generalizationGroupId === spec.alias && edge.targetId === supertype.id)
+        .map((edge) => edge.sourceId);
+      return {
+        id: spec.alias,
+        supertypeId: supertype.id,
+        subtypeIds,
+        isaCompleteness: spec.isaCompleteness,
+        isaDisjointness: spec.isaDisjointness,
+      };
+    })
+    .filter((group) => group.subtypeIds.length > 0);
+
   const diagram: DiagramDocument = {
     meta: {
       name: diagramName,
@@ -3124,6 +3305,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     ),
     nodes,
     edges,
+    generalizationGroups,
   };
 
   const issues = validateDiagram(diagram).filter((issue) => issue.level === "error");

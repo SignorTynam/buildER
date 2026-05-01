@@ -1,6 +1,6 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
-import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
+import type { DiagramEdge, DiagramHighlightKind, DiagramNode, Point } from "../types/diagram";
 import { getEdgeCardinalityLabel } from "../utils/cardinality";
 import { useI18n } from "../i18n/useI18n";
 
@@ -11,6 +11,8 @@ const DIAGRAM_WARNING = "var(--diagram-warning)";
 const DIAGRAM_WARNING_FILL = "var(--diagram-warning-fill)";
 const DIAGRAM_ERROR = "var(--diagram-error)";
 const DIAGRAM_ERROR_FILL = "var(--diagram-error-fill)";
+const DIAGRAM_TRANSLATION_PENDING = "var(--diagram-translation-pending, #ff3b30)";
+const DIAGRAM_TRANSLATION_BLOCKED = "var(--diagram-translation-blocked, #b75b56)";
 
 type DiagramIssueLevel = "warning" | "error" | undefined;
 
@@ -32,6 +34,7 @@ interface DiagramEdgeProps {
   focusable: boolean;
   validationLevel?: DiagramIssueLevel;
   validationCount?: number;
+  translationHighlight?: DiagramHighlightKind;
   onFocus: (edge: DiagramEdge) => void;
   onBlur: (event: FocusEvent<SVGGElement>) => void;
   onPointerDown: (event: PointerEvent<SVGGElement>, edge: DiagramEdge) => void;
@@ -120,9 +123,17 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       : props.edge.type === "inheritance"
         ? props.edge.label
         : "";
-  const isEdgeHighlighted = !isGhost && (props.selected || props.focused) && !props.validationLevel;
-  const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
-  const selectedStrokeColor = isEdgeHighlighted ? DIAGRAM_FOCUS : strokeColor;
+  const translationStroke =
+    props.translationHighlight === "pending" || props.translationHighlight === "selected"
+      ? DIAGRAM_TRANSLATION_PENDING
+      : props.translationHighlight === "blocked"
+        ? DIAGRAM_TRANSLATION_BLOCKED
+        : undefined;
+  const isEdgeHighlighted =
+    !isGhost && (props.selected || props.focused || props.translationHighlight === "selected") && !props.validationLevel;
+  const strokeColor = isGhost ? DIAGRAM_DRAG : translationStroke ?? getValidationStroke(props.validationLevel);
+  const selectedStrokeColor =
+    props.translationHighlight === "selected" ? DIAGRAM_TRANSLATION_PENDING : isEdgeHighlighted ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeY = geometry.labelPoint.y - (inheritanceConstraintLabel ? 28 : 16);
   const baseOpacity = isGhost ? 0.58 : 1;
@@ -168,7 +179,17 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         d={pathData}
         fill="none"
         stroke={selectedStrokeColor}
-        strokeWidth={isGhost ? 1.8 : props.dragging ? 2.6 : isEdgeHighlighted ? 2.7 : 2}
+        strokeWidth={
+          isGhost
+            ? 1.8
+            : props.translationHighlight === "selected"
+              ? 3.4
+              : props.dragging || props.translationHighlight
+                ? 2.6
+                : isEdgeHighlighted
+                  ? 2.7
+                  : 2
+        }
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeDasharray={primaryDashArray}

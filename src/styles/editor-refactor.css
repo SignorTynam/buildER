@@ -229,6 +229,150 @@ body {
   line-height: 1.1;
 }
 
+.designer-toolbar-separator {
+  display: block;
+  height: 1px;
+  background: #d8ddda;
+}
+
+.designer-toolbar-button.active {
+  background: #ffd94d;
+}
+
+.designer-translation-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #dfe3dc;
+  --diagram-canvas-fill: #dfe3dc;
+  --diagram-node-fill: #dfe3dc;
+  --diagram-translation-pending: #ff3b30;
+  --diagram-translation-blocked: #ad7772;
+}
+
+.app-shell-view-translation .app-workspace-region {
+  padding: 0 !important;
+  background: #dfe3dc !important;
+}
+
+.designer-stage-label {
+  position: absolute;
+  z-index: 12;
+  top: 24px;
+  left: 20px;
+  color: #9ca39f;
+  font-size: 0.74rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.designer-translation-toolbar {
+  top: 76px;
+  left: 0;
+}
+
+.designer-translation-canvas {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.designer-translation-canvas .diagram-canvas,
+.designer-translation-canvas .diagram-canvas rect {
+  background: #dfe3dc;
+}
+
+.designer-translation-status {
+  position: absolute;
+  z-index: 11;
+  left: 86px;
+  top: 24px;
+  color: #777f7a;
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.designer-fix-popover {
+  position: absolute;
+  z-index: 22;
+  top: 254px;
+  left: 78px;
+  display: grid;
+  width: 220px;
+  border: 1px solid #cfd4d1;
+  border-radius: 5px;
+  background: #f8f9f7;
+  overflow: hidden;
+}
+
+.designer-fix-choice {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 58px;
+  border: 0;
+  border-bottom: 1px solid #e0e4e1;
+  background: transparent;
+  color: #111111;
+  padding: 8px;
+  text-align: left;
+}
+
+.designer-fix-choice:last-child {
+  border-bottom: 0;
+}
+
+.designer-fix-choice:disabled {
+  color: #9da29f;
+  cursor: not-allowed;
+}
+
+.designer-fix-choice:not(:disabled):hover {
+  background: #ffffff;
+}
+
+.designer-fix-choice-icon {
+  align-self: center;
+  justify-self: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.designer-fix-choice-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.designer-fix-choice-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.designer-fix-badge,
+.designer-fix-warning,
+.designer-fix-disabled-reason {
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+.designer-fix-badge {
+  color: #1f6b4f;
+  text-transform: uppercase;
+}
+
+.designer-fix-warning {
+  color: #8a6426;
+}
+
+.designer-fix-disabled-reason {
+  color: #777f7a;
+}
+
 .designer-side-toggle {
   position: absolute;
   z-index: 14;

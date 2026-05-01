@@ -33,6 +33,8 @@ import {
 import type {
   Bounds,
   DiagramDocument,
+  DiagramHighlightKind,
+  DiagramHighlights,
   EdgeKind,
   DiagramEdge,
   DiagramNode,
@@ -135,6 +137,7 @@ interface DiagramCanvasProps {
   issues: ValidationIssue[];
   statusMessage: string;
   svgRef: RefObject<SVGSVGElement>;
+  translationHighlights?: DiagramHighlights;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: SelectionState) => void;
   onPreviewDiagram: (diagram: DiagramDocument) => void;
@@ -159,6 +162,26 @@ interface DiagramCanvasProps {
   onRenameNode: (nodeId: string, label: string) => void;
   onRenameEdge: (edgeId: string, label: string) => void;
   onStatusMessageChange: (message: string) => void;
+}
+
+function resolveTranslationHighlight(id: string, highlights?: DiagramHighlights): DiagramHighlightKind | undefined {
+  if (!highlights) {
+    return undefined;
+  }
+
+  if (highlights.selectedNodeIds?.includes(id) || highlights.selectedEdgeIds?.includes(id)) {
+    return "selected";
+  }
+
+  if (highlights.pendingNodeIds?.includes(id) || highlights.pendingEdgeIds?.includes(id)) {
+    return "pending";
+  }
+
+  if (highlights.blockedNodeIds?.includes(id) || highlights.blockedEdgeIds?.includes(id)) {
+    return "blocked";
+  }
+
+  return undefined;
 }
 
 function getCanvasMessageTone(message: string): CanvasGuidanceTone {
@@ -2838,6 +2861,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 dragging={interaction.kind === "edge-drag" && interaction.edgeId === edge.id}
                 validationLevel={edgeIssueMap.get(edge.id)?.level}
                 validationCount={edgeIssueMap.get(edge.id)?.count}
+                translationHighlight={resolveTranslationHighlight(edge.id, props.translationHighlights)}
                 focused={focusedTarget?.kind === "edge" && focusedTarget.id === edge.id}
                 focusable={props.tool === "select"}
                 onFocus={handleEdgeFocus}
@@ -2864,6 +2888,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               pending={pendingConnectionSource === node.id}
               validationLevel={nodeIssueMap.get(node.id)?.level}
               validationCount={nodeIssueMap.get(node.id)?.count}
+              translationHighlight={resolveTranslationHighlight(node.id, props.translationHighlights)}
               focused={focusedTarget?.kind === "node" && focusedTarget.id === node.id}
               focusable={props.tool === "select" || props.tool === "connector" || props.tool === "inheritance"}
               onFocus={handleNodeFocus}
