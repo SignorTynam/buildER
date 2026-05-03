@@ -57,6 +57,7 @@ import {
   type ExternalIdentifierInvalidation,
   findNode,
   getMultivaluedAttributeSize,
+  normalizeGeneralizationGroups,
   renameNodeAsNameIdentity,
   revalidateExternalIdentifiers,
   parseDiagram,
@@ -108,7 +109,9 @@ import {
   serializeProjectFile,
 } from "./utils/projectFile";
 import {
+  CONNECTOR_CARDINALITY_PRESETS,
   getAttributeCardinalityOwner,
+  getConnectorParticipation,
   getConnectorParticipationContext,
   normalizeCardinalityInput,
   normalizeSupportedCardinality,
@@ -146,6 +149,33 @@ interface PromptDialogState {
   cancelLabel: string;
   required: boolean;
   requiredMessage: string;
+}
+
+type CardinalityDialogTarget =
+  | { kind: "attribute"; attributeId: string }
+  | { kind: "connector"; edgeId: string };
+
+interface CardinalityDialogState {
+  target: CardinalityDialogTarget;
+  initialValue: string;
+  presetValue: string;
+  customValue: string;
+  error: string;
+}
+
+interface MixedIdentifierDialogState {
+  hostEntityId: string;
+  relationshipId: string;
+  sourceEntityId: string;
+  importedIdentifierId: string;
+  attributes: Array<{ id: string; label: string }>;
+  selectedAttributeIds: string[];
+  error: string;
+}
+
+interface InheritanceTypeDialogState {
+  edgeId: string;
+  value: "t,e" | "t,o" | "p,e" | "p,o";
 }
 
 interface OnboardingSnapshot {
@@ -1049,6 +1079,75 @@ function getNextAttributePosition(
   };
 }
 
+function layoutDirectAttributesAroundHost(
+  diagram: DiagramDocument,
+  hostNode: AttributeCreationHost,
+  attributeIds: string[],
+): DiagramDocument {
+  if (hostNode.type === "attribute" || attributeIds.length === 0) {
+    return diagram;
+  }
+
+  const idSet = new Set(attributeIds);
+  const attributes = diagram.nodes
+    .filter((node): node is AttributeNode => node.type === "attribute" && idSet.has(node.id))
+    .sort((left, right) => attributeIds.indexOf(left.id) - attributeIds.indexOf(right.id));
+  const sideOrder: Array<"left" | "right" | "top" | "bottom"> = ["left", "right", "top", "bottom"];
+  const bySide = new Map<(typeof sideOrder)[number], AttributeNode[]>(
+    sideOrder.map((side) => [side, []]),
+  );
+
+  attributes.forEach((attribute, index) => {
+    bySide.get(sideOrder[index % sideOrder.length])?.push(attribute);
+  });
+
+  const hostCenterX = hostNode.x + hostNode.width / 2;
+  const hostCenterY = hostNode.y + hostNode.height / 2;
+  const horizontalGap = 74;
+  const verticalGap = 64;
+  const verticalSpacing = 44;
+  const horizontalSpacing = 64;
+  const positions = new Map<string, Point>();
+
+  (["left", "right"] as const).forEach((side) => {
+    const sideAttributes = bySide.get(side) ?? [];
+    const total = (sideAttributes.length - 1) * verticalSpacing;
+    sideAttributes.forEach((attribute, index) => {
+      const circleX = side === "left" ? hostNode.x - horizontalGap : hostNode.x + hostNode.width + horizontalGap;
+      const circleY = hostCenterY - total / 2 + index * verticalSpacing;
+      positions.set(attribute.id, {
+        x: snapValue(circleX - 10, GRID_SIZE),
+        y: snapValue(circleY - attribute.height / 2, GRID_SIZE),
+      });
+    });
+  });
+
+  (["top", "bottom"] as const).forEach((side) => {
+    const sideAttributes = bySide.get(side) ?? [];
+    const total = (sideAttributes.length - 1) * horizontalSpacing;
+    sideAttributes.forEach((attribute, index) => {
+      const circleX = hostCenterX - total / 2 + index * horizontalSpacing;
+      const circleY = side === "top" ? hostNode.y - verticalGap : hostNode.y + hostNode.height + verticalGap;
+      positions.set(attribute.id, {
+        x: snapValue(circleX - 10, GRID_SIZE),
+        y: snapValue(circleY - attribute.height / 2, GRID_SIZE),
+      });
+    });
+  });
+
+  if (positions.size === 0) {
+    return diagram;
+  }
+
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => {
+      const position = positions.get(node.id);
+      return position ? { ...node, ...position } : node;
+    }),
+  };
+}
+
 export default function App() {
   const sessionBootstrapRef = useRef<WorkspaceSessionBootstrap | null>(null);
   if (!sessionBootstrapRef.current) {
@@ -1093,6 +1192,10 @@ export default function App() {
   const [introOpen, setIntroOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null);
+  const [cardinalityDialog, setCardinalityDialog] = useState<CardinalityDialogState | null>(null);
+  const [mixedIdentifierDialog, setMixedIdentifierDialog] = useState<MixedIdentifierDialogState | null>(null);
+  const [inheritanceTypeDialog, setInheritanceTypeDialog] = useState<InheritanceTypeDialogState | null>(null);
+  const [errorsPanelOpen, setErrorsPanelOpen] = useState(false);
   const [promptValue, setPromptValue] = useState("");
   const [promptError, setPromptError] = useState("");
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
@@ -2135,6 +2238,62 @@ export default function App() {
     showWarningNotice(issue.message);
   }
 
+  function getIssueElementLabel(issue: ValidationIssue): string {
+    if (issue.targetType === "node") {
+      const node = history.present.nodes.find((candidate) => candidate.id === issue.targetId);
+      return node ? `${node.label} (${node.type})` : issue.targetId;
+    }
+
+    const edge = history.present.edges.find((candidate) => candidate.id === issue.targetId);
+    if (!edge) {
+      return issue.targetId;
+    }
+
+    const source = history.present.nodes.find((node) => node.id === edge.sourceId)?.label ?? edge.sourceId;
+    const target = history.present.nodes.find((node) => node.id === edge.targetId)?.label ?? edge.targetId;
+    return `${source} - ${target}`;
+  }
+
+  function getIssueSuggestion(message: string): string {
+    const match = message.match(/(?:per risolvere|per correggere)\s+(.+)$/i);
+    return match?.[1]?.trim() ?? "Seleziona l'elemento e correggi le proprieta evidenziate.";
+  }
+
+  function selectIssueTarget(issue: ValidationIssue) {
+    if (issue.targetType === "node") {
+      const node = history.present.nodes.find((candidate) => candidate.id === issue.targetId);
+      if (!node) {
+        return;
+      }
+
+      setSelection({ nodeIds: [node.id], edgeIds: [] });
+      setViewport({
+        ...viewport,
+        x: (typeof window === "undefined" ? 1280 : window.innerWidth) / 2 - (node.x + node.width / 2) * viewport.zoom,
+        y: ((typeof window === "undefined" ? 720 : window.innerHeight) - 46) / 2 - (node.y + node.height / 2) * viewport.zoom,
+      });
+      return;
+    }
+
+    const edge = history.present.edges.find((candidate) => candidate.id === issue.targetId);
+    if (!edge) {
+      return;
+    }
+
+    setSelection({ nodeIds: [], edgeIds: [edge.id] });
+    const sourceNode = history.present.nodes.find((node) => node.id === edge.sourceId);
+    const targetNode = history.present.nodes.find((node) => node.id === edge.targetId);
+    if (sourceNode && targetNode) {
+      const centerX = (sourceNode.x + sourceNode.width / 2 + targetNode.x + targetNode.width / 2) / 2;
+      const centerY = (sourceNode.y + sourceNode.height / 2 + targetNode.y + targetNode.height / 2) / 2;
+      setViewport({
+        ...viewport,
+        x: (typeof window === "undefined" ? 1280 : window.innerWidth) / 2 - centerX * viewport.zoom,
+        y: ((typeof window === "undefined" ? 720 : window.innerHeight) - 46) / 2 - centerY * viewport.zoom,
+      });
+    }
+  }
+
   function handleToggleToolRail() {
     setToolbarCollapsed((current) => !current);
   }
@@ -2516,6 +2675,30 @@ export default function App() {
           return;
         }
 
+        if (cardinalityDialog) {
+          event.preventDefault();
+          setCardinalityDialog(null);
+          return;
+        }
+
+        if (mixedIdentifierDialog) {
+          event.preventDefault();
+          setMixedIdentifierDialog(null);
+          return;
+        }
+
+        if (inheritanceTypeDialog) {
+          event.preventDefault();
+          setInheritanceTypeDialog(null);
+          return;
+        }
+
+        if (errorsPanelOpen) {
+          event.preventDefault();
+          setErrorsPanelOpen(false);
+          return;
+        }
+
         if (commandMenuOpen) {
           setCommandMenuOpen(false);
           return;
@@ -2542,6 +2725,11 @@ export default function App() {
         }
 
         if (diagramView === "er") {
+          if (tool === "entity" || tool === "relationship") {
+            setTool("select");
+            setStatus("Posizionamento annullato.");
+            return;
+          }
           setSelection({ nodeIds: [], edgeIds: [] });
         } else {
           setLogicalSelection(EMPTY_LOGICAL_SELECTION);
@@ -2554,18 +2742,23 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     aboutOpen,
+    cardinalityDialog,
     commandMenuOpen,
     confirmDialog,
     diagramView,
+    errorsPanelOpen,
     history,
+    inheritanceTypeDialog,
     introOpen,
     keyboardShortcutsOpen,
     logicalHistory,
+    mixedIdentifierDialog,
     mode,
     promptDialog,
     selection,
     technicalPanelOpen,
     technicalPanelTab,
+    tool,
     whatsNewOpen,
   ]);
 
@@ -2575,9 +2768,11 @@ export default function App() {
     options?: { suppressExternalIdentifierWarnings?: boolean },
   ): DiagramDocument {
     const nodeIdentitySynchronizedNext = synchronizeNodeNameIdentity(nextDiagram);
-    const synchronizedNext = synchronizeExternalIdentifiers(
-      synchronizeInternalIdentifiers(
-        synchronizeEntityRelationshipParticipations(nodeIdentitySynchronizedNext.diagram),
+    const synchronizedNext = normalizeGeneralizationGroups(
+      synchronizeExternalIdentifiers(
+        synchronizeInternalIdentifiers(
+          synchronizeEntityRelationshipParticipations(nodeIdentitySynchronizedNext.diagram),
+        ),
       ),
     );
     const normalizedNext = revalidateExternalIdentifiers(synchronizedNext);
@@ -2586,8 +2781,10 @@ export default function App() {
       : undefined;
     const normalizedPrevious = previousIdentitySynchronized
       ? revalidateExternalIdentifiers(
-          synchronizeExternalIdentifiers(
-            synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(previousIdentitySynchronized)),
+          normalizeGeneralizationGroups(
+            synchronizeExternalIdentifiers(
+              synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(previousIdentitySynchronized)),
+            ),
           ),
         ).diagram
       : undefined;
@@ -2619,8 +2816,10 @@ export default function App() {
   function handlePreviewDiagram(nextDiagram: DiagramDocument) {
     const withNodeIdentity = synchronizeNodeNameIdentity(nextDiagram).diagram;
     const normalized = revalidateExternalIdentifiers(
-      synchronizeExternalIdentifiers(
-        synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(withNodeIdentity)),
+      normalizeGeneralizationGroups(
+        synchronizeExternalIdentifiers(
+          synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(withNodeIdentity)),
+        ),
       ),
     );
     history.setPresent(normalized.diagram);
@@ -3032,17 +3231,10 @@ export default function App() {
     return nextNode.id;
   }
 
-  function getViewportCenterPoint(): Point {
-    const fallbackWidth = typeof window === "undefined" ? 1280 : window.innerWidth;
-    const fallbackHeight = typeof window === "undefined" ? 720 : window.innerHeight;
-    return {
-      x: (fallbackWidth / 2 - viewport.x) / viewport.zoom,
-      y: ((fallbackHeight - 46) / 2 - viewport.y) / viewport.zoom,
-    };
-  }
-
   function handleCreateNodeFromToolbar(nodeType: Extract<ToolKind, "entity" | "relationship">) {
-    handleCreateNode(nodeType, getViewportCenterPoint());
+    setTool(nodeType);
+    setSelection({ nodeIds: [], edgeIds: [] });
+    setStatus(nodeType === "entity" ? "Clicca nel workspace per posizionare la nuova entita." : "Clicca nel workspace per posizionare la nuova associazione.");
   }
 
   function handleCreateEdge(type: "connector" | "attribute" | "inheritance", sourceId: string, targetId: string) {
@@ -3114,90 +3306,111 @@ export default function App() {
     return { success: true, message: "Collegamento creato." };
   }
 
-  async function handleOpenCardinalityControl() {
+  function getConnectorCardinality(edge: Extract<DiagramEdge, { type: "connector" }>): string | undefined {
     const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
-    const selectedAttribute =
-      selectedNode?.type === "attribute" ? selectedNode : undefined;
-    const selectedCardinality =
-      selectedAttribute?.cardinality ??
-      (selectedEdge
-        ? selectedEdge.type === "attribute"
-          ? getAttributeCardinalityOwner(
-              nodeMap.get(selectedEdge.sourceId),
-              nodeMap.get(selectedEdge.targetId),
-            )?.cardinality
-          : selectedEdge.type === "connector"
-            ? (() => {
-                const sourceNode = nodeMap.get(selectedEdge.sourceId);
-                const targetNode = nodeMap.get(selectedEdge.targetId);
-                const context = getConnectorParticipationContext(sourceNode, targetNode);
-                return context?.entity.relationshipParticipations?.find(
-                  (participation) => participation.id === selectedEdge.participationId,
-                )?.cardinality;
-              })()
-            : undefined
-        : undefined);
-    const nextValue = await requestPromptDialog({
-      title: "Custom cardinality",
-      label: "Cardinality",
-      initialValue: selectedCardinality ?? "(1,1)",
-      placeholder: "1...4, 2...N, (0,N)",
-      required: true,
-      requiredMessage: "Inserisci una cardinalita.",
-    });
-    if (nextValue == null) {
-      return;
+    return getConnectorParticipation(edge, nodeMap.get(edge.sourceId), nodeMap.get(edge.targetId))?.cardinality;
+  }
+
+  function getCardinalityTargetFromSelection(edgeId?: string): CardinalityDialogTarget | null {
+    if (edgeId) {
+      const edge = history.present.edges.find((candidate) => candidate.id === edgeId);
+      return edge?.type === "connector" ? { kind: "connector", edgeId: edge.id } : null;
     }
 
-    const parsed = normalizeCardinalityInput(nextValue);
-    if (!parsed.valid || !parsed.value) {
-      setStatusError(`Invalid cardinality: ${parsed.reason ?? nextValue}`);
-      return;
+    if (selectedNode?.type === "attribute") {
+      return { kind: "attribute", attributeId: selectedNode.id };
     }
 
-    if (selectedAttribute) {
-      handleNodeChange(selectedAttribute.id, { cardinality: parsed.value } as Partial<DiagramNode>);
-      setStatus(`Cardinalita aggiornata a ${parsed.value}.`);
-      return;
-    }
-
-    if (!selectedEdge) {
-      setStatusWarning("Seleziona prima un attributo o un connector.");
-      return;
-    }
-
-    if (selectedEdge.type === "attribute") {
+    if (selectedEdge?.type === "attribute") {
+      const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
       const attribute = getAttributeCardinalityOwner(
         nodeMap.get(selectedEdge.sourceId),
         nodeMap.get(selectedEdge.targetId),
       );
-      if (!attribute) {
-        setStatusWarning("Seleziona prima un attributo valido.");
-        return;
-      }
-      handleNodeChange(attribute.id, { cardinality: parsed.value } as Partial<DiagramNode>);
+      return attribute ? { kind: "attribute", attributeId: attribute.id } : null;
+    }
+
+    if (selectedEdge?.type === "connector") {
+      return { kind: "connector", edgeId: selectedEdge.id };
+    }
+
+    return null;
+  }
+
+  function getCurrentCardinalityForTarget(target: CardinalityDialogTarget): string | undefined {
+    if (target.kind === "attribute") {
+      const attribute = history.present.nodes.find(
+        (node): node is AttributeNode => node.id === target.attributeId && node.type === "attribute",
+      );
+      return attribute?.cardinality;
+    }
+
+    const edge = history.present.edges.find(
+      (candidate): candidate is Extract<DiagramEdge, { type: "connector" }> =>
+        candidate.id === target.edgeId && candidate.type === "connector",
+    );
+    return edge ? getConnectorCardinality(edge) : undefined;
+  }
+
+  function handleOpenCardinalityControl(edgeId?: string) {
+    const target = getCardinalityTargetFromSelection(edgeId);
+    if (!target) {
+      setStatusWarning("Seleziona prima un attributo o un connector entita-relazione.");
+      return;
+    }
+
+    const currentValue = getCurrentCardinalityForTarget(target) ?? "(1,1)";
+    setCardinalityDialog({
+      target,
+      initialValue: currentValue,
+      presetValue: (CONNECTOR_CARDINALITY_PRESETS as readonly string[]).includes(currentValue)
+        ? currentValue
+        : "custom",
+      customValue: currentValue,
+      error: "",
+    });
+  }
+
+  function applyCardinalityToTarget(target: CardinalityDialogTarget, value: string): boolean {
+    const parsed = normalizeCardinalityInput(value);
+    if (!parsed.valid || !parsed.value) {
+      setCardinalityDialog((current) =>
+        current ? { ...current, error: parsed.reason ?? "Cardinalita non valida." } : current,
+      );
+      return false;
+    }
+
+    if (target.kind === "attribute") {
+      handleNodeChange(target.attributeId, { cardinality: parsed.value } as Partial<DiagramNode>);
       setStatus(`Cardinalita aggiornata a ${parsed.value}.`);
-      return;
+      return true;
     }
 
-    if (selectedEdge.type !== "connector") {
-      setStatusWarning("La cardinalita non si applica a questo collegamento.");
-      return;
+    const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
+    const connectorEdge = history.present.edges.find(
+      (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
+        edge.id === target.edgeId && edge.type === "connector",
+    );
+    if (!connectorEdge) {
+      setCardinalityDialog((current) => current ? { ...current, error: "Connector non disponibile." } : current);
+      return false;
     }
 
-    const sourceNode = nodeMap.get(selectedEdge.sourceId);
-    const targetNode = nodeMap.get(selectedEdge.targetId);
+    const sourceNode = nodeMap.get(connectorEdge.sourceId);
+    const targetNode = nodeMap.get(connectorEdge.targetId);
     const context = getConnectorParticipationContext(sourceNode, targetNode);
     if (!context) {
-      setStatusWarning("Seleziona un connector entita-relazione.");
-      return;
+      setCardinalityDialog((current) =>
+        current ? { ...current, error: "Seleziona un connector entita-relazione." } : current,
+      );
+      return false;
     }
 
-    const participationId = selectedEdge.participationId ?? `participation-${selectedEdge.id}`;
+    const participationId = connectorEdge.participationId ?? `participation-${connectorEdge.id}`;
     const nextDiagram: DiagramDocument = {
       ...history.present,
       edges: history.present.edges.map((edge) =>
-        edge.id === selectedEdge.id && edge.type === "connector"
+        edge.id === connectorEdge.id && edge.type === "connector"
           ? { ...edge, participationId }
           : edge,
       ),
@@ -3227,7 +3440,23 @@ export default function App() {
       }),
     };
     commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [], edgeIds: [connectorEdge.id] });
     setStatus(`Cardinalita aggiornata a ${parsed.value}.`);
+    return true;
+  }
+
+  function submitCardinalityDialog() {
+    if (!cardinalityDialog) {
+      return;
+    }
+
+    const value =
+      cardinalityDialog.presetValue === "custom"
+        ? cardinalityDialog.customValue
+        : cardinalityDialog.presetValue;
+    if (applyCardinalityToTarget(cardinalityDialog.target, value)) {
+      setCardinalityDialog(null);
+    }
   }
 
   function getDirectEntityAttributeContext(attributeId: string): { entity: EntityNode; attribute: AttributeNode } | null {
@@ -3255,6 +3484,45 @@ export default function App() {
       (node): node is EntityNode => node.id === entityId && node.type === "entity",
     );
     return entity ? { entity, attribute } : null;
+  }
+
+  function getCompositeIdentifierSelectionContext(): { entity: EntityNode; attributes: AttributeNode[] } | null {
+    if (selection.edgeIds.length > 0 || selection.nodeIds.length < 2) {
+      return null;
+    }
+
+    const contexts = selection.nodeIds
+      .map((nodeId) => getDirectEntityAttributeContext(nodeId))
+      .filter((context): context is { entity: EntityNode; attribute: AttributeNode } => context !== null);
+    if (contexts.length !== selection.nodeIds.length) {
+      return null;
+    }
+
+    const entityId = contexts[0]?.entity.id;
+    if (!entityId || contexts.some((context) => context.entity.id !== entityId)) {
+      return null;
+    }
+
+    const entity = contexts[0].entity;
+    const selectedIds = new Set(contexts.map((context) => context.attribute.id));
+    const usedByOtherInternalId = new Set(
+      (entity.internalIdentifiers ?? [])
+        .filter((identifier) => !identifier.attributeIds.every((attributeId) => selectedIds.has(attributeId)))
+        .flatMap((identifier) => identifier.attributeIds),
+    );
+    const usedByExternalId = new Set(
+      (entity.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds),
+    );
+    const attributes = contexts.map((context) => context.attribute);
+    const allEligible = attributes.every(
+      (attribute) =>
+        attribute.isMultivalued !== true &&
+        attribute.isIdentifier !== true &&
+        !usedByOtherInternalId.has(attribute.id) &&
+        !usedByExternalId.has(attribute.id),
+    );
+
+    return allEligible ? { entity, attributes } : null;
   }
 
   function handleToggleSimpleIdentifierFromSelection() {
@@ -3287,50 +3555,19 @@ export default function App() {
     );
   }
 
-  async function handleOpenCompositeIdentifierModal() {
-    if (!selectedNode || selectedNode.type !== "attribute") {
-      return;
-    }
-
-    const context = getDirectEntityAttributeContext(selectedNode.id);
+  function handleCreateCompositeIdentifierFromSelection() {
+    const context = getCompositeIdentifierSelectionContext();
     if (!context) {
-      setStatusWarning("Composite Id e disponibile solo per attributi semplici collegati direttamente a un'entita.");
+      setStatusWarning("Composite Id richiede almeno due attributi semplici della stessa entita selezionati con Ctrl/Cmd+click.");
       return;
     }
 
-    const directAttributes = findDirectHostedAttributes(history.present, context.entity.id);
-    const usedAttributeIds = new Set(
-      (context.entity.internalIdentifiers ?? [])
-        .flatMap((identifier) => identifier.attributeIds)
-        .filter((attributeId) => attributeId !== context.attribute.id),
-    );
-    const eligible = directAttributes.filter(
-      (attribute) => attribute.isMultivalued !== true && !usedAttributeIds.has(attribute.id),
-    );
-    const nextValue = await requestPromptDialog({
-      title: "Composite Id",
-      label: `Attributi eleggibili: ${eligible.map((attribute) => attribute.label).join(", ")}`,
-      initialValue: context.attribute.label,
-      placeholder: "NomeAttr1, NomeAttr2",
-      required: true,
-      requiredMessage: "Seleziona almeno due attributi.",
-    });
-    if (nextValue == null) {
-      return;
-    }
-
-    const requested = nextValue.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
-    const selectedIds = eligible
-      .filter((attribute) => requested.includes(attribute.label.toLowerCase()) || requested.includes(attribute.id.toLowerCase()))
-      .map((attribute) => attribute.id);
-    if (selectedIds.length < 2) {
-      setStatusWarning("Composite Id richiede almeno due attributi eleggibili.");
-      return;
-    }
+    const selectedIds = context.attributes.map((attribute) => attribute.id);
+    const selectedIdSet = new Set(selectedIds);
 
     const nextIdentifiers = [
-      ...(context.entity.internalIdentifiers ?? []).filter(
-        (identifier) => !identifier.attributeIds.includes(context.attribute.id),
+      ...(context.entity.internalIdentifiers ?? []).filter((identifier) =>
+        !identifier.attributeIds.some((attributeId) => selectedIdSet.has(attributeId)),
       ),
       {
         id: `internalIdentifier-composite-${context.entity.id}-${Date.now()}`,
@@ -3341,6 +3578,7 @@ export default function App() {
       selectedIds.map((attributeId) => [attributeId, { isIdentifier: false, isCompositeInternal: true, cardinality: undefined }]),
     ) as Record<string, Partial<AttributeNode>>;
     handleEntityInternalIdentifiersChange(context.entity.id, { internalIdentifiers: nextIdentifiers }, attributePatches);
+    setStatus("Identificatore interno composto creato.");
   }
 
   function getConnectorContextFromSelectedEdge() {
@@ -3356,7 +3594,16 @@ export default function App() {
     return context ? { ...context, edge: selectedEdge } : null;
   }
 
-  async function createExternalIdentifierFromContext(options: { mixed: boolean }) {
+  function selectedConnectorRequiresMixedIdentifierCardinality(): boolean {
+    const connectorContext = getConnectorContextFromSelectedEdge();
+    if (!connectorContext) {
+      return false;
+    }
+
+    return getConnectorCardinality(connectorContext.edge) === "(1,1)";
+  }
+
+  async function createExternalIdentifierFromContext(options: { mixed: boolean; localAttributeIds?: string[] }) {
     let hostEntity: EntityNode | undefined;
     let relationshipId: string | undefined;
     let selectedConnectorId: string | undefined;
@@ -3426,22 +3673,14 @@ export default function App() {
       return !usedInternal && !usedExternal;
     });
 
-    let localAttributeIds: string[] = [];
-    if (options.mixed && localEligible.length > 0) {
-      const nextValue = await requestPromptDialog({
-        title: "Mixed Id",
-        label: `Attributi locali opzionali: ${localEligible.map((attribute) => attribute.label).join(", ")}`,
-        initialValue: selectedNode?.type === "attribute" ? selectedNode.label : "",
-        placeholder: "NomeAttr1, NomeAttr2 oppure vuoto",
-        required: false,
-      });
-      if (nextValue == null) {
+    let localAttributeIds = options.localAttributeIds ?? [];
+    if (options.mixed) {
+      const eligibleIds = new Set(localEligible.map((attribute) => attribute.id));
+      localAttributeIds = localAttributeIds.filter((attributeId) => eligibleIds.has(attributeId));
+      if (localAttributeIds.length === 0) {
+        setStatusWarning("Mixed Id richiede almeno un attributo semplice locale selezionato.");
         return;
       }
-      const requested = nextValue.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
-      localAttributeIds = localEligible
-        .filter((attribute) => requested.includes(attribute.label.toLowerCase()) || requested.includes(attribute.id.toLowerCase()))
-        .map((attribute) => attribute.id);
     }
 
     const nextIdentifier: ExternalIdentifier = {
@@ -3493,36 +3732,110 @@ export default function App() {
     setStatus(localAttributeIds.length > 0 ? "Identificatore misto creato." : "Identificatore esterno creato.");
   }
 
-  async function handleOpenInheritanceTypeControl() {
+  function handleOpenMixedIdentifierModal() {
+    const connectorContext = getConnectorContextFromSelectedEdge();
+    if (!connectorContext) {
+      setStatusWarning("Mixed Id richiede un connector entita-relazione selezionato.");
+      return;
+    }
+
+    if (!selectedConnectorRequiresMixedIdentifierCardinality()) {
+      setStatusWarning("L'identificatore esterno misto richiede cardinalita 1,1 sull'entita.");
+      return;
+    }
+
+    const hostEntity = connectorContext.entity;
+    const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
+    const participants = history.present.edges
+      .filter(
+        (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
+          edge.type === "connector" &&
+          (edge.sourceId === connectorContext.relationship.id || edge.targetId === connectorContext.relationship.id),
+      )
+      .map((edge) => {
+        const entityId = edge.sourceId === connectorContext.relationship.id ? edge.targetId : edge.sourceId;
+        const entity = nodeMap.get(entityId);
+        return entity?.type === "entity" ? entity : null;
+      })
+      .filter((entity): entity is EntityNode => entity !== null && entity.id !== hostEntity.id);
+    const sourceEntity = participants.find((entity) => (entity.internalIdentifiers ?? []).length > 0);
+    const importedIdentifier = sourceEntity?.internalIdentifiers?.[0];
+    if (!sourceEntity || !importedIdentifier) {
+      setStatusWarning("Nessuna entita sorgente con identificatore interno disponibile.");
+      return;
+    }
+
+    const attributes = findDirectHostedAttributes(history.present, hostEntity.id)
+      .filter((attribute) => {
+        if (attribute.isMultivalued === true || attribute.isIdentifier === true || attribute.isCompositeInternal === true) {
+          return false;
+        }
+        const usedInternal = (hostEntity.internalIdentifiers ?? []).some((identifier) =>
+          identifier.attributeIds.includes(attribute.id),
+        );
+        const usedExternal = (hostEntity.externalIdentifiers ?? []).some((identifier) =>
+          identifier.localAttributeIds.includes(attribute.id),
+        );
+        return !usedInternal && !usedExternal;
+      })
+      .map((attribute) => ({ id: attribute.id, label: attribute.label }));
+
+    setMixedIdentifierDialog({
+      hostEntityId: hostEntity.id,
+      relationshipId: connectorContext.relationship.id,
+      sourceEntityId: sourceEntity.id,
+      importedIdentifierId: importedIdentifier.id,
+      attributes,
+      selectedAttributeIds: [],
+      error: attributes.length === 0 ? "Nessun attributo semplice locale eleggibile." : "",
+    });
+  }
+
+  function submitMixedIdentifierDialog() {
+    if (!mixedIdentifierDialog) {
+      return;
+    }
+
+    if (mixedIdentifierDialog.selectedAttributeIds.length === 0) {
+      setMixedIdentifierDialog({
+        ...mixedIdentifierDialog,
+        error: "Seleziona almeno un attributo semplice locale.",
+      });
+      return;
+    }
+
+    void createExternalIdentifierFromContext({
+      mixed: true,
+      localAttributeIds: mixedIdentifierDialog.selectedAttributeIds,
+    });
+    setMixedIdentifierDialog(null);
+  }
+
+  function handleOpenInheritanceTypeControl() {
     if (!selectedEdge || selectedEdge.type !== "inheritance") {
       return;
     }
 
     const currentCompleteness = selectedEdge.isaCompleteness === "total" ? "t" : "p";
     const currentDisjointness = selectedEdge.isaDisjointness === "overlap" ? "o" : "e";
-    const nextValue = await requestPromptDialog({
-      title: "Type",
-      label: "Scegli (p,e), (p,o), (t,e), (t,o)",
-      initialValue: `(${currentCompleteness},${currentDisjointness})`,
-      required: true,
-      requiredMessage: "Inserisci un tipo ISA.",
+    setInheritanceTypeDialog({
+      edgeId: selectedEdge.id,
+      value: `${currentCompleteness},${currentDisjointness}` as InheritanceTypeDialogState["value"],
     });
-    if (nextValue == null) {
+  }
+
+  function submitInheritanceTypeDialog() {
+    if (!inheritanceTypeDialog) {
       return;
     }
 
-    const normalized = nextValue.replace(/\s+/g, "").replace(/[()]/g, "").toLowerCase();
-    const [completeness, disjointness] = normalized.split(",");
-    if (!["p", "t"].includes(completeness) || !["e", "o"].includes(disjointness)) {
-      setStatusWarning("Type non valido. Usa (p,e), (p,o), (t,e) o (t,o).");
-      return;
-    }
-
-    handleEdgeChange(selectedEdge.id, {
+    const [completeness, disjointness] = inheritanceTypeDialog.value.split(",") as ["t" | "p", "e" | "o"];
+    handleEdgeChange(inheritanceTypeDialog.edgeId, {
       isaCompleteness: completeness === "t" ? "total" : "partial",
       isaDisjointness: disjointness === "o" ? "overlap" : "disjoint",
       label: `(${completeness},${disjointness})`,
     } as Partial<DiagramEdge>);
+    setInheritanceTypeDialog(null);
   }
 
   function handleCreateExternalIdentifierFromSelection(sourceAttributeId: string, targetId: string) {
@@ -3769,7 +4082,12 @@ export default function App() {
               height: nextSize.height,
             } as Partial<DiagramNode>);
           })()
-        : nextDiagramBase;
+        : layoutDirectAttributesAroundHost(nextDiagramBase, hostNode, [
+            ...findDirectHostedAttributes(history.present, hostNode.id)
+              .filter((attribute) => attribute.isIdentifier !== true && attribute.isCompositeInternal !== true)
+              .map((attribute) => attribute.id),
+            nextAttribute.id,
+          ]);
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
@@ -4677,6 +4995,14 @@ export default function App() {
                   <span aria-hidden="true">↩</span>
                   {codePanelOpen ? "Hide" : "Show"}
                 </button>
+                <button
+                  type="button"
+                  className="designer-side-toggle designer-side-toggle-left designer-side-toggle-errors"
+                  onClick={() => setErrorsPanelOpen(true)}
+                >
+                  <span aria-hidden="true">{issues.some((issue) => issue.level === "error") ? "X" : "!"}</span>
+                  Errors
+                </button>
                 <button type="button" className="designer-side-toggle designer-side-toggle-right" onClick={handleToggleNotesPanel}>
                   <span aria-hidden="true">↪</span>
                   {notesPanelOpen ? "Hide" : "Notes"}
@@ -4702,8 +5028,8 @@ export default function App() {
                   onSaveErs={handleSaveErs}
                   onOpenCardinality={handleOpenCardinalityControl}
                   onToggleSimpleIdentifier={handleToggleSimpleIdentifierFromSelection}
-                  onOpenCompositeIdentifier={handleOpenCompositeIdentifierModal}
-                  onOpenMixedIdentifier={() => createExternalIdentifierFromContext({ mixed: true })}
+                  onOpenCompositeIdentifier={handleCreateCompositeIdentifierFromSelection}
+                  onOpenMixedIdentifier={handleOpenMixedIdentifierModal}
                   onOpenExternalIdentifier={() => createExternalIdentifierFromContext({ mixed: false })}
                   onOpenInheritanceType={handleOpenInheritanceTypeControl}
                   onToolChange={setTool}
@@ -4738,6 +5064,8 @@ export default function App() {
                   onCommitDiagram={commitDiagram}
                   onCreateNode={handleCreateNode}
                   onCreateEdge={handleCreateEdge}
+                  onOpenCardinality={handleOpenCardinalityControl}
+                  onToolChange={setTool}
                   onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
                   onDeleteNode={handleDeleteNodeById}
                   onDeleteEdge={handleDeleteEdgeById}
@@ -4999,6 +5327,206 @@ export default function App() {
                 </button>
                 <button type="submit" className="mode-button active">
                   {promptDialog.confirmLabel}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {errorsPanelOpen ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => setErrorsPanelOpen(false)}>
+          <div
+            className="help-modal action-modal errors-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="errors-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="errors-dialog-title">Errors</h2>
+              <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)}>
+                Chiudi
+              </button>
+            </div>
+            <div className="action-modal-content errors-modal-list">
+              {issues.length === 0 ? (
+                <p>Nessun errore o warning nel diagramma.</p>
+              ) : (
+                issues.map((issue) => (
+                  <button
+                    type="button"
+                    key={issue.id}
+                    className={`errors-modal-item ${issue.level}`}
+                    onClick={() => selectIssueTarget(issue)}
+                  >
+                    <strong>{issue.level === "error" ? "error" : "warning"}</strong>
+                    <span>{getIssueElementLabel(issue)}</span>
+                    <p>{issue.message}</p>
+                    <em>{getIssueSuggestion(issue.message)}</em>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cardinalityDialog ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => setCardinalityDialog(null)}>
+          <div
+            className="help-modal action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cardinality-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="cardinality-dialog-title">Cardinality</h2>
+            </div>
+            <form
+              className="action-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitCardinalityDialog();
+              }}
+            >
+              <div className="choice-grid">
+                {CONNECTOR_CARDINALITY_PRESETS.map((preset) => (
+                  <label key={preset} className="choice-tile">
+                    <input
+                      type="radio"
+                      name="cardinality"
+                      checked={cardinalityDialog.presetValue === preset}
+                      onChange={() => setCardinalityDialog({ ...cardinalityDialog, presetValue: preset, error: "" })}
+                    />
+                    <span>{preset.slice(1, -1)}</span>
+                  </label>
+                ))}
+                <label className="choice-tile">
+                  <input
+                    type="radio"
+                    name="cardinality"
+                    checked={cardinalityDialog.presetValue === "custom"}
+                    onChange={() => setCardinalityDialog({ ...cardinalityDialog, presetValue: "custom", error: "" })}
+                  />
+                  <span>Custom</span>
+                </label>
+              </div>
+              {cardinalityDialog.presetValue === "custom" ? (
+                <label className="field action-modal-field">
+                  <span>Formato X,Y</span>
+                  <input
+                    value={cardinalityDialog.customValue}
+                    placeholder="0,N"
+                    onChange={(event) =>
+                      setCardinalityDialog({ ...cardinalityDialog, customValue: event.target.value, error: "" })
+                    }
+                  />
+                </label>
+              ) : null}
+              {cardinalityDialog.error ? <p className="action-modal-error">{cardinalityDialog.error}</p> : null}
+              <div className="action-modal-actions">
+                <button type="button" className="header-button" onClick={() => setCardinalityDialog(null)}>
+                  Annulla
+                </button>
+                <button type="submit" className="mode-button active">
+                  Salva
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {mixedIdentifierDialog ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => setMixedIdentifierDialog(null)}>
+          <div
+            className="help-modal action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mixed-id-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="mixed-id-dialog-title">Mixed Id</h2>
+            </div>
+            <form
+              className="action-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitMixedIdentifierDialog();
+              }}
+            >
+              <div className="checkbox-list">
+                {mixedIdentifierDialog.attributes.map((attribute) => (
+                  <label key={attribute.id} className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={mixedIdentifierDialog.selectedAttributeIds.includes(attribute.id)}
+                      onChange={(event) => {
+                        const selectedAttributeIds = event.target.checked
+                          ? [...mixedIdentifierDialog.selectedAttributeIds, attribute.id]
+                          : mixedIdentifierDialog.selectedAttributeIds.filter((id) => id !== attribute.id);
+                        setMixedIdentifierDialog({ ...mixedIdentifierDialog, selectedAttributeIds, error: "" });
+                      }}
+                    />
+                    <span>{attribute.label}</span>
+                  </label>
+                ))}
+              </div>
+              {mixedIdentifierDialog.error ? <p className="action-modal-error">{mixedIdentifierDialog.error}</p> : null}
+              <div className="action-modal-actions">
+                <button type="button" className="header-button" onClick={() => setMixedIdentifierDialog(null)}>
+                  Annulla
+                </button>
+                <button type="submit" className="mode-button active" disabled={mixedIdentifierDialog.attributes.length === 0}>
+                  Crea
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {inheritanceTypeDialog ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => setInheritanceTypeDialog(null)}>
+          <div
+            className="help-modal action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="isa-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="isa-dialog-title">Type</h2>
+            </div>
+            <form
+              className="action-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitInheritanceTypeDialog();
+              }}
+            >
+              <div className="choice-grid">
+                {(["t,e", "t,o", "p,e", "p,o"] as const).map((value) => (
+                  <label key={value} className="choice-tile">
+                    <input
+                      type="radio"
+                      name="isa-type"
+                      checked={inheritanceTypeDialog.value === value}
+                      onChange={() => setInheritanceTypeDialog({ ...inheritanceTypeDialog, value })}
+                    />
+                    <span>{value}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="action-modal-actions">
+                <button type="button" className="header-button" onClick={() => setInheritanceTypeDialog(null)}>
+                  Annulla
+                </button>
+                <button type="submit" className="mode-button active">
+                  Salva
                 </button>
               </div>
             </form>

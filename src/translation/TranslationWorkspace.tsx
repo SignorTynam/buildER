@@ -262,6 +262,8 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           onCommitDiagram={props.onCommitDiagram}
           onCreateNode={() => ""}
           onCreateEdge={() => ({ success: false, message: unavailableMessage })}
+          onOpenCardinality={() => {}}
+          onToolChange={() => {}}
           onCreateExternalIdentifier={() => ({ success: false, message: unavailableMessage })}
           onDeleteNode={() => {}}
           onDeleteEdge={() => {}}

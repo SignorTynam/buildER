@@ -239,6 +239,75 @@ body {
   background: #ffd94d;
 }
 
+.designer-side-toggle-errors {
+  top: 54px;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.choice-tile,
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--studio-border);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 10px 12px;
+  color: var(--studio-ink);
+}
+
+.choice-tile span {
+  font-weight: 800;
+}
+
+.checkbox-list,
+.errors-modal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.errors-modal {
+  width: min(760px, calc(100vw - 48px));
+}
+
+.errors-modal-item {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  border: 1px solid var(--studio-border);
+  border-left: 4px solid var(--diagram-warning);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 12px;
+  text-align: left;
+}
+
+.errors-modal-item.error {
+  border-left-color: var(--diagram-error);
+}
+
+.errors-modal-item strong {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0;
+}
+
+.errors-modal-item span {
+  font-weight: 800;
+}
+
+.errors-modal-item p,
+.errors-modal-item em {
+  margin: 0;
+  color: var(--studio-muted);
+  line-height: 1.35;
+}
+
 .designer-translation-view {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -432,6 +501,10 @@ body {
 
 .designer-side-toggle-right {
   right: 14px;
+}
+
+.designer-side-toggle.designer-side-toggle-errors {
+  top: 54px;
 }
 
 .designer-code-dock {
@@ -3802,7 +3875,7 @@ textarea:disabled {
 
 .diagram-node.selected,
 .diagram-edge.selected {
-  filter: none;
+  filter: drop-shadow(0 0 5px rgba(183, 126, 0, 0.58));
 }
 
 .diagram-node:focus-visible,

@@ -280,21 +280,24 @@ function normalizeNodeNameKey(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, "_")
     .toLowerCase();
 }
 
-function normalizeNodeNameCandidate(value: string | undefined, nodeType: NodeKind): string {
-  const normalized = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
-  if (normalized.length > 0) {
-    return normalized;
+export function normalizeNodeNameCandidate(value: string | undefined, nodeType: NodeKind): string {
+  const normalized = typeof value === "string" ? value.trim().replace(/\s+/g, "_") : "";
+  const fallback = NODE_LABEL_PREFIX_BY_TYPE[nodeType];
+  const candidate = normalized.length > 0 ? normalized : fallback;
+
+  if (nodeType === "entity" || nodeType === "relationship") {
+    return candidate.toUpperCase();
   }
 
-  return NODE_LABEL_PREFIX_BY_TYPE[nodeType];
+  return candidate;
 }
 
 function createUniqueNodeName(baseName: string, usedNames: Set<string>): string {
-  const normalizedBase = baseName.trim().replace(/\s+/g, " ");
+  const normalizedBase = baseName.trim().replace(/\s+/g, "_");
   const fallback = normalizedBase.length > 0 ? normalizedBase : "ELEMENTO";
   const fallbackKey = normalizeNodeNameKey(fallback);
 
@@ -1794,8 +1797,10 @@ function isGeneralizationGroupLike(value: unknown): value is Partial<Generalizat
   return typeof value === "object" && value !== null;
 }
 
-function buildLegacyGeneralizationGroupId(edge: Extract<DiagramEdge, { type: "inheritance" }>, index: number): string {
-  return edge.generalizationGroupId ?? `generalization-${edge.targetId}-${edge.sourceId}-${index + 1}`;
+function buildLegacyGeneralizationGroupId(edge: Extract<DiagramEdge, { type: "inheritance" }>, _index: number): string {
+  const completeness = edge.isaCompleteness ?? "partial";
+  const disjointness = edge.isaDisjointness ?? "disjoint";
+  return edge.generalizationGroupId ?? `generalization-${edge.targetId}-${completeness}-${disjointness}`;
 }
 
 export function normalizeGeneralizationGroups(diagram: DiagramDocument): DiagramDocument {

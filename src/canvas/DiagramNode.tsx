@@ -55,12 +55,12 @@ function getValidationHalo(level: DiagramIssueLevel): string {
   return "transparent";
 }
 
-function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, count?: number): ReactNode {
+function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, _count?: number): ReactNode {
   if (!level) {
     return null;
   }
 
-  const badgeText = count && count > 1 ? String(Math.min(count, 9)) : "!";
+  const badgeText = level === "error" ? "X" : "!";
   return (
     <g className="diagram-validation-badge" aria-hidden="true">
       <circle cx={x} cy={y} r={10} fill="#fffdf7" stroke={getValidationStroke(level)} strokeWidth={2.2} />
@@ -287,7 +287,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           fill={selectedStrokeColor}
           opacity={labelOpacity}
         >
-          {node.label}
+          {node.label.toUpperCase()}
         </text>
       </g>
     );

@@ -22,6 +22,8 @@ export const CONNECTOR_CARDINALITIES = [
   "(N,N)",
 ] as const;
 
+export const CONNECTOR_CARDINALITY_PRESETS = ["(0,1)", "(1,1)", "(0,N)", "(1,N)"] as const;
+
 export type ConnectorCardinality = string;
 
 export interface CardinalityParseResult {

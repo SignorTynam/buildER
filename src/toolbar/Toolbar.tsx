@@ -8,7 +8,7 @@ import type {
   ToolKind,
   ValidationIssue,
 } from "../types/diagram";
-import { getConnectorParticipationContext } from "../utils/cardinality";
+import { getConnectorParticipation, getConnectorParticipationContext } from "../utils/cardinality";
 
 interface ToolbarProps {
   diagram: DiagramDocument;
@@ -63,20 +63,16 @@ type ToolbarCommand = {
 
 function findAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const edge = diagram.edges.find((candidate) => {
-    if (candidate.type !== "attribute") {
-      return false;
-    }
-
-    return candidate.sourceId === attributeId || candidate.targetId === attributeId;
-  });
-
+  const edge = diagram.edges.find(
+    (candidate) =>
+      candidate.type === "attribute" &&
+      (candidate.sourceId === attributeId || candidate.targetId === attributeId),
+  );
   if (!edge) {
     return undefined;
   }
 
-  const hostId = edge.sourceId === attributeId ? edge.targetId : edge.sourceId;
-  return nodeMap.get(hostId);
+  return nodeMap.get(edge.sourceId === attributeId ? edge.targetId : edge.sourceId);
 }
 
 function getAttributeContext(diagram: DiagramDocument, attribute: AttributeNode) {
@@ -86,10 +82,14 @@ function getAttributeContext(diagram: DiagramDocument, attribute: AttributeNode)
   const usedInternalAttributeIds = new Set(
     hostEntity?.internalIdentifiers?.flatMap((identifier) => identifier.attributeIds) ?? [],
   );
+  const usedExternalAttributeIds = new Set(
+    hostEntity?.externalIdentifiers?.flatMap((identifier) => identifier.localAttributeIds) ?? [],
+  );
   const eligibleForInternalId =
     host?.type === "entity" &&
     attribute.isMultivalued !== true &&
     !isMultivalueElement &&
+    !usedExternalAttributeIds.has(attribute.id) &&
     (!usedInternalAttributeIds.has(attribute.id) || attribute.isIdentifier === true);
 
   return {
@@ -99,6 +99,42 @@ function getAttributeContext(diagram: DiagramDocument, attribute: AttributeNode)
   };
 }
 
+function getCompositeSelectionContext(diagram: DiagramDocument, selection: SelectionState): { valid: boolean; title?: string } {
+  if (selection.edgeIds.length > 0 || selection.nodeIds.length < 2) {
+    return { valid: false, title: "Seleziona almeno due attributi semplici con Ctrl/Cmd+click." };
+  }
+
+  const contexts = selection.nodeIds.map((nodeId) => {
+    const attribute = diagram.nodes.find(
+      (node): node is AttributeNode => node.id === nodeId && node.type === "attribute",
+    );
+    return attribute ? { attribute, host: findAttributeHost(diagram, attribute.id) } : null;
+  });
+  if (contexts.some((context) => context === null)) {
+    return { valid: false, title: "Composite Id richiede solo attributi." };
+  }
+
+  const validContexts = contexts as Array<{ attribute: AttributeNode; host: DiagramNode | undefined }>;
+  const host = validContexts[0]?.host;
+  if (!host || host.type !== "entity" || validContexts.some((context) => context.host?.id !== host.id)) {
+    return { valid: false, title: "Gli attributi devono appartenere alla stessa entita." };
+  }
+
+  const usedInternal = new Set((host.internalIdentifiers ?? []).flatMap((identifier) => identifier.attributeIds));
+  const usedExternal = new Set((host.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds));
+  const valid = validContexts.every(
+    ({ attribute }) =>
+      attribute.isMultivalued !== true &&
+      attribute.isIdentifier !== true &&
+      !usedInternal.has(attribute.id) &&
+      !usedExternal.has(attribute.id),
+  );
+
+  return valid
+    ? { valid: true }
+    : { valid: false, title: "Usa solo attributi semplici non gia usati in identificatori." };
+}
+
 function isEntityRelationshipConnector(diagram: DiagramDocument, edge: DiagramEdge): boolean {
   if (edge.type !== "connector") {
     return false;
@@ -106,6 +142,15 @@ function isEntityRelationshipConnector(diagram: DiagramDocument, edge: DiagramEd
 
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
   return getConnectorParticipationContext(nodeMap.get(edge.sourceId), nodeMap.get(edge.targetId)) !== undefined;
+}
+
+function connectorHasCardinalityOneOne(diagram: DiagramDocument, edge: DiagramEdge): boolean {
+  if (edge.type !== "connector") {
+    return false;
+  }
+
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  return getConnectorParticipation(edge, nodeMap.get(edge.sourceId), nodeMap.get(edge.targetId))?.cardinality === "(1,1)";
 }
 
 function CommandButton({ command }: { command: ToolbarCommand }) {
@@ -128,22 +173,11 @@ export function Toolbar(props: ToolbarProps) {
   const canEdit = props.mode === "edit";
   const selectedAttribute = props.selectedNode?.type === "attribute" ? props.selectedNode : undefined;
   const attributeContext = selectedAttribute ? getAttributeContext(props.diagram, selectedAttribute) : undefined;
+  const compositeSelection = getCompositeSelectionContext(props.diagram, props.selection);
 
   const baseCommands: ToolbarCommand[] = [
-    {
-      key: "undo",
-      label: "Undo",
-      icon: "↶",
-      onClick: () => props.onUndo?.(),
-      disabled: !props.canUndo,
-    },
-    {
-      key: "redo",
-      label: "Redo",
-      icon: "↷",
-      onClick: () => props.onRedo?.(),
-      disabled: !props.canRedo,
-    },
+    { key: "undo", label: "Undo", icon: "↶", onClick: () => props.onUndo?.(), disabled: !props.canUndo },
+    { key: "redo", label: "Redo", icon: "↷", onClick: () => props.onRedo?.(), disabled: !props.canRedo },
   ];
 
   let contextCommands: ToolbarCommand[] = [];
@@ -155,6 +189,18 @@ export function Toolbar(props: ToolbarProps) {
       { key: "translate", label: "Translate", icon: "▤", onClick: props.onOpenTranslation },
       { key: "export", label: "Export", icon: "▧", onClick: props.onExportSvg },
       { key: "save", label: "Save", icon: "▣", onClick: () => props.onSaveErs?.() },
+    ];
+  } else if (props.selection.nodeIds.length >= 2 && props.selection.edgeIds.length === 0) {
+    contextCommands = [
+      {
+        key: "composite-id",
+        label: "Composite Id",
+        icon: "●●",
+        onClick: () => props.onOpenCompositeIdentifier?.(),
+        disabled: !canEdit || !compositeSelection.valid,
+        title: compositeSelection.title,
+      },
+      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedNode?.type === "entity") {
     contextCommands = [
@@ -200,24 +246,25 @@ export function Toolbar(props: ToolbarProps) {
         label: "Composite Id",
         icon: "●●",
         onClick: () => props.onOpenCompositeIdentifier?.(),
-        disabled: !canEdit || !attributeContext?.eligibleForInternalId,
-        title: idDisabledTitle,
-      },
-      {
-        key: "mixed-id",
-        label: "Mixed Id",
-        icon: "◒",
-        onClick: () => props.onOpenMixedIdentifier?.(),
-        disabled: !canEdit,
+        disabled: true,
+        title: "Seleziona almeno due attributi semplici con Ctrl/Cmd+click.",
       },
       { key: "card", label: "Card", icon: selectedAttribute.cardinality ?? "(1,1)", onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
       { key: "rename", label: "Rename", icon: "✎", onClick: props.onRenameSelection, disabled: !canEdit },
       { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedEdge && isEntityRelationshipConnector(props.diagram, props.selectedEdge)) {
+    const mixedDisabled = !connectorHasCardinalityOneOne(props.diagram, props.selectedEdge);
     contextCommands = [
       { key: "external-id", label: "External Id", icon: "●", onClick: () => props.onOpenExternalIdentifier?.(), disabled: !canEdit },
-      { key: "mixed-id", label: "Mixed Id", icon: "◒", onClick: () => props.onOpenMixedIdentifier?.(), disabled: !canEdit },
+      {
+        key: "mixed-id",
+        label: "Mixed Id",
+        icon: "◒",
+        onClick: () => props.onOpenMixedIdentifier?.(),
+        disabled: !canEdit || mixedDisabled,
+        title: mixedDisabled ? "L'identificatore esterno misto richiede cardinalita 1,1 sull'entita." : undefined,
+      },
       { key: "card", label: "Card", icon: "Card", onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
       { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
@@ -236,7 +283,7 @@ export function Toolbar(props: ToolbarProps) {
 
   return (
     <nav className="designer-context-toolbar" aria-label="Context toolbar">
-      {[...baseCommands, ...contextCommands].map((command, index) => (
+      {[...baseCommands, ...contextCommands].map((command) => (
         <CommandButton key={command.key} command={command} />
       ))}
     </nav>

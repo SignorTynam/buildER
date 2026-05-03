@@ -151,6 +151,8 @@ interface DiagramCanvasProps {
     sourceId: string,
     targetId: string,
   ) => { success: boolean; message: string };
+  onOpenCardinality: (edgeId?: string) => void;
+  onToolChange: (tool: ToolKind) => void;
   onCreateExternalIdentifier: (
     sourceAttributeId: string,
     targetId: string,
@@ -1018,6 +1020,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const [showPanHint, setShowPanHint] = useState(true);
   const [persistentMessage, setPersistentMessage] = useState<PersistentCanvasMessage | null>(null);
   const [dismissedMessageKey, setDismissedMessageKey] = useState<string | null>(null);
+  const [placementPreviewPoint, setPlacementPreviewPoint] = useState<Point | null>(null);
 
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
   const nodeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
@@ -1490,6 +1493,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }, [props.onStatusMessageChange, props.statusMessage, props.tool]);
 
   useEffect(() => {
+    if (!placeableCanvasTool(props.tool)) {
+      setPlacementPreviewPoint(null);
+    }
+  }, [props.tool]);
+
+  useEffect(() => {
     if (props.tool !== "connector" && props.tool !== "inheritance") {
       return;
     }
@@ -1841,6 +1850,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (event.key === "Escape" && placeableCanvasTool(props.tool)) {
+      event.preventDefault();
+      event.stopPropagation();
+      setPlacementPreviewPoint(null);
+      props.onToolChange("select");
+      props.onStatusMessageChange("Posizionamento annullato.");
+      return;
+    }
+
     if (event.key === "Enter") {
       event.preventDefault();
       event.stopPropagation();
@@ -1948,6 +1966,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     if (placeableCanvasTool(props.tool)) {
       const newId = props.onCreateNode(props.tool, worldPoint);
+      setPlacementPreviewPoint(null);
       props.onSelectionChange({ nodeIds: [newId], edgeIds: [] });
       return;
     }
@@ -2086,7 +2105,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }
     }
 
-    if (event.shiftKey) {
+    if (event.shiftKey || event.ctrlKey || event.metaKey) {
       props.onSelectionChange(addToSelection(props.selection, node.id));
       return;
     }
@@ -2236,6 +2255,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (placeableCanvasTool(props.tool)) {
+      setPlacementPreviewPoint(getWorldPointFromEvent(event));
+    }
+
     if (pendingConnectionSource) {
       const worldPoint = getWorldPointFromEvent(event);
       if (worldPoint) {
@@ -2469,6 +2492,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function startInlineEdgeEdit(event: MouseEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
+    if (edge.type === "connector") {
+      props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+      props.onOpenCardinality(edge.id);
+      return;
+    }
+
     if (edge.type !== "inheritance") {
       return;
     }
@@ -2575,6 +2604,66 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
   const compositeIdentifierInteractive = props.mode === "edit" && props.tool === "select";
+  const groupedInheritanceLayouts = (props.diagram.generalizationGroups ?? [])
+    .map((group) => {
+      if (group.subtypeIds.length < 2) {
+        return null;
+      }
+
+      const supertype = nodeMap.get(group.supertypeId);
+      const subtypes = group.subtypeIds
+        .map((subtypeId) => nodeMap.get(subtypeId))
+        .filter((node): node is DiagramNode => node?.type === "entity");
+      if (!supertype || supertype.type !== "entity" || subtypes.length < 2) {
+        return null;
+      }
+
+      const edges = props.diagram.edges.filter(
+        (edge) => edge.type === "inheritance" && edge.generalizationGroupId === group.id,
+      );
+      if (edges.length < 2) {
+        return null;
+      }
+
+      const childCenters = subtypes.map((node) => getNodeCenter(node));
+      const superCenter = getNodeCenter(supertype);
+      const childAverageY = childCenters.reduce((sum, point) => sum + point.y, 0) / childCenters.length;
+      const barY = (childAverageY + superCenter.y) / 2;
+      const minX = Math.min(...childCenters.map((point) => point.x));
+      const maxX = Math.max(...childCenters.map((point) => point.x));
+      const barStart = { x: minX, y: barY };
+      const barEnd = { x: maxX, y: barY };
+      const barCenter = { x: (minX + maxX) / 2, y: barY };
+      const superAttach = clipPointToNodePerimeter(supertype, barCenter);
+      const childStems = subtypes.map((node) => {
+        const childCenter = getNodeCenter(node);
+        return {
+          nodeId: node.id,
+          from: clipPointToNodePerimeter(node, { x: childCenter.x, y: barY }),
+          to: { x: childCenter.x, y: barY },
+        };
+      });
+      const firstEdge = edges[0];
+
+      return {
+        group,
+        edgeIds: edges.map((edge) => edge.id),
+        selected: edges.some((edge) => props.selection.edgeIds.includes(edge.id)),
+        focused: focusedTarget?.kind === "edge" && edges.some((edge) => edge.id === focusedTarget.id),
+        firstEdgeId: firstEdge?.id,
+        barStart,
+        barEnd,
+        barCenter,
+        superAttach,
+        childStems,
+        label:
+          group.isaCompleteness || group.isaDisjointness
+            ? `(${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"})`
+            : "",
+      };
+    })
+    .filter((layout): layout is NonNullable<typeof layout> => layout !== null);
+  const groupedInheritanceEdgeIds = new Set(groupedInheritanceLayouts.flatMap((layout) => layout.edgeIds));
   const toolDefinitions = getToolDefinitions();
   const activeToolDefinition = toolDefinitions.find((item) => item.tool === props.tool);
   const selectedNode =
@@ -2606,6 +2695,21 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       : null;
   const visiblePersistentMessage =
     persistentMessage && persistentMessage.key !== dismissedMessageKey ? persistentMessage : null;
+  const placementGhostNode: DiagramNode | null =
+    placementPreviewPoint && placeableCanvasTool(props.tool)
+      ? {
+          id: `placement-preview-${props.tool}`,
+          type: props.tool,
+          label: props.tool === "entity" ? "ENTITA" : "RELAZIONE",
+          x: placementPreviewPoint.x - (props.tool === "entity" ? 140 : 130) / 2,
+          y: placementPreviewPoint.y - (props.tool === "entity" ? 64 : 78) / 2,
+          width: props.tool === "entity" ? 140 : 130,
+          height: props.tool === "entity" ? 64 : 78,
+          ...(props.tool === "entity"
+            ? { isWeak: false, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] }
+            : {}),
+        } as DiagramNode
+      : null;
 
   let guidanceState: CanvasGuidanceState = "idle";
   let guidanceStateLabel = "";
@@ -2644,6 +2748,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             ? "Regola il routing dell'identificatore esterno mantenendo leggibile la relazione di supporto."
             : "Trascina il backbone per muovere insieme gli attributi membri dell'identificatore composto.";
     guidanceShortcuts = ["Rilascia per salvare", "Shift + frecce per spostamenti piu ampi"];
+  } else if (placementGhostNode) {
+    guidanceState = "selecting-target";
+    guidanceStateLabel = "Placing";
+    guidanceTitle = props.tool === "entity" ? "Posiziona entita" : "Posiziona associazione";
+    guidanceMessage = "Clicca nel workspace per creare l'elemento in questo punto.";
+    guidanceShortcuts = ["Esc annulla", "Click crea"];
   } else if (pendingConnectionSource && pendingSourceNode) {
     guidanceState = "selecting-target";
     guidanceStateLabel = "Selecting target";
@@ -2823,7 +2933,103 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 ))
             : null}
 
+          {placementGhostNode ? (
+            <DiagramNodeView
+              key={placementGhostNode.id}
+              node={placementGhostNode}
+              selected={false}
+              dragging={false}
+              ghost
+              pending={false}
+              validationLevel={undefined}
+              validationCount={undefined}
+              focused={false}
+              focusable={false}
+              onFocus={() => undefined}
+              onBlur={() => undefined}
+              attributeDirection={undefined}
+              onPointerDown={() => undefined}
+              onDoubleClick={() => undefined}
+            />
+          ) : null}
+
+          {groupedInheritanceLayouts.map((layout) => {
+            const stroke = layout.selected || layout.focused ? DIAGRAM_FOCUS : DIAGRAM_STROKE;
+            const pathData = pathFromPoints([layout.barCenter, layout.superAttach]);
+            return (
+              <g
+                key={`inheritance-group-${layout.group.id}`}
+                className={layout.selected ? "diagram-edge selected inheritance-group" : "diagram-edge inheritance-group"}
+                tabIndex={props.tool === "select" ? 0 : -1}
+                focusable={props.tool === "select" ? "true" : "false"}
+                onFocus={() => layout.firstEdgeId ? setFocusedTarget({ kind: "edge", id: layout.firstEdgeId }) : undefined}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  if (!layout.firstEdgeId || props.tool !== "select") {
+                    return;
+                  }
+                  props.onSelectionChange({ nodeIds: [], edgeIds: [layout.firstEdgeId] });
+                }}
+                onDoubleClick={(event) => {
+                  event.stopPropagation();
+                  if (!layout.firstEdgeId) {
+                    return;
+                  }
+                  props.onSelectionChange({ nodeIds: [], edgeIds: [layout.firstEdgeId] });
+                  startInlineEdgeEdit(event, props.diagram.edges.find((edge) => edge.id === layout.firstEdgeId) as DiagramEdge);
+                }}
+              >
+                <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} />
+                <line
+                  x1={layout.barStart.x}
+                  y1={layout.barStart.y}
+                  x2={layout.barEnd.x}
+                  y2={layout.barEnd.y}
+                  stroke={stroke}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                />
+                <path
+                  d={pathData}
+                  fill="none"
+                  stroke={stroke}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  markerEnd="url(#arrowhead)"
+                />
+                {layout.childStems.map((stem) => (
+                  <line
+                    key={`${layout.group.id}-${stem.nodeId}`}
+                    x1={stem.from.x}
+                    y1={stem.from.y}
+                    x2={stem.to.x}
+                    y2={stem.to.y}
+                    stroke={stroke}
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                  />
+                ))}
+                {layout.label ? (
+                  <text
+                    x={layout.barCenter.x}
+                    y={layout.barCenter.y + 18}
+                    textAnchor="middle"
+                    className="edge-label inheritance-constraint-label"
+                    fill={stroke}
+                  >
+                    {layout.label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+
           {props.diagram.edges.map((edge) => {
+            if (groupedInheritanceEdgeIds.has(edge.id)) {
+              return null;
+            }
+
             const sourceNode = nodeMap.get(edge.sourceId);
             const targetNode = nodeMap.get(edge.targetId);
 

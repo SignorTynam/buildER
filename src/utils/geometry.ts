@@ -464,11 +464,10 @@ export function getEdgeGeometry(
     const attributeNode = sourceIsAttribute ? sourceNode : targetNode;
     const hostNode = sourceIsAttribute ? targetNode : sourceNode;
 
-    // Keep attribute connections center-to-center to preserve the classic Chen-style visual behavior.
-    points = simplifyPoints([
+    points = attachPolylineToNodeBounds([
       getNodeLogicalAnchor(attributeNode),
       getNodeLogicalAnchor(hostNode),
-    ]);
+    ], attributeNode, hostNode);
   } else {
     const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
     points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);

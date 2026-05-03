@@ -471,39 +471,21 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 <label className="field">
                   <span>Vincolo ISA</span>
                   <select
-                    value={edge.isaDisjointness ?? ""}
+                    value={`${edge.isaCompleteness === "total" ? "t" : "p"},${edge.isaDisjointness === "overlap" ? "o" : "e"}`}
                     disabled={!canEdit}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const [completeness, disjointness] = event.target.value.split(",");
                       props.onEdgeChange(edge.id, {
-                        isaDisjointness:
-                          event.target.value === "disjoint" || event.target.value === "overlap"
-                            ? event.target.value
-                            : undefined,
-                      })
-                    }
+                        isaCompleteness: completeness === "t" ? "total" : "partial",
+                        isaDisjointness: disjointness === "o" ? "overlap" : "disjoint",
+                        label: `(${completeness},${disjointness})`,
+                      });
+                    }}
                   >
-                    <option value="">Nessun vincolo</option>
-                    <option value="disjoint">Disgiunto (Disjoint)</option>
-                    <option value="overlap">Sovrapposto (Overlap)</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Copertura ISA</span>
-                  <select
-                    value={edge.isaCompleteness ?? ""}
-                    disabled={!canEdit}
-                    onChange={(event) =>
-                      props.onEdgeChange(edge.id, {
-                        isaCompleteness:
-                          event.target.value === "total" || event.target.value === "partial"
-                            ? event.target.value
-                            : undefined,
-                      })
-                    }
-                  >
-                    <option value="">Nessuna copertura</option>
-                    <option value="total">Totale (Total)</option>
-                    <option value="partial">Parziale (Partial)</option>
+                    <option value="t,e">t,e - totale esclusiva</option>
+                    <option value="t,o">t,o - totale sovrapposta</option>
+                    <option value="p,e">p,e - parziale esclusiva</option>
+                    <option value="p,o">p,o - parziale sovrapposta</option>
                   </select>
                 </label>
               </>
