@@ -2989,3 +2989,180 @@ summary:focus-visible,
     display: none;
   }
 }
+
+/* ER workspace targeted fixes */
+.designer-side-toggle-group.designer-side-toggle-left {
+  position: absolute;
+  z-index: 15;
+  top: 10px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 92%, transparent);
+  box-shadow: var(--studio-shadow-sm);
+}
+
+.designer-side-toggle-group .designer-side-toggle {
+  position: static;
+  display: inline-grid;
+  grid-template-columns: 18px auto;
+  place-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--studio-ink);
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.designer-side-toggle-group .designer-side-toggle:hover,
+.designer-side-toggle-group .designer-side-toggle:focus-visible {
+  border-color: var(--studio-border-strong);
+  background: var(--studio-surface);
+}
+
+.designer-side-toggle-group .designer-side-toggle span {
+  font-size: 0.86rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.designer-side-toggle-group .designer-side-toggle-errors {
+  top: auto;
+}
+
+.designer-side-toggle-group .designer-side-toggle-errors.has-issues {
+  border-color: color-mix(in srgb, var(--diagram-warning) 46%, var(--studio-border));
+  color: color-mix(in srgb, var(--diagram-warning) 72%, var(--studio-ink));
+}
+
+.designer-side-toggle-right {
+  display: inline-grid;
+  grid-template-columns: 18px auto;
+  place-items: center;
+  gap: 5px;
+}
+
+.designer-side-toggle-right span {
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.designer-toolbar-svg {
+  width: 25px;
+  height: 25px;
+  display: block;
+}
+
+.designer-toolbar-svg-text {
+  fill: currentColor;
+  font-size: 5.4px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.designer-toolbar-button {
+  min-height: 66px;
+}
+
+.designer-toolbar-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 0;
+}
+
+.designer-toolbar-button:disabled .designer-toolbar-svg {
+  opacity: 0.42;
+}
+
+.errors-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(78vh, 720px);
+  overflow: hidden;
+}
+
+.errors-modal-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 14px;
+  scrollbar-width: thin;
+}
+
+.errors-modal-item {
+  cursor: pointer;
+}
+
+.errors-modal-item:hover,
+.errors-modal-item:focus-visible {
+  border-color: var(--studio-border-strong);
+  background: var(--studio-surface-muted);
+}
+
+.errors-modal-item p {
+  margin: 0;
+}
+
+.diagram-edge.inheritance-group.selected,
+.diagram-edge.inheritance-group:focus {
+  filter: none;
+}
+
+.diagram-edge.inheritance-group.selected line,
+.diagram-edge.inheritance-group.selected path:not(:first-child),
+.diagram-edge.inheritance-group:focus line,
+.diagram-edge.inheritance-group:focus path:not(:first-child) {
+  stroke-width: 2.6px;
+}
+
+.canvas-viewport-hud {
+  right: 22px !important;
+  bottom: 22px !important;
+}
+
+.canvas-hud-cluster.canvas-hud-cluster-viewport {
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
+  box-shadow: var(--studio-shadow-sm);
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-button {
+  width: 34px;
+  min-width: 34px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--studio-ink);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-button:hover:not(:disabled),
+.canvas-hud-cluster-viewport .canvas-hud-button:focus-visible {
+  border-color: var(--studio-border-strong);
+  background: var(--studio-surface);
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-zoom {
+  width: auto;
+  min-width: 54px;
+  padding: 0 8px;
+  color: var(--studio-muted);
+  font-size: 0.72rem;
+}

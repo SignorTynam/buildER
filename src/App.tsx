@@ -49,6 +49,7 @@ import type {
 import {
   alignNodes,
   canConnect,
+  canAttributeHaveCardinality,
   createEdge,
   createEmptyDiagram,
   createNode,
@@ -69,6 +70,7 @@ import {
   synchronizeNodeNameIdentity,
   synchronizeInternalIdentifiers,
   validateDiagram,
+  withMinimumNodeSizeForLabel,
 } from "./utils/diagram";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
@@ -695,6 +697,8 @@ function sanitizeFileNameBase(value: string): string {
 }
 
 const DEFAULT_ATTRIBUTE_SIZE = { width: 170, height: 72 };
+const DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE =
+  "Questa entita ha gia un identificatore: non e possibile aggiungere un altro identificatore misto/esterno.";
 
 function clampValue(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -797,7 +801,9 @@ function updateNodeInDiagram(
 ): DiagramDocument {
   return {
     ...diagram,
-    nodes: diagram.nodes.map((node) => (node.id === nodeId ? { ...node, ...patch } : node)),
+    nodes: diagram.nodes.map((node) =>
+      node.id === nodeId ? withMinimumNodeSizeForLabel({ ...node, ...patch } as DiagramNode) : node,
+    ),
   };
 }
 
@@ -810,7 +816,9 @@ function updateNodesInDiagram(
 
   return {
     ...diagram,
-    nodes: diagram.nodes.map((node) => (targetIds.has(node.id) ? { ...node, ...patch } : node)),
+    nodes: diagram.nodes.map((node) =>
+      targetIds.has(node.id) ? withMinimumNodeSizeForLabel({ ...node, ...patch } as DiagramNode) : node,
+    ),
   };
 }
 
@@ -2254,30 +2262,35 @@ export default function App() {
     return `${source} - ${target}`;
   }
 
-  function getIssueSuggestion(message: string): string {
-    const match = message.match(/(?:per risolvere|per correggere)\s+(.+)$/i);
-    return match?.[1]?.trim() ?? "Seleziona l'elemento e correggi le proprieta evidenziate.";
+  function issueTargetExists(issue: ValidationIssue): boolean {
+    return issue.targetType === "node"
+      ? history.present.nodes.some((node) => node.id === issue.targetId)
+      : history.present.edges.some((edge) => edge.id === issue.targetId);
   }
 
-  function selectIssueTarget(issue: ValidationIssue) {
+  function selectIssueTarget(issue: ValidationIssue): boolean {
+    const viewportRect = svgRef.current?.getBoundingClientRect();
+    const viewportWidth = viewportRect?.width ?? (typeof window === "undefined" ? 1280 : window.innerWidth);
+    const viewportHeight = viewportRect?.height ?? (typeof window === "undefined" ? 720 : window.innerHeight - 46);
+
     if (issue.targetType === "node") {
       const node = history.present.nodes.find((candidate) => candidate.id === issue.targetId);
       if (!node) {
-        return;
+        return false;
       }
 
       setSelection({ nodeIds: [node.id], edgeIds: [] });
       setViewport({
         ...viewport,
-        x: (typeof window === "undefined" ? 1280 : window.innerWidth) / 2 - (node.x + node.width / 2) * viewport.zoom,
-        y: ((typeof window === "undefined" ? 720 : window.innerHeight) - 46) / 2 - (node.y + node.height / 2) * viewport.zoom,
+        x: viewportWidth / 2 - (node.x + node.width / 2) * viewport.zoom,
+        y: viewportHeight / 2 - (node.y + node.height / 2) * viewport.zoom,
       });
-      return;
+      return true;
     }
 
     const edge = history.present.edges.find((candidate) => candidate.id === issue.targetId);
     if (!edge) {
-      return;
+      return false;
     }
 
     setSelection({ nodeIds: [], edgeIds: [edge.id] });
@@ -2288,10 +2301,11 @@ export default function App() {
       const centerY = (sourceNode.y + sourceNode.height / 2 + targetNode.y + targetNode.height / 2) / 2;
       setViewport({
         ...viewport,
-        x: (typeof window === "undefined" ? 1280 : window.innerWidth) / 2 - centerX * viewport.zoom,
-        y: ((typeof window === "undefined" ? 720 : window.innerHeight) - 46) / 2 - centerY * viewport.zoom,
+        x: viewportWidth / 2 - centerX * viewport.zoom,
+        y: viewportHeight / 2 - centerY * viewport.zoom,
       });
     }
+    return true;
   }
 
   function handleToggleToolRail() {
@@ -3352,10 +3366,33 @@ export default function App() {
     return edge ? getConnectorCardinality(edge) : undefined;
   }
 
+  function getCardinalityBlockReason(target: CardinalityDialogTarget): string | null {
+    if (target.kind !== "attribute") {
+      return null;
+    }
+
+    const attribute = history.present.nodes.find(
+      (node): node is AttributeNode => node.id === target.attributeId && node.type === "attribute",
+    );
+    if (!attribute) {
+      return "Attributo non disponibile.";
+    }
+
+    return canAttributeHaveCardinality(history.present, attribute)
+      ? null
+      : "La cardinalita non e assegnabile ad attributi usati come identificatori.";
+  }
+
   function handleOpenCardinalityControl(edgeId?: string) {
     const target = getCardinalityTargetFromSelection(edgeId);
     if (!target) {
       setStatusWarning("Seleziona prima un attributo o un connector entita-relazione.");
+      return;
+    }
+
+    const blockReason = getCardinalityBlockReason(target);
+    if (blockReason) {
+      setStatusWarning(blockReason);
       return;
     }
 
@@ -3381,6 +3418,21 @@ export default function App() {
     }
 
     if (target.kind === "attribute") {
+      const attribute = history.present.nodes.find(
+        (node): node is AttributeNode => node.id === target.attributeId && node.type === "attribute",
+      );
+      if (!attribute || !canAttributeHaveCardinality(history.present, attribute)) {
+        setCardinalityDialog((current) =>
+          current
+            ? {
+                ...current,
+                error: "La cardinalita non e assegnabile ad attributi usati come identificatori.",
+              }
+            : current,
+        );
+        return false;
+      }
+
       handleNodeChange(target.attributeId, { cardinality: parsed.value } as Partial<DiagramNode>);
       setStatus(`Cardinalita aggiornata a ${parsed.value}.`);
       return true;
@@ -3620,6 +3672,11 @@ export default function App() {
 
     if (!hostEntity) {
       setStatusWarning("Mixed Id richiede un'entita host o un connector entita-relazione.");
+      return;
+    }
+
+    if ((hostEntity.externalIdentifiers ?? []).length > 0) {
+      setStatusWarning(DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE);
       return;
     }
 
@@ -3969,6 +4026,13 @@ export default function App() {
       };
     }
 
+    if ((targetEntity.externalIdentifiers ?? []).length > 0) {
+      return {
+        success: false,
+        message: DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE,
+      };
+    }
+
     const relationship = findRelationshipBetweenEntities(history.present, sourceEntity.id, targetEntity.id);
     if (!relationship || relationship.type !== "relationship") {
       return {
@@ -4082,12 +4146,7 @@ export default function App() {
               height: nextSize.height,
             } as Partial<DiagramNode>);
           })()
-        : layoutDirectAttributesAroundHost(nextDiagramBase, hostNode, [
-            ...findDirectHostedAttributes(history.present, hostNode.id)
-              .filter((attribute) => attribute.isIdentifier !== true && attribute.isCompositeInternal !== true)
-              .map((attribute) => attribute.id),
-            nextAttribute.id,
-          ]);
+        : nextDiagramBase;
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
@@ -4156,6 +4215,18 @@ export default function App() {
       return;
     }
 
+    const nextExternalIdentifiers = Array.isArray(patch.externalIdentifiers)
+      ? patch.externalIdentifiers
+      : entityNode.externalIdentifiers;
+    if ((nextExternalIdentifiers ?? []).length > 1) {
+      setStatusWarning(DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE);
+      return;
+    }
+
+    const externalIdentifierAttributeIds = new Set(
+      (nextExternalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds),
+    );
+
     const nextDiagram: DiagramDocument = {
       ...history.present,
       nodes: history.present.nodes.map((node) =>
@@ -4164,6 +4235,11 @@ export default function App() {
               ...node,
               ...patch,
             }
+          : node.type === "attribute" && externalIdentifierAttributeIds.has(node.id)
+            ? {
+                ...node,
+                cardinality: undefined,
+              }
           : node,
       ),
     };
@@ -4281,9 +4357,15 @@ export default function App() {
 
     if (currentNode?.type === "attribute") {
       if (Object.prototype.hasOwnProperty.call(attributePatch, "cardinality")) {
+        const normalizedCardinality = normalizeSupportedCardinality(attributePatch.cardinality);
+        if (normalizedCardinality !== undefined && !canAttributeHaveCardinality(workingDiagram, currentNode)) {
+          setStatusWarning("La cardinalita non e assegnabile ad attributi usati come identificatori.");
+          return;
+        }
+
         normalizedAttributePatch = {
           ...normalizedAttributePatch,
-          cardinality: normalizeSupportedCardinality(attributePatch.cardinality),
+          cardinality: normalizedCardinality,
         };
       }
 
@@ -4398,8 +4480,22 @@ export default function App() {
     const wantsIdentifierMode = attributePatch.isIdentifier === true || attributePatch.isCompositeInternal === true;
 
     let targetIds = nodeIds;
+    if (Object.prototype.hasOwnProperty.call(attributePatch, "cardinality")) {
+      const normalizedCardinality = normalizeSupportedCardinality(attributePatch.cardinality);
+      if (normalizedCardinality !== undefined) {
+        targetIds = targetIds.filter((nodeId) => {
+          const node = history.present.nodes.find((item) => item.id === nodeId);
+          return node?.type !== "attribute" || canAttributeHaveCardinality(history.present, node);
+        });
+
+        if (targetIds.length !== nodeIds.length) {
+          setStatusWarning("La cardinalita non e stata applicata agli attributi usati come identificatori.");
+        }
+      }
+    }
+
     if (wantsIdentifierMode) {
-      targetIds = nodeIds.filter((nodeId) => {
+      targetIds = targetIds.filter((nodeId) => {
         const node = history.present.nodes.find((item) => item.id === nodeId);
         if (node?.type !== "attribute") {
           return true;
@@ -4991,20 +5087,35 @@ export default function App() {
               ) : null}
 
               <div className="designer-canvas-region">
-                <button type="button" className="designer-side-toggle designer-side-toggle-left" onClick={handleToggleCodePanel}>
-                  <span aria-hidden="true">↩</span>
-                  {codePanelOpen ? "Hide" : "Show"}
-                </button>
+                <div className="designer-side-toggle-group designer-side-toggle-left" aria-label="Pannelli rapidi">
+                  <button
+                    type="button"
+                    className="designer-side-toggle"
+                    onClick={handleToggleCodePanel}
+                    title={codePanelOpen ? "Chiudi codice ERS" : "Apri codice ERS"}
+                  >
+                    <span aria-hidden="true">{"<>"}</span>
+                    Code
+                  </button>
+                  <button
+                    type="button"
+                    className={`designer-side-toggle designer-side-toggle-errors ${
+                      issues.length > 0 ? "has-issues" : ""
+                    }`}
+                    onClick={() => setErrorsPanelOpen(true)}
+                    title="Apri errori e warning"
+                  >
+                    <span aria-hidden="true">{issues.some((issue) => issue.level === "error") ? "X" : "!"}</span>
+                    Errors
+                  </button>
+                </div>
                 <button
                   type="button"
-                  className="designer-side-toggle designer-side-toggle-left designer-side-toggle-errors"
-                  onClick={() => setErrorsPanelOpen(true)}
+                  className="designer-side-toggle designer-side-toggle-right"
+                  onClick={handleToggleNotesPanel}
+                  title={notesPanelOpen ? "Chiudi note" : "Apri note"}
                 >
-                  <span aria-hidden="true">{issues.some((issue) => issue.level === "error") ? "X" : "!"}</span>
-                  Errors
-                </button>
-                <button type="button" className="designer-side-toggle designer-side-toggle-right" onClick={handleToggleNotesPanel}>
-                  <span aria-hidden="true">↪</span>
+                  <span aria-hidden="true">N</span>
                   {notesPanelOpen ? "Hide" : "Notes"}
                 </button>
 
@@ -5350,20 +5461,23 @@ export default function App() {
               </button>
             </div>
             <div className="action-modal-content errors-modal-list">
-              {issues.length === 0 ? (
+              {issues.filter(issueTargetExists).length === 0 ? (
                 <p>Nessun errore o warning nel diagramma.</p>
               ) : (
-                issues.map((issue) => (
+                issues.filter(issueTargetExists).map((issue) => (
                   <button
                     type="button"
                     key={issue.id}
                     className={`errors-modal-item ${issue.level}`}
-                    onClick={() => selectIssueTarget(issue)}
+                    onClick={() => {
+                      if (selectIssueTarget(issue)) {
+                        setErrorsPanelOpen(false);
+                      }
+                    }}
                   >
                     <strong>{issue.level === "error" ? "error" : "warning"}</strong>
                     <span>{getIssueElementLabel(issue)}</span>
                     <p>{issue.message}</p>
-                    <em>{getIssueSuggestion(issue.message)}</em>
                   </button>
                 ))
               )}

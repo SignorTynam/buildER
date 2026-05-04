@@ -2619,7 +2619,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }
 
       const edges = props.diagram.edges.filter(
-        (edge) => edge.type === "inheritance" && edge.generalizationGroupId === group.id,
+        (edge) =>
+          edge.type === "inheritance" &&
+          (
+            edge.generalizationGroupId === group.id ||
+            (edge.targetId === group.supertypeId && group.subtypeIds.includes(edge.sourceId))
+          ),
       );
       if (edges.length < 2) {
         return null;

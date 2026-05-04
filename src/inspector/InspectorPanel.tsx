@@ -16,6 +16,7 @@ import {
   getConnectorParticipationContext,
   normalizeSupportedCardinality,
 } from "../utils/cardinality";
+import { canAttributeHaveCardinality } from "../utils/diagram";
 import { ExternalIdentifierSection } from "./ExternalIdentifierSection";
 import { InternalIdentifierSection } from "./InternalIdentifierSection";
 import { PanelCard, PanelShell } from "../components/panels";
@@ -136,6 +137,8 @@ export function InspectorPanel(props: InspectorPanelProps) {
         identifier.attributeIds.includes(selectedNode.id),
       )
     );
+  const selectedAttributeCanHaveCardinality =
+    selectedNode?.type === "attribute" ? canAttributeHaveCardinality(props.diagram, selectedNode) : false;
 
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
   const isIdleContext = selectionCount === 0;
@@ -395,7 +398,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 <span>Cardinalita</span>
                 <select
                   value={node.cardinality ?? ""}
-                  disabled={!canEdit || selectedAttributeIsInternalIdentifier}
+                  disabled={!canEdit || !selectedAttributeCanHaveCardinality}
                   onChange={(event) =>
                     props.onNodeChange(node.id, {
                       cardinality: normalizeSupportedCardinality(event.target.value || undefined),
@@ -416,6 +419,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
             <section className="context-card">
               <div className="context-card-title">Stato attributo</div>
               <p className="action-hint">Parte di identificatore interno: la cardinalita del nodo viene rimossa.</p>
+            </section>
+          ) : null}
+          {!selectedAttributeCanHaveCardinality && !selectedAttributeIsInternalIdentifier ? (
+            <section className="context-card">
+              <div className="context-card-title">Stato attributo</div>
+              <p className="action-hint">Parte di identificatore: la cardinalita del nodo viene rimossa.</p>
             </section>
           ) : null}
           {renderSelectionActions()}

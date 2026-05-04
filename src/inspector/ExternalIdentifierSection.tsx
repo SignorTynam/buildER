@@ -291,7 +291,7 @@ export function ExternalIdentifierSection({
     [diagram, entity.id],
   );
   const importOptions = useMemo(() => buildImportOptions(entity, diagram), [diagram, entity]);
-  const canAddExternalIdentifier = importOptions.length > 0;
+  const canAddExternalIdentifier = importOptions.length > 0 && externalIdentifiers.length === 0;
 
   const selectedExternalIdentifier =
     modalIndex !== null && modalIndex < externalIdentifiers.length ? externalIdentifiers[modalIndex] : undefined;
@@ -368,6 +368,10 @@ export function ExternalIdentifierSection({
     };
 
     if (modalIndex >= externalIdentifiers.length) {
+      if (externalIdentifiers.length > 0) {
+        setModalIndex(null);
+        return;
+      }
       nextIdentifiers.push(nextIdentifier);
     } else {
       nextIdentifiers[modalIndex] = nextIdentifier;
@@ -441,7 +445,9 @@ export function ExternalIdentifierSection({
 
       {!readOnly && !canAddExternalIdentifier ? (
         <p className="action-hint">
-          Servono una relazione identificante valida e almeno un identificatore interno disponibile sulla sorgente.
+          {externalIdentifiers.length > 0
+            ? "Questa entita ha gia un identificatore esterno o misto."
+            : "Servono una relazione identificante valida e almeno un identificatore interno disponibile sulla sorgente."}
         </p>
       ) : null}
 

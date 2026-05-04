@@ -28,6 +28,9 @@ const MULTIVALUED_ATTRIBUTE_MAX_WIDTH = 320;
 const MULTIVALUED_ATTRIBUTE_HEIGHT = 52;
 const MULTIVALUED_ATTRIBUTE_HORIZONTAL_PADDING = 46;
 const MULTIVALUED_ATTRIBUTE_CHAR_WIDTH = 8;
+const ENTITY_TEXT_HORIZONTAL_PADDING = 52;
+const RELATIONSHIP_TEXT_HORIZONTAL_PADDING = 70;
+const SHAPE_LABEL_CHAR_WIDTH = 9;
 
 type RelationshipNode = Extract<DiagramNode, { type: "relationship" }>;
 type AttributeNode = Extract<DiagramNode, { type: "attribute" }>;
@@ -593,7 +596,7 @@ export function synchronizeNodeNameIdentity(
       id: nextNodeId,
       label: nextNodeLabel,
     } as DiagramNode;
-    return remapNodeScopedMetadata(nextNode, fullNodeIdMap);
+    return remapNodeScopedMetadata(withMinimumNodeSizeForLabel(nextNode), fullNodeIdMap);
   });
 
   const nextEdges = diagram.edges.map((edge) => ({
@@ -726,6 +729,48 @@ function getNodeSize(nodeType: NodeKind) {
     default:
       return { width: 120, height: 48 };
   }
+}
+
+export function getMinimumNodeSizeForLabel(
+  nodeType: NodeKind,
+  label: string,
+): { width: number; height: number } {
+  const baseSize = getNodeSize(nodeType);
+  const estimatedTextWidth = Math.max(1, label.trim().length) * SHAPE_LABEL_CHAR_WIDTH;
+
+  if (nodeType === "entity") {
+    return {
+      width: Math.max(baseSize.width, snapValue(estimatedTextWidth + ENTITY_TEXT_HORIZONTAL_PADDING, 10)),
+      height: baseSize.height,
+    };
+  }
+
+  if (nodeType === "relationship") {
+    const width = Math.max(baseSize.width, snapValue(estimatedTextWidth + RELATIONSHIP_TEXT_HORIZONTAL_PADDING, 10));
+    return {
+      width,
+      height: Math.max(baseSize.height, snapValue(width * 0.58, 10)),
+    };
+  }
+
+  return baseSize;
+}
+
+export function withMinimumNodeSizeForLabel(node: DiagramNode): DiagramNode {
+  if (node.type !== "entity" && node.type !== "relationship") {
+    return node;
+  }
+
+  const minimumSize = getMinimumNodeSizeForLabel(node.type, node.label);
+  if (node.width >= minimumSize.width && node.height >= minimumSize.height) {
+    return node;
+  }
+
+  return {
+    ...node,
+    width: Math.max(node.width, minimumSize.width),
+    height: Math.max(node.height, minimumSize.height),
+  };
 }
 
 export function createEmptyDiagram(name = "Diagramma ER"): DiagramDocument {
@@ -934,6 +979,46 @@ export function synchronizeEntityRelationshipParticipations(diagram: DiagramDocu
 
 export function findNode(diagram: DiagramDocument, nodeId: string): DiagramNode | undefined {
   return diagram.nodes.find((node) => node.id === nodeId);
+}
+
+export function getAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const edge = diagram.edges.find((candidate) => {
+    if (candidate.type !== "attribute") {
+      return false;
+    }
+
+    const ownership = resolveAttributeOwnership(candidate, nodeMap);
+    return ownership?.childId === attributeId;
+  });
+
+  if (!edge) {
+    return undefined;
+  }
+
+  const ownership = resolveAttributeOwnership(edge, nodeMap);
+  return ownership ? nodeMap.get(ownership.hostId) : undefined;
+}
+
+export function isAttributeUsedInAnyIdentifier(diagram: DiagramDocument, attributeId: string): boolean {
+  return diagram.nodes.some((node) => {
+    if (node.type !== "entity") {
+      return false;
+    }
+
+    return (
+      (node.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.includes(attributeId)) ||
+      (node.externalIdentifiers ?? []).some((identifier) => identifier.localAttributeIds.includes(attributeId))
+    );
+  });
+}
+
+export function canAttributeHaveCardinality(diagram: DiagramDocument, attribute: AttributeNode): boolean {
+  if (attribute.isIdentifier === true || attribute.isCompositeInternal === true) {
+    return false;
+  }
+
+  return !isAttributeUsedInAnyIdentifier(diagram, attribute.id);
 }
 
 export function canConnect(
@@ -1255,8 +1340,13 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
     if (node.type === "attribute") {
       const nextIsIdentifier = simpleMemberAttributeIds.has(node.id);
       const nextIsCompositeInternal = compositeMemberAttributeIds.has(node.id);
+      const normalizedNode = {
+        ...node,
+        isIdentifier: nextIsIdentifier,
+        isCompositeInternal: nextIsCompositeInternal,
+      };
       const nextCardinality =
-        nextIsIdentifier || nextIsCompositeInternal ? undefined : node.cardinality;
+        canAttributeHaveCardinality(diagram, normalizedNode) ? node.cardinality : undefined;
       if (
         node.isIdentifier === nextIsIdentifier &&
         node.isCompositeInternal === nextIsCompositeInternal &&
@@ -1380,6 +1470,10 @@ function normalizeExternalIdentifierSet(
   const rawIdentifiers = Array.isArray(entity.externalIdentifiers) ? entity.externalIdentifiers : [];
 
   rawIdentifiers.forEach((identifier) => {
+    if (normalizedIdentifiers.length > 0) {
+      return;
+    }
+
     const relationshipNode = nodeMap.get(identifier.relationshipId);
     if (relationshipNode?.type !== "relationship") {
       return;
@@ -1491,6 +1585,7 @@ function normalizeExternalIdentifierSet(
 export function synchronizeExternalIdentifiers(diagram: DiagramDocument): DiagramDocument {
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
   const directAttributeIdsByEntityId = getDirectAttributeIdsByEntityId(diagram, nodeMap);
+  const externalIdentifierAttributeIds = new Set<string>();
   let changed = false;
 
   const nextNodes = diagram.nodes.map((node) => {
@@ -1505,6 +1600,9 @@ export function synchronizeExternalIdentifiers(diagram: DiagramDocument): Diagra
       directAttributeIdsByEntityId,
     );
     const nextIdentifiers = normalizedIdentifiers.length > 0 ? normalizedIdentifiers : undefined;
+    normalizedIdentifiers.forEach((identifier) => {
+      identifier.localAttributeIds.forEach((attributeId) => externalIdentifierAttributeIds.add(attributeId));
+    });
     if (areExternalIdentifierListsEqual(node.externalIdentifiers, nextIdentifiers)) {
       return node;
     }
@@ -1516,10 +1614,26 @@ export function synchronizeExternalIdentifiers(diagram: DiagramDocument): Diagra
     };
   });
 
+  const cardinalityNormalizedNodes = nextNodes.map((node) => {
+    if (
+      node.type !== "attribute" ||
+      !externalIdentifierAttributeIds.has(node.id) ||
+      node.cardinality === undefined
+    ) {
+      return node;
+    }
+
+    changed = true;
+    return {
+      ...node,
+      cardinality: undefined,
+    };
+  });
+
   return changed
     ? {
         ...diagram,
-        nodes: nextNodes,
+        nodes: cardinalityNormalizedNodes,
       }
     : diagram;
 }
@@ -2464,6 +2578,10 @@ function migrateLegacyRelationshipExternalIdentifiers(
     }
 
     const existingExternalIdentifiers = hostEntity.externalIdentifiers ?? [];
+    if (existingExternalIdentifiers.length > 0) {
+      return;
+    }
+
     const duplicate = existingExternalIdentifiers.some(
       (identifier) =>
         identifier.relationshipId === relationshipNode.id &&
@@ -2748,6 +2866,11 @@ export function parseDiagram(rawJson: string): DiagramDocument {
 }
 
 export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
+  const originalExternalIdentifierCounts = new Map(
+    diagram.nodes
+      .filter((node): node is EntityNode => node.type === "entity")
+      .map((entity) => [entity.id, (entity.externalIdentifiers ?? []).length]),
+  );
   diagram = synchronizeExternalIdentifiers(
     synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(diagram)),
   );
@@ -2788,6 +2911,16 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           id: `attribute-${node.id}`,
           level: "warning",
           message: `L'attributo "${node.label}" non è collegato a un'entità, una relazione o un attributo padre.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+
+      if (node.cardinality !== undefined && !canAttributeHaveCardinality(diagram, node)) {
+        issues.push({
+          id: `attribute-invalid-cardinality-${node.id}`,
+          level: "error",
+          message: `La cardinalita non e valida sull'attributo "${node.label}" perche gli identificatori non possono definirla.`,
           targetId: node.id,
           targetType: "node",
         });
@@ -2978,6 +3111,16 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       });
 
       const externalIdentifiers = node.externalIdentifiers ?? [];
+      if ((originalExternalIdentifierCounts.get(node.id) ?? externalIdentifiers.length) > 1) {
+        issues.push({
+          id: `external-identifier-too-many-${node.id}`,
+          level: "error",
+          message: `L'entita "${node.label}" contiene piu identificatori esterni o misti; mantienine uno solo.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+
       const attributeOwnerByExternalIdentifier = new Map<string, string>();
       externalIdentifiers.forEach((identifier, index) => {
         const identifierLabel = identifier.id || `external-identifier-${index + 1}`;

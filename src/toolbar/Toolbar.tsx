@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -9,6 +10,7 @@ import type {
   ValidationIssue,
 } from "../types/diagram";
 import { getConnectorParticipation, getConnectorParticipationContext } from "../utils/cardinality";
+import { canAttributeHaveCardinality } from "../utils/diagram";
 
 interface ToolbarProps {
   diagram: DiagramDocument;
@@ -54,12 +56,120 @@ interface ToolbarProps {
 type ToolbarCommand = {
   key: string;
   label: string;
-  icon: string;
+  icon: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   title?: string;
   active?: boolean;
 };
+
+type IconName =
+  | "undo"
+  | "redo"
+  | "entity"
+  | "relationship"
+  | "attribute"
+  | "parent"
+  | "connect"
+  | "rename"
+  | "delete"
+  | "card"
+  | "translate"
+  | "export"
+  | "save"
+  | "simpleId"
+  | "compositeId"
+  | "externalId"
+  | "type";
+
+function ToolIcon({ name }: { name: IconName }) {
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  return (
+    <svg className="designer-toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
+      {name === "undo" ? <path {...common} d="M9 8H4v5M5 9a8 8 0 1 1 2 8" /> : null}
+      {name === "redo" ? <path {...common} d="M15 8h5v5M19 9a8 8 0 1 0-2 8" /> : null}
+      {name === "entity" ? <rect {...common} x="5" y="7" width="14" height="10" /> : null}
+      {name === "relationship" ? <path {...common} d="M12 4 21 12 12 20 3 12 12 4z" /> : null}
+      {name === "attribute" ? (
+        <>
+          <path {...common} d="M4 12h7" />
+          <circle {...common} cx="16" cy="12" r="4.5" />
+        </>
+      ) : null}
+      {name === "parent" ? <path {...common} d="M12 5v12M6 17h12" /> : null}
+      {name === "connect" ? (
+        <>
+          <circle {...common} cx="7" cy="7" r="2.5" />
+          <circle {...common} cx="17" cy="17" r="2.5" />
+          <path {...common} d="M9 9l6 6" />
+        </>
+      ) : null}
+      {name === "rename" ? (
+        <>
+          <path {...common} d="M4 20h5L20 9l-5-5L4 15v5z" />
+          <path {...common} d="M13 6l5 5" />
+        </>
+      ) : null}
+      {name === "delete" ? (
+        <>
+          <path {...common} d="M6 7h12M9 7V5h6v2M9 11v6M15 11v6" />
+          <path {...common} d="M8 7l1 13h6l1-13" />
+        </>
+      ) : null}
+      {name === "card" ? (
+        <>
+          <rect {...common} x="4" y="7" width="16" height="10" rx="2" />
+          <text className="designer-toolbar-svg-text" x="12" y="14" textAnchor="middle">
+            1,N
+          </text>
+        </>
+      ) : null}
+      {name === "translate" ? (
+        <>
+          <path {...common} d="M4 5h9M8 5c0 5 3 8 7 10M12 5c0 4-3 7-8 10" />
+          <path {...common} d="M14 19l3-8 3 8M15 16h4" />
+        </>
+      ) : null}
+      {name === "export" ? (
+        <>
+          <path {...common} d="M12 4v10M8 10l4 4 4-4" />
+          <path {...common} d="M5 18h14" />
+        </>
+      ) : null}
+      {name === "save" ? (
+        <>
+          <path {...common} d="M5 4h12l2 2v14H5V4z" />
+          <path {...common} d="M8 4v6h8V4M8 20v-6h8v6" />
+        </>
+      ) : null}
+      {name === "simpleId" ? <circle cx="12" cy="12" r="5" fill="currentColor" /> : null}
+      {name === "compositeId" ? (
+        <>
+          <circle cx="8" cy="12" r="3.5" fill="currentColor" />
+          <circle cx="16" cy="12" r="3.5" fill="currentColor" />
+        </>
+      ) : null}
+      {name === "externalId" ? (
+        <>
+          <circle {...common} cx="9" cy="12" r="4" />
+          <circle cx="16" cy="12" r="3.5" fill="currentColor" />
+        </>
+      ) : null}
+      {name === "type" ? (
+        <text className="designer-toolbar-svg-text" x="12" y="14" textAnchor="middle">
+          ISA
+        </text>
+      ) : null}
+    </svg>
+  );
+}
 
 function findAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
@@ -135,13 +245,17 @@ function getCompositeSelectionContext(diagram: DiagramDocument, selection: Selec
     : { valid: false, title: "Usa solo attributi semplici non gia usati in identificatori." };
 }
 
-function isEntityRelationshipConnector(diagram: DiagramDocument, edge: DiagramEdge): boolean {
-  if (edge.type !== "connector") {
-    return false;
+function getConnectorContext(diagram: DiagramDocument, edge: DiagramEdge | undefined) {
+  if (!edge || edge.type !== "connector") {
+    return undefined;
   }
 
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
-  return getConnectorParticipationContext(nodeMap.get(edge.sourceId), nodeMap.get(edge.targetId)) !== undefined;
+  return getConnectorParticipationContext(nodeMap.get(edge.sourceId), nodeMap.get(edge.targetId));
+}
+
+function isEntityRelationshipConnector(diagram: DiagramDocument, edge: DiagramEdge): boolean {
+  return getConnectorContext(diagram, edge) !== undefined;
 }
 
 function connectorHasCardinalityOneOne(diagram: DiagramDocument, edge: DiagramEdge): boolean {
@@ -172,71 +286,70 @@ function CommandButton({ command }: { command: ToolbarCommand }) {
 export function Toolbar(props: ToolbarProps) {
   const canEdit = props.mode === "edit";
   const selectedAttribute = props.selectedNode?.type === "attribute" ? props.selectedNode : undefined;
+  const selectedAttributeCanHaveCardinality =
+    selectedAttribute !== undefined && canAttributeHaveCardinality(props.diagram, selectedAttribute);
   const attributeContext = selectedAttribute ? getAttributeContext(props.diagram, selectedAttribute) : undefined;
   const compositeSelection = getCompositeSelectionContext(props.diagram, props.selection);
+  const connectorContext = getConnectorContext(props.diagram, props.selectedEdge);
+  const connectorHostHasExternalIdentifier = (connectorContext?.entity.externalIdentifiers ?? []).length > 0;
 
   const baseCommands: ToolbarCommand[] = [
-    { key: "undo", label: "Undo", icon: "↶", onClick: () => props.onUndo?.(), disabled: !props.canUndo },
-    { key: "redo", label: "Redo", icon: "↷", onClick: () => props.onRedo?.(), disabled: !props.canRedo },
+    { key: "undo", label: "Undo", icon: <ToolIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
+    { key: "redo", label: "Redo", icon: <ToolIcon name="redo" />, onClick: () => props.onRedo?.(), disabled: !props.canRedo },
   ];
 
   let contextCommands: ToolbarCommand[] = [];
 
   if (props.selectionItemCount === 0) {
     contextCommands = [
-      { key: "entity", label: "Entity", icon: "□", onClick: () => props.onCreateEntity?.(), disabled: !canEdit },
-      { key: "relation", label: "Relation", icon: "◇", onClick: () => props.onCreateRelationship?.(), disabled: !canEdit },
-      { key: "translate", label: "Translate", icon: "▤", onClick: props.onOpenTranslation },
-      { key: "export", label: "Export", icon: "▧", onClick: props.onExportSvg },
-      { key: "save", label: "Save", icon: "▣", onClick: () => props.onSaveErs?.() },
+      { key: "entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onCreateEntity?.(), disabled: !canEdit },
+      { key: "relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onCreateRelationship?.(), disabled: !canEdit },
+      { key: "translate", label: "Translate", icon: <ToolIcon name="translate" />, onClick: props.onOpenTranslation },
+      { key: "export", label: "Export", icon: <ToolIcon name="export" />, onClick: props.onExportSvg },
+      { key: "save", label: "Save", icon: <ToolIcon name="save" />, onClick: () => props.onSaveErs?.() },
     ];
   } else if (props.selection.nodeIds.length >= 2 && props.selection.edgeIds.length === 0) {
     contextCommands = [
       {
         key: "composite-id",
         label: "Composite Id",
-        icon: "●●",
+        icon: <ToolIcon name="compositeId" />,
         onClick: () => props.onOpenCompositeIdentifier?.(),
         disabled: !canEdit || !compositeSelection.valid,
         title: compositeSelection.title,
       },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedNode?.type === "entity") {
     contextCommands = [
-      { key: "parent", label: "To Parent", icon: "┴", onClick: () => props.onToolChange("inheritance"), disabled: !canEdit },
-      { key: "attribute", label: "Attribute", icon: "─○", onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
-      { key: "rename", label: "Rename", icon: "✎", onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "parent", label: "To Parent", icon: <ToolIcon name="parent" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit },
+      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
+      { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedNode?.type === "relationship") {
     contextCommands = [
-      { key: "connect", label: "Connect", icon: "⟂", onClick: () => props.onToolChange("connector"), disabled: !canEdit },
-      { key: "attribute", label: "Attribute", icon: "─○", onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
-      { key: "rename", label: "Rename", icon: "✎", onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
-    ];
-  } else if (selectedAttribute && attributeContext?.isMultivalueElement) {
-    contextCommands = [
-      { key: "rename", label: "Rename", icon: "✎", onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
-    ];
-  } else if (selectedAttribute?.isMultivalued === true) {
-    contextCommands = [
-      { key: "card", label: "Card", icon: selectedAttribute.cardinality ?? "(1,1)", onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
-      { key: "rename", label: "Rename", icon: "✎", onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit },
+      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
+      { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (selectedAttribute) {
     const idDisabledTitle = attributeContext?.eligibleForInternalId
       ? undefined
       : "Disponibile solo per attributi semplici collegati direttamente a un'entita.";
     contextCommands = [
-      { key: "subattribute", label: "Subattribute", icon: "─○", onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
+      {
+        key: selectedAttribute.isMultivalued === true ? "attribute" : "subattribute",
+        label: selectedAttribute.isMultivalued === true ? "Attribute" : "Subattribute",
+        icon: <ToolIcon name="attribute" />,
+        onClick: props.onCreateAttributeForSelection,
+        disabled: !canEdit,
+      },
       {
         key: "simple-id",
         label: "Simple Id",
-        icon: "●",
+        icon: <ToolIcon name="simpleId" />,
         onClick: () => props.onToggleSimpleIdentifier?.(),
         disabled: !canEdit || !attributeContext?.eligibleForInternalId,
         title: idDisabledTitle,
@@ -244,40 +357,68 @@ export function Toolbar(props: ToolbarProps) {
       {
         key: "composite-id",
         label: "Composite Id",
-        icon: "●●",
+        icon: <ToolIcon name="compositeId" />,
         onClick: () => props.onOpenCompositeIdentifier?.(),
         disabled: true,
         title: "Seleziona almeno due attributi semplici con Ctrl/Cmd+click.",
       },
-      { key: "card", label: "Card", icon: selectedAttribute.cardinality ?? "(1,1)", onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
-      { key: "rename", label: "Rename", icon: "✎", onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
+      ...(selectedAttributeCanHaveCardinality
+        ? [
+            {
+              key: "card",
+              label: "Card",
+              icon: <ToolIcon name="card" />,
+              onClick: () => props.onOpenCardinality?.(),
+              disabled: !canEdit,
+            } satisfies ToolbarCommand,
+          ]
+        : []),
+      { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedEdge && isEntityRelationshipConnector(props.diagram, props.selectedEdge)) {
     const mixedDisabled = !connectorHasCardinalityOneOne(props.diagram, props.selectedEdge);
     contextCommands = [
-      { key: "external-id", label: "External Id", icon: "●", onClick: () => props.onOpenExternalIdentifier?.(), disabled: !canEdit },
+      {
+        key: "external-id",
+        label: "External Id",
+        icon: <ToolIcon name="externalId" />,
+        onClick: () => props.onOpenExternalIdentifier?.(),
+        disabled: !canEdit || connectorHostHasExternalIdentifier,
+        title: connectorHostHasExternalIdentifier ? "Questa entita ha gia un identificatore misto/esterno." : undefined,
+      },
       {
         key: "mixed-id",
         label: "Mixed Id",
-        icon: "◒",
+        icon: <ToolIcon name="compositeId" />,
         onClick: () => props.onOpenMixedIdentifier?.(),
-        disabled: !canEdit || mixedDisabled,
-        title: mixedDisabled ? "L'identificatore esterno misto richiede cardinalita 1,1 sull'entita." : undefined,
+        disabled: !canEdit || mixedDisabled || connectorHostHasExternalIdentifier,
+        title: connectorHostHasExternalIdentifier
+          ? "Questa entita ha gia un identificatore misto/esterno."
+          : mixedDisabled
+            ? "L'identificatore esterno misto richiede cardinalita 1,1 sull'entita."
+            : undefined,
       },
-      { key: "card", label: "Card", icon: "Card", onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "card", label: "Card", icon: <ToolIcon name="card" />, onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedEdge?.type === "inheritance") {
     const completeness = props.selectedEdge.isaCompleteness === "total" ? "t" : "p";
     const disjointness = props.selectedEdge.isaDisjointness === "overlap" ? "o" : "e";
     contextCommands = [
-      { key: "type", label: "Type", icon: `(${completeness},${disjointness})`, onClick: () => props.onOpenInheritanceType?.(), disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
+      {
+        key: "type",
+        label: "Type",
+        icon: <ToolIcon name="type" />,
+        onClick: () => props.onOpenInheritanceType?.(),
+        disabled: !canEdit,
+        title: `(${completeness},${disjointness})`,
+      },
+      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else {
     contextCommands = [
-      { key: "delete", label: "Delete", icon: "×", onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   }
 
