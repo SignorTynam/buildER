@@ -2612,6 +2612,17 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
       `}`,
     ];
   });
+  const unassignedInheritanceLines =
+    explicitGeneralizationGroups.length > 0
+      ? [...diagram.edges]
+          .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance" && !edge.generalizationGroupId)
+          .sort((left, right) => compareEdges(left, right, aliasByNodeId))
+          .map((edge) => {
+            const childAlias = aliasByNodeId.get(edge.sourceId) ?? edge.sourceId;
+            const parentAlias = aliasByNodeId.get(edge.targetId) ?? edge.targetId;
+            return `inheritance ${childAlias} -> ${parentAlias}`;
+          })
+      : [];
 
   const sections: string[] = [];
 
@@ -2624,11 +2635,11 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     }
     sections.push("/* Relationships */", ...relationLines);
   }
-  if (inheritanceLines.length > 0) {
+  if (inheritanceLines.length > 0 || unassignedInheritanceLines.length > 0) {
     if (sections.length > 0) {
       sections.push("");
     }
-    sections.push("/* Generalizations */", ...inheritanceLines);
+    sections.push("/* Generalizations */", ...inheritanceLines, ...unassignedInheritanceLines);
   }
   if (orphanAttributeLines.length > 0 || nestedAttributeLines.length > 0 || notesLines.length > 0) {
     if (sections.length > 0) {

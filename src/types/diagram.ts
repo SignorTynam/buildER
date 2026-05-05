@@ -23,6 +23,8 @@ export interface GeneralizationGroup {
   isaCompleteness?: IsaCompleteness;
   isaDisjointness?: IsaDisjointness;
   label?: string;
+  junctionOffsetX?: number;
+  junctionOffsetY?: number;
 }
 
 export type DiagramHighlightKind = "pending" | "blocked" | "selected";

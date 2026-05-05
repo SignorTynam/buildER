@@ -48,6 +48,7 @@ import type {
 } from "./types/translation";
 import {
   alignNodes,
+  assignInheritanceConstraintToGroup,
   canConnect,
   canAttributeHaveCardinality,
   createEdge,
@@ -64,6 +65,7 @@ import {
   parseDiagram,
   removeSelection,
   serializeDiagram,
+  updateGeneralizationGroupConstraint,
   validateNodeNameInNamespace,
   synchronizeEntityRelationshipParticipations,
   synchronizeExternalIdentifiers,
@@ -3317,6 +3319,9 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [nextEdge.id] });
     setTool("select");
+    if (type === "inheritance") {
+      return { success: true, message: "Collegamento ISA creato. Assegna un vincolo alla gerarchia." };
+    }
     return { success: true, message: "Collegamento creato." };
   }
 
@@ -4556,7 +4561,32 @@ export default function App() {
   }
 
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
-    const nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
+    const edge = history.present.edges.find((candidate) => candidate.id === edgeId);
+    let nextDiagram: DiagramDocument;
+
+    if (
+      edge?.type === "inheritance" &&
+      "isaCompleteness" in patch &&
+      "isaDisjointness" in patch &&
+      patch.isaCompleteness &&
+      patch.isaDisjointness
+    ) {
+      nextDiagram = edge.generalizationGroupId
+        ? updateGeneralizationGroupConstraint(
+            history.present,
+            edge.generalizationGroupId,
+            patch.isaCompleteness,
+            patch.isaDisjointness,
+          )
+        : assignInheritanceConstraintToGroup(
+            history.present,
+            edge.id,
+            patch.isaCompleteness,
+            patch.isaDisjointness,
+          );
+    } else {
+      nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
+    }
 
     commitDiagram(nextDiagram);
   }

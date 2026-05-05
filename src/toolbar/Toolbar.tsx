@@ -403,8 +403,10 @@ export function Toolbar(props: ToolbarProps) {
       { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedEdge?.type === "inheritance") {
-    const completeness = props.selectedEdge.isaCompleteness === "total" ? "t" : "p";
-    const disjointness = props.selectedEdge.isaDisjointness === "overlap" ? "o" : "e";
+    const constraintTitle =
+      props.selectedEdge.isaCompleteness && props.selectedEdge.isaDisjointness
+        ? `(${props.selectedEdge.isaCompleteness === "total" ? "t" : "p"},${props.selectedEdge.isaDisjointness === "overlap" ? "o" : "e"})`
+        : "Vincolo mancante";
     contextCommands = [
       {
         key: "type",
@@ -412,7 +414,7 @@ export function Toolbar(props: ToolbarProps) {
         icon: <ToolIcon name="type" />,
         onClick: () => props.onOpenInheritanceType?.(),
         disabled: !canEdit,
-        title: `(${completeness},${disjointness})`,
+        title: constraintTitle,
       },
       { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];

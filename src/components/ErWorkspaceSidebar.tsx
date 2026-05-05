@@ -41,6 +41,7 @@ interface ErWorkspaceSidebarProps {
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
+  onDiagramChange: (diagram: DiagramDocument) => void;
   onIssueSelect: (issue: ValidationIssue) => void;
 }
 
@@ -107,6 +108,7 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
             onNodeChange={props.onNodeChange}
             onNodesChange={props.onNodesChange}
             onEdgeChange={props.onEdgeChange}
+            onDiagramChange={props.onDiagramChange}
             onDeleteSelection={props.onDeleteSelection}
             onDuplicateSelection={props.onDuplicateSelection}
             onAlign={props.onAlign}

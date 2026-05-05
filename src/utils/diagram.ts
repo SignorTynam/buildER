@@ -1087,7 +1087,7 @@ function getDuplicateEdgeSignature(edge: DiagramEdge): string | null {
   }
 
   if (edge.type === "inheritance") {
-    return `${edge.type}:${edge.sourceId}->${edge.targetId}`;
+    return `${edge.type}:${edge.generalizationGroupId ?? "unassigned"}:${edge.sourceId}->${edge.targetId}`;
   }
 
   const [firstId, secondId] = [edge.sourceId, edge.targetId].sort();
@@ -1911,42 +1911,51 @@ function isGeneralizationGroupLike(value: unknown): value is Partial<Generalizat
   return typeof value === "object" && value !== null;
 }
 
-function buildLegacyGeneralizationGroupId(edge: Extract<DiagramEdge, { type: "inheritance" }>, _index: number): string {
-  const completeness = edge.isaCompleteness ?? "partial";
-  const disjointness = edge.isaDisjointness ?? "disjoint";
-  return edge.generalizationGroupId ?? `generalization-${edge.targetId}-${completeness}-${disjointness}`;
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function allocateUniqueDiagramId(usedIds: Set<string>, requestedId: string): string {
+  const fallback = requestedId.trim().length > 0 ? requestedId : "id";
+  let id = fallback;
+  let suffix = 2;
+  while (usedIds.has(id)) {
+    id = `${fallback}-${suffix}`;
+    suffix += 1;
+  }
+  usedIds.add(id);
+  return id;
+}
+
+function formatIsaConstraintIdSuffix(completeness: IsaCompleteness, disjointness: IsaDisjointness): string {
+  return `${completeness === "total" ? "t" : "p"}-${disjointness === "disjoint" ? "e" : "o"}`;
+}
+
+function formatIsaConstraintLabel(completeness?: IsaCompleteness, disjointness?: IsaDisjointness): string {
+  if (!completeness || !disjointness) {
+    return "";
+  }
+  return `(${completeness === "total" ? "t" : "p"},${disjointness === "disjoint" ? "e" : "o"})`;
 }
 
 export function normalizeGeneralizationGroups(diagram: DiagramDocument): DiagramDocument {
   const entityIds = new Set(diagram.nodes.filter((node) => node.type === "entity").map((node) => node.id));
-  const inheritanceEdges = diagram.edges.filter(
-    (edge): edge is Extract<DiagramEdge, { type: "inheritance" }> =>
-      edge.type === "inheritance" && entityIds.has(edge.sourceId) && entityIds.has(edge.targetId),
-  );
   const rawGroups = Array.isArray(diagram.generalizationGroups) ? diagram.generalizationGroups : [];
   const groupById = new Map<string, GeneralizationGroup>();
   const usedGroupIds = new Set<string>();
+  const usedEdgeIds = new Set(diagram.edges.map((edge) => edge.id));
 
   rawGroups.forEach((group, index) => {
-    if (!isGeneralizationGroupLike(group) || typeof group.supertypeId !== "string" || !entityIds.has(group.supertypeId)) {
+    if (!isGeneralizationGroupLike(group) || typeof group.supertypeId !== "string") {
       return;
     }
 
     const subtypeIds = Array.isArray(group.subtypeIds)
-      ? Array.from(new Set(group.subtypeIds.filter((subtypeId): subtypeId is string => typeof subtypeId === "string" && entityIds.has(subtypeId))))
+      ? Array.from(new Set(group.subtypeIds.filter((subtypeId): subtypeId is string => typeof subtypeId === "string" && subtypeId !== group.supertypeId)))
       : [];
-    if (subtypeIds.length === 0) {
-      return;
-    }
 
     const baseId = typeof group.id === "string" && group.id.trim().length > 0 ? group.id : `generalization-${index + 1}`;
-    let id = baseId;
-    let suffix = 2;
-    while (usedGroupIds.has(id)) {
-      id = `${baseId}-${suffix}`;
-      suffix += 1;
-    }
-    usedGroupIds.add(id);
+    const id = allocateUniqueDiagramId(usedGroupIds, baseId);
     groupById.set(id, {
       id,
       supertypeId: group.supertypeId,
@@ -1954,52 +1963,284 @@ export function normalizeGeneralizationGroups(diagram: DiagramDocument): Diagram
       isaCompleteness: isIsaCompleteness(group.isaCompleteness) ? group.isaCompleteness : undefined,
       isaDisjointness: isIsaDisjointness(group.isaDisjointness) ? group.isaDisjointness : undefined,
       label: typeof group.label === "string" && group.label.trim().length > 0 ? group.label : undefined,
+      junctionOffsetX: isFiniteNumber(group.junctionOffsetX) ? group.junctionOffsetX : undefined,
+      junctionOffsetY: isFiniteNumber(group.junctionOffsetY) ? group.junctionOffsetY : undefined,
     });
   });
 
-  const nextEdges = inheritanceEdges.map((edge, index) => {
-    const existingGroup =
-      edge.generalizationGroupId && groupById.get(edge.generalizationGroupId)?.supertypeId === edge.targetId
-        ? groupById.get(edge.generalizationGroupId)
-        : undefined;
-    const groupId = existingGroup?.id ?? buildLegacyGeneralizationGroupId(edge, index);
-    const group = groupById.get(groupId) ?? {
-      id: groupId,
-      supertypeId: edge.targetId,
-      subtypeIds: [],
-      isaCompleteness: edge.isaCompleteness,
-      isaDisjointness: edge.isaDisjointness,
-    };
-    if (!group.subtypeIds.includes(edge.sourceId)) {
-      group.subtypeIds = [...group.subtypeIds, edge.sourceId];
+  const groupKeyToId = new Map<string, string>();
+  groupById.forEach((group) => {
+    if (group.isaCompleteness && group.isaDisjointness) {
+      groupKeyToId.set(`${group.supertypeId}:${group.isaCompleteness}:${group.isaDisjointness}`, group.id);
     }
-    group.isaCompleteness ??= edge.isaCompleteness;
-    group.isaDisjointness ??= edge.isaDisjointness;
-    groupById.set(groupId, group);
-    return {
-      ...edge,
-      generalizationGroupId: groupId,
-      isaCompleteness: group.isaCompleteness ?? edge.isaCompleteness,
-      isaDisjointness: group.isaDisjointness ?? edge.isaDisjointness,
-    };
   });
 
-  const edgeById = new Map(nextEdges.map((edge) => [edge.id, edge]));
-  const edges = diagram.edges.map((edge) => (edge.type === "inheritance" ? edgeById.get(edge.id) ?? edge : edge));
-  const groups = Array.from(groupById.values())
-    .map((group) => ({
-      ...group,
-      subtypeIds: group.subtypeIds.filter((subtypeId) =>
-        nextEdges.some((edge) => edge.generalizationGroupId === group.id && edge.sourceId === subtypeId),
-      ),
-    }))
-    .filter((group) => group.subtypeIds.length > 0);
+  const nextEdges: DiagramEdge[] = [];
+  const inheritanceSignatureOwners = new Set<string>();
+
+  diagram.edges.forEach((edge) => {
+    if (edge.type !== "inheritance") {
+      nextEdges.push(edge);
+      return;
+    }
+
+    if (!entityIds.has(edge.sourceId) || !entityIds.has(edge.targetId) || edge.sourceId === edge.targetId) {
+      nextEdges.push(edge);
+      return;
+    }
+
+    const referencedGroup =
+      edge.generalizationGroupId && groupById.has(edge.generalizationGroupId)
+        ? groupById.get(edge.generalizationGroupId)
+        : undefined;
+    const edgeCompleteness = isIsaCompleteness(edge.isaCompleteness) ? edge.isaCompleteness : undefined;
+    const edgeDisjointness = isIsaDisjointness(edge.isaDisjointness) ? edge.isaDisjointness : undefined;
+    const hasCompleteEdgeConstraint = edgeCompleteness !== undefined && edgeDisjointness !== undefined;
+    const targetGroup = referencedGroup
+      ? referencedGroup
+      : !edge.generalizationGroupId && hasCompleteEdgeConstraint
+        ? (() => {
+            const key = `${edge.targetId}:${edgeCompleteness}:${edgeDisjointness}`;
+            const existingId = groupKeyToId.get(key);
+            if (existingId) {
+              return groupById.get(existingId);
+            }
+            const id = allocateUniqueDiagramId(
+              usedGroupIds,
+              `generalization-${edge.targetId}-${formatIsaConstraintIdSuffix(edgeCompleteness as IsaCompleteness, edgeDisjointness as IsaDisjointness)}`,
+            );
+            const group: GeneralizationGroup = {
+              id,
+              supertypeId: edge.targetId,
+              subtypeIds: [],
+              isaCompleteness: edgeCompleteness,
+              isaDisjointness: edgeDisjointness,
+              label: `ISA ${formatIsaConstraintLabel(edgeCompleteness, edgeDisjointness)}`,
+            };
+            groupById.set(id, group);
+            groupKeyToId.set(key, id);
+            return group;
+          })()
+        : undefined;
+
+    if (!targetGroup) {
+      nextEdges.push({
+        ...edge,
+        label: "",
+        generalizationGroupId: edge.generalizationGroupId,
+        isaCompleteness: undefined,
+        isaDisjointness: undefined,
+      });
+      return;
+    }
+
+    const supertypeId = targetGroup.supertypeId;
+    if (!entityIds.has(supertypeId) || edge.sourceId === supertypeId) {
+      nextEdges.push(edge);
+      return;
+    }
+
+    if (!targetGroup.subtypeIds.includes(edge.sourceId)) {
+      targetGroup.subtypeIds = [...targetGroup.subtypeIds, edge.sourceId];
+    }
+    groupById.set(targetGroup.id, targetGroup);
+    const signature = `${targetGroup.id}:${edge.sourceId}->${supertypeId}`;
+    if (inheritanceSignatureOwners.has(signature)) {
+      return;
+    }
+    inheritanceSignatureOwners.add(signature);
+    nextEdges.push({
+      ...edge,
+      label: "",
+      targetId: supertypeId,
+      generalizationGroupId: targetGroup.id,
+      isaCompleteness: targetGroup.isaCompleteness,
+      isaDisjointness: targetGroup.isaDisjointness,
+    });
+  });
+
+  Array.from(groupById.values()).forEach((group) => {
+    group.subtypeIds = Array.from(new Set(group.subtypeIds.filter((subtypeId) => subtypeId !== group.supertypeId)));
+    group.subtypeIds.forEach((subtypeId) => {
+      if (!entityIds.has(subtypeId) || !entityIds.has(group.supertypeId)) {
+        return;
+      }
+      const signature = `${group.id}:${subtypeId}->${group.supertypeId}`;
+      if (inheritanceSignatureOwners.has(signature)) {
+        return;
+      }
+      inheritanceSignatureOwners.add(signature);
+      nextEdges.push({
+        id: allocateUniqueDiagramId(usedEdgeIds, `inheritance-${subtypeId}-${group.supertypeId}-${group.id}`),
+        type: "inheritance",
+        sourceId: subtypeId,
+        targetId: group.supertypeId,
+        label: "",
+        lineStyle: "solid",
+        generalizationGroupId: group.id,
+        isaCompleteness: group.isaCompleteness,
+        isaDisjointness: group.isaDisjointness,
+      });
+    });
+  });
 
   return {
     ...diagram,
-    edges,
-    generalizationGroups: groups,
+    edges: nextEdges,
+    generalizationGroups: Array.from(groupById.values()),
   };
+}
+
+export function assignInheritanceConstraintToGroup(
+  diagram: DiagramDocument,
+  edgeId: string,
+  isaCompleteness: IsaCompleteness,
+  isaDisjointness: IsaDisjointness,
+): DiagramDocument {
+  const normalized = normalizeGeneralizationGroups(diagram);
+  const edge = normalized.edges.find(
+    (candidate): candidate is Extract<DiagramEdge, { type: "inheritance" }> =>
+      candidate.id === edgeId && candidate.type === "inheritance",
+  );
+  if (!edge) {
+    return normalized;
+  }
+
+  const usedGroupIds = new Set([...(normalized.generalizationGroups ?? []).map((group) => group.id), ...normalized.edges.map((candidate) => candidate.id)]);
+  const existingGroup = (normalized.generalizationGroups ?? []).find(
+    (group) =>
+      group.supertypeId === edge.targetId &&
+      group.isaCompleteness === isaCompleteness &&
+      group.isaDisjointness === isaDisjointness,
+  );
+  const groupId =
+    existingGroup?.id ??
+    allocateUniqueDiagramId(
+      usedGroupIds,
+      `generalization-${edge.targetId}-${formatIsaConstraintIdSuffix(isaCompleteness, isaDisjointness)}`,
+    );
+  const nextGroups = existingGroup
+    ? (normalized.generalizationGroups ?? []).map((group) =>
+        group.id === groupId
+          ? { ...group, subtypeIds: Array.from(new Set([...group.subtypeIds, edge.sourceId])) }
+          : { ...group, subtypeIds: group.subtypeIds.filter((subtypeId) => group.id === edge.generalizationGroupId ? subtypeId !== edge.sourceId : true) },
+      )
+    : [
+        ...(normalized.generalizationGroups ?? []).map((group) =>
+          group.id === edge.generalizationGroupId
+            ? { ...group, subtypeIds: group.subtypeIds.filter((subtypeId) => subtypeId !== edge.sourceId) }
+            : group,
+        ),
+        {
+          id: groupId,
+          supertypeId: edge.targetId,
+          subtypeIds: [edge.sourceId],
+          isaCompleteness,
+          isaDisjointness,
+          label: `ISA ${formatIsaConstraintLabel(isaCompleteness, isaDisjointness)}`,
+        },
+      ];
+  const nextEdges = normalized.edges.map((candidate) =>
+    candidate.type === "inheritance" && candidate.id === edge.id
+      ? {
+          ...candidate,
+          label: "",
+          generalizationGroupId: groupId,
+          isaCompleteness,
+          isaDisjointness,
+        }
+      : candidate,
+  );
+
+  return normalizeGeneralizationGroups({
+    ...normalized,
+    edges: nextEdges,
+    generalizationGroups: nextGroups,
+  });
+}
+
+export function updateGeneralizationGroupConstraint(
+  diagram: DiagramDocument,
+  groupId: string,
+  isaCompleteness: IsaCompleteness,
+  isaDisjointness: IsaDisjointness,
+): DiagramDocument {
+  return normalizeGeneralizationGroups({
+    ...diagram,
+    generalizationGroups: (diagram.generalizationGroups ?? []).map((group) =>
+      group.id === groupId
+        ? {
+            ...group,
+            isaCompleteness,
+            isaDisjointness,
+            label: group.label ?? `ISA ${formatIsaConstraintLabel(isaCompleteness, isaDisjointness)}`,
+          }
+        : group,
+    ),
+    edges: diagram.edges.map((edge) =>
+      edge.type === "inheritance" && edge.generalizationGroupId === groupId
+        ? { ...edge, label: "", isaCompleteness, isaDisjointness }
+        : edge,
+    ),
+  });
+}
+
+export function removeSubtypeFromGeneralizationGroup(
+  diagram: DiagramDocument,
+  groupId: string,
+  subtypeId: string,
+): DiagramDocument {
+  return normalizeGeneralizationGroups({
+    ...diagram,
+    generalizationGroups: (diagram.generalizationGroups ?? []).map((group) =>
+      group.id === groupId
+        ? { ...group, subtypeIds: group.subtypeIds.filter((candidate) => candidate !== subtypeId) }
+        : group,
+    ),
+    edges: diagram.edges.map((edge) =>
+      edge.type === "inheritance" && edge.generalizationGroupId === groupId && edge.sourceId === subtypeId
+        ? {
+            ...edge,
+            label: "",
+            generalizationGroupId: undefined,
+            isaCompleteness: undefined,
+            isaDisjointness: undefined,
+          }
+        : edge,
+    ),
+  });
+}
+
+export function deleteGeneralizationGroup(diagram: DiagramDocument, groupId: string): DiagramDocument {
+  return normalizeGeneralizationGroups({
+    ...diagram,
+    generalizationGroups: (diagram.generalizationGroups ?? []).filter((group) => group.id !== groupId),
+    edges: diagram.edges.map((edge) =>
+      edge.type === "inheritance" && edge.generalizationGroupId === groupId
+        ? {
+            ...edge,
+            label: "",
+            generalizationGroupId: undefined,
+            isaCompleteness: undefined,
+            isaDisjointness: undefined,
+          }
+        : edge,
+    ),
+  });
+}
+
+export function getGeneralizationGroupsForSupertype(diagram: DiagramDocument, supertypeId: string): GeneralizationGroup[] {
+  return (diagram.generalizationGroups ?? []).filter((group) => group.supertypeId === supertypeId);
+}
+
+export function getGeneralizationGroupForEdge(
+  diagram: DiagramDocument,
+  edgeId: string,
+): GeneralizationGroup | undefined {
+  const edge = diagram.edges.find((candidate) => candidate.id === edgeId);
+  return edge?.type === "inheritance" && edge.generalizationGroupId
+    ? (diagram.generalizationGroups ?? []).find((group) => group.id === edge.generalizationGroupId)
+    : undefined;
 }
 
 function isNodeKind(value: string): value is NodeKind {
@@ -2844,7 +3085,18 @@ export function parseDiagram(rawJson: string): DiagramDocument {
     nodes,
     edges,
     generalizationGroups: Array.isArray(parsed.generalizationGroups)
-      ? (parsed.generalizationGroups.filter(isGeneralizationGroupLike) as GeneralizationGroup[])
+      ? parsed.generalizationGroups.filter(isGeneralizationGroupLike).map((group, index) => ({
+          id: typeof group.id === "string" && group.id.trim().length > 0 ? group.id : `generalization-${index + 1}`,
+          supertypeId: typeof group.supertypeId === "string" ? group.supertypeId : "",
+          subtypeIds: Array.isArray(group.subtypeIds)
+            ? group.subtypeIds.filter((subtypeId): subtypeId is string => typeof subtypeId === "string")
+            : [],
+          isaCompleteness: isIsaCompleteness(group.isaCompleteness) ? group.isaCompleteness : undefined,
+          isaDisjointness: isIsaDisjointness(group.isaDisjointness) ? group.isaDisjointness : undefined,
+          label: typeof group.label === "string" && group.label.trim().length > 0 ? group.label : undefined,
+          junctionOffsetX: isFiniteNumber(group.junctionOffsetX) ? group.junctionOffsetX : undefined,
+          junctionOffsetY: isFiniteNumber(group.junctionOffsetY) ? group.junctionOffsetY : undefined,
+        }))
       : undefined,
   };
 
@@ -3171,6 +3423,161 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       });
     }
   });
+
+  const generalizationGroupById = new Map((diagram.generalizationGroups ?? []).map((group) => [group.id, group]));
+  const entityIdsForIsa = new Set(diagram.nodes.filter((node) => node.type === "entity").map((node) => node.id));
+
+  (diagram.generalizationGroups ?? []).forEach((group, index) => {
+    const groupLabel = group.label ?? group.id ?? `generalizzazione-${index + 1}`;
+    const supertypeNode = typeof group.supertypeId === "string" ? nodeMap.get(group.supertypeId) : undefined;
+    const targetId = supertypeNode?.id ?? group.supertypeId ?? group.id;
+    const targetType: ValidationIssue["targetType"] = supertypeNode ? "node" : "edge";
+
+    if (supertypeNode?.type !== "entity") {
+      issues.push({
+        id: `generalization-invalid-supertype-${group.id}`,
+        level: "error",
+        message: `La gerarchia ISA "${groupLabel}" non ha un supertipo valido.`,
+        targetId,
+        targetType,
+      });
+    }
+
+    if (!group.isaCompleteness || !group.isaDisjointness) {
+      issues.push({
+        id: `generalization-missing-constraint-${group.id}`,
+        level: "error",
+        message: `La gerarchia ISA "${groupLabel}" non ha un vincolo completo.`,
+        targetId,
+        targetType,
+      });
+    }
+
+    if (!Array.isArray(group.subtypeIds) || group.subtypeIds.length === 0) {
+      issues.push({
+        id: `generalization-empty-${group.id}`,
+        level: "error",
+        message: `La gerarchia ISA "${groupLabel}" non contiene sottotipi.`,
+        targetId,
+        targetType,
+      });
+      return;
+    }
+
+    const seenSubtypes = new Set<string>();
+    group.subtypeIds.forEach((subtypeId) => {
+      const subtypeNode = nodeMap.get(subtypeId);
+      if (subtypeId === group.supertypeId) {
+        issues.push({
+          id: `generalization-self-subtype-${group.id}-${subtypeId}`,
+          level: "error",
+          message: `La gerarchia ISA "${groupLabel}" usa lo stesso elemento come supertipo e sottotipo.`,
+          targetId: subtypeId,
+          targetType: "node",
+        });
+      }
+
+      if (seenSubtypes.has(subtypeId)) {
+        issues.push({
+          id: `generalization-duplicate-subtype-${group.id}-${subtypeId}`,
+          level: "error",
+          message: `La gerarchia ISA "${groupLabel}" contiene piu volte lo stesso sottotipo.`,
+          targetId: subtypeId,
+          targetType: "node",
+        });
+      }
+      seenSubtypes.add(subtypeId);
+
+      if (subtypeNode?.type !== "entity") {
+        issues.push({
+          id: `generalization-invalid-subtype-${group.id}-${subtypeId}`,
+          level: "error",
+          message: `La gerarchia ISA "${groupLabel}" riferisce un sottotipo non valido.`,
+          targetId: subtypeId,
+          targetType: subtypeNode ? "node" : "edge",
+        });
+      }
+    });
+  });
+
+  const isaChildrenByParent = new Map<string, string[]>();
+  diagram.edges
+    .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance")
+    .forEach((edge) => {
+      const sourceNode = nodeMap.get(edge.sourceId);
+      const targetNode = nodeMap.get(edge.targetId);
+      if (sourceNode?.type !== "entity" || targetNode?.type !== "entity") {
+        return;
+      }
+
+      if (!edge.generalizationGroupId) {
+        issues.push({
+          id: `inheritance-missing-group-${edge.id}`,
+          level: "error",
+          message: `La gerarchia ISA tra "${sourceNode.label}" e "${targetNode.label}" non ha ancora un vincolo.`,
+          targetId: edge.id,
+          targetType: "edge",
+        });
+      } else {
+        const group = generalizationGroupById.get(edge.generalizationGroupId);
+        if (!group) {
+          issues.push({
+            id: `inheritance-unknown-group-${edge.id}`,
+            level: "error",
+            message: `Il ramo ISA tra "${sourceNode.label}" e "${targetNode.label}" punta a una gerarchia inesistente.`,
+            targetId: edge.id,
+            targetType: "edge",
+          });
+        } else {
+          if (!group.isaCompleteness || !group.isaDisjointness) {
+            issues.push({
+              id: `inheritance-group-missing-constraint-${edge.id}`,
+              level: "error",
+              message: `Il ramo ISA tra "${sourceNode.label}" e "${targetNode.label}" appartiene a un gruppo senza vincolo.`,
+              targetId: edge.id,
+              targetType: "edge",
+            });
+          }
+
+          if (group.supertypeId !== edge.targetId || !group.subtypeIds.includes(edge.sourceId)) {
+            issues.push({
+              id: `inheritance-incoherent-group-${edge.id}`,
+              level: "error",
+              message: `Il ramo ISA tra "${sourceNode.label}" e "${targetNode.label}" non e coerente con la gerarchia "${group.label ?? group.id}".`,
+              targetId: edge.id,
+              targetType: "edge",
+            });
+          }
+        }
+      }
+
+      if (entityIdsForIsa.has(edge.sourceId) && entityIdsForIsa.has(edge.targetId)) {
+        isaChildrenByParent.set(edge.targetId, [...(isaChildrenByParent.get(edge.targetId) ?? []), edge.sourceId]);
+      }
+    });
+
+  const visitingIsa = new Set<string>();
+  const visitedIsa = new Set<string>();
+  const reportIsaCycle = (entityId: string, path: string[]): void => {
+    if (visitingIsa.has(entityId)) {
+      issues.push({
+        id: `inheritance-cycle-${[...path, entityId].join("-")}`,
+        level: "error",
+        message: "La gerarchia ISA contiene un ciclo.",
+        targetId: entityId,
+        targetType: "node",
+      });
+      return;
+    }
+    if (visitedIsa.has(entityId)) {
+      return;
+    }
+    visitingIsa.add(entityId);
+    (isaChildrenByParent.get(entityId) ?? []).forEach((childId) => reportIsaCycle(childId, [...path, entityId]));
+    visitingIsa.delete(entityId);
+    visitedIsa.add(entityId);
+  };
+  entityIdsForIsa.forEach((entityId) => reportIsaCycle(entityId, []));
 
   diagram.edges.forEach((edge) => {
     const sourceNode = nodeMap.get(edge.sourceId);

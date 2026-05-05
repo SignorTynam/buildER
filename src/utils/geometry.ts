@@ -4,6 +4,7 @@ import type {
   DiagramNode,
   EdgeGeometry,
   EdgeKind,
+  GeneralizationGroup,
   Point,
   Viewport,
 } from "../types/diagram";
@@ -85,6 +86,34 @@ export function getNodeLogicalAnchor(node: DiagramNode): Point {
 
 export function getNodeCenter(node: DiagramNode): Point {
   return getNodeLogicalAnchor(node);
+}
+
+export function getGeneralizationJunctionPoint(
+  group: GeneralizationGroup,
+  supertype: DiagramNode,
+  subtypes: DiagramNode[],
+  groupIndex: number,
+  siblingGroupCount: number,
+): Point {
+  const superCenter = getNodeCenter(supertype);
+  const subtypeCenters = subtypes.length > 0 ? subtypes.map(getNodeCenter) : [{ x: superCenter.x, y: superCenter.y + 180 }];
+  const averageSubtype = {
+    x: subtypeCenters.reduce((sum, point) => sum + point.x, 0) / subtypeCenters.length,
+    y: subtypeCenters.reduce((sum, point) => sum + point.y, 0) / subtypeCenters.length,
+  };
+  const belowSupertype = averageSubtype.y >= superCenter.y;
+  const siblingOffset = (groupIndex - (siblingGroupCount - 1) / 2) * 96;
+  const superBoundaryY = belowSupertype ? supertype.y + supertype.height : supertype.y;
+  const naturalY = (averageSubtype.y + superBoundaryY) / 2;
+  const minGap = 44;
+  const y = belowSupertype
+    ? Math.max(superBoundaryY + minGap, naturalY)
+    : Math.min(superBoundaryY - minGap, naturalY);
+
+  return {
+    x: averageSubtype.x + siblingOffset + (group.junctionOffsetX ?? 0),
+    y: y + (group.junctionOffsetY ?? 0),
+  };
 }
 
 export function getNodeBounds(node: DiagramNode): Bounds {

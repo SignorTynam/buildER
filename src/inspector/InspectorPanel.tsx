@@ -5,7 +5,10 @@ import type {
   DiagramNode,
   EntityNode,
   EntityRelationshipParticipation,
+  GeneralizationGroup,
   EditorMode,
+  IsaCompleteness,
+  IsaDisjointness,
   SelectionState,
   ValidationIssue,
 } from "../types/diagram";
@@ -16,7 +19,15 @@ import {
   getConnectorParticipationContext,
   normalizeSupportedCardinality,
 } from "../utils/cardinality";
-import { canAttributeHaveCardinality } from "../utils/diagram";
+import {
+  assignInheritanceConstraintToGroup,
+  canAttributeHaveCardinality,
+  deleteGeneralizationGroup,
+  getGeneralizationGroupForEdge,
+  getGeneralizationGroupsForSupertype,
+  removeSubtypeFromGeneralizationGroup,
+  updateGeneralizationGroupConstraint,
+} from "../utils/diagram";
 import { ExternalIdentifierSection } from "./ExternalIdentifierSection";
 import { InternalIdentifierSection } from "./InternalIdentifierSection";
 import { PanelCard, PanelShell } from "../components/panels";
@@ -32,6 +43,7 @@ interface InspectorPanelProps {
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
+  onDiagramChange: (diagram: DiagramDocument) => void;
   onDeleteSelection: () => void;
   onDuplicateSelection: () => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
@@ -105,6 +117,33 @@ function getSelectionHeading(
   };
 }
 
+const ISA_CONSTRAINT_OPTIONS: Array<{
+  value: string;
+  completeness: IsaCompleteness;
+  disjointness: IsaDisjointness;
+  label: string;
+}> = [
+  { value: "t,e", completeness: "total", disjointness: "disjoint", label: "(t,e) - totale esclusiva" },
+  { value: "t,o", completeness: "total", disjointness: "overlap", label: "(t,o) - totale sovrapposta" },
+  { value: "p,e", completeness: "partial", disjointness: "disjoint", label: "(p,e) - parziale esclusiva" },
+  { value: "p,o", completeness: "partial", disjointness: "overlap", label: "(p,o) - parziale sovrapposta" },
+];
+
+function formatIsaConstraint(completeness?: IsaCompleteness, disjointness?: IsaDisjointness): string {
+  if (!completeness || !disjointness) {
+    return "vincolo mancante";
+  }
+  return `(${completeness === "total" ? "t" : "p"},${disjointness === "disjoint" ? "e" : "o"})`;
+}
+
+function parseIsaConstraint(value: string): { completeness: IsaCompleteness; disjointness: IsaDisjointness } {
+  const [completeness, disjointness] = value.split(",");
+  return {
+    completeness: completeness === "t" ? "total" : "partial",
+    disjointness: disjointness === "o" ? "overlap" : "disjoint",
+  };
+}
+
 export function InspectorPanel(props: InspectorPanelProps) {
   const isEmbedded = props.embedded === true;
   const showQuickActions = props.hideQuickActions !== true && !isEmbedded;
@@ -143,6 +182,106 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
   const isIdleContext = selectionCount === 0;
   const canRenameCurrentSelection = selectedNode !== undefined || selectedEdge?.type === "inheritance";
+
+  function assignConstraint(edgeId: string, value: string) {
+    const { completeness, disjointness } = parseIsaConstraint(value);
+    props.onDiagramChange(assignInheritanceConstraintToGroup(props.diagram, edgeId, completeness, disjointness));
+  }
+
+  function updateGroupConstraint(groupId: string, value: string) {
+    const { completeness, disjointness } = parseIsaConstraint(value);
+    props.onDiagramChange(updateGeneralizationGroupConstraint(props.diagram, groupId, completeness, disjointness));
+  }
+
+  function renderGroupSummary(group: GeneralizationGroup, currentSubtypeId?: string) {
+    const subtypes = group.subtypeIds
+      .map((subtypeId) => props.diagram.nodes.find((node) => node.id === subtypeId))
+      .filter((node): node is EntityNode => node?.type === "entity");
+    const value = `${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"}`;
+
+    return (
+      <div key={group.id} className="context-card-list">
+        <strong>{group.label ?? `Gerarchia ISA ${formatIsaConstraint(group.isaCompleteness, group.isaDisjointness)}`}</strong>
+        <span>{formatIsaConstraint(group.isaCompleteness, group.isaDisjointness)}</span>
+        <label className="field">
+          <span>Modifica vincolo</span>
+          <select value={value} disabled={!canEdit} onChange={(event) => updateGroupConstraint(group.id, event.target.value)}>
+            {ISA_CONSTRAINT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {subtypes.map((subtype) => (
+          <div key={subtype.id} className="context-row">
+            <span>{subtype.label}</span>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => props.onDiagramChange(removeSubtypeFromGeneralizationGroup(props.diagram, group.id, subtype.id))}
+            >
+              {currentSubtypeId === subtype.id ? "Scollega dal gruppo ISA" : "Rimuovi sottotipo"}
+            </button>
+          </div>
+        ))}
+        {subtypes.length === 0 ? <span>Nessun sottotipo configurato.</span> : null}
+        <button
+          type="button"
+          disabled={!canEdit}
+          onClick={() => props.onDiagramChange(deleteGeneralizationGroup(props.diagram, group.id))}
+        >
+          Elimina gruppo ISA
+        </button>
+      </div>
+    );
+  }
+
+  function renderEntityGeneralizations(entity: EntityNode) {
+    const supertypeGroups = getGeneralizationGroupsForSupertype(props.diagram, entity.id);
+    const subtypeEdges = props.diagram.edges.filter(
+      (edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance" && edge.sourceId === entity.id,
+    );
+
+    return (
+      <>
+        <section className="context-card">
+          <div className="context-card-title">Gerarchie ISA</div>
+          <div className="inspector-stack">
+            {supertypeGroups.length > 0
+              ? supertypeGroups.map((group) => renderGroupSummary(group))
+              : <p className="action-hint">Nessuna gerarchia ISA usa questa entita come padre.</p>}
+          </div>
+        </section>
+        {subtypeEdges.length > 0 ? (
+          <section className="context-card">
+            <div className="context-card-title">Partecipazione come sottotipo</div>
+            <div className="inspector-stack">
+              {subtypeEdges.map((edge) => {
+                const parent = props.diagram.nodes.find((node) => node.id === edge.targetId);
+                const group = getGeneralizationGroupForEdge(props.diagram, edge.id);
+                return (
+                  <div key={edge.id} className="context-card-list">
+                    <strong>{parent?.label ?? edge.targetId}</strong>
+                    <span>{group ? formatIsaConstraint(group.isaCompleteness, group.isaDisjointness) : "Gerarchia ISA non configurata"}</span>
+                    {group ? (
+                      <button
+                        type="button"
+                        disabled={!canEdit}
+                        onClick={() => props.onDiagramChange(removeSubtypeFromGeneralizationGroup(props.diagram, group.id, entity.id))}
+                      >
+                        Scollega dal gruppo ISA
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+      </>
+    );
+  }
 
   if (isCollapsed) {
     if (isIdleContext) {
@@ -355,6 +494,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
             readOnly={!canEdit}
             onEntityChange={props.onEntityInternalIdentifiersChange}
           />
+          {renderEntityGeneralizations(node)}
           <ExternalIdentifierSection
             entity={node}
             diagram={props.diagram}
@@ -467,37 +607,45 @@ export function InspectorPanel(props: InspectorPanelProps) {
             ) : null}
 
             {edge.type === "inheritance" ? (
-              <>
-                <label className="field">
-                  <span>Nome collegamento</span>
-                  <input
-                    value={edge.label}
-                    disabled={!canEdit}
-                    placeholder="Etichetta opzionale"
-                    onChange={(event) => props.onEdgeChange(edge.id, { label: event.target.value })}
-                  />
-                </label>
-                <label className="field">
-                  <span>Vincolo ISA</span>
-                  <select
-                    value={`${edge.isaCompleteness === "total" ? "t" : "p"},${edge.isaDisjointness === "overlap" ? "o" : "e"}`}
-                    disabled={!canEdit}
-                    onChange={(event) => {
-                      const [completeness, disjointness] = event.target.value.split(",");
-                      props.onEdgeChange(edge.id, {
-                        isaCompleteness: completeness === "t" ? "total" : "partial",
-                        isaDisjointness: disjointness === "o" ? "overlap" : "disjoint",
-                        label: `(${completeness},${disjointness})`,
-                      });
-                    }}
-                  >
-                    <option value="t,e">t,e - totale esclusiva</option>
-                    <option value="t,o">t,o - totale sovrapposta</option>
-                    <option value="p,e">p,e - parziale esclusiva</option>
-                    <option value="p,o">p,o - parziale sovrapposta</option>
-                  </select>
-                </label>
-              </>
+              (() => {
+                const group = getGeneralizationGroupForEdge(props.diagram, edge.id);
+                const currentValue =
+                  group?.isaCompleteness && group.isaDisjointness
+                    ? `${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"}`
+                    : "t,e";
+                return group ? (
+                  <>
+                    <p className="action-hint">
+                      Questo ramo appartiene al gruppo ISA {formatIsaConstraint(group.isaCompleteness, group.isaDisjointness)}.
+                    </p>
+                    {renderGroupSummary(group, edge.sourceId)}
+                  </>
+                ) : (
+                  <>
+                    <div className="context-card-title">Gerarchia ISA non configurata</div>
+                    <p className="action-hint">
+                      Figlio: "{sourceNode?.label ?? edge.sourceId}". Padre: "{targetNode?.label ?? edge.targetId}".
+                    </p>
+                    <label className="field">
+                      <span>Vincolo ISA</span>
+                      <select
+                        value={currentValue}
+                        disabled={!canEdit}
+                        onChange={(event) => assignConstraint(edge.id, event.target.value)}
+                      >
+                        {ISA_CONSTRAINT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button type="button" disabled={!canEdit} onClick={() => assignConstraint(edge.id, currentValue)}>
+                      Assegna vincolo
+                    </button>
+                  </>
+                );
+              })()
             ) : null}
 
             <label className="field">

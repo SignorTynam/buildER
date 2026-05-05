@@ -1,6 +1,6 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
-import type { DiagramEdge, DiagramHighlightKind, DiagramNode, Point } from "../types/diagram";
+import type { DiagramEdge, DiagramHighlightKind, DiagramNode, IsaCompleteness, IsaDisjointness, Point } from "../types/diagram";
 import { getEdgeCardinalityLabel } from "../utils/cardinality";
 import { useI18n } from "../i18n/useI18n";
 
@@ -89,22 +89,13 @@ function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, _
   );
 }
 
-function getInheritanceConstraintLabel(edge: Extract<DiagramEdge, { type: "inheritance" }>): string {
-  const parts: string[] = [];
-
-  if (edge.isaDisjointness === "disjoint") {
-    parts.push("D");
-  } else if (edge.isaDisjointness === "overlap") {
-    parts.push("O");
+function formatIsaConstraint(completeness?: IsaCompleteness, disjointness?: IsaDisjointness): string {
+  if (!completeness || !disjointness) {
+    return "";
   }
-
-  if (edge.isaCompleteness === "total") {
-    parts.push("T");
-  } else if (edge.isaCompleteness === "partial") {
-    parts.push("P");
-  }
-
-  return parts.join("/");
+  const c = completeness === "total" ? "t" : "p";
+  const d = disjointness === "disjoint" ? "e" : "o";
+  return `(${c},${d})`;
 }
 
 export function DiagramEdgeView(props: DiagramEdgeProps) {
@@ -114,7 +105,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const pathData = pathFromPoints(geometry.points);
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
   const inheritanceConstraintLabel =
-    props.edge.type === "inheritance" ? getInheritanceConstraintLabel(props.edge) : "";
+    props.edge.type === "inheritance" ? formatIsaConstraint(props.edge.isaCompleteness, props.edge.isaDisjointness) : "";
   const displayLabel =
     typeof props.displayLabelOverride === "string"
       ? props.displayLabelOverride

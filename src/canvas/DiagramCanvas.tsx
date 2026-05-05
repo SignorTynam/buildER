@@ -18,6 +18,7 @@ import {
   clampZoom,
   clipPointToNodePerimeter,
   clientPointFromWorld,
+  getGeneralizationJunctionPoint,
   getEdgeGeometry,
   getNodeAnchor,
   getNodeCenter,
@@ -2604,48 +2605,46 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
   const compositeIdentifierInteractive = props.mode === "edit" && props.tool === "select";
+  const generalizationGroupsBySupertype = new Map<string, string[]>();
+  (props.diagram.generalizationGroups ?? []).forEach((group) => {
+    generalizationGroupsBySupertype.set(group.supertypeId, [
+      ...(generalizationGroupsBySupertype.get(group.supertypeId) ?? []),
+      group.id,
+    ]);
+  });
   const groupedInheritanceLayouts = (props.diagram.generalizationGroups ?? [])
     .map((group) => {
-      if (group.subtypeIds.length < 2) {
-        return null;
-      }
-
       const supertype = nodeMap.get(group.supertypeId);
       const subtypes = group.subtypeIds
         .map((subtypeId) => nodeMap.get(subtypeId))
         .filter((node): node is DiagramNode => node?.type === "entity");
-      if (!supertype || supertype.type !== "entity" || subtypes.length < 2) {
+      if (!supertype || supertype.type !== "entity" || subtypes.length === 0) {
         return null;
       }
 
       const edges = props.diagram.edges.filter(
         (edge) =>
           edge.type === "inheritance" &&
-          (
-            edge.generalizationGroupId === group.id ||
-            (edge.targetId === group.supertypeId && group.subtypeIds.includes(edge.sourceId))
-          ),
+          edge.generalizationGroupId === group.id,
       );
-      if (edges.length < 2) {
+      if (edges.length === 0) {
         return null;
       }
 
-      const childCenters = subtypes.map((node) => getNodeCenter(node));
-      const superCenter = getNodeCenter(supertype);
-      const childAverageY = childCenters.reduce((sum, point) => sum + point.y, 0) / childCenters.length;
-      const barY = (childAverageY + superCenter.y) / 2;
-      const minX = Math.min(...childCenters.map((point) => point.x));
-      const maxX = Math.max(...childCenters.map((point) => point.x));
-      const barStart = { x: minX, y: barY };
-      const barEnd = { x: maxX, y: barY };
-      const barCenter = { x: (minX + maxX) / 2, y: barY };
-      const superAttach = clipPointToNodePerimeter(supertype, barCenter);
-      const childStems = subtypes.map((node) => {
-        const childCenter = getNodeCenter(node);
+      const siblingIds = generalizationGroupsBySupertype.get(group.supertypeId) ?? [group.id];
+      const junction = getGeneralizationJunctionPoint(
+        group,
+        supertype,
+        subtypes,
+        Math.max(0, siblingIds.indexOf(group.id)),
+        siblingIds.length,
+      );
+      const superAttach = clipPointToNodePerimeter(supertype, junction);
+      const childBranches = subtypes.map((node) => {
         return {
           nodeId: node.id,
-          from: clipPointToNodePerimeter(node, { x: childCenter.x, y: barY }),
-          to: { x: childCenter.x, y: barY },
+          from: clipPointToNodePerimeter(node, junction),
+          to: junction,
         };
       });
       const firstEdge = edges[0];
@@ -2656,13 +2655,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         selected: edges.some((edge) => props.selection.edgeIds.includes(edge.id)),
         focused: focusedTarget?.kind === "edge" && edges.some((edge) => edge.id === focusedTarget.id),
         firstEdgeId: firstEdge?.id,
-        barStart,
-        barEnd,
-        barCenter,
+        junction,
         superAttach,
-        childStems,
+        childBranches,
         label:
-          group.isaCompleteness || group.isaDisjointness
+          group.isaCompleteness && group.isaDisjointness
             ? `(${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"})`
             : "",
       };
@@ -2960,7 +2957,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
           {groupedInheritanceLayouts.map((layout) => {
             const stroke = layout.selected || layout.focused ? DIAGRAM_FOCUS : DIAGRAM_STROKE;
-            const pathData = pathFromPoints([layout.barCenter, layout.superAttach]);
+            const pathData = pathFromPoints([layout.junction, layout.superAttach]);
             return (
               <g
                 key={`inheritance-group-${layout.group.id}`}
@@ -2985,15 +2982,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 }}
               >
                 <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} />
-                <line
-                  x1={layout.barStart.x}
-                  y1={layout.barStart.y}
-                  x2={layout.barEnd.x}
-                  y2={layout.barEnd.y}
-                  stroke={stroke}
-                  strokeWidth={2.2}
-                  strokeLinecap="round"
-                />
                 <path
                   d={pathData}
                   fill="none"
@@ -3003,22 +2991,21 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   strokeLinejoin="round"
                   markerEnd="url(#arrowhead)"
                 />
-                {layout.childStems.map((stem) => (
-                  <line
-                    key={`${layout.group.id}-${stem.nodeId}`}
-                    x1={stem.from.x}
-                    y1={stem.from.y}
-                    x2={stem.to.x}
-                    y2={stem.to.y}
+                {layout.childBranches.map((branch) => (
+                  <path
+                    key={`${layout.group.id}-${branch.nodeId}`}
+                    d={pathFromPoints([branch.from, branch.to])}
+                    fill="none"
                     stroke={stroke}
                     strokeWidth={2.2}
                     strokeLinecap="round"
                   />
                 ))}
+                <circle cx={layout.junction.x} cy={layout.junction.y} r={4.5} fill="var(--diagram-canvas-fill)" stroke={stroke} strokeWidth={2} />
                 {layout.label ? (
                   <text
-                    x={layout.barCenter.x}
-                    y={layout.barCenter.y + 18}
+                    x={layout.junction.x}
+                    y={layout.junction.y + 20}
                     textAnchor="middle"
                     className="edge-label inheritance-constraint-label"
                     fill={stroke}

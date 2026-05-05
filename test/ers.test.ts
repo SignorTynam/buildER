@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { DiagramDocument } from "../src/types/diagram.ts";
-import { renameNodeAsNameIdentity } from "../src/utils/diagram.ts";
+import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
+import {
+  assignInheritanceConstraintToGroup,
+  normalizeGeneralizationGroups,
+  removeSubtypeFromGeneralizationGroup,
+  renameNodeAsNameIdentity,
+  updateGeneralizationGroupConstraint,
+  validateDiagram,
+} from "../src/utils/diagram.ts";
 import { parseErsDiagram, serializeDiagramToErs } from "../src/utils/ers.ts";
 import { normalizeCardinalityInput } from "../src/utils/cardinality.ts";
 
@@ -34,6 +41,89 @@ relation RELAZIONE2 ENTITA1 "(X,Y)" ENTITA2 "(X,Y)"`;
   assert.doesNotMatch(serialized, /\bATTRIBUTO1\b/);
   assert.doesNotMatch(serialized, /\bATTRIBUTO2\b/);
   assert.doesNotMatch(serialized, /\bATTRIBUTO3\b/);
+});
+
+function createIsaTestDiagram(): DiagramDocument {
+  const nodes: DiagramNode[] = ["PERSONA", "UOMO", "DONNA", "IMPIEGATO", "STUDENTE"].map((id, index) => ({
+    id,
+    type: "entity",
+    label: id,
+    x: index * 180,
+    y: index === 0 ? 0 : 180,
+    width: 150,
+    height: 64,
+    internalIdentifiers: [],
+    externalIdentifiers: [],
+    relationshipParticipations: [],
+  }));
+  const edges: DiagramEdge[] = [
+    { id: "isa-uomo", type: "inheritance", sourceId: "UOMO", targetId: "PERSONA", label: "", lineStyle: "solid" },
+    { id: "isa-donna", type: "inheritance", sourceId: "DONNA", targetId: "PERSONA", label: "", lineStyle: "solid" },
+    { id: "isa-impiegato", type: "inheritance", sourceId: "IMPIEGATO", targetId: "PERSONA", label: "", lineStyle: "solid" },
+    { id: "isa-studente", type: "inheritance", sourceId: "STUDENTE", targetId: "PERSONA", label: "", lineStyle: "solid" },
+  ];
+  return { meta: { name: "ISA", version: 1 }, notes: "", nodes, edges };
+}
+
+test("gli edge ISA nascono senza vincolo e vengono raggruppati per padre e vincolo", () => {
+  let diagram = createIsaTestDiagram();
+  let issues = validateDiagram(diagram);
+  assert.equal(issues.filter((issue) => issue.id.startsWith("inheritance-missing-group")).length, 4);
+
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-uomo", "total", "disjoint");
+  let groups = diagram.generalizationGroups ?? [];
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].subtypeIds, ["UOMO"]);
+  assert.equal(diagram.edges.find((edge) => edge.id === "isa-donna" && edge.type === "inheritance")?.generalizationGroupId, undefined);
+
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-donna", "total", "disjoint");
+  groups = diagram.generalizationGroups ?? [];
+  assert.equal(groups.length, 1);
+  assert.deepEqual([...groups[0].subtypeIds].sort(), ["DONNA", "UOMO"]);
+
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-impiegato", "partial", "overlap");
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-studente", "partial", "overlap");
+  groups = diagram.generalizationGroups ?? [];
+  assert.equal(groups.length, 2);
+  assert.equal(groups.some((group) => group.supertypeId === "PERSONA" && group.isaCompleteness === "partial" && group.isaDisjointness === "overlap"), true);
+
+  const sexGroup = groups.find((group) => group.isaCompleteness === "total" && group.isaDisjointness === "disjoint");
+  assert.ok(sexGroup);
+  diagram = updateGeneralizationGroupConstraint(diagram, sexGroup.id, "partial", "disjoint");
+  const updatedSexGroup = diagram.generalizationGroups?.find((group) => group.id === sexGroup.id);
+  assert.equal(updatedSexGroup?.isaCompleteness, "partial");
+  assert.equal(
+    diagram.edges
+      .filter((edge) => edge.type === "inheritance" && edge.generalizationGroupId === sexGroup.id)
+      .every((edge) => edge.isaCompleteness === "partial" && edge.isaDisjointness === "disjoint"),
+    true,
+  );
+
+  diagram = removeSubtypeFromGeneralizationGroup(diagram, sexGroup.id, "DONNA");
+  const donnaEdge = diagram.edges.find((edge) => edge.id === "isa-donna" && edge.type === "inheritance");
+  assert.equal(donnaEdge?.generalizationGroupId, undefined);
+  assert.equal(donnaEdge?.isaCompleteness, undefined);
+  assert.equal(diagram.generalizationGroups?.find((group) => group.id === sexGroup.id)?.subtypeIds.includes("UOMO"), true);
+  assert.equal(validateDiagram(diagram).some((issue) => issue.id === "inheritance-missing-group-isa-donna"), true);
+});
+
+test("ERS conserva gruppi ISA distinti e non serializza etichette legacy", () => {
+  let diagram = createIsaTestDiagram();
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-uomo", "total", "disjoint");
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-donna", "total", "disjoint");
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-impiegato", "partial", "overlap");
+  diagram = assignInheritanceConstraintToGroup(diagram, "isa-studente", "partial", "overlap");
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /generalization .* PERSONA \(t,e\) \{/);
+  assert.match(serialized, /generalization .* PERSONA \(p,o\) \{/);
+  assert.doesNotMatch(serialized, /\b(?:D\/T|D\/P|O\/T|O\/P|T\/D|P\/D)\b/);
+
+  const reparsed = parseErsDiagram(serialized);
+  const groups = normalizeGeneralizationGroups(reparsed).generalizationGroups?.filter((group) => group.supertypeId === "PERSONA") ?? [];
+  assert.equal(groups.length, 2);
+  assert.equal(groups.some((group) => group.isaCompleteness === "total" && group.isaDisjointness === "disjoint"), true);
+  assert.equal(groups.some((group) => group.isaCompleteness === "partial" && group.isaDisjointness === "overlap"), true);
 });
 
 test("la rinomina nome-identita aggiorna davvero l'id del nodo", () => {

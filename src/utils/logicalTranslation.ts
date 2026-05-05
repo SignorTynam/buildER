@@ -5,6 +5,7 @@ import type {
   DiagramNode,
   EntityNode,
   ExternalIdentifier,
+  GeneralizationGroup,
   InheritanceEdge,
   InternalIdentifier,
   RelationshipNode,
@@ -34,6 +35,7 @@ import type {
   LogicalWorkspaceDocument,
 } from "../types/logical";
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "./cardinality";
+import { normalizeGeneralizationGroups } from "./diagram";
 import { normalizeLogicalModelGeometry } from "./logicalLayout";
 import { normalizeLogicalModelSqlMetadata } from "./logicalSqlMetadata";
 
@@ -52,6 +54,8 @@ interface RelationshipParticipant {
 }
 
 interface GeneralizationHierarchy {
+  id: string;
+  group?: GeneralizationGroup;
   supertype: EntityNode;
   subtypes: EntityNode[];
   edges: InheritanceEdge[];
@@ -446,33 +450,36 @@ function getAttributeOwner(
 }
 
 function buildGeneralizationHierarchies(diagram: DiagramDocument): GeneralizationHierarchy[] {
+  diagram = normalizeGeneralizationGroups(diagram);
   const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const grouped = new Map<string, GeneralizationHierarchy>();
+  const groups = diagram.generalizationGroups ?? [];
 
-  diagram.edges
-    .filter((edge): edge is InheritanceEdge => edge.type === "inheritance")
-    .forEach((edge) => {
-      const subtype = nodeById.get(edge.sourceId);
-      const supertype = nodeById.get(edge.targetId);
-      if (subtype?.type !== "entity" || supertype?.type !== "entity") {
-        return;
+  return groups
+    .map((group): GeneralizationHierarchy | null => {
+      const supertype = nodeById.get(group.supertypeId);
+      if (supertype?.type !== "entity") {
+        return null;
       }
-
-      const current = grouped.get(supertype.id) ?? {
+      const edges = diagram.edges.filter(
+        (edge): edge is InheritanceEdge => edge.type === "inheritance" && edge.generalizationGroupId === group.id,
+      );
+      const subtypes = group.subtypeIds
+        .map((subtypeId) => nodeById.get(subtypeId))
+        .filter((node): node is EntityNode => node?.type === "entity");
+      if (subtypes.length === 0) {
+        return null;
+      }
+      return {
+        id: group.id,
+        group,
         supertype,
-        subtypes: [],
-        edges: [],
-        disjointness: edge.isaDisjointness,
-        completeness: edge.isaCompleteness,
+        subtypes,
+        edges,
+        disjointness: group.isaDisjointness ?? edges[0]?.isaDisjointness,
+        completeness: group.isaCompleteness ?? edges[0]?.isaCompleteness,
       };
-      if (!current.subtypes.some((candidate) => candidate.id === subtype.id)) {
-        current.subtypes.push(subtype);
-      }
-      current.edges.push(edge);
-      grouped.set(supertype.id, current);
-    });
-
-  return [...grouped.values()]
+    })
+    .filter((hierarchy): hierarchy is GeneralizationHierarchy => hierarchy !== null)
     .map((hierarchy) => ({
       ...hierarchy,
       subtypes: sortByLabel(hierarchy.subtypes),
@@ -485,6 +492,21 @@ function buildGeneralizationHierarchies(diagram: DiagramDocument): Generalizatio
 
       return left.supertype.id.localeCompare(right.supertype.id);
     });
+}
+
+function buildHierarchyDecisionLookup(diagram: DiagramDocument): Map<string, GeneralizationHierarchy> {
+  const hierarchies = buildGeneralizationHierarchies(diagram);
+  const lookup = new Map(hierarchies.map((hierarchy) => [hierarchy.id, hierarchy] as const));
+  const bySupertype = new Map<string, GeneralizationHierarchy[]>();
+  hierarchies.forEach((hierarchy) => {
+    bySupertype.set(hierarchy.supertype.id, [...(bySupertype.get(hierarchy.supertype.id) ?? []), hierarchy]);
+  });
+  bySupertype.forEach((items, supertypeId) => {
+    if (items.length === 1) {
+      lookup.set(supertypeId, items[0]);
+    }
+  });
+  return lookup;
 }
 
 function buildDirectSupertypesBySubtypeId(
@@ -1161,9 +1183,9 @@ function buildGeneralizationChoices(
   const hierarchyLabel = `${hierarchy.supertype.label} -> ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")}`;
   return [
     {
-      id: `generalization-per-type-${hierarchy.supertype.id}`,
+      id: `generalization-per-type-${hierarchy.id}`,
       targetType: "generalization",
-      targetId: hierarchy.supertype.id,
+      targetId: hierarchy.id,
       step: "generalizations",
       rule: "generalization-table-per-type",
       label: "Supertipo + tabelle sottotipi",
@@ -1175,9 +1197,9 @@ function buildGeneralizationChoices(
       recommended: true,
     },
     {
-      id: `generalization-subtypes-only-${hierarchy.supertype.id}`,
+      id: `generalization-subtypes-only-${hierarchy.id}`,
       targetType: "generalization",
-      targetId: hierarchy.supertype.id,
+      targetId: hierarchy.id,
       step: "generalizations",
       rule: "generalization-subtypes-only",
       label: "Solo tabelle per sottotipi",
@@ -1188,9 +1210,9 @@ function buildGeneralizationChoices(
       },
     },
     {
-      id: `generalization-single-${hierarchy.supertype.id}`,
+      id: `generalization-single-${hierarchy.id}`,
       targetType: "generalization",
-      targetId: hierarchy.supertype.id,
+      targetId: hierarchy.id,
       step: "generalizations",
       rule: "generalization-single-table",
       label: "Tabella unica con discriminatore",
@@ -1945,9 +1967,7 @@ function buildSubtypeToSupertypeMap(
   diagram: DiagramDocument,
   decisions: LogicalTranslationDecision[],
 ): Map<string, string> {
-  const hierarchyBySupertypeId = new Map(
-    buildGeneralizationHierarchies(diagram).map((hierarchy) => [hierarchy.supertype.id, hierarchy]),
-  );
+  const hierarchyByTargetId = buildHierarchyDecisionLookup(diagram);
   const mapping = new Map<string, string>();
   decisions
     .filter(
@@ -1957,7 +1977,7 @@ function buildSubtypeToSupertypeMap(
         decision.rule === "generalization-single-table",
     )
     .forEach((decision) => {
-      const hierarchy = hierarchyBySupertypeId.get(decision.targetId);
+      const hierarchy = hierarchyByTargetId.get(decision.targetId);
       if (!hierarchy) {
         return;
       }
@@ -1972,16 +1992,14 @@ function sortGeneralizationDecisionsForExecution(
   decisions: LogicalTranslationDecision[],
 ): LogicalTranslationDecision[] {
   const directSupertypesBySubtypeId = buildDirectSupertypesBySubtypeId(diagram);
-  const hierarchyBySupertypeId = new Map(
-    buildGeneralizationHierarchies(diagram).map((hierarchy) => [hierarchy.supertype.id, hierarchy]),
-  );
+  const hierarchyByTargetId = buildHierarchyDecisionLookup(diagram);
   const decisionBySupertypeId = new Map(decisions.map((decision) => [decision.targetId, decision]));
   const pendingBySupertypeId = new Map(decisions.map((decision) => [decision.targetId, decision]));
   const ordered: LogicalTranslationDecision[] = [];
 
   const compareDecisions = (left: LogicalTranslationDecision, right: LogicalTranslationDecision): number => {
-    const leftHierarchy = hierarchyBySupertypeId.get(left.targetId);
-    const rightHierarchy = hierarchyBySupertypeId.get(right.targetId);
+    const leftHierarchy = hierarchyByTargetId.get(left.targetId);
+    const rightHierarchy = hierarchyByTargetId.get(right.targetId);
     const leftLabel = leftHierarchy?.supertype.label ?? left.targetId;
     const rightLabel = rightHierarchy?.supertype.label ?? right.targetId;
     const byLabel = leftLabel.localeCompare(rightLabel, "it", { sensitivity: "base" });
@@ -1995,7 +2013,8 @@ function sortGeneralizationDecisionsForExecution(
   while (pendingBySupertypeId.size > 0) {
     const ready = [...pendingBySupertypeId.values()]
       .filter((decision) => {
-        const parentSupertypes = directSupertypesBySubtypeId.get(decision.targetId) ?? [];
+        const hierarchy = hierarchyByTargetId.get(decision.targetId);
+        const parentSupertypes = hierarchy ? directSupertypesBySubtypeId.get(hierarchy.supertype.id) ?? [] : [];
         return parentSupertypes.every((supertype) => !pendingBySupertypeId.has(supertype.id) || !decisionBySupertypeId.has(supertype.id));
       })
       .sort(compareDecisions);
@@ -2033,9 +2052,7 @@ function buildModelFromDecisions(
     diagram.nodes.filter((node): node is EntityNode => node.type === "entity").map((node) => [node.id, node]),
   );
   const directSupertypesBySubtypeId = buildDirectSupertypesBySubtypeId(diagram);
-  const generalizationBySupertypeId = new Map(
-    buildGeneralizationHierarchies(diagram).map((hierarchy) => [hierarchy.supertype.id, hierarchy]),
-  );
+  const generalizationByTargetId = buildHierarchyDecisionLookup(diagram);
   const validDecisions = translation.decisions.filter((decision) => decision.status === "applied");
   const generalizationDecisions = sortGeneralizationDecisionsForExecution(
     diagram,
@@ -2044,17 +2061,17 @@ function buildModelFromDecisions(
   const appliedTablePerTypeDecisionBySupertypeId = new Map(
     generalizationDecisions
       .filter((decision) => decision.rule === "generalization-table-per-type")
-      .map((decision) => [decision.targetId, decision] as const),
+      .map((decision) => [generalizationByTargetId.get(decision.targetId)?.supertype.id ?? decision.targetId, decision] as const),
   );
   const processedTablePerTypeDecisionBySupertypeId = new Map<string, LogicalTranslationDecision>();
   const singleTableSubtypeToSupertype = buildSubtypeToSupertypeMap(diagram, validDecisions);
-  const subtypeOnlySupertypes = new Set(
+  const subtypeOnlySupertypeEntityIds = new Set(
     validDecisions
       .filter(
         (decision) =>
           decision.targetType === "generalization" && decision.rule === "generalization-subtypes-only",
       )
-      .map((decision) => decision.targetId),
+      .map((decision) => generalizationByTargetId.get(decision.targetId)?.supertype.id ?? decision.targetId),
   );
 
   validDecisions
@@ -2062,7 +2079,7 @@ function buildModelFromDecisions(
       (decision) =>
         (decision.targetType === "entity" || decision.targetType === "weak-entity") &&
         !singleTableSubtypeToSupertype.has(decision.targetId) &&
-        !subtypeOnlySupertypes.has(decision.targetId),
+        !subtypeOnlySupertypeEntityIds.has(decision.targetId),
     )
     .forEach((decision) => {
       const entity = entityById.get(decision.targetId);
@@ -2115,7 +2132,7 @@ function buildModelFromDecisions(
   const entityTableByEntityId = context.entityTableByEntityId;
 
   for (const decision of generalizationDecisions) {
-      const hierarchy = generalizationBySupertypeId.get(decision.targetId);
+      const hierarchy = generalizationByTargetId.get(decision.targetId);
       if (!hierarchy) {
         continue;
       }
@@ -2141,7 +2158,7 @@ function buildModelFromDecisions(
             includeInPrimaryKey: true,
           });
         });
-        processedTablePerTypeDecisionBySupertypeId.set(decision.targetId, decision);
+        processedTablePerTypeDecisionBySupertypeId.set(hierarchy.supertype.id, decision);
         finalizeEntityKeys(
           context,
           diagram,
@@ -2761,12 +2778,11 @@ function buildTransformationGraph(
     });
   });
 
-  const hierarchies = buildGeneralizationHierarchies(diagram);
-  const hierarchyBySupertypeId = new Map(hierarchies.map((hierarchy) => [hierarchy.supertype.id, hierarchy]));
+  const hierarchyByTargetId = buildHierarchyDecisionLookup(diagram);
   translation.decisions
     .filter((decision) => decision.status === "applied" && decision.targetType === "generalization")
     .forEach((decision) => {
-      const hierarchy = hierarchyBySupertypeId.get(decision.targetId);
+      const hierarchy = hierarchyByTargetId.get(decision.targetId);
       if (!hierarchy) {
         return;
       }

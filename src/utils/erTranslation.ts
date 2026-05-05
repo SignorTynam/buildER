@@ -363,6 +363,21 @@ function getDirectInheritanceDepthBySupertypeId(diagram: DiagramDocument): Map<s
   return memo;
 }
 
+function buildGeneralizationHierarchyLookup(diagram: DiagramDocument): Map<string, GeneralizationHierarchy> {
+  const hierarchies = buildGeneralizationHierarchies(diagram);
+  const lookup = new Map(hierarchies.map((hierarchy) => [hierarchy.id, hierarchy] as const));
+  const bySupertype = new Map<string, GeneralizationHierarchy[]>();
+  hierarchies.forEach((hierarchy) => {
+    bySupertype.set(hierarchy.supertype.id, [...(bySupertype.get(hierarchy.supertype.id) ?? []), hierarchy]);
+  });
+  bySupertype.forEach((items, supertypeId) => {
+    if (items.length === 1) {
+      lookup.set(supertypeId, items[0]);
+    }
+  });
+  return lookup;
+}
+
 function buildChoiceKey(
   targetType: ErTranslationDecision["targetType"],
   targetId: string,
@@ -382,6 +397,7 @@ function normalizeStepDecisionOrder(
   decisions: ErTranslationDecision[],
 ): ErTranslationDecision[] {
   const depthBySupertypeId = getDirectInheritanceDepthBySupertypeId(diagram);
+  const hierarchyByTargetId = buildGeneralizationHierarchyLookup(diagram);
 
   return [...decisions].sort((left, right) => {
     const stepDelta = STEP_ORDER.indexOf(left.step) - STEP_ORDER.indexOf(right.step);
@@ -390,8 +406,8 @@ function normalizeStepDecisionOrder(
     }
 
     if (left.step === "generalizations" && right.step === "generalizations") {
-      const leftDepth = depthBySupertypeId.get(left.targetId) ?? 0;
-      const rightDepth = depthBySupertypeId.get(right.targetId) ?? 0;
+      const leftDepth = depthBySupertypeId.get(hierarchyByTargetId.get(left.targetId)?.supertype.id ?? left.targetId) ?? 0;
+      const rightDepth = depthBySupertypeId.get(hierarchyByTargetId.get(right.targetId)?.supertype.id ?? right.targetId) ?? 0;
       if (leftDepth !== rightDepth) {
         return leftDepth - rightDepth;
       }
@@ -796,9 +812,13 @@ function applyGeneralizationTranslationDetailed(
   >,
 ): TranslationApplyResult {
   let working = cloneDiagram(diagram);
-  const hierarchy = buildGeneralizationHierarchies(working).find(
-    (candidate) => candidate.id === targetId || candidate.supertype.id === targetId,
-  );
+  const hierarchies = buildGeneralizationHierarchies(working);
+  const hierarchy =
+    hierarchies.find((candidate) => candidate.id === targetId) ??
+    (() => {
+      const legacyMatches = hierarchies.filter((candidate) => candidate.supertype.id === targetId);
+      return legacyMatches.length === 1 ? legacyMatches[0] : undefined;
+    })();
   if (!hierarchy) {
     throw new Error(`La gerarchia "${targetId}" non e disponibile nel diagramma tradotto corrente.`);
   }
@@ -1211,7 +1231,7 @@ function createTranslationItemsByStep(
       id: hierarchy.id,
       targetType: "generalization",
       step: "generalizations",
-      label: hierarchy.group?.label ?? `${hierarchy.supertype.label} -> {${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")}}`,
+      label: `${hierarchy.supertype.label}: ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")} (${hierarchy.completeness === "total" ? "t" : "p"},${hierarchy.disjointness === "overlap" ? "o" : "e"})`,
       description: `Generalization group (${hierarchy.completeness === "total" ? "t" : "p"},${hierarchy.disjointness === "overlap" ? "o" : "e"}) da risolvere nell'ER tradotto.`,
       status: "pending",
       choiceIds: choices.map((choice) => choice.id),

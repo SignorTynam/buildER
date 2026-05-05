@@ -80,6 +80,8 @@ function createInheritanceEdge(id: string, subtypeId: string, supertypeId: strin
     targetId: supertypeId,
     label: "",
     lineStyle: "solid",
+    isaCompleteness: "partial",
+    isaDisjointness: "disjoint",
   };
 }
 
