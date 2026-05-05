@@ -1644,6 +1644,10 @@ export function removeSelection(
 ): DiagramDocument {
   const selectedNodeIds = new Set(selection.nodeIds);
   const selectedEdgeIds = new Set(selection.edgeIds);
+  const deletedInheritanceEdges = diagram.edges.filter(
+    (edge): edge is Extract<DiagramEdge, { type: "inheritance" }> =>
+      edge.type === "inheritance" && selectedEdgeIds.has(edge.id),
+  );
 
   if (selectedNodeIds.size > 0) {
     const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
@@ -1680,7 +1684,7 @@ export function removeSelection(
     }
   }
 
-  return {
+  const nextDiagram = {
     ...diagram,
     nodes: diagram.nodes.filter((node) => !selectedNodeIds.has(node.id)),
     edges: diagram.edges.filter(
@@ -1689,7 +1693,24 @@ export function removeSelection(
         !selectedNodeIds.has(edge.sourceId) &&
         !selectedNodeIds.has(edge.targetId),
     ),
+    generalizationGroups: (diagram.generalizationGroups ?? [])
+      .filter((group) => !selectedNodeIds.has(group.supertypeId))
+      .map((group) => {
+        const deletedSubtypes = new Set(
+          deletedInheritanceEdges
+            .filter((edge) => edge.generalizationGroupId === group.id)
+            .map((edge) => edge.sourceId),
+        );
+        return {
+          ...group,
+          subtypeIds: group.subtypeIds.filter(
+            (subtypeId) => !selectedNodeIds.has(subtypeId) && !deletedSubtypes.has(subtypeId),
+          ),
+        };
+      }),
   };
+
+  return cleanupGeneralizationReferences(nextDiagram);
 }
 
 export function duplicateSelection(
@@ -1946,12 +1967,19 @@ export function normalizeGeneralizationGroups(diagram: DiagramDocument): Diagram
   const usedEdgeIds = new Set(diagram.edges.map((edge) => edge.id));
 
   rawGroups.forEach((group, index) => {
-    if (!isGeneralizationGroupLike(group) || typeof group.supertypeId !== "string") {
+    if (!isGeneralizationGroupLike(group) || typeof group.supertypeId !== "string" || !entityIds.has(group.supertypeId)) {
       return;
     }
 
     const subtypeIds = Array.isArray(group.subtypeIds)
-      ? Array.from(new Set(group.subtypeIds.filter((subtypeId): subtypeId is string => typeof subtypeId === "string" && subtypeId !== group.supertypeId)))
+      ? Array.from(
+          new Set(
+            group.subtypeIds.filter(
+              (subtypeId): subtypeId is string =>
+                typeof subtypeId === "string" && entityIds.has(subtypeId) && subtypeId !== group.supertypeId,
+            ),
+          ),
+        )
       : [];
 
     const baseId = typeof group.id === "string" && group.id.trim().length > 0 ? group.id : `generalization-${index + 1}`;
@@ -1985,7 +2013,6 @@ export function normalizeGeneralizationGroups(diagram: DiagramDocument): Diagram
     }
 
     if (!entityIds.has(edge.sourceId) || !entityIds.has(edge.targetId) || edge.sourceId === edge.targetId) {
-      nextEdges.push(edge);
       return;
     }
 
@@ -2060,7 +2087,9 @@ export function normalizeGeneralizationGroups(diagram: DiagramDocument): Diagram
   });
 
   Array.from(groupById.values()).forEach((group) => {
-    group.subtypeIds = Array.from(new Set(group.subtypeIds.filter((subtypeId) => subtypeId !== group.supertypeId)));
+    group.subtypeIds = Array.from(
+      new Set(group.subtypeIds.filter((subtypeId) => entityIds.has(subtypeId) && subtypeId !== group.supertypeId)),
+    );
     group.subtypeIds.forEach((subtypeId) => {
       if (!entityIds.has(subtypeId) || !entityIds.has(group.supertypeId)) {
         return;
@@ -2084,10 +2113,75 @@ export function normalizeGeneralizationGroups(diagram: DiagramDocument): Diagram
     });
   });
 
-  return {
+  return cleanupGeneralizationReferences({
     ...diagram,
     edges: nextEdges,
-    generalizationGroups: Array.from(groupById.values()),
+    generalizationGroups: Array.from(groupById.values()).filter((group) => group.subtypeIds.length > 0),
+  });
+}
+
+export function cleanupGeneralizationReferences(diagram: DiagramDocument): DiagramDocument {
+  const entityIds = new Set(diagram.nodes.filter((node) => node.type === "entity").map((node) => node.id));
+  const groups = (diagram.generalizationGroups ?? [])
+    .filter((group) => entityIds.has(group.supertypeId))
+    .map((group) => ({
+      ...group,
+      subtypeIds: Array.from(
+        new Set(group.subtypeIds.filter((subtypeId) => entityIds.has(subtypeId) && subtypeId !== group.supertypeId)),
+      ),
+    }))
+    .filter((group) => group.subtypeIds.length > 0);
+  const groupById = new Map(groups.map((group) => [group.id, group]));
+
+  const edges = diagram.edges.flatMap((edge): DiagramEdge[] => {
+    if (edge.type !== "inheritance") {
+      return [edge];
+    }
+
+    if (!entityIds.has(edge.sourceId) || !entityIds.has(edge.targetId) || edge.sourceId === edge.targetId) {
+      return [];
+    }
+
+    if (!edge.generalizationGroupId) {
+      return [
+        {
+          ...edge,
+          label: "",
+          generalizationGroupId: undefined,
+          isaCompleteness: undefined,
+          isaDisjointness: undefined,
+        },
+      ];
+    }
+
+    const group = groupById.get(edge.generalizationGroupId);
+    if (!group || !group.subtypeIds.includes(edge.sourceId)) {
+      return [
+        {
+          ...edge,
+          label: "",
+          generalizationGroupId: undefined,
+          isaCompleteness: undefined,
+          isaDisjointness: undefined,
+        },
+      ];
+    }
+
+    return [
+      {
+        ...edge,
+        label: "",
+        targetId: group.supertypeId,
+        isaCompleteness: group.isaCompleteness,
+        isaDisjointness: group.isaDisjointness,
+      },
+    ];
+  });
+
+  return {
+    ...diagram,
+    edges,
+    generalizationGroups: groups,
   };
 }
 

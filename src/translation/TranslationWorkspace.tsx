@@ -263,6 +263,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           onCreateNode={() => ""}
           onCreateEdge={() => ({ success: false, message: unavailableMessage })}
           onOpenCardinality={() => {}}
+          onOpenInheritanceType={() => {}}
           onToolChange={() => {}}
           onCreateExternalIdentifier={() => ({ success: false, message: unavailableMessage })}
           onDeleteNode={() => {}}

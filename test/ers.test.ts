@@ -4,7 +4,9 @@ import test from "node:test";
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
 import {
   assignInheritanceConstraintToGroup,
+  cleanupGeneralizationReferences,
   normalizeGeneralizationGroups,
+  removeSelection,
   removeSubtypeFromGeneralizationGroup,
   renameNodeAsNameIdentity,
   updateGeneralizationGroupConstraint,
@@ -63,6 +65,66 @@ function createIsaTestDiagram(): DiagramDocument {
     { id: "isa-studente", type: "inheritance", sourceId: "STUDENTE", targetId: "PERSONA", label: "", lineStyle: "solid" },
   ];
   return { meta: { name: "ISA", version: 1 }, notes: "", nodes, edges };
+}
+
+function createEntitaIsaCleanupDiagram(): DiagramDocument {
+  const nodes: DiagramNode[] = ["ENTITA1", "ENTITA5", "ENTITA6"].map((id, index) => ({
+    id,
+    type: "entity",
+    label: id,
+    x: index * 180,
+    y: index === 0 ? 0 : 180,
+    width: 150,
+    height: 64,
+    internalIdentifiers: [],
+    externalIdentifiers: [],
+    relationshipParticipations: [],
+  }));
+  const groupId = "generalization-ENTITA1-t-o";
+  const edges: DiagramEdge[] = [
+    {
+      id: "isa-entita5",
+      type: "inheritance",
+      sourceId: "ENTITA5",
+      targetId: "ENTITA1",
+      label: "",
+      lineStyle: "solid",
+      generalizationGroupId: groupId,
+      isaCompleteness: "total",
+      isaDisjointness: "overlap",
+    },
+    {
+      id: "isa-entita6",
+      type: "inheritance",
+      sourceId: "ENTITA6",
+      targetId: "ENTITA1",
+      label: "",
+      lineStyle: "solid",
+      generalizationGroupId: groupId,
+      isaCompleteness: "total",
+      isaDisjointness: "overlap",
+    },
+  ];
+  return {
+    meta: { name: "ISA cleanup", version: 1 },
+    notes: "",
+    nodes,
+    edges,
+    generalizationGroups: [
+      {
+        id: groupId,
+        supertypeId: "ENTITA1",
+        subtypeIds: ["ENTITA5", "ENTITA6"],
+        isaCompleteness: "total",
+        isaDisjointness: "overlap",
+      },
+    ],
+  };
+}
+
+function generalizationBlock(source: string, groupId: string): string {
+  const match = source.match(new RegExp(`generalization ${groupId}[^]*?\\n\\}`));
+  return match?.[0] ?? "";
 }
 
 test("gli edge ISA nascono senza vincolo e vengono raggruppati per padre e vincolo", () => {
@@ -124,6 +186,68 @@ test("ERS conserva gruppi ISA distinti e non serializza etichette legacy", () =>
   assert.equal(groups.length, 2);
   assert.equal(groups.some((group) => group.isaCompleteness === "total" && group.isaDisjointness === "disjoint"), true);
   assert.equal(groups.some((group) => group.isaCompleteness === "partial" && group.isaDisjointness === "overlap"), true);
+});
+
+test("rimozione sottotipo dal gruppo aggiorna subito il blocco generalization", () => {
+  let diagram = createEntitaIsaCleanupDiagram();
+  diagram = removeSubtypeFromGeneralizationGroup(diagram, "generalization-ENTITA1-t-o", "ENTITA6");
+
+  const group = diagram.generalizationGroups?.find((candidate) => candidate.id === "generalization-ENTITA1-t-o");
+  assert.deepEqual(group?.subtypeIds, ["ENTITA5"]);
+  const entita6Edge = diagram.edges.find((edge) => edge.id === "isa-entita6" && edge.type === "inheritance");
+  assert.equal(entita6Edge?.generalizationGroupId, undefined);
+
+  const block = generalizationBlock(serializeDiagramToErs(diagram), "generalization-ENTITA1-t-o");
+  assert.match(block, /\bENTITA5\b/);
+  assert.doesNotMatch(block, /\bENTITA6\b/);
+});
+
+test("cancellazione edge o nodo ISA rimuove riferimenti zombie dai gruppi", () => {
+  let diagram = createEntitaIsaCleanupDiagram();
+  diagram = removeSelection(diagram, { nodeIds: [], edgeIds: ["isa-entita6"] });
+
+  assert.equal(diagram.edges.some((edge) => edge.id === "isa-entita6"), false);
+  assert.deepEqual(diagram.generalizationGroups?.[0]?.subtypeIds, ["ENTITA5"]);
+  assert.doesNotMatch(generalizationBlock(serializeDiagramToErs(diagram), "generalization-ENTITA1-t-o"), /\bENTITA6\b/);
+
+  diagram = createEntitaIsaCleanupDiagram();
+  diagram = removeSelection(diagram, { nodeIds: ["ENTITA6"], edgeIds: [] });
+
+  assert.equal(diagram.nodes.some((node) => node.id === "ENTITA6"), false);
+  assert.equal(diagram.edges.some((edge) => edge.sourceId === "ENTITA6" || edge.targetId === "ENTITA6"), false);
+  assert.equal(diagram.generalizationGroups?.some((group) => group.subtypeIds.includes("ENTITA6")), false);
+  assert.doesNotMatch(generalizationBlock(serializeDiagramToErs(diagram), "generalization-ENTITA1-t-o"), /\bENTITA6\b/);
+});
+
+test("un nuovo nodo con lo stesso nome non viene ricollegato alla vecchia gerarchia", () => {
+  let diagram = removeSelection(createEntitaIsaCleanupDiagram(), { nodeIds: ["ENTITA6"], edgeIds: [] });
+  diagram = cleanupGeneralizationReferences({
+    ...diagram,
+    nodes: [
+      ...diagram.nodes,
+      {
+        id: "ENTITA6-NUOVA",
+        type: "entity",
+        label: "ENTITA6",
+        x: 420,
+        y: 180,
+        width: 150,
+        height: 64,
+        internalIdentifiers: [],
+        externalIdentifiers: [],
+        relationshipParticipations: [],
+      },
+    ],
+  });
+
+  assert.equal(diagram.generalizationGroups?.[0]?.subtypeIds.includes("ENTITA6-NUOVA"), false);
+  assert.equal(
+    diagram.edges.some((edge) => edge.type === "inheritance" && edge.sourceId === "ENTITA6-NUOVA" && edge.generalizationGroupId),
+    false,
+  );
+  const block = generalizationBlock(serializeDiagramToErs(diagram), "generalization-ENTITA1-t-o");
+  assert.match(block, /\bENTITA5\b/);
+  assert.doesNotMatch(block, /\bENTITA6\b/);
 });
 
 test("la rinomina nome-identita aggiorna davvero l'id del nodo", () => {

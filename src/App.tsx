@@ -3873,15 +3873,20 @@ export default function App() {
     setMixedIdentifierDialog(null);
   }
 
-  function handleOpenInheritanceTypeControl() {
-    if (!selectedEdge || selectedEdge.type !== "inheritance") {
+  function handleOpenInheritanceTypeControl(edgeId?: string) {
+    const inheritanceEdge = edgeId
+      ? history.present.edges.find((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.id === edgeId && edge.type === "inheritance")
+      : selectedEdge?.type === "inheritance"
+        ? selectedEdge
+        : undefined;
+    if (!inheritanceEdge) {
       return;
     }
 
-    const currentCompleteness = selectedEdge.isaCompleteness === "total" ? "t" : "p";
-    const currentDisjointness = selectedEdge.isaDisjointness === "overlap" ? "o" : "e";
+    const currentCompleteness = inheritanceEdge.isaCompleteness === "total" ? "t" : "p";
+    const currentDisjointness = inheritanceEdge.isaDisjointness === "overlap" ? "o" : "e";
     setInheritanceTypeDialog({
-      edgeId: selectedEdge.id,
+      edgeId: inheritanceEdge.id,
       value: `${currentCompleteness},${currentDisjointness}` as InheritanceTypeDialogState["value"],
     });
   }
@@ -5206,6 +5211,7 @@ export default function App() {
                   onCreateNode={handleCreateNode}
                   onCreateEdge={handleCreateEdge}
                   onOpenCardinality={handleOpenCardinalityControl}
+                  onOpenInheritanceType={handleOpenInheritanceTypeControl}
                   onToolChange={setTool}
                   onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
                   onDeleteNode={handleDeleteNodeById}

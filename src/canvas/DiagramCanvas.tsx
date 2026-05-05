@@ -153,6 +153,7 @@ interface DiagramCanvasProps {
     targetId: string,
   ) => { success: boolean; message: string };
   onOpenCardinality: (edgeId?: string) => void;
+  onOpenInheritanceType: (edgeId?: string) => void;
   onToolChange: (tool: ToolKind) => void;
   onCreateExternalIdentifier: (
     sourceAttributeId: string,
@@ -2503,7 +2504,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    setInlineEdit({ kind: "edge", id: edge.id, value: edge.label });
+    props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+    props.onOpenInheritanceType(edge.id);
   }
 
   function commitInlineEdit() {
@@ -2978,7 +2980,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     return;
                   }
                   props.onSelectionChange({ nodeIds: [], edgeIds: [layout.firstEdgeId] });
-                  startInlineEdgeEdit(event, props.diagram.edges.find((edge) => edge.id === layout.firstEdgeId) as DiagramEdge);
+                  props.onOpenInheritanceType(layout.firstEdgeId);
                 }}
               >
                 <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} />
@@ -2991,16 +2993,23 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   strokeLinejoin="round"
                   markerEnd="url(#arrowhead)"
                 />
-                {layout.childBranches.map((branch) => (
-                  <path
-                    key={`${layout.group.id}-${branch.nodeId}`}
-                    d={pathFromPoints([branch.from, branch.to])}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                  />
-                ))}
+                {layout.childBranches.map((branch) => {
+                  const branchPoints =
+                    Math.abs(branch.from.x - branch.to.x) > 18 && Math.abs(branch.from.y - branch.to.y) > 18
+                      ? [branch.from, { x: branch.from.x, y: branch.to.y }, branch.to]
+                      : [branch.from, branch.to];
+                  return (
+                    <path
+                      key={`${layout.group.id}-${branch.nodeId}`}
+                      d={pathFromPoints(branchPoints)}
+                      fill="none"
+                      stroke={stroke}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  );
+                })}
                 <circle cx={layout.junction.x} cy={layout.junction.y} r={4.5} fill="var(--diagram-canvas-fill)" stroke={stroke} strokeWidth={2} />
                 {layout.label ? (
                   <text

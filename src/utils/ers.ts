@@ -23,6 +23,7 @@ import {
 import {
   canConnect,
   getMultivaluedAttributeSize,
+  normalizeGeneralizationGroups,
   validateDiagram,
 } from "./diagram";
 import { GRID_SIZE, snapValue } from "./geometry";
@@ -2544,18 +2545,19 @@ function resolveNodeAlias(
 }
 
 export function serializeDiagramToErs(diagram: DiagramDocument): string {
-  const aliasByNodeId = assignNodeAliases(diagram);
-  const attributesByHostId = getAttributeHostNodes(diagram);
-  const attributeHostMap = buildAttributeHostMap(diagram);
-  const entityLines = [...diagram.nodes]
+  const normalizedDiagram = normalizeGeneralizationGroups(diagram);
+  const aliasByNodeId = assignNodeAliases(normalizedDiagram);
+  const attributesByHostId = getAttributeHostNodes(normalizedDiagram);
+  const attributeHostMap = buildAttributeHostMap(normalizedDiagram);
+  const entityLines = [...normalizedDiagram.nodes]
     .filter((node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity")
     .sort(compareNodes)
     .flatMap((entity) => buildEntityBlock(entity, aliasByNodeId, attributesByHostId));
-  const relationLines = [...diagram.nodes]
+  const relationLines = [...normalizedDiagram.nodes]
     .filter((node): node is Extract<DiagramNode, { type: "relationship" }> => node.type === "relationship")
     .sort(compareNodes)
-    .flatMap((relationship) => buildRelationLines(relationship, diagram, aliasByNodeId));
-  const orphanAttributeLines = [...diagram.nodes]
+    .flatMap((relationship) => buildRelationLines(relationship, normalizedDiagram, aliasByNodeId));
+  const orphanAttributeLines = [...normalizedDiagram.nodes]
     .filter(
       (node): node is Extract<DiagramNode, { type: "attribute" }> =>
         node.type === "attribute" && !attributeHostMap.has(node.id),
@@ -2563,9 +2565,9 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     .sort(compareNodes)
     .map((attribute) => buildStandaloneAttributeLine(attribute, aliasByNodeId.get(attribute.id) ?? attribute.id));
   const nestedAttributeLines: string[] = [];
-  const notesContent = normalizeNotesContent(diagram.notes);
+  const notesContent = normalizeNotesContent(normalizedDiagram.notes);
   const notesLines = notesContent.length > 0 ? [`notes ${quoteValue(notesContent)}`] : [];
-  const explicitGeneralizationGroups = diagram.generalizationGroups ?? [];
+  const explicitGeneralizationGroups = normalizedDiagram.generalizationGroups ?? [];
   const inheritanceGroups = new Map<
     string,
     {
@@ -2575,36 +2577,21 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
       isaDisjointness: IsaDisjointness;
     }
   >();
-  if (explicitGeneralizationGroups.length > 0) {
-    explicitGeneralizationGroups.forEach((group) => {
-      const parentAlias = aliasByNodeId.get(group.supertypeId) ?? group.supertypeId;
-      inheritanceGroups.set(group.id, {
-        parentAlias,
-        children: group.subtypeIds.map((subtypeId) => aliasByNodeId.get(subtypeId) ?? subtypeId),
-        isaCompleteness: group.isaCompleteness ?? "partial",
-        isaDisjointness: group.isaDisjointness ?? "disjoint",
-      });
+  explicitGeneralizationGroups.forEach((group) => {
+    const parentAlias = aliasByNodeId.get(group.supertypeId);
+    const children = group.subtypeIds
+      .map((subtypeId) => aliasByNodeId.get(subtypeId))
+      .filter((childAlias): childAlias is string => typeof childAlias === "string");
+    if (!parentAlias || children.length === 0) {
+      return;
+    }
+    inheritanceGroups.set(group.id, {
+      parentAlias,
+      children,
+      isaCompleteness: group.isaCompleteness ?? "partial",
+      isaDisjointness: group.isaDisjointness ?? "disjoint",
     });
-  } else {
-    [...diagram.edges]
-    .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance")
-    .sort((left, right) => compareEdges(left, right, aliasByNodeId))
-    .forEach((edge) => {
-      const childAlias = aliasByNodeId.get(edge.sourceId) ?? edge.sourceId;
-      const parentAlias = aliasByNodeId.get(edge.targetId) ?? edge.targetId;
-      const isaCompleteness = edge.isaCompleteness ?? "partial";
-      const isaDisjointness = edge.isaDisjointness ?? "disjoint";
-      const key = `${parentAlias}:${isaCompleteness}:${isaDisjointness}`;
-      const group = inheritanceGroups.get(key) ?? {
-        parentAlias,
-        children: [],
-        isaCompleteness,
-        isaDisjointness,
-      };
-      group.children.push(childAlias);
-      inheritanceGroups.set(key, group);
-    });
-  }
+  });
   const inheritanceLines = Array.from(inheritanceGroups.entries()).flatMap(([groupId, group]) => {
     return [
       `generalization ${groupId} ${group.parentAlias} (${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "disjoint" ? "e" : "o"}) {`,
@@ -2613,16 +2600,15 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     ];
   });
   const unassignedInheritanceLines =
-    explicitGeneralizationGroups.length > 0
-      ? [...diagram.edges]
-          .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance" && !edge.generalizationGroupId)
-          .sort((left, right) => compareEdges(left, right, aliasByNodeId))
-          .map((edge) => {
-            const childAlias = aliasByNodeId.get(edge.sourceId) ?? edge.sourceId;
-            const parentAlias = aliasByNodeId.get(edge.targetId) ?? edge.targetId;
-            return `inheritance ${childAlias} -> ${parentAlias}`;
-          })
-      : [];
+    [...normalizedDiagram.edges]
+      .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance" && !edge.generalizationGroupId)
+      .sort((left, right) => compareEdges(left, right, aliasByNodeId))
+      .map((edge) => {
+        const childAlias = aliasByNodeId.get(edge.sourceId);
+        const parentAlias = aliasByNodeId.get(edge.targetId);
+        return childAlias && parentAlias ? `inheritance ${childAlias} -> ${parentAlias}` : "";
+      })
+      .filter((line) => line.length > 0);
 
   const sections: string[] = [];
 
@@ -3319,12 +3305,13 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     generalizationGroups,
   };
 
-  const issues = validateDiagram(diagram).filter((issue) => issue.level === "error");
+  const normalizedDiagram = normalizeGeneralizationGroups(diagram);
+  const issues = validateDiagram(normalizedDiagram).filter((issue) => issue.level === "error");
   if (issues.length > 0) {
     throw new Error(issues[0].message);
   }
 
-  return diagram;
+  return normalizedDiagram;
 }
 
 function mergeDiagramConfiguration(
