@@ -4568,6 +4568,7 @@ export default function App() {
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
     const edge = history.present.edges.find((candidate) => candidate.id === edgeId);
     let nextDiagram: DiagramDocument;
+    let mergedIsaGroup = false;
 
     if (
       edge?.type === "inheritance" &&
@@ -4576,24 +4577,34 @@ export default function App() {
       patch.isaCompleteness &&
       patch.isaDisjointness
     ) {
-      nextDiagram = edge.generalizationGroupId
-        ? updateGeneralizationGroupConstraint(
-            history.present,
-            edge.generalizationGroupId,
-            patch.isaCompleteness,
-            patch.isaDisjointness,
-          )
-        : assignInheritanceConstraintToGroup(
-            history.present,
-            edge.id,
-            patch.isaCompleteness,
-            patch.isaDisjointness,
-          );
+      if (edge.generalizationGroupId) {
+        const beforeGroupCount = history.present.generalizationGroups?.length ?? 0;
+        const previousGroupId = edge.generalizationGroupId;
+        nextDiagram = updateGeneralizationGroupConstraint(
+          history.present,
+          previousGroupId,
+          patch.isaCompleteness,
+          patch.isaDisjointness,
+        );
+        const afterGroupCount = nextDiagram.generalizationGroups?.length ?? 0;
+        const stillExists = nextDiagram.generalizationGroups?.some((group) => group.id === previousGroupId) ?? false;
+        mergedIsaGroup = !stillExists && afterGroupCount < beforeGroupCount;
+      } else {
+        nextDiagram = assignInheritanceConstraintToGroup(
+          history.present,
+          edge.id,
+          patch.isaCompleteness,
+          patch.isaDisjointness,
+        );
+      }
     } else {
       nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
     }
 
     commitDiagram(nextDiagram);
+    if (mergedIsaGroup) {
+      setStatus("Gerarchia ISA aggiornata e unificata con il gruppo esistente.");
+    }
   }
 
   function handleRenameNode(nodeId: string, label: string) {

@@ -1,10 +1,12 @@
 import type {
   Bounds,
+  DiagramDocument,
   DiagramEdge,
   DiagramNode,
   EdgeGeometry,
   EdgeKind,
   GeneralizationGroup,
+  IsaGroupLayout,
   Point,
   Viewport,
 } from "../types/diagram";
@@ -26,6 +28,14 @@ export const GRID_SIZE = 20;
 export const MIN_ZOOM = 0.45;
 export const MAX_ZOOM = 2.4;
 export const WORLD_EXTENT = 5200;
+export const ISA_TRIANGLE_WIDTH = 18;
+export const ISA_TRIANGLE_HEIGHT = 16;
+const ISA_TRIANGLE_GAP = 8;
+const ISA_TRUNK_MIN_LENGTH = 18;
+const ISA_BUS_PADDING = 22;
+const ISA_BUS_MIN_HALF = 28;
+const ISA_GROUP_SIBLING_OFFSET_X = 70;
+const ISA_GROUP_SIBLING_OFFSET_Y = 26;
 
 function usesCompositeAttributeShape(node: DiagramNode): boolean {
   return node.type === "attribute" && node.isMultivalued === true;
@@ -113,6 +123,95 @@ export function getGeneralizationJunctionPoint(
   return {
     x: averageSubtype.x + siblingOffset + (group.junctionOffsetX ?? 0),
     y: y + (group.junctionOffsetY ?? 0),
+  };
+}
+
+export function computeClassicIsaGroupLayout(
+  diagram: DiagramDocument,
+  group: GeneralizationGroup,
+): IsaGroupLayout | null {
+  const supertype = diagram.nodes.find(
+    (node) => node.type === "entity" && node.id === group.supertypeId,
+  );
+  if (!supertype) {
+    return null;
+  }
+
+  const subtypes = group.subtypeIds
+    .map((subtypeId) => diagram.nodes.find((node) => node.id === subtypeId))
+    .filter((node): node is DiagramNode => node?.type === "entity");
+  if (subtypes.length === 0) {
+    return null;
+  }
+
+  const siblings = (diagram.generalizationGroups ?? []).filter(
+    (candidate) => candidate.supertypeId === group.supertypeId,
+  );
+  const siblingIndex = Math.max(0, siblings.findIndex((candidate) => candidate.id === group.id));
+  const siblingCount = Math.max(1, siblings.length);
+  const siblingOffsetX = (siblingIndex - (siblingCount - 1) / 2) * ISA_GROUP_SIBLING_OFFSET_X;
+  const siblingOffsetY = (siblingIndex - (siblingCount - 1) / 2) * ISA_GROUP_SIBLING_OFFSET_Y;
+
+  const superCenter = getNodeCenter(supertype);
+  const superBottom = supertype.y + supertype.height;
+  const triangleCenter: Point = {
+    x: superCenter.x + siblingOffsetX + (group.junctionOffsetX ?? 0),
+    y: superBottom + ISA_TRIANGLE_GAP + ISA_TRIANGLE_HEIGHT / 2 + (group.junctionOffsetY ?? 0),
+  };
+
+  const subtypeCenters = subtypes.map(getNodeCenter);
+  const minSubtypeTop = Math.min(...subtypes.map((node) => node.y));
+  const baseBusY = (superBottom + minSubtypeTop) / 2;
+  const minBusY = triangleCenter.y + ISA_TRIANGLE_HEIGHT / 2 + ISA_TRUNK_MIN_LENGTH;
+  const maxBusY = minSubtypeTop - 24;
+  const busY = clamp(baseBusY + siblingOffsetY, minBusY, Math.max(minBusY, maxBusY));
+  const trunkX = triangleCenter.x;
+
+  const minX = Math.min(...subtypeCenters.map((point) => point.x));
+  const maxX = Math.max(...subtypeCenters.map((point) => point.x));
+  let busStartX = minX - ISA_BUS_PADDING;
+  let busEndX = maxX + ISA_BUS_PADDING;
+  if (minX === maxX) {
+    busStartX = minX - ISA_BUS_MIN_HALF;
+    busEndX = maxX + ISA_BUS_MIN_HALF;
+  }
+  busStartX = Math.min(busStartX, trunkX - 6);
+  busEndX = Math.max(busEndX, trunkX + 6);
+
+  const trunkTop: Point = {
+    x: trunkX,
+    y: triangleCenter.y + ISA_TRIANGLE_HEIGHT / 2,
+  };
+  const trunkBottom: Point = {
+    x: trunkX,
+    y: busY,
+  };
+
+  const labelPoint: Point = {
+    x: trunkX + 14,
+    y: (trunkTop.y + trunkBottom.y) / 2,
+  };
+
+  const subtypeBranches = subtypes.map((subtype) => {
+    const subtypeCenter = getNodeCenter(subtype);
+    const branchFrom = { x: subtypeCenter.x, y: busY };
+    const branchTo = clipPointToNodePerimeter(subtype, branchFrom);
+    return {
+      subtypeId: subtype.id,
+      from: branchFrom,
+      to: branchTo,
+    };
+  });
+
+  return {
+    triangleCenter,
+    trunkTop,
+    trunkBottom,
+    busStart: { x: busStartX, y: busY },
+    busEnd: { x: busEndX, y: busY },
+    busY,
+    labelPoint,
+    subtypeBranches,
   };
 }
 

@@ -184,7 +184,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeDasharray={primaryDashArray}
-        markerEnd={props.edge.type === "inheritance" ? "url(#arrowhead)" : undefined}
         opacity={baseOpacity}
       />
       {inheritanceConstraintLabel ? (

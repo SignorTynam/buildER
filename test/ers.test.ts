@@ -5,6 +5,7 @@ import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/dia
 import {
   assignInheritanceConstraintToGroup,
   cleanupGeneralizationReferences,
+  mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
   removeSelection,
   removeSubtypeFromGeneralizationGroup,
@@ -12,6 +13,8 @@ import {
   updateGeneralizationGroupConstraint,
   validateDiagram,
 } from "../src/utils/diagram.ts";
+import { computeClassicIsaGroupLayout } from "../src/utils/geometry.ts";
+import { buildInheritanceGroups, getInheritanceGroupLayout } from "../src/utils/inheritanceLayout.ts";
 import { parseErsDiagram, serializeDiagramToErs } from "../src/utils/ers.ts";
 import { normalizeCardinalityInput } from "../src/utils/cardinality.ts";
 
@@ -122,6 +125,41 @@ function createEntitaIsaCleanupDiagram(): DiagramDocument {
   };
 }
 
+function createIsaMergeDiagram(): DiagramDocument {
+  const nodeIds = ["ENTITA1", "ENTITA2", "ENTITA3", "ENTITA7", "ENTITA5"];
+  const nodes: DiagramNode[] = nodeIds.map((id, index) => ({
+    id,
+    type: "entity",
+    label: id,
+    x: index * 180,
+    y: id === "ENTITA1" ? 0 : 200,
+    width: 150,
+    height: 64,
+    internalIdentifiers: [],
+    externalIdentifiers: [],
+    relationshipParticipations: [],
+  }));
+  const group1Id = "g1";
+  const group2Id = "g2";
+  const edges: DiagramEdge[] = [
+    { id: "isa-entita2", type: "inheritance", sourceId: "ENTITA2", targetId: "ENTITA1", label: "", lineStyle: "solid", generalizationGroupId: group1Id, isaCompleteness: "partial", isaDisjointness: "overlap" },
+    { id: "isa-entita3", type: "inheritance", sourceId: "ENTITA3", targetId: "ENTITA1", label: "", lineStyle: "solid", generalizationGroupId: group1Id, isaCompleteness: "partial", isaDisjointness: "overlap" },
+    { id: "isa-entita7", type: "inheritance", sourceId: "ENTITA7", targetId: "ENTITA1", label: "", lineStyle: "solid", generalizationGroupId: group1Id, isaCompleteness: "partial", isaDisjointness: "overlap" },
+    { id: "isa-entita5", type: "inheritance", sourceId: "ENTITA5", targetId: "ENTITA1", label: "", lineStyle: "solid", generalizationGroupId: group2Id, isaCompleteness: "partial", isaDisjointness: "disjoint" },
+  ];
+
+  return {
+    meta: { name: "ISA merge", version: 1 },
+    notes: "",
+    nodes,
+    edges,
+    generalizationGroups: [
+      { id: group1Id, supertypeId: "ENTITA1", subtypeIds: ["ENTITA2", "ENTITA3", "ENTITA7"], isaCompleteness: "partial", isaDisjointness: "overlap" },
+      { id: group2Id, supertypeId: "ENTITA1", subtypeIds: ["ENTITA5"], isaCompleteness: "partial", isaDisjointness: "disjoint" },
+    ],
+  };
+}
+
 function generalizationBlock(source: string, groupId: string): string {
   const match = source.match(new RegExp(`generalization ${groupId}[^]*?\\n\\}`));
   return match?.[0] ?? "";
@@ -219,6 +257,133 @@ test("cancellazione edge o nodo ISA rimuove riferimenti zombie dai gruppi", () =
   assert.doesNotMatch(generalizationBlock(serializeDiagramToErs(diagram), "generalization-ENTITA1-t-o"), /\bENTITA6\b/);
 });
 
+test("cambio vincolo ISA unifica gruppi compatibili", () => {
+  let diagram = createIsaMergeDiagram();
+  diagram = updateGeneralizationGroupConstraint(diagram, "g2", "partial", "overlap");
+
+  const groups = diagram.generalizationGroups?.filter(
+    (group) => group.supertypeId === "ENTITA1" && group.isaCompleteness === "partial" && group.isaDisjointness === "overlap",
+  ) ?? [];
+  assert.equal(groups.length, 1);
+  assert.deepEqual(new Set(groups[0].subtypeIds), new Set(["ENTITA2", "ENTITA3", "ENTITA7", "ENTITA5"]));
+  assert.equal(diagram.generalizationGroups?.some((group) => group.id === "g2"), false);
+  const entita5Edge = diagram.edges.find((edge) => edge.id === "isa-entita5" && edge.type === "inheritance");
+  assert.equal(entita5Edge?.generalizationGroupId, groups[0].id);
+});
+
+test("serializzazione ERS unifica gruppi ISA compatibili", () => {
+  let diagram = createIsaMergeDiagram();
+  diagram = updateGeneralizationGroupConstraint(diagram, "g2", "partial", "overlap");
+  const serialized = serializeDiagramToErs(diagram);
+  const blocks = serialized.match(/generalization .* ENTITA1 \(p,o\) \{/g) ?? [];
+  assert.equal(blocks.length, 1);
+  assert.match(serialized, /\bENTITA5\b/);
+});
+
+test("parser ERS fonde generalization con stesso vincolo", () => {
+  const diagram = parseErsDiagram(`entity ENTITA1 {}
+entity ENTITA2 {}
+entity ENTITA5 {}
+
+generalization g1 ENTITA1 (p,o) {
+  ENTITA2
+}
+generalization g2 ENTITA1 (p,o) {
+  ENTITA5
+}`);
+  const groups = diagram.generalizationGroups?.filter(
+    (group) => group.supertypeId === "ENTITA1" && group.isaCompleteness === "partial" && group.isaDisjointness === "overlap",
+  ) ?? [];
+  assert.equal(groups.length, 1);
+  assert.deepEqual(new Set(groups[0].subtypeIds), new Set(["ENTITA2", "ENTITA5"]));
+});
+
+test("merge ISA evita duplicati di sottotipo", () => {
+  const diagram = mergeCompatibleGeneralizationGroups({
+    ...createIsaMergeDiagram(),
+    generalizationGroups: [
+      { id: "g1", supertypeId: "ENTITA1", subtypeIds: ["ENTITA2", "ENTITA2"], isaCompleteness: "partial", isaDisjointness: "overlap" },
+      { id: "g3", supertypeId: "ENTITA1", subtypeIds: ["ENTITA2"], isaCompleteness: "partial", isaDisjointness: "overlap" },
+    ],
+  });
+  const groups = diagram.generalizationGroups ?? [];
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].subtypeIds, ["ENTITA2"]);
+});
+
+test("layout ISA classico genera triangolo, trunk e bus", () => {
+  const diagram: DiagramDocument = {
+    meta: { name: "layout ISA", version: 1 },
+    notes: "",
+    nodes: [
+      { id: "ENTITA1", type: "entity", label: "ENTITA1", x: 200, y: 40, width: 150, height: 64, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+      { id: "ENTITA2", type: "entity", label: "ENTITA2", x: 80, y: 240, width: 150, height: 64, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+      { id: "ENTITA3", type: "entity", label: "ENTITA3", x: 320, y: 240, width: 150, height: 64, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+    ],
+    edges: [
+      { id: "isa-entita2", type: "inheritance", sourceId: "ENTITA2", targetId: "ENTITA1", label: "", lineStyle: "solid", generalizationGroupId: "g1", isaCompleteness: "partial", isaDisjointness: "overlap" },
+      { id: "isa-entita3", type: "inheritance", sourceId: "ENTITA3", targetId: "ENTITA1", label: "", lineStyle: "solid", generalizationGroupId: "g1", isaCompleteness: "partial", isaDisjointness: "overlap" },
+    ],
+    generalizationGroups: [
+      { id: "g1", supertypeId: "ENTITA1", subtypeIds: ["ENTITA2", "ENTITA3"], isaCompleteness: "partial", isaDisjointness: "overlap" },
+    ],
+  };
+
+  const layout = computeClassicIsaGroupLayout(diagram, diagram.generalizationGroups?.[0] as NonNullable<DiagramDocument["generalizationGroups"]>[number]);
+  assert.ok(layout);
+  assert.equal(layout?.subtypeBranches.length, 2);
+  assert.equal(layout?.busStart.y, layout?.busEnd.y);
+  assert.equal(layout?.busY, layout?.busStart.y);
+  assert.equal(layout?.trunkTop.x, layout?.trunkBottom.x);
+  assert.ok(layout ? layout.triangleCenter.y > diagram.nodes[0].y + diagram.nodes[0].height / 2 : false);
+  assert.ok(layout ? layout.labelPoint.y > layout.trunkTop.y && layout.labelPoint.y < layout.trunkBottom.y : false);
+});
+
+test("layout visuale ISA compatta piu sottotipi in una sola bus", () => {
+  const diagram = normalizeGeneralizationGroups(createIsaMergeDiagram());
+  const groups = buildInheritanceGroups(diagram);
+  const group = groups.find(
+    (candidate) => candidate.supertypeId === "ENTITA1" && candidate.isaDisjointness === "overlap",
+  );
+  assert.ok(group);
+
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const layout = getInheritanceGroupLayout(group, nodeMap, groups);
+  assert.ok(layout);
+  assert.equal(layout.kind, "multi");
+  assert.equal(layout.lineSegments.filter((segment) => segment.id === "bus").length, 1);
+  assert.equal(layout.lineSegments.filter((segment) => segment.id.startsWith("subtype-")).length, 3);
+
+  const bus = layout.lineSegments.find((segment) => segment.id === "bus");
+  assert.ok(bus);
+  assert.equal(bus.from.y, bus.to.y);
+  assert.ok(bus.to.x - bus.from.x < 520);
+});
+
+test("layout visuale ISA con un solo sottotipo non disegna la bus di gruppo", () => {
+  const diagram = normalizeGeneralizationGroups(createIsaMergeDiagram());
+  const groups = buildInheritanceGroups(diagram);
+  const group = groups.find(
+    (candidate) => candidate.supertypeId === "ENTITA1" && candidate.isaDisjointness === "disjoint",
+  );
+  assert.ok(group);
+
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const layout = getInheritanceGroupLayout(group, nodeMap, groups);
+  assert.ok(layout);
+  assert.equal(layout.kind, "single");
+  assert.equal(layout.lineSegments.some((segment) => segment.id === "bus"), false);
+  assert.equal(layout.lineSegments.filter((segment) => segment.id.startsWith("subtype-")).length, 1);
+  const visibleRouteSegments = layout.lineSegments.filter(
+    (segment) => segment.from.x !== segment.to.x || segment.from.y !== segment.to.y,
+  );
+  assert.equal(
+    visibleRouteSegments.every(
+      (segment) => Math.abs(segment.from.x - segment.to.x) < 0.001 || Math.abs(segment.from.y - segment.to.y) < 0.001,
+    ),
+    true,
+  );
+});
 test("un nuovo nodo con lo stesso nome non viene ricollegato alla vecchia gerarchia", () => {
   let diagram = removeSelection(createEntitaIsaCleanupDiagram(), { nodeIds: ["ENTITA6"], edgeIds: [] });
   diagram = cleanupGeneralizationReferences({

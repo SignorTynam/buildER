@@ -163,3 +163,20 @@ export interface EdgeGeometry {
   points: Point[];
   labelPoint: Point;
 }
+
+export interface IsaSubtypeBranch {
+  subtypeId: string;
+  from: Point;
+  to: Point;
+}
+
+export interface IsaGroupLayout {
+  triangleCenter: Point;
+  trunkTop: Point;
+  trunkBottom: Point;
+  busStart: Point;
+  busEnd: Point;
+  busY: number;
+  labelPoint: Point;
+  subtypeBranches: IsaSubtypeBranch[];
+}

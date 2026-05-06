@@ -40,6 +40,7 @@ interface InspectorPanelProps {
   collapsed?: boolean;
   embedded?: boolean;
   hideQuickActions?: boolean;
+  onStatusMessageChange?: (message: string) => void;
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
@@ -190,7 +191,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
 
   function updateGroupConstraint(groupId: string, value: string) {
     const { completeness, disjointness } = parseIsaConstraint(value);
-    props.onDiagramChange(updateGeneralizationGroupConstraint(props.diagram, groupId, completeness, disjointness));
+    const nextDiagram = updateGeneralizationGroupConstraint(props.diagram, groupId, completeness, disjointness);
+    const previousCount = props.diagram.generalizationGroups?.length ?? 0;
+    const nextCount = nextDiagram.generalizationGroups?.length ?? 0;
+    const stillExists = nextDiagram.generalizationGroups?.some((group) => group.id === groupId) ?? false;
+    if (props.onStatusMessageChange && !stillExists && nextCount < previousCount) {
+      props.onStatusMessageChange("Gerarchia ISA aggiornata e unificata con il gruppo esistente.");
+    }
+    props.onDiagramChange(nextDiagram);
   }
 
   function renderGroupSummary(group: GeneralizationGroup, currentSubtypeId?: string) {

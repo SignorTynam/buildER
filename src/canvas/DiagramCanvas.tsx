@@ -18,7 +18,6 @@ import {
   clampZoom,
   clipPointToNodePerimeter,
   clientPointFromWorld,
-  getGeneralizationJunctionPoint,
   getEdgeGeometry,
   getNodeAnchor,
   getNodeCenter,
@@ -31,6 +30,10 @@ import {
   WORLD_EXTENT,
   worldPointFromClient,
 } from "../utils/geometry";
+import {
+  buildInheritanceGroups,
+  getInheritanceGroupLayout,
+} from "../utils/inheritanceLayout";
 import type {
   Bounds,
   DiagramDocument,
@@ -2607,63 +2610,29 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
   const compositeIdentifierInteractive = props.mode === "edit" && props.tool === "select";
-  const generalizationGroupsBySupertype = new Map<string, string[]>();
-  (props.diagram.generalizationGroups ?? []).forEach((group) => {
-    generalizationGroupsBySupertype.set(group.supertypeId, [
-      ...(generalizationGroupsBySupertype.get(group.supertypeId) ?? []),
-      group.id,
-    ]);
-  });
-  const groupedInheritanceLayouts = (props.diagram.generalizationGroups ?? [])
+  const inheritanceGroups = buildInheritanceGroups(props.diagram);
+  const groupedInheritanceLayouts = inheritanceGroups
     .map((group) => {
       const supertype = nodeMap.get(group.supertypeId);
-      const subtypes = group.subtypeIds
-        .map((subtypeId) => nodeMap.get(subtypeId))
-        .filter((node): node is DiagramNode => node?.type === "entity");
-      if (!supertype || supertype.type !== "entity" || subtypes.length === 0) {
+      if (!supertype || supertype.type !== "entity") {
         return null;
       }
 
-      const edges = props.diagram.edges.filter(
-        (edge) =>
-          edge.type === "inheritance" &&
-          edge.generalizationGroupId === group.id,
-      );
-      if (edges.length === 0) {
+      const visualLayout = getInheritanceGroupLayout(group, nodeMap, inheritanceGroups);
+      if (!visualLayout) {
         return null;
       }
 
-      const siblingIds = generalizationGroupsBySupertype.get(group.supertypeId) ?? [group.id];
-      const junction = getGeneralizationJunctionPoint(
-        group,
-        supertype,
-        subtypes,
-        Math.max(0, siblingIds.indexOf(group.id)),
-        siblingIds.length,
-      );
-      const superAttach = clipPointToNodePerimeter(supertype, junction);
-      const childBranches = subtypes.map((node) => {
-        return {
-          nodeId: node.id,
-          from: clipPointToNodePerimeter(node, junction),
-          to: junction,
-        };
-      });
-      const firstEdge = edges[0];
-
+      const firstEdgeId = group.edgeIds[0];
       return {
         group,
-        edgeIds: edges.map((edge) => edge.id),
-        selected: edges.some((edge) => props.selection.edgeIds.includes(edge.id)),
-        focused: focusedTarget?.kind === "edge" && edges.some((edge) => edge.id === focusedTarget.id),
-        firstEdgeId: firstEdge?.id,
-        junction,
-        superAttach,
-        childBranches,
-        label:
-          group.isaCompleteness && group.isaDisjointness
-            ? `(${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"})`
-            : "",
+        supertype,
+        edgeIds: group.edgeIds,
+        selected: group.edgeIds.some((edgeId) => props.selection.edgeIds.includes(edgeId)),
+        focused: focusedTarget?.kind === "edge" && group.edgeIds.some((edgeId) => edgeId === focusedTarget.id),
+        firstEdgeId,
+        visualLayout,
+        label: `(${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"})`,
       };
     })
     .filter((layout): layout is NonNullable<typeof layout> => layout !== null);
@@ -2959,11 +2928,16 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
           {groupedInheritanceLayouts.map((layout) => {
             const stroke = layout.selected || layout.focused ? DIAGRAM_FOCUS : DIAGRAM_STROKE;
-            const pathData = pathFromPoints([layout.junction, layout.superAttach]);
+            const trianglePath = `M ${layout.visualLayout.triangleLeft.x} ${layout.visualLayout.triangleLeft.y} L ${layout.visualLayout.triangleRight.x} ${layout.visualLayout.triangleRight.y} L ${layout.visualLayout.triangleBottom.x} ${layout.visualLayout.triangleBottom.y} Z`;
+            const hitPath = pathFromPoints(layout.visualLayout.hitPoints);
             return (
               <g
                 key={`inheritance-group-${layout.group.id}`}
-                className={layout.selected ? "diagram-edge selected inheritance-group" : "diagram-edge inheritance-group"}
+                className={
+                  layout.selected
+                    ? `diagram-edge selected inheritance-group inheritance-group-${layout.visualLayout.kind}`
+                    : `diagram-edge inheritance-group inheritance-group-${layout.visualLayout.kind}`
+                }
                 tabIndex={props.tool === "select" ? 0 : -1}
                 focusable={props.tool === "select" ? "true" : "false"}
                 onFocus={() => layout.firstEdgeId ? setFocusedTarget({ kind: "edge", id: layout.firstEdgeId }) : undefined}
@@ -2983,39 +2957,30 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   props.onOpenInheritanceType(layout.firstEdgeId);
                 }}
               >
-                <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} />
+                <path d={hitPath} fill="none" stroke="transparent" strokeWidth={16} />
+                {layout.visualLayout.lineSegments.map((segment) => (
+                  <path
+                    key={`${layout.group.id}-${segment.id}`}
+                    d={pathFromPoints([segment.from, segment.to])}
+                    fill="none"
+                    stroke={stroke}
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
                 <path
-                  d={pathData}
-                  fill="none"
+                  d={trianglePath}
+                  fill="var(--diagram-canvas-fill)"
                   stroke={stroke}
-                  strokeWidth={2.2}
-                  strokeLinecap="round"
+                  strokeWidth={2}
                   strokeLinejoin="round"
-                  markerEnd="url(#arrowhead)"
                 />
-                {layout.childBranches.map((branch) => {
-                  const branchPoints =
-                    Math.abs(branch.from.x - branch.to.x) > 18 && Math.abs(branch.from.y - branch.to.y) > 18
-                      ? [branch.from, { x: branch.from.x, y: branch.to.y }, branch.to]
-                      : [branch.from, branch.to];
-                  return (
-                    <path
-                      key={`${layout.group.id}-${branch.nodeId}`}
-                      d={pathFromPoints(branchPoints)}
-                      fill="none"
-                      stroke={stroke}
-                      strokeWidth={2.2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  );
-                })}
-                <circle cx={layout.junction.x} cy={layout.junction.y} r={4.5} fill="var(--diagram-canvas-fill)" stroke={stroke} strokeWidth={2} />
                 {layout.label ? (
                   <text
-                    x={layout.junction.x}
-                    y={layout.junction.y + 20}
-                    textAnchor="middle"
+                    x={layout.visualLayout.labelPoint.x}
+                    y={layout.visualLayout.labelPoint.y}
+                    textAnchor="start"
                     className="edge-label inheritance-constraint-label"
                     fill={stroke}
                   >

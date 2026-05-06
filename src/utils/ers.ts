@@ -23,6 +23,8 @@ import {
 import {
   canConnect,
   getMultivaluedAttributeSize,
+  cleanupGeneralizationReferences,
+  mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
   validateDiagram,
 } from "./diagram";
@@ -2545,7 +2547,9 @@ function resolveNodeAlias(
 }
 
 export function serializeDiagramToErs(diagram: DiagramDocument): string {
-  const normalizedDiagram = normalizeGeneralizationGroups(diagram);
+  let normalizedDiagram = normalizeGeneralizationGroups(diagram);
+  normalizedDiagram = mergeCompatibleGeneralizationGroups(normalizedDiagram);
+  normalizedDiagram = cleanupGeneralizationReferences(normalizedDiagram);
   const aliasByNodeId = assignNodeAliases(normalizedDiagram);
   const attributesByHostId = getAttributeHostNodes(normalizedDiagram);
   const attributeHostMap = buildAttributeHostMap(normalizedDiagram);
@@ -3305,7 +3309,9 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     generalizationGroups,
   };
 
-  const normalizedDiagram = normalizeGeneralizationGroups(diagram);
+  let normalizedDiagram = normalizeGeneralizationGroups(diagram);
+  normalizedDiagram = mergeCompatibleGeneralizationGroups(normalizedDiagram);
+  normalizedDiagram = cleanupGeneralizationReferences(normalizedDiagram);
   const issues = validateDiagram(normalizedDiagram).filter((issue) => issue.level === "error");
   if (issues.length > 0) {
     throw new Error(issues[0].message);
