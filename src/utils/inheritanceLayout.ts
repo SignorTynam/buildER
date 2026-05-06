@@ -46,6 +46,7 @@ const ISA_TRUNK_MIN_LENGTH = 18;
 const ISA_MULTI_BUS_PADDING = 0;
 const ISA_SINGLE_CHILD_CLEARANCE = 24;
 const ISA_LABEL_OFFSET_X = 16;
+const ISA_GROUP_SIBLING_OFFSET_X = 64;
 const ISA_GROUP_SIBLING_OFFSET_Y = 26;
 
 function formatGroupKey(
@@ -62,8 +63,8 @@ function resolveEdgeConstraint(
 ): { completeness?: IsaCompleteness; disjointness?: IsaDisjointness } {
   const group = edge.generalizationGroupId ? groupById.get(edge.generalizationGroupId) : undefined;
   return {
-    completeness: edge.isaCompleteness ?? group?.isaCompleteness,
-    disjointness: edge.isaDisjointness ?? group?.isaDisjointness,
+    completeness: group?.isaCompleteness ?? edge.isaCompleteness,
+    disjointness: group?.isaDisjointness ?? edge.isaDisjointness,
   };
 }
 
@@ -108,14 +109,38 @@ export function buildInheritanceGroups(diagram: DiagramDocument): InheritanceVis
   return Array.from(groupsByKey.values()).sort((left, right) => left.id.localeCompare(right.id));
 }
 
-function getSiblingOffset(group: InheritanceVisualGroup, groups: InheritanceVisualGroup[]): Point {
-  const siblings = groups.filter((candidate) => candidate.supertypeId === group.supertypeId);
+function getGroupSubtypeCenterX(group: InheritanceVisualGroup, nodeMap: Map<string, DiagramNode>): number {
+  const centers = group.subtypeIds
+    .map((subtypeId) => nodeMap.get(subtypeId))
+    .filter((node): node is DiagramNode => node?.type === "entity")
+    .map((node) => getNodeCenter(node).x);
+
+  if (centers.length === 0) {
+    const supertype = nodeMap.get(group.supertypeId);
+    return supertype ? getNodeCenter(supertype).x : 0;
+  }
+
+  return centers.reduce((sum, x) => sum + x, 0) / centers.length;
+}
+
+function getSiblingOffset(
+  group: InheritanceVisualGroup,
+  groups: InheritanceVisualGroup[],
+  nodeMap: Map<string, DiagramNode>,
+): Point {
+  const siblings = groups
+    .filter((candidate) => candidate.supertypeId === group.supertypeId)
+    .sort((left, right) => {
+      const delta = getGroupSubtypeCenterX(left, nodeMap) - getGroupSubtypeCenterX(right, nodeMap);
+      return Math.abs(delta) > 0.001 ? delta : left.id.localeCompare(right.id);
+    });
   const siblingIndex = Math.max(0, siblings.findIndex((candidate) => candidate.id === group.id));
   const siblingCount = Math.max(1, siblings.length);
+  const lane = siblingIndex - (siblingCount - 1) / 2;
 
   return {
-    x: 0,
-    y: (siblingIndex - (siblingCount - 1) / 2) * ISA_GROUP_SIBLING_OFFSET_Y,
+    x: lane * ISA_GROUP_SIBLING_OFFSET_X,
+    y: lane * ISA_GROUP_SIBLING_OFFSET_Y,
   };
 }
 
@@ -178,7 +203,7 @@ export function getInheritanceGroupLayout(
     return null;
   }
 
-  const offset = getSiblingOffset(group, groups);
+  const offset = getSiblingOffset(group, groups, nodeMap);
   const triangleCenter = getTriangleCenter(supertype, offset);
   const triangle = buildTriangle(triangleCenter);
   const superAttach = { x: triangle.triangleTop.x, y: supertype.y + supertype.height };
