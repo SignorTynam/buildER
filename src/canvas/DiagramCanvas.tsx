@@ -2973,7 +2973,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   d={trianglePath}
                   fill="var(--diagram-canvas-fill)"
                   stroke={stroke}
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   strokeLinejoin="round"
                 />
                 {layout.label ? (
@@ -2983,6 +2983,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     textAnchor="start"
                     className="edge-label inheritance-constraint-label"
                     fill={stroke}
+                    stroke="var(--diagram-canvas-fill)"
+                    strokeWidth={5}
+                    paintOrder="stroke"
                   >
                     {layout.label}
                   </text>

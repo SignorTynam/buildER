@@ -6,11 +6,7 @@ import type {
   IsaDisjointness,
   Point,
 } from "../types/diagram";
-import {
-  getNodeCenter,
-  ISA_TRIANGLE_HEIGHT,
-  ISA_TRIANGLE_WIDTH,
-} from "./geometry";
+import { getNodeCenter } from "./geometry";
 
 type InheritanceEdge = Extract<DiagramEdge, { type: "inheritance" }>;
 
@@ -41,13 +37,13 @@ export interface InheritanceVisualLayout {
   hitPoints: Point[];
 }
 
-const ISA_TRIANGLE_GAP = 8;
-const ISA_TRUNK_MIN_LENGTH = 18;
-const ISA_MULTI_BUS_PADDING = 0;
-const ISA_SINGLE_CHILD_CLEARANCE = 24;
-const ISA_LABEL_OFFSET_X = 16;
-const ISA_GROUP_SIBLING_OFFSET_X = 64;
-const ISA_GROUP_SIBLING_OFFSET_Y = 26;
+const ISA_TRIANGLE_WIDTH = 24;
+const ISA_TRIANGLE_HEIGHT = 18;
+const ISA_TRIANGLE_GAP_FROM_PARENT = 14;
+const ISA_LABEL_GAP = 28;
+const ISA_MIN_VERTICAL_STEM = 70;
+const ISA_GROUP_LANE_SPACING = 85;
+export const INHERITANCE_LAYOUT_MARKER = 1;
 
 function formatGroupKey(
   supertypeId: string,
@@ -60,11 +56,12 @@ function formatGroupKey(
 function resolveEdgeConstraint(
   edge: InheritanceEdge,
   groupById: Map<string, NonNullable<DiagramDocument["generalizationGroups"]>[number]>,
-): { completeness?: IsaCompleteness; disjointness?: IsaDisjointness } {
+): { completeness?: IsaCompleteness; disjointness?: IsaDisjointness; groupId?: string } {
   const group = edge.generalizationGroupId ? groupById.get(edge.generalizationGroupId) : undefined;
   return {
     completeness: group?.isaCompleteness ?? edge.isaCompleteness,
     disjointness: group?.isaDisjointness ?? edge.isaDisjointness,
+    groupId: group?.id,
   };
 }
 
@@ -82,12 +79,12 @@ export function buildInheritanceGroups(diagram: DiagramDocument): InheritanceVis
       return;
     }
 
-    const { completeness, disjointness } = resolveEdgeConstraint(edge, groupById);
+    const { completeness, disjointness, groupId } = resolveEdgeConstraint(edge, groupById);
     if (!completeness || !disjointness) {
       return;
     }
 
-    const key = formatGroupKey(edge.targetId, completeness, disjointness);
+    const key = `${formatGroupKey(edge.targetId, completeness, disjointness)}|${groupId ?? "ungrouped"}`;
     const current =
       groupsByKey.get(key) ??
       {
@@ -123,24 +120,70 @@ function getGroupSubtypeCenterX(group: InheritanceVisualGroup, nodeMap: Map<stri
   return centers.reduce((sum, x) => sum + x, 0) / centers.length;
 }
 
+function choosePrimarySibling(
+  siblings: InheritanceVisualGroup[],
+  nodeMap: Map<string, DiagramNode>,
+  parentCenterX: number,
+): InheritanceVisualGroup {
+  return [...siblings].sort((left, right) => {
+    const subtypeCountDelta = right.subtypeIds.length - left.subtypeIds.length;
+    if (subtypeCountDelta !== 0) {
+      return subtypeCountDelta;
+    }
+
+    const leftDistance = Math.abs(getGroupSubtypeCenterX(left, nodeMap) - parentCenterX);
+    const rightDistance = Math.abs(getGroupSubtypeCenterX(right, nodeMap) - parentCenterX);
+    const distanceDelta = leftDistance - rightDistance;
+    return Math.abs(distanceDelta) > 0.001 ? distanceDelta : left.id.localeCompare(right.id);
+  })[0];
+}
+
 function getSiblingOffset(
   group: InheritanceVisualGroup,
   groups: InheritanceVisualGroup[],
   nodeMap: Map<string, DiagramNode>,
 ): Point {
-  const siblings = groups
-    .filter((candidate) => candidate.supertypeId === group.supertypeId)
-    .sort((left, right) => {
-      const delta = getGroupSubtypeCenterX(left, nodeMap) - getGroupSubtypeCenterX(right, nodeMap);
-      return Math.abs(delta) > 0.001 ? delta : left.id.localeCompare(right.id);
-    });
-  const siblingIndex = Math.max(0, siblings.findIndex((candidate) => candidate.id === group.id));
-  const siblingCount = Math.max(1, siblings.length);
-  const lane = siblingIndex - (siblingCount - 1) / 2;
+  const supertype = nodeMap.get(group.supertypeId);
+  const parentCenterX = supertype ? getNodeCenter(supertype).x : 0;
+  const siblings = groups.filter((candidate) => candidate.supertypeId === group.supertypeId);
+  if (siblings.length <= 1) {
+    return { x: 0, y: 0 };
+  }
 
+  const primary = choosePrimarySibling(siblings, nodeMap, parentCenterX);
+  if (group.id === primary.id) {
+    return { x: 0, y: 0 };
+  }
+
+  const remaining = siblings
+    .filter((candidate) => candidate.id !== primary.id)
+    .sort((left, right) => {
+      const leftCenter = getGroupSubtypeCenterX(left, nodeMap);
+      const rightCenter = getGroupSubtypeCenterX(right, nodeMap);
+      const sideDelta = Math.sign(leftCenter - parentCenterX) - Math.sign(rightCenter - parentCenterX);
+      if (sideDelta !== 0) {
+        return sideDelta;
+      }
+
+      const distanceDelta = Math.abs(leftCenter - parentCenterX) - Math.abs(rightCenter - parentCenterX);
+      return Math.abs(distanceDelta) > 0.001 ? distanceDelta : left.id.localeCompare(right.id);
+    });
+
+
+  const groupCenterX = getGroupSubtypeCenterX(group, nodeMap);
+  const preferRight = groupCenterX >= parentCenterX;
+  const sameSide = remaining.filter((entry) => (getGroupSubtypeCenterX(entry, nodeMap) >= parentCenterX) === preferRight);
+  let sideIndex = sameSide.findIndex((entry) => entry.id === group.id) + 1;
+  if (sideIndex <= 0) {
+    sideIndex = 1;
+  }
+
+  const direction = preferRight ? 1 : -1;
+  const desiredOffset = direction * sideIndex * ISA_GROUP_LANE_SPACING;
+  const maxOffset = supertype ? Math.max(0, supertype.width / 2 - ISA_TRIANGLE_WIDTH / 2 - 8) : Math.abs(desiredOffset);
   return {
-    x: lane * ISA_GROUP_SIBLING_OFFSET_X,
-    y: lane * ISA_GROUP_SIBLING_OFFSET_Y,
+    x: clamp(desiredOffset, -maxOffset, maxOffset),
+    y: 0,
   };
 }
 
@@ -164,7 +207,7 @@ function getTriangleCenter(supertype: DiagramNode, offset: Point): Point {
 
   return {
     x: superCenter.x + offset.x,
-    y: supertype.y + supertype.height + ISA_TRIANGLE_GAP + ISA_TRIANGLE_HEIGHT / 2 + offset.y,
+    y: supertype.y + supertype.height + ISA_TRIANGLE_GAP_FROM_PARENT + ISA_TRIANGLE_HEIGHT / 2,
   };
 }
 
@@ -227,15 +270,18 @@ export function getSingleInheritanceRoute(
 ): InheritanceVisualLayout {
   const subtypeCenter = getNodeCenter(subtype);
   const subtypeTopY = subtype.y;
-  const minElbowY = trunkTop.y + ISA_TRUNK_MIN_LENGTH;
-  const maxElbowY = subtypeTopY - ISA_SINGLE_CHILD_CLEARANCE;
+  const minElbowY = trunkTop.y + ISA_MIN_VERTICAL_STEM;
+  const maxElbowY = subtypeTopY - ISA_LABEL_GAP;
   const naturalElbowY = (trunkTop.y + subtypeTopY) / 2;
   const elbowY = maxElbowY > minElbowY ? clamp(naturalElbowY, minElbowY, maxElbowY) : minElbowY;
   const elbow: Point = { x: trunkTop.x, y: elbowY };
   const childStemTop: Point = { x: subtypeCenter.x, y: elbowY };
-  const childAttach = { x: subtypeCenter.x, y: subtype.y };
+  const childAttach = {
+    x: subtypeCenter.x,
+    y: subtypeCenter.y < elbowY ? subtype.y + subtype.height : subtype.y,
+  };
   const labelPoint: Point = {
-    x: trunkTop.x + ISA_LABEL_OFFSET_X,
+    x: trunkTop.x + ISA_LABEL_GAP,
     y: (trunkTop.y + elbow.y) / 2,
   };
 
@@ -266,24 +312,24 @@ export function getMultiInheritanceBusLayout(
 ): InheritanceVisualLayout {
   const subtypeCenters = subtypes.map(getNodeCenter);
   const minSubtypeTop = Math.min(...subtypes.map((node) => node.y));
-  const minBusY = trunkTop.y + ISA_TRUNK_MIN_LENGTH;
-  const maxBusY = minSubtypeTop - ISA_SINGLE_CHILD_CLEARANCE;
+  const minBusY = trunkTop.y + ISA_MIN_VERTICAL_STEM;
+  const maxBusY = minSubtypeTop - ISA_LABEL_GAP;
   const naturalBusY = (trunkTop.y + minSubtypeTop) / 2 + offset.y;
   const busY = maxBusY > minBusY ? clamp(naturalBusY, minBusY, maxBusY) : minBusY;
   const trunkBottom: Point = { x: trunkTop.x, y: busY };
   const firstSubtypeCenter = subtypeCenters[0];
   const lastSubtypeCenter = subtypeCenters[subtypeCenters.length - 1];
   const busStart: Point = {
-    x: Math.min(firstSubtypeCenter.x, lastSubtypeCenter.x) - ISA_MULTI_BUS_PADDING,
+    x: Math.min(firstSubtypeCenter.x, lastSubtypeCenter.x),
     y: busY,
   };
   const busEnd: Point = {
-    x: Math.max(firstSubtypeCenter.x, lastSubtypeCenter.x) + ISA_MULTI_BUS_PADDING,
+    x: Math.max(firstSubtypeCenter.x, lastSubtypeCenter.x),
     y: busY,
   };
   const busJoin: Point = { x: clamp(trunkTop.x, busStart.x, busEnd.x), y: busY };
   const labelPoint: Point = {
-    x: trunkTop.x + ISA_LABEL_OFFSET_X,
+    x: trunkTop.x + ISA_LABEL_GAP,
     y: (trunkTop.y + trunkBottom.y) / 2,
   };
   const trunkJoinSegments: InheritanceLineSegment[] =
@@ -296,7 +342,10 @@ export function getMultiInheritanceBusLayout(
     return {
       id: `subtype-${subtype.id}`,
       from,
-      to: { x: subtypeCenter.x, y: subtype.y },
+      to: {
+        x: subtypeCenter.x,
+        y: subtypeCenter.y < busY ? subtype.y + subtype.height : subtype.y,
+      },
     };
   });
 
