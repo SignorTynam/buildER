@@ -51,7 +51,7 @@ export interface InheritanceVisualLayout {
 
 const ISA_TRIANGLE_WIDTH = 24;
 const ISA_TRIANGLE_HEIGHT = 18;
-const ISA_TRIANGLE_GAP_FROM_PARENT = 14;
+const ISA_TRIANGLE_GAP_FROM_PARENT = 0;
 const ISA_LABEL_GAP = 28;
 const ISA_MIN_VERTICAL_STEM = 70;
 const ISA_GROUP_LANE_SPACING = 85;
