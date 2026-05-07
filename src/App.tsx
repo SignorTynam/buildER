@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
-import { BottomStatusBar } from "./components/BottomStatusBar";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
@@ -5326,18 +5325,6 @@ export default function App() {
           {diagramView !== "er" ? technicalDockPanel : null}
         </div>
       </div>
-
-      <BottomStatusBar
-        diagramView={diagramView}
-        logicalSqlOpen={logicalPanelMode === "sql"}
-        codePanelOpen={codePanelOpen}
-        notesPanelOpen={notesPanelOpen}
-        statusMessage={statusMessage}
-        notices={notices}
-        issues={issues}
-        selectionItemCount={selectionItemCount}
-        onDismissNotice={dismissNotice}
-      />
 
       <input
         ref={projectFileInputRef}
