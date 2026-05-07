@@ -3467,6 +3467,12 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       });
 
       const hasInheritanceConnection = connectedEdges.some((edge) => edge.type === "inheritance");
+      const isInheritanceChild = connectedEdges.some(
+        (edge) => edge.type === "inheritance" && edge.sourceId === node.id,
+      );
+      const isInheritanceParent = connectedEdges.some(
+        (edge) => edge.type === "inheritance" && edge.targetId === node.id,
+      );
       const hasEntityConnection = hasRelationshipConnection || hasInheritanceConnection;
 
       if (!hasEntityConnection) {
@@ -3495,6 +3501,26 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           id: `entity-no-attributes-${node.id}`,
           level: "warning",
           message: `L'entita "${node.label}" non ha attributi collegati.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+
+      if (isInheritanceChild && !hasAttribute) {
+        issues.push({
+          id: `subtype-no-attributes-${node.id}`,
+          level: "warning",
+          message: `Il sottotipo "${node.label}" non ha attributi collegati.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+
+      if (isInheritanceParent && !hasRelationshipConnection) {
+        issues.push({
+          id: `supertype-no-relationship-${node.id}`,
+          level: "warning",
+          message: `Il supertipo "${node.label}" non e collegato ad alcuna relazione.`,
           targetId: node.id,
           targetType: "node",
         });

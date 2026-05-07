@@ -298,6 +298,20 @@ generalization g2 ENTITA1 (p,o) {
   assert.deepEqual(new Set(groups[0].subtypeIds), new Set(["ENTITA2", "ENTITA5"]));
 });
 
+test("validateDiagram segnala sottotipi senza attributi e supertipi ISA senza relazioni", () => {
+  const diagram = normalizeGeneralizationGroups(createIsaMergeDiagram());
+  const issues = validateDiagram(diagram);
+
+  assert.equal(
+    issues.some((issue) => issue.id === "subtype-no-attributes-ENTITA2" && issue.level === "warning"),
+    true,
+  );
+  assert.equal(
+    issues.some((issue) => issue.id === "supertype-no-relationship-ENTITA1" && issue.level === "warning"),
+    true,
+  );
+});
+
 test("merge ISA evita duplicati di sottotipo", () => {
   const diagram = mergeCompatibleGeneralizationGroups({
     ...createIsaMergeDiagram(),
