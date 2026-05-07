@@ -6,9 +6,15 @@ import type {
   IsaDisjointness,
   Point,
 } from "../types/diagram";
-import { getNodeCenter } from "./geometry";
+import {
+  clipPointToNodePerimeter,
+  getNodeCenter,
+  getSegmentLabelPoint,
+  type ConnectionSide,
+} from "./geometry";
 
 type InheritanceEdge = Extract<DiagramEdge, { type: "inheritance" }>;
+type TriangleApexDirection = "top" | "bottom" | "left" | "right";
 
 export interface InheritanceVisualGroup {
   id: string;
@@ -28,6 +34,12 @@ export interface InheritanceLineSegment {
 export interface InheritanceVisualLayout {
   kind: "single" | "multi";
   triangleCenter: Point;
+  triangleApex: Point;
+  triangleBaseA: Point;
+  triangleBaseB: Point;
+  triangleBaseCenter: Point;
+  apexDirection: TriangleApexDirection;
+  parentSide: ConnectionSide;
   triangleTop: Point;
   triangleBottom: Point;
   triangleLeft: Point;
@@ -106,15 +118,27 @@ export function buildInheritanceGroups(diagram: DiagramDocument): InheritanceVis
   return Array.from(groupsByKey.values()).sort((left, right) => left.id.localeCompare(right.id));
 }
 
-function getGroupSubtypeCenterX(group: InheritanceVisualGroup, nodeMap: Map<string, DiagramNode>): number {
+function getGroupSubtypeCenterAxis(
+  group: InheritanceVisualGroup,
+  nodeMap: Map<string, DiagramNode>,
+  parentSide: ConnectionSide,
+): number {
   const centers = group.subtypeIds
     .map((subtypeId) => nodeMap.get(subtypeId))
     .filter((node): node is DiagramNode => node?.type === "entity")
-    .map((node) => getNodeCenter(node).x);
+    .map((node) => {
+      const center = getNodeCenter(node);
+      return parentSide === "left" || parentSide === "right" ? center.y : center.x;
+    });
 
   if (centers.length === 0) {
     const supertype = nodeMap.get(group.supertypeId);
-    return supertype ? getNodeCenter(supertype).x : 0;
+    if (!supertype) {
+      return 0;
+    }
+
+    const center = getNodeCenter(supertype);
+    return parentSide === "left" || parentSide === "right" ? center.y : center.x;
   }
 
   return centers.reduce((sum, x) => sum + x, 0) / centers.length;
@@ -123,7 +147,8 @@ function getGroupSubtypeCenterX(group: InheritanceVisualGroup, nodeMap: Map<stri
 function choosePrimarySibling(
   siblings: InheritanceVisualGroup[],
   nodeMap: Map<string, DiagramNode>,
-  parentCenterX: number,
+  parentAxis: number,
+  parentSide: ConnectionSide,
 ): InheritanceVisualGroup {
   return [...siblings].sort((left, right) => {
     const subtypeCountDelta = right.subtypeIds.length - left.subtypeIds.length;
@@ -131,8 +156,8 @@ function choosePrimarySibling(
       return subtypeCountDelta;
     }
 
-    const leftDistance = Math.abs(getGroupSubtypeCenterX(left, nodeMap) - parentCenterX);
-    const rightDistance = Math.abs(getGroupSubtypeCenterX(right, nodeMap) - parentCenterX);
+    const leftDistance = Math.abs(getGroupSubtypeCenterAxis(left, nodeMap, parentSide) - parentAxis);
+    const rightDistance = Math.abs(getGroupSubtypeCenterAxis(right, nodeMap, parentSide) - parentAxis);
     const distanceDelta = leftDistance - rightDistance;
     return Math.abs(distanceDelta) > 0.001 ? distanceDelta : left.id.localeCompare(right.id);
   })[0];
@@ -142,15 +167,17 @@ function getSiblingOffset(
   group: InheritanceVisualGroup,
   groups: InheritanceVisualGroup[],
   nodeMap: Map<string, DiagramNode>,
+  parentSide: ConnectionSide,
 ): Point {
   const supertype = nodeMap.get(group.supertypeId);
-  const parentCenterX = supertype ? getNodeCenter(supertype).x : 0;
+  const parentCenter = supertype ? getNodeCenter(supertype) : { x: 0, y: 0 };
+  const parentAxis = parentSide === "left" || parentSide === "right" ? parentCenter.y : parentCenter.x;
   const siblings = groups.filter((candidate) => candidate.supertypeId === group.supertypeId);
   if (siblings.length <= 1) {
     return { x: 0, y: 0 };
   }
 
-  const primary = choosePrimarySibling(siblings, nodeMap, parentCenterX);
+  const primary = choosePrimarySibling(siblings, nodeMap, parentAxis, parentSide);
   if (group.id === primary.id) {
     return { x: 0, y: 0 };
   }
@@ -158,56 +185,180 @@ function getSiblingOffset(
   const remaining = siblings
     .filter((candidate) => candidate.id !== primary.id)
     .sort((left, right) => {
-      const leftCenter = getGroupSubtypeCenterX(left, nodeMap);
-      const rightCenter = getGroupSubtypeCenterX(right, nodeMap);
-      const sideDelta = Math.sign(leftCenter - parentCenterX) - Math.sign(rightCenter - parentCenterX);
+      const leftCenter = getGroupSubtypeCenterAxis(left, nodeMap, parentSide);
+      const rightCenter = getGroupSubtypeCenterAxis(right, nodeMap, parentSide);
+      const sideDelta = Math.sign(leftCenter - parentAxis) - Math.sign(rightCenter - parentAxis);
       if (sideDelta !== 0) {
         return sideDelta;
       }
 
-      const distanceDelta = Math.abs(leftCenter - parentCenterX) - Math.abs(rightCenter - parentCenterX);
+      const distanceDelta = Math.abs(leftCenter - parentAxis) - Math.abs(rightCenter - parentAxis);
       return Math.abs(distanceDelta) > 0.001 ? distanceDelta : left.id.localeCompare(right.id);
     });
 
 
-  const groupCenterX = getGroupSubtypeCenterX(group, nodeMap);
-  const preferRight = groupCenterX >= parentCenterX;
-  const sameSide = remaining.filter((entry) => (getGroupSubtypeCenterX(entry, nodeMap) >= parentCenterX) === preferRight);
+  const groupAxis = getGroupSubtypeCenterAxis(group, nodeMap, parentSide);
+  const preferPositive = groupAxis >= parentAxis;
+  const sameSide = remaining.filter(
+    (entry) => (getGroupSubtypeCenterAxis(entry, nodeMap, parentSide) >= parentAxis) === preferPositive,
+  );
   let sideIndex = sameSide.findIndex((entry) => entry.id === group.id) + 1;
   if (sideIndex <= 0) {
     sideIndex = 1;
   }
 
-  const direction = preferRight ? 1 : -1;
+  const direction = preferPositive ? 1 : -1;
   const desiredOffset = direction * sideIndex * ISA_GROUP_LANE_SPACING;
-  const maxOffset = supertype ? Math.max(0, supertype.width / 2 - ISA_TRIANGLE_WIDTH / 2 - 8) : Math.abs(desiredOffset);
-  return {
-    x: clamp(desiredOffset, -maxOffset, maxOffset),
-    y: 0,
-  };
+  const parentSpan = parentSide === "left" || parentSide === "right" ? supertype?.height : supertype?.width;
+  const maxOffset = parentSpan ? Math.max(0, parentSpan / 2 - ISA_TRIANGLE_WIDTH / 2 - 8) : Math.abs(desiredOffset);
+  const clampedOffset = clamp(desiredOffset, -maxOffset, maxOffset);
+
+  return parentSide === "left" || parentSide === "right"
+    ? { x: 0, y: clampedOffset }
+    : { x: clampedOffset, y: 0 };
 }
 
-function buildTriangle(center: Point): Pick<
+function pointWithMin(points: Point[], axis: "x" | "y"): Point {
+  return points.reduce((best, point) => (point[axis] < best[axis] ? point : best), points[0]);
+}
+
+function pointWithMax(points: Point[], axis: "x" | "y"): Point {
+  return points.reduce((best, point) => (point[axis] > best[axis] ? point : best), points[0]);
+}
+
+function buildTriangle(
+  center: Point,
+  apexDirection: TriangleApexDirection,
+): Pick<
   InheritanceVisualLayout,
-  "triangleTop" | "triangleBottom" | "triangleLeft" | "triangleRight"
+  | "triangleApex"
+  | "triangleBaseA"
+  | "triangleBaseB"
+  | "triangleBaseCenter"
+  | "apexDirection"
+  | "triangleTop"
+  | "triangleBottom"
+  | "triangleLeft"
+  | "triangleRight"
 > {
   const halfWidth = ISA_TRIANGLE_WIDTH / 2;
   const halfHeight = ISA_TRIANGLE_HEIGHT / 2;
+  let triangleApex: Point;
+  let triangleBaseA: Point;
+  let triangleBaseB: Point;
+
+  if (apexDirection === "top") {
+    triangleApex = { x: center.x, y: center.y - halfHeight };
+    triangleBaseA = { x: center.x - halfWidth, y: center.y + halfHeight };
+    triangleBaseB = { x: center.x + halfWidth, y: center.y + halfHeight };
+  } else if (apexDirection === "bottom") {
+    triangleApex = { x: center.x, y: center.y + halfHeight };
+    triangleBaseA = { x: center.x - halfWidth, y: center.y - halfHeight };
+    triangleBaseB = { x: center.x + halfWidth, y: center.y - halfHeight };
+  } else if (apexDirection === "left") {
+    triangleApex = { x: center.x - halfHeight, y: center.y };
+    triangleBaseA = { x: center.x + halfHeight, y: center.y - halfWidth };
+    triangleBaseB = { x: center.x + halfHeight, y: center.y + halfWidth };
+  } else {
+    triangleApex = { x: center.x + halfHeight, y: center.y };
+    triangleBaseA = { x: center.x - halfHeight, y: center.y - halfWidth };
+    triangleBaseB = { x: center.x - halfHeight, y: center.y + halfWidth };
+  }
+
+  const trianglePoints = [triangleApex, triangleBaseA, triangleBaseB];
 
   return {
-    triangleTop: { x: center.x, y: center.y - halfHeight },
-    triangleBottom: { x: center.x, y: center.y + halfHeight },
-    triangleLeft: { x: center.x - halfWidth, y: center.y - halfHeight },
-    triangleRight: { x: center.x + halfWidth, y: center.y - halfHeight },
+    triangleApex,
+    triangleBaseA,
+    triangleBaseB,
+    triangleBaseCenter: {
+      x: (triangleBaseA.x + triangleBaseB.x) / 2,
+      y: (triangleBaseA.y + triangleBaseB.y) / 2,
+    },
+    apexDirection,
+    triangleTop: pointWithMin(trianglePoints, "y"),
+    triangleBottom: pointWithMax(trianglePoints, "y"),
+    triangleLeft: pointWithMin(trianglePoints, "x"),
+    triangleRight: pointWithMax(trianglePoints, "x"),
   };
 }
 
-function getTriangleCenter(supertype: DiagramNode, offset: Point): Point {
-  const superCenter = getNodeCenter(supertype);
+function getApexDirection(parentSide: ConnectionSide): TriangleApexDirection {
+  if (parentSide === "bottom") {
+    return "top";
+  }
+  if (parentSide === "top") {
+    return "bottom";
+  }
+  if (parentSide === "right") {
+    return "left";
+  }
+
+  return "right";
+}
+
+function getChildrenCentroid(subtypes: DiagramNode[], fallback: Point): Point {
+  if (subtypes.length === 0) {
+    return fallback;
+  }
+
+  const sum = subtypes.reduce(
+    (total, subtype) => {
+      const center = getNodeCenter(subtype);
+      return {
+        x: total.x + center.x,
+        y: total.y + center.y,
+      };
+    },
+    { x: 0, y: 0 },
+  );
 
   return {
-    x: superCenter.x + offset.x,
-    y: supertype.y + supertype.height + ISA_TRIANGLE_GAP_FROM_PARENT + ISA_TRIANGLE_HEIGHT / 2,
+    x: sum.x / subtypes.length,
+    y: sum.y / subtypes.length,
+  };
+}
+
+function getParentSide(supertype: DiagramNode, subtypes: DiagramNode[]): ConnectionSide {
+  const parentCenter = getNodeCenter(supertype);
+  const childrenCentroid = getChildrenCentroid(subtypes, parentCenter);
+  const deltaX = childrenCentroid.x - parentCenter.x;
+  const deltaY = childrenCentroid.y - parentCenter.y;
+
+  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+    return deltaX >= 0 ? "right" : "left";
+  }
+
+  return deltaY >= 0 ? "bottom" : "top";
+}
+
+function getTriangleCenter(supertype: DiagramNode, offset: Point, parentSide: ConnectionSide): Point {
+  const superCenter = getNodeCenter(supertype);
+
+  if (parentSide === "bottom") {
+    return {
+      x: superCenter.x + offset.x,
+      y: supertype.y + supertype.height + ISA_TRIANGLE_GAP_FROM_PARENT + ISA_TRIANGLE_HEIGHT / 2,
+    };
+  }
+
+  if (parentSide === "top") {
+    return {
+      x: superCenter.x + offset.x,
+      y: supertype.y - ISA_TRIANGLE_GAP_FROM_PARENT - ISA_TRIANGLE_HEIGHT / 2,
+    };
+  }
+
+  if (parentSide === "right") {
+    return {
+      x: supertype.x + supertype.width + ISA_TRIANGLE_GAP_FROM_PARENT + ISA_TRIANGLE_HEIGHT / 2,
+      y: superCenter.y + offset.y,
+    };
+  }
+
+  return {
+    x: supertype.x - ISA_TRIANGLE_GAP_FROM_PARENT - ISA_TRIANGLE_HEIGHT / 2,
+    y: superCenter.y + offset.y,
   };
 }
 
@@ -215,20 +366,79 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function getSubtypeNodes(group: InheritanceVisualGroup, nodeMap: Map<string, DiagramNode>): DiagramNode[] {
+function getSubtypeNodes(
+  group: InheritanceVisualGroup,
+  nodeMap: Map<string, DiagramNode>,
+  parentSide: ConnectionSide,
+): DiagramNode[] {
   return group.subtypeIds
     .map((subtypeId) => nodeMap.get(subtypeId))
     .filter((node): node is DiagramNode => node?.type === "entity")
     .sort((left, right) => {
       const leftCenter = getNodeCenter(left);
       const rightCenter = getNodeCenter(right);
-      const xDelta = leftCenter.x - rightCenter.x;
-      if (Math.abs(xDelta) > 0.001) {
-        return xDelta;
+      const primaryDelta =
+        parentSide === "left" || parentSide === "right"
+          ? leftCenter.y - rightCenter.y
+          : leftCenter.x - rightCenter.x;
+      if (Math.abs(primaryDelta) > 0.001) {
+        return primaryDelta;
       }
-      const yDelta = leftCenter.y - rightCenter.y;
-      return Math.abs(yDelta) > 0.001 ? yDelta : left.id.localeCompare(right.id);
+      const secondaryDelta =
+        parentSide === "left" || parentSide === "right"
+          ? leftCenter.x - rightCenter.x
+          : leftCenter.y - rightCenter.y;
+      return Math.abs(secondaryDelta) > 0.001 ? secondaryDelta : left.id.localeCompare(right.id);
     });
+}
+
+function isSamePoint(left: Point, right: Point): boolean {
+  return Math.abs(left.x - right.x) <= 0.001 && Math.abs(left.y - right.y) <= 0.001;
+}
+
+function pointsToSegments(idPrefix: string, points: Point[]): InheritanceLineSegment[] {
+  const segments: InheritanceLineSegment[] = [];
+
+  for (let index = 1; index < points.length; index += 1) {
+    const from = points[index - 1];
+    const to = points[index];
+    if (!isSamePoint(from, to)) {
+      segments.push({ id: `${idPrefix}-${index}`, from, to });
+    }
+  }
+
+  return segments;
+}
+
+function clampBetween(value: number, first: number, second: number): number {
+  return clamp(value, Math.min(first, second), Math.max(first, second));
+}
+
+function getBusCoordinate(trunkStart: number, childBoundary: number, laneOffset = 0): number {
+  const direction = childBoundary >= trunkStart ? 1 : -1;
+  const nearParent = trunkStart + direction * ISA_MIN_VERTICAL_STEM;
+  const nearChildren = childBoundary - direction * ISA_LABEL_GAP;
+  const natural = (trunkStart + childBoundary) / 2 + laneOffset;
+
+  if (direction > 0 ? nearChildren > nearParent : nearChildren < nearParent) {
+    return clampBetween(natural, nearParent, nearChildren);
+  }
+
+  return nearParent;
+}
+
+function getParentAttachPoint(supertype: DiagramNode, parentSide: ConnectionSide, triangleApex: Point): Point {
+  if (parentSide === "left" || parentSide === "right") {
+    return {
+      x: parentSide === "right" ? supertype.x + supertype.width : supertype.x,
+      y: clamp(triangleApex.y, supertype.y, supertype.y + supertype.height),
+    };
+  }
+
+  return {
+    x: clamp(triangleApex.x, supertype.x, supertype.x + supertype.width),
+    y: parentSide === "bottom" ? supertype.y + supertype.height : supertype.y,
+  };
 }
 
 export function getInheritanceGroupLayout(
@@ -241,126 +451,212 @@ export function getInheritanceGroupLayout(
     return null;
   }
 
-  const subtypes = getSubtypeNodes(group, nodeMap);
+  const rawSubtypes = group.subtypeIds
+    .map((subtypeId) => nodeMap.get(subtypeId))
+    .filter((node): node is DiagramNode => node?.type === "entity");
+  const parentSide = getParentSide(supertype, rawSubtypes);
+  const subtypes = getSubtypeNodes(group, nodeMap, parentSide);
   if (subtypes.length === 0) {
     return null;
   }
 
-  const offset = getSiblingOffset(group, groups, nodeMap);
-  const triangleCenter = getTriangleCenter(supertype, offset);
-  const triangle = buildTriangle(triangleCenter);
-  const superAttach = { x: triangle.triangleTop.x, y: supertype.y + supertype.height };
-  const trunkTop = triangle.triangleBottom;
+  const offset = getSiblingOffset(group, groups, nodeMap, parentSide);
+  const triangleCenter = getTriangleCenter(supertype, offset, parentSide);
+  const apexDirection = getApexDirection(parentSide);
+  const triangle = buildTriangle(triangleCenter, apexDirection);
+  const superAttach = getParentAttachPoint(supertype, parentSide, triangle.triangleApex);
+  const trunkStart = triangle.triangleBaseCenter;
 
   if (subtypes.length === 1) {
-    return getSingleInheritanceRoute(group, supertype, subtypes[0], triangleCenter, triangle, superAttach, trunkTop);
+    return getSingleInheritanceRoute(
+      group,
+      subtypes[0],
+      triangleCenter,
+      triangle,
+      parentSide,
+      superAttach,
+      trunkStart,
+    );
   }
 
-  return getMultiInheritanceBusLayout(group, supertype, subtypes, triangleCenter, triangle, superAttach, trunkTop, offset);
+  return getMultiInheritanceBusLayout(group, subtypes, triangleCenter, triangle, parentSide, superAttach, trunkStart, offset);
 }
 
 export function getSingleInheritanceRoute(
   group: InheritanceVisualGroup,
-  _supertype: DiagramNode,
   subtype: DiagramNode,
   triangleCenter: Point,
-  triangle: Pick<InheritanceVisualLayout, "triangleTop" | "triangleBottom" | "triangleLeft" | "triangleRight">,
+  triangle: Pick<
+    InheritanceVisualLayout,
+    | "triangleApex"
+    | "triangleBaseA"
+    | "triangleBaseB"
+    | "triangleBaseCenter"
+    | "apexDirection"
+    | "triangleTop"
+    | "triangleBottom"
+    | "triangleLeft"
+    | "triangleRight"
+  >,
+  parentSide: ConnectionSide,
   superAttach: Point,
-  trunkTop: Point,
+  trunkStart: Point,
 ): InheritanceVisualLayout {
   const subtypeCenter = getNodeCenter(subtype);
-  const subtypeTopY = subtype.y;
-  const minElbowY = trunkTop.y + ISA_MIN_VERTICAL_STEM;
-  const maxElbowY = subtypeTopY - ISA_LABEL_GAP;
-  const naturalElbowY = (trunkTop.y + subtypeTopY) / 2;
-  const elbowY = maxElbowY > minElbowY ? clamp(naturalElbowY, minElbowY, maxElbowY) : minElbowY;
-  const elbow: Point = { x: trunkTop.x, y: elbowY };
-  const childStemTop: Point = { x: subtypeCenter.x, y: elbowY };
-  const childAttach = {
-    x: subtypeCenter.x,
-    y: subtypeCenter.y < elbowY ? subtype.y + subtype.height : subtype.y,
-  };
-  const labelPoint: Point = {
-    x: trunkTop.x + ISA_LABEL_GAP,
-    y: (trunkTop.y + elbow.y) / 2,
-  };
+  const childAttach = clipPointToNodePerimeter(subtype, trunkStart);
+  const alignedVertically = Math.abs(trunkStart.x - subtypeCenter.x) <= 2;
+  const alignedHorizontally = Math.abs(trunkStart.y - subtypeCenter.y) <= 2;
+  let routePoints: Point[];
+
+  if (alignedVertically || alignedHorizontally) {
+    routePoints = [trunkStart, childAttach];
+  } else if (parentSide === "top" || parentSide === "bottom") {
+    const childBoundary = parentSide === "bottom" ? subtype.y : subtype.y + subtype.height;
+    const elbowY = getBusCoordinate(trunkStart.y, childBoundary);
+    const childStemStart = { x: subtypeCenter.x, y: elbowY };
+    routePoints = [
+      trunkStart,
+      { x: trunkStart.x, y: elbowY },
+      childStemStart,
+      clipPointToNodePerimeter(subtype, childStemStart),
+    ];
+  } else {
+    const childBoundary = parentSide === "right" ? subtype.x : subtype.x + subtype.width;
+    const elbowX = getBusCoordinate(trunkStart.x, childBoundary);
+    const childStemStart = { x: elbowX, y: subtypeCenter.y };
+    routePoints = [
+      trunkStart,
+      { x: elbowX, y: trunkStart.y },
+      childStemStart,
+      clipPointToNodePerimeter(subtype, childStemStart),
+    ];
+  }
+
+  const routeSegments = pointsToSegments("route", routePoints);
+  const labelSegment = routeSegments[0] ?? { from: trunkStart, to: childAttach };
+  const labelPoint = getSegmentLabelPoint(labelSegment.from, labelSegment.to, 18);
 
   return {
     kind: "single",
     triangleCenter,
+    parentSide,
     ...triangle,
     labelPoint,
     lineSegments: [
-      { id: "supertype-stem", from: superAttach, to: triangle.triangleTop },
-      { id: "trunk", from: trunkTop, to: elbow },
-      { id: "elbow", from: elbow, to: childStemTop },
-      { id: `subtype-${group.subtypeIds[0]}`, from: childStemTop, to: childAttach },
+      { id: "supertype-stem", from: superAttach, to: triangle.triangleApex },
+      ...routeSegments.map((segment, index) => ({
+        ...segment,
+        id:
+          index === 0
+            ? "trunk"
+            : index === routeSegments.length - 1
+              ? `subtype-${group.subtypeIds[0]}`
+              : `elbow-${index}`,
+      })),
     ],
-    hitPoints: [superAttach, triangle.triangleTop, triangle.triangleBottom, elbow, childStemTop, childAttach],
+    hitPoints: [superAttach, triangle.triangleApex, ...routePoints],
   };
 }
 
 export function getMultiInheritanceBusLayout(
   group: InheritanceVisualGroup,
-  _supertype: DiagramNode,
   subtypes: DiagramNode[],
   triangleCenter: Point,
-  triangle: Pick<InheritanceVisualLayout, "triangleTop" | "triangleBottom" | "triangleLeft" | "triangleRight">,
+  triangle: Pick<
+    InheritanceVisualLayout,
+    | "triangleApex"
+    | "triangleBaseA"
+    | "triangleBaseB"
+    | "triangleBaseCenter"
+    | "apexDirection"
+    | "triangleTop"
+    | "triangleBottom"
+    | "triangleLeft"
+    | "triangleRight"
+  >,
+  parentSide: ConnectionSide,
   superAttach: Point,
-  trunkTop: Point,
+  trunkStart: Point,
   offset: Point,
 ): InheritanceVisualLayout {
   const subtypeCenters = subtypes.map(getNodeCenter);
-  const minSubtypeTop = Math.min(...subtypes.map((node) => node.y));
-  const minBusY = trunkTop.y + ISA_MIN_VERTICAL_STEM;
-  const maxBusY = minSubtypeTop - ISA_LABEL_GAP;
-  const naturalBusY = (trunkTop.y + minSubtypeTop) / 2 + offset.y;
-  const busY = maxBusY > minBusY ? clamp(naturalBusY, minBusY, maxBusY) : minBusY;
-  const trunkBottom: Point = { x: trunkTop.x, y: busY };
-  const firstSubtypeCenter = subtypeCenters[0];
-  const lastSubtypeCenter = subtypeCenters[subtypeCenters.length - 1];
-  const busStart: Point = {
-    x: Math.min(firstSubtypeCenter.x, lastSubtypeCenter.x),
-    y: busY,
-  };
-  const busEnd: Point = {
-    x: Math.max(firstSubtypeCenter.x, lastSubtypeCenter.x),
-    y: busY,
-  };
-  const busJoin: Point = { x: clamp(trunkTop.x, busStart.x, busEnd.x), y: busY };
-  const labelPoint: Point = {
-    x: trunkTop.x + ISA_LABEL_GAP,
-    y: (trunkTop.y + trunkBottom.y) / 2,
-  };
-  const trunkJoinSegments: InheritanceLineSegment[] =
-    Math.abs(trunkBottom.x - busJoin.x) > 0.001
-      ? [{ id: "trunk-bus-join", from: trunkBottom, to: busJoin }]
+  const verticalLayout = parentSide === "left" || parentSide === "right";
+  let trunkEnd: Point;
+  let busStart: Point;
+  let busEnd: Point;
+  let busJoin: Point;
+  let trunkJoinSegments: InheritanceLineSegment[];
+  let branches: InheritanceLineSegment[];
+
+  if (verticalLayout) {
+    const childBoundary = parentSide === "right"
+      ? Math.min(...subtypes.map((node) => node.x))
+      : Math.max(...subtypes.map((node) => node.x + node.width));
+    const busX = getBusCoordinate(trunkStart.x, childBoundary, offset.x);
+    const minY = Math.min(...subtypeCenters.map((point) => point.y));
+    const maxY = Math.max(...subtypeCenters.map((point) => point.y));
+    const busStartY = minY === maxY ? minY - ISA_LABEL_GAP : minY;
+    const busEndY = minY === maxY ? maxY + ISA_LABEL_GAP : maxY;
+
+    trunkEnd = { x: busX, y: trunkStart.y };
+    busStart = { x: busX, y: busStartY };
+    busEnd = { x: busX, y: busEndY };
+    busJoin = { x: busX, y: clamp(trunkStart.y, busStartY, busEndY) };
+    trunkJoinSegments = Math.abs(trunkEnd.y - busJoin.y) > 0.001
+      ? [{ id: "trunk-bus-join", from: trunkEnd, to: busJoin }]
       : [];
-  const branches: InheritanceLineSegment[] = subtypes.map((subtype) => {
-    const subtypeCenter = getNodeCenter(subtype);
-    const from = { x: subtypeCenter.x, y: busY };
-    return {
-      id: `subtype-${subtype.id}`,
-      from,
-      to: {
-        x: subtypeCenter.x,
-        y: subtypeCenter.y < busY ? subtype.y + subtype.height : subtype.y,
-      },
-    };
-  });
+    branches = subtypes.map((subtype) => {
+      const subtypeCenter = getNodeCenter(subtype);
+      const from = { x: busX, y: subtypeCenter.y };
+      return {
+        id: `subtype-${subtype.id}`,
+        from,
+        to: clipPointToNodePerimeter(subtype, from),
+      };
+    });
+  } else {
+    const childBoundary = parentSide === "bottom"
+      ? Math.min(...subtypes.map((node) => node.y))
+      : Math.max(...subtypes.map((node) => node.y + node.height));
+    const busY = getBusCoordinate(trunkStart.y, childBoundary, offset.y);
+    const minX = Math.min(...subtypeCenters.map((point) => point.x));
+    const maxX = Math.max(...subtypeCenters.map((point) => point.x));
+    const busStartX = minX === maxX ? minX - ISA_LABEL_GAP : minX;
+    const busEndX = minX === maxX ? maxX + ISA_LABEL_GAP : maxX;
+
+    trunkEnd = { x: trunkStart.x, y: busY };
+    busStart = { x: busStartX, y: busY };
+    busEnd = { x: busEndX, y: busY };
+    busJoin = { x: clamp(trunkStart.x, busStartX, busEndX), y: busY };
+    trunkJoinSegments = Math.abs(trunkEnd.x - busJoin.x) > 0.001
+      ? [{ id: "trunk-bus-join", from: trunkEnd, to: busJoin }]
+      : [];
+    branches = subtypes.map((subtype) => {
+      const subtypeCenter = getNodeCenter(subtype);
+      const from = { x: subtypeCenter.x, y: busY };
+      return {
+        id: `subtype-${subtype.id}`,
+        from,
+        to: clipPointToNodePerimeter(subtype, from),
+      };
+    });
+  }
+
+  const labelPoint = getSegmentLabelPoint(trunkStart, trunkEnd, 18);
 
   return {
     kind: "multi",
     triangleCenter,
+    parentSide,
     ...triangle,
     labelPoint,
     lineSegments: [
-      { id: "supertype-stem", from: superAttach, to: triangle.triangleTop },
-      { id: "trunk", from: trunkTop, to: trunkBottom },
+      { id: "supertype-stem", from: superAttach, to: triangle.triangleApex },
+      { id: "trunk", from: trunkStart, to: trunkEnd },
       ...trunkJoinSegments,
       { id: "bus", from: busStart, to: busEnd },
       ...branches,
     ],
-    hitPoints: [superAttach, triangle.triangleTop, triangle.triangleBottom, trunkBottom, busJoin, busStart, busEnd],
+    hitPoints: [superAttach, triangle.triangleApex, trunkStart, trunkEnd, busJoin, busStart, busEnd],
   };
 }

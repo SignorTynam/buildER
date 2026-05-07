@@ -129,6 +129,10 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const badgeY = geometry.labelPoint.y - (inheritanceConstraintLabel ? 28 : 16);
   const baseOpacity = isGhost ? 0.58 : 1;
   const labelOpacity = isGhost ? 0.72 : 1;
+  const inheritanceConstraintY = geometry.labelPoint.y - (displayLabel ? 18 : 8);
+  const displayLabelY = geometry.labelPoint.y + (inheritanceConstraintLabel ? 10 : -6);
+  const inheritanceConstraintWidth = inheritanceConstraintLabel.length * 8 + 10;
+  const displayLabelWidth = displayLabel.length * 7 + 10;
   const primaryDashArray = isGhost ? "10 8" : dashArray;
   const groupClassName = isGhost ? "diagram-edge ghost" : props.selected ? "diagram-edge selected" : "diagram-edge";
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
@@ -187,30 +191,54 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         opacity={baseOpacity}
       />
       {inheritanceConstraintLabel ? (
-        <text
-          x={geometry.labelPoint.x}
-          y={geometry.labelPoint.y - (displayLabel ? 18 : 8)}
-          textAnchor="middle"
-          className="edge-label inheritance-constraint-label"
-          fill={selectedStrokeColor}
-          opacity={labelOpacity}
-          onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
-        >
-          {inheritanceConstraintLabel}
-        </text>
+        <>
+          <rect
+            x={geometry.labelPoint.x - inheritanceConstraintWidth / 2}
+            y={inheritanceConstraintY - 13}
+            width={inheritanceConstraintWidth}
+            height={18}
+            rx={3}
+            fill="var(--diagram-canvas-fill)"
+            opacity={0.9}
+            pointerEvents="none"
+          />
+          <text
+            x={geometry.labelPoint.x}
+            y={inheritanceConstraintY}
+            textAnchor="middle"
+            className="edge-label inheritance-constraint-label"
+            fill={selectedStrokeColor}
+            opacity={labelOpacity}
+            onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
+          >
+            {inheritanceConstraintLabel}
+          </text>
+        </>
       ) : null}
       {displayLabel ? (
-        <text
-          x={geometry.labelPoint.x}
-          y={geometry.labelPoint.y + (inheritanceConstraintLabel ? 10 : -6)}
-          textAnchor="middle"
-          className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
-          fill={selectedStrokeColor}
-          opacity={labelOpacity}
-          onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
-        >
-          {displayLabel}
-        </text>
+        <>
+          <rect
+            x={geometry.labelPoint.x - displayLabelWidth / 2}
+            y={displayLabelY - 13}
+            width={displayLabelWidth}
+            height={18}
+            rx={3}
+            fill="var(--diagram-canvas-fill)"
+            opacity={0.9}
+            pointerEvents="none"
+          />
+          <text
+            x={geometry.labelPoint.x}
+            y={displayLabelY}
+            textAnchor="middle"
+            className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
+            fill={selectedStrokeColor}
+            opacity={labelOpacity}
+            onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
+          >
+            {displayLabel}
+          </text>
+        </>
       ) : null}
       {!isGhost ? renderValidationBadge(geometry.labelPoint.x + 18, badgeY, props.validationLevel, props.validationCount) : null}
     </g>

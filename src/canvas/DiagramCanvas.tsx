@@ -2928,8 +2928,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
           {groupedInheritanceLayouts.map((layout) => {
             const stroke = layout.selected || layout.focused ? DIAGRAM_FOCUS : DIAGRAM_STROKE;
-            const trianglePath = `M ${layout.visualLayout.triangleLeft.x} ${layout.visualLayout.triangleLeft.y} L ${layout.visualLayout.triangleRight.x} ${layout.visualLayout.triangleRight.y} L ${layout.visualLayout.triangleBottom.x} ${layout.visualLayout.triangleBottom.y} Z`;
+            const trianglePath = `M ${layout.visualLayout.triangleApex.x} ${layout.visualLayout.triangleApex.y} L ${layout.visualLayout.triangleBaseA.x} ${layout.visualLayout.triangleBaseA.y} L ${layout.visualLayout.triangleBaseB.x} ${layout.visualLayout.triangleBaseB.y} Z`;
             const hitPath = pathFromPoints(layout.visualLayout.hitPoints);
+            const labelWidth = layout.label ? layout.label.length * 8 + 10 : 0;
             return (
               <g
                 key={`inheritance-group-${layout.group.id}`}
@@ -2977,18 +2978,27 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   strokeLinejoin="round"
                 />
                 {layout.label ? (
-                  <text
-                    x={layout.visualLayout.labelPoint.x}
-                    y={layout.visualLayout.labelPoint.y}
-                    textAnchor="start"
-                    className="edge-label inheritance-constraint-label"
-                    fill={stroke}
-                    stroke="var(--diagram-canvas-fill)"
-                    strokeWidth={5}
-                    paintOrder="stroke"
-                  >
-                    {layout.label}
-                  </text>
+                  <>
+                    <rect
+                      x={layout.visualLayout.labelPoint.x - labelWidth / 2}
+                      y={layout.visualLayout.labelPoint.y - 13}
+                      width={labelWidth}
+                      height={18}
+                      rx={3}
+                      fill="var(--diagram-canvas-fill)"
+                      opacity={0.92}
+                      pointerEvents="none"
+                    />
+                    <text
+                      x={layout.visualLayout.labelPoint.x}
+                      y={layout.visualLayout.labelPoint.y}
+                      textAnchor="middle"
+                      className="edge-label inheritance-constraint-label"
+                      fill={stroke}
+                    >
+                      {layout.label}
+                    </text>
+                  </>
                 ) : null}
               </g>
             );

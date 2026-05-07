@@ -2294,26 +2294,9 @@ export function mergeCompatibleGeneralizationGroups(diagram: DiagramDocument): D
     };
   });
 
-  const subtypeIdsByGroupId = new Map<string, Set<string>>();
-  nextEdges.forEach((edge) => {
-    if (edge.type !== "inheritance" || !edge.generalizationGroupId) {
-      return;
-    }
-
-    const bucket = subtypeIdsByGroupId.get(edge.generalizationGroupId) ?? new Set<string>();
-    bucket.add(edge.sourceId);
-    subtypeIdsByGroupId.set(edge.generalizationGroupId, bucket);
-  });
-
   const nextGroups = mergedGroups
     .map((group) => {
-      const combined = new Set(group.subtypeIds);
-      const fromEdges = subtypeIdsByGroupId.get(group.id);
-      if (fromEdges) {
-        fromEdges.forEach((subtypeId) => combined.add(subtypeId));
-      }
-
-      const cleaned = Array.from(combined).filter(
+      const cleaned = Array.from(new Set(group.subtypeIds)).filter(
         (subtypeId) => entityIds.has(subtypeId) && subtypeId !== group.supertypeId,
       );
       if (cleaned.length !== group.subtypeIds.length) {

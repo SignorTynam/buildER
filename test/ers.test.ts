@@ -356,8 +356,13 @@ test("layout visuale ISA compatta piu sottotipi in una sola bus", () => {
 
   const bus = layout.lineSegments.find((segment) => segment.id === "bus");
   assert.ok(bus);
-  assert.equal(bus.from.y, bus.to.y);
-  assert.ok(bus.to.x - bus.from.x < 520);
+  if (layout.parentSide === "left" || layout.parentSide === "right") {
+    assert.equal(bus.from.x, bus.to.x);
+    assert.ok(Math.abs(bus.to.y - bus.from.y) < 520);
+  } else {
+    assert.equal(bus.from.y, bus.to.y);
+    assert.ok(Math.abs(bus.to.x - bus.from.x) < 520);
+  }
 });
 
 test("layout visuale ISA con un solo sottotipo non disegna la bus di gruppo", () => {

@@ -16,7 +16,7 @@ interface EdgeLaneInfo {
   laneCount: number;
 }
 
-type ConnectionSide = "left" | "right" | "top" | "bottom";
+export type ConnectionSide = "left" | "right" | "top" | "bottom";
 
 interface EdgeEndpointGeometry {
   logicalAnchor: Point;
@@ -253,6 +253,10 @@ export function getDominantConnectionSide(from: Point, to: Point): ConnectionSid
   return deltaY >= 0 ? "bottom" : "top";
 }
 
+export function getNodeConnectionSide(node: DiagramNode, toward: Point): ConnectionSide {
+  return getDominantConnectionSide(getNodeLogicalAnchor(node), toward);
+}
+
 function intersectRectBounds(node: DiagramNode, toward: Point): Point {
   const logicalAnchor = getNodeLogicalAnchor(node);
   const deltaX = toward.x - logicalAnchor.x;
@@ -350,6 +354,10 @@ export function clipPointToNodePerimeter(node: DiagramNode, toward: Point): Poin
   }
 
   return intersectRectBounds(node, toward);
+}
+
+export function getConnectionPoint(node: DiagramNode, toward: Point): Point {
+  return clipPointToNodePerimeter(node, toward);
 }
 
 function buildEdgeEndpointGeometry(node: DiagramNode, toward: Point): EdgeEndpointGeometry {
@@ -525,13 +533,80 @@ function getMidpoint(start: Point, end: Point): Point {
   };
 }
 
+export function getSegmentLabelPoint(start: Point, end: Point, offset = 14): Point {
+  const midpoint = getMidpoint(start, end);
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  const length = Math.hypot(deltaX, deltaY);
+
+  if (length <= 0.001) {
+    return { x: midpoint.x, y: midpoint.y - offset };
+  }
+
+  if (Math.abs(deltaY) > Math.abs(deltaX) * 2.5) {
+    return {
+      x: midpoint.x + (deltaX >= 0 ? offset : -offset),
+      y: midpoint.y,
+    };
+  }
+
+  if (Math.abs(deltaX) > Math.abs(deltaY) * 2.5) {
+    return {
+      x: midpoint.x,
+      y: midpoint.y - offset,
+    };
+  }
+
+  let normalX = -deltaY / length;
+  let normalY = deltaX / length;
+  if (normalY > 0) {
+    normalX *= -1;
+    normalY *= -1;
+  }
+
+  return {
+    x: midpoint.x + normalX * offset,
+    y: midpoint.y + normalY * offset,
+  };
+}
+
+function getLongestSegment(points: Point[]): { start: Point; end: Point } | null {
+  if (points.length < 2) {
+    return null;
+  }
+
+  let longest = {
+    start: points[0],
+    end: points[1],
+    length: distanceBetweenPoints(points[0], points[1]),
+  };
+
+  for (let index = 2; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const length = distanceBetweenPoints(start, end);
+    if (length > longest.length) {
+      longest = { start, end, length };
+    }
+  }
+
+  return longest;
+}
+
 function resolveEdgeLabelPoint(
   edge: DiagramEdge,
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
   points: Point[],
 ): Point {
-  if (edge.type === "connector" || edge.type === "attribute") {
+  if (edge.type === "connector") {
+    const labelSegment = getLongestSegment(points);
+    if (labelSegment) {
+      return getSegmentLabelPoint(labelSegment.start, labelSegment.end, 12);
+    }
+  }
+
+  if (edge.type === "attribute") {
     return getMidpoint(getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode));
   }
 
@@ -614,7 +689,8 @@ export function getRenderedEdgeGeometry(
   laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
   if (edge.type === "connector") {
-    const points = simplifyPoints(buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo));
+    const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
+    const points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
 
     return {
       points,
