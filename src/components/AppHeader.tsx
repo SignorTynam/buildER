@@ -17,6 +17,7 @@ interface AppHeaderProps {
   onSaveProject: () => void;
   onLoadProject: () => void;
   onOpenCommandMenu: () => void;
+  onOpenShortcuts: () => void;
   onDiagramNameChange?: (name: string) => void;
 }
 
@@ -62,7 +63,7 @@ export function AppHeader(props: AppHeaderProps) {
       <div className="designer-topbar-actions">
         <button type="button" onClick={props.onNewProject}>NEW PROJECT</button>
         <button type="button" onClick={props.onLoadProject}>OPEN PROJECT</button>
-        <button type="button" className="designer-icon-button" onClick={props.onOpenCommandMenu} title="Help">?</button>
+        <button type="button" className="designer-icon-button" onClick={props.onOpenShortcuts} title="Help">?</button>
         <button type="button" className="designer-icon-button" onClick={props.onOpenCommandMenu} title="Menu">=</button>
       </div>
     </header>

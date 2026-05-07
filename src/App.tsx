@@ -5086,6 +5086,7 @@ export default function App() {
         onSaveProject={handleSaveProject}
         onLoadProject={handleLoadProjectRequest}
         onOpenCommandMenu={openCommandMenu}
+        onOpenShortcuts={openKeyboardShortcuts}
         onDiagramNameChange={handleDiagramNameChange}
       />
 
@@ -5359,7 +5360,6 @@ export default function App() {
           appVersion={APP_VERSION}
           diagramName={history.present.meta.name}
           diagramView={diagramView}
-          activeTool={tool}
           logicalSqlOpen={logicalPanelMode === "sql"}
           technicalPanelOpen={technicalPanelVisible}
           codePanelOpen={codePanelOpen}
@@ -5375,10 +5375,6 @@ export default function App() {
           onDiagramViewChange={handleDiagramViewChange}
           onOpenSql={handleOpenSqlStage}
           onOpenLogicalWorkflow={handleOpenLogicalStage}
-          onToolChange={(nextTool) => {
-            setTool(nextTool);
-            setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
-          }}
           onNewProject={handleNewProject}
           onUndo={handleUndoAction}
           onRedo={handleRedoAction}
@@ -5753,46 +5749,56 @@ export default function App() {
       ) : null}
 
       {aboutOpen ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => setAboutOpen(false)}>
+        <div className="studio-modal-backdrop" role="presentation" onClick={() => setAboutOpen(false)}>
           <div
-            className="help-modal"
+            className="studio-modal studio-modal--medium about-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="about-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="help-modal-head">
-              <h2 id="about-modal-title">Informazioni</h2>
-              <button type="button" className="help-close" onClick={() => setAboutOpen(false)}>
+            <div className="studio-modal__header">
+              <div>
+                <h2 id="about-modal-title" className="studio-modal__title">Informazioni</h2>
+                <p className="studio-modal__subtitle">ER Studio e stato corrente dell'editor.</p>
+              </div>
+              <button
+                type="button"
+                className="studio-modal__close"
+                onClick={() => setAboutOpen(false)}
+                aria-label="Chiudi informazioni"
+                autoFocus
+              >
                 Chiudi
               </button>
             </div>
 
-            <div className="about-meta">
-              <strong>{APP_TITLE}</strong>
-              <span>Versione corrente {APP_VERSION}</span>
-            </div>
+            <div className="studio-modal__body">
+              <div className="studio-modal__meta about-meta">
+                <strong>{APP_TITLE}</strong>
+                <span>Versione corrente {APP_VERSION}</span>
+              </div>
 
-            <div className="help-sections">
-              <details className="help-section" open>
+              <div className="studio-modal__accordion help-sections">
+                <details className="studio-modal__details help-section" open>
                 <summary>Strumenti e scorciatoie</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>Selezione rapida strumenti: S Sposta, V Selezione, X Cancella, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione.</li>
                 </ul>
               </details>
 
-              <details className="help-section">
+              <details className="studio-modal__details help-section">
                 <summary>Inserimento e Collegamenti</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>Con Entita, Relazione o Attributo: clic sul canvas per inserire l'elemento; dopo l'inserimento il tool torna su Selezione.</li>
                   <li>Collegamenti: scegli Collegamento o Generalizzazione, clicca il nodo sorgente e poi il nodo destinazione.</li>
                   <li>Le Notes del diagramma si gestiscono dal pannello Notes sulla destra e vengono salvate insieme al modello.</li>
                 </ul>
               </details>
 
-              <details className="help-section">
+              <details className="studio-modal__details help-section">
                 <summary>Selezione e Modifica</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>Con Selezione puoi trascinare nodi e box di selezione; Shift+click aggiunge/rimuove nodi dalla selezione.</li>
                   <li>Doppio click su nodo o su una generalizzazione per rinominare; le cardinalita si modificano dai pannelli proprieta di entita e attributi.</li>
                   <li>Nell'ispettore puoi attivare entita deboli dedicate, attributi composti e vincoli ISA avanzati sulle generalizzazioni.</li>
@@ -5801,75 +5807,85 @@ export default function App() {
                 </ul>
               </details>
 
-              <details className="help-section">
+              <details className="studio-modal__details help-section">
                 <summary>Navigazione del canvas</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>Navigazione canvas: rotella per zoom, strumento Sposta per pan, oppure trascina con tasto centrale.</li>
                 </ul>
               </details>
 
-              <details className="help-section">
+              <details className="studio-modal__details help-section">
                 <summary>Comandi Tastiera</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>Ctrl/Cmd+S salva il progetto `.ersp`, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+I apre o chiude il dock tecnico, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
                   <li>Delete/Backspace elimina la selezione; Esc annulla la selezione corrente e chiude le finestre informazioni/novita.</li>
                   <li>Nel canvas usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare ed Esc per annullare un collegamento in corso.</li>
                 </ul>
               </details>
 
-              <details className="help-section">
+              <details className="studio-modal__details help-section">
                 <summary>Modalita codice e sincronizzazione live</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>In vista Affiancata, il codice ERS viene validato in tempo reale e il diagramma si aggiorna automaticamente quando la sintassi e valida.</li>
                   <li>Se il codice e incompleto o non valido, viene mostrato l'errore nel pannello senza alterare l'ultimo stato valido del diagramma.</li>
                   <li>Usa Rigenera dal diagramma per riallineare rapidamente il sorgente ERS allo stato corrente del canvas.</li>
                 </ul>
               </details>
 
-              <details className="help-section">
+              <details className="studio-modal__details help-section">
                 <summary>Validazioni ed Errori</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>Avvisi ed errori operativi compaiono come toast flottanti in overlay, senza spostare il layout, e i problemi del modello restano evidenziati su nodi e collegamenti.</li>
                 </ul>
               </details>
 
-              <details className="help-section">
+              <details className="studio-modal__details help-section">
                 <summary>Stato Notazione ER (v{APP_VERSION})</summary>
-                <ul className="help-list">
+                <ul className="studio-modal__list-text help-list">
                   <li>Disponibile: entita, entita deboli dedicate, relazioni, attributi, attributi composti, cardinalita, generalizzazione e identificatori semplici/composti interni/esterni.</li>
                   <li>Disponibile: vincoli ISA avanzati disjoint/overlap e total/partial su ogni collegamento di generalizzazione.</li>
                   <li>Ancora non coperto: attributi derivati e altri simboli EER specialistici non ancora presenti nel canvas.</li>
                 </ul>
               </details>
+              </div>
             </div>
           </div>
         </div>
       ) : null}
 
       {whatsNewOpen ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => setWhatsNewOpen(false)}>
+        <div className="studio-modal-backdrop" role="presentation" onClick={() => setWhatsNewOpen(false)}>
           <div
-            className="help-modal"
+            className="studio-modal studio-modal--medium changelog-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="help-modal-head">
-              <h2 id="new-modal-title">Novita</h2>
-              <button type="button" className="help-close" onClick={() => setWhatsNewOpen(false)}>
+            <div className="studio-modal__header">
+              <div>
+                <h2 id="new-modal-title" className="studio-modal__title">Novita</h2>
+                <p className="studio-modal__subtitle">Storico compatto delle release di {APP_NAME}.</p>
+              </div>
+              <button
+                type="button"
+                className="studio-modal__close"
+                onClick={() => setWhatsNewOpen(false)}
+                aria-label="Chiudi novita"
+                autoFocus
+              >
                 Chiudi
               </button>
             </div>
 
-            <div className="changelog-content">
+            <div className="studio-modal__body changelog-content">
               {APP_CHANGELOG.map((entry) => (
-                <article key={`${entry.version}-${entry.date}`} className="changelog-entry">
+                <article key={`${entry.version}-${entry.date}`} className="studio-modal__release changelog-entry">
                   <header>
                     <strong>{APP_NAME} {entry.version}</strong>
                     <span>{entry.date}</span>
                   </header>
-                  <ul className="help-list">
+                  <ul className="studio-modal__list-text help-list">
                     {entry.updates.map((update) => (
                       <li key={update}>{update}</li>
                     ))}

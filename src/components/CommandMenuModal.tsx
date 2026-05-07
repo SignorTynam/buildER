@@ -1,15 +1,12 @@
-import type { ToolKind } from "../types/diagram";
 import type { WorkspaceView } from "../types/translation";
 import { SUPPORTED_LOCALES } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
-import { getToolDefinitions } from "../utils/toolConfig";
 
 interface CommandMenuModalProps {
   appTitle: string;
   appVersion: string;
   diagramName: string;
   diagramView: WorkspaceView;
-  activeTool: ToolKind;
   logicalSqlOpen: boolean;
   technicalPanelOpen: boolean;
   codePanelOpen: boolean;
@@ -25,7 +22,6 @@ interface CommandMenuModalProps {
   onDiagramViewChange: (view: WorkspaceView) => void;
   onOpenSql: () => void;
   onOpenLogicalWorkflow: () => void;
-  onToolChange: (tool: ToolKind) => void;
   onNewProject: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -66,23 +62,22 @@ function CommandButton({ label, detail, shortcut, disabled, active, onClick }: C
   return (
     <button
       type="button"
-      className={active ? "command-menu-item active" : "command-menu-item"}
+      className={active ? "studio-modal__item command-menu-item active" : "studio-modal__item command-menu-item"}
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active ? true : undefined}
     >
-      <span className="command-menu-item-copy">
-        <strong>{label}</strong>
-        {detail ? <span>{detail}</span> : null}
+      <span className="studio-modal__item-main command-menu-item-copy">
+        <strong className="studio-modal__item-title">{label}</strong>
+        {detail ? <span className="studio-modal__item-detail">{detail}</span> : null}
       </span>
-      {shortcut ? <kbd>{shortcut}</kbd> : null}
+      {shortcut ? <kbd className="studio-modal__kbd">{shortcut}</kbd> : null}
     </button>
   );
 }
 
 export function CommandMenuModal(props: CommandMenuModalProps) {
   const { locale, setLocale, getLanguageLabel, getLanguageMenuLabel } = useI18n();
-  const toolDefinitions = getToolDefinitions();
   const isErView = props.diagramView === "er";
   const isTranslationView = props.diagramView === "translation";
   const isLogicalView = props.diagramView === "logical";
@@ -92,36 +87,37 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
     props.onClose();
   }
 
-  function runToolCommand(tool: ToolKind) {
-    props.onToolChange(tool);
-    props.onClose();
-  }
-
   return (
-    <div className="help-modal-backdrop command-modal-backdrop" role="presentation" onClick={props.onClose}>
+    <div className="studio-modal-backdrop" role="presentation" onClick={props.onClose}>
       <div
-        className="help-modal command-modal"
+        className="studio-modal studio-modal--wide command-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-menu-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="help-modal-head command-modal-head">
+        <div className="studio-modal__header">
           <div>
-            <h2 id="command-menu-title">Menu comandi</h2>
-            <p>
+            <h2 id="command-menu-title" className="studio-modal__title">Menu comandi</h2>
+            <p className="studio-modal__subtitle">
               {props.appTitle} {props.appVersion} - {props.diagramName}
             </p>
           </div>
-          <button type="button" className="help-close" onClick={props.onClose} aria-label="Chiudi menu comandi">
-            X
+          <button
+            type="button"
+            className="studio-modal__close"
+            onClick={props.onClose}
+            aria-label="Chiudi menu comandi"
+            autoFocus
+          >
+            Chiudi
           </button>
         </div>
 
-        <div className="command-modal-content">
-          <section className="command-menu-section">
-            <div className="command-menu-section-title">Workflow</div>
-            <div className="command-menu-list">
+        <div className="studio-modal__body studio-modal__grid command-modal-content">
+          <section className="studio-modal__section command-menu-section">
+            <div className="studio-modal__section-title command-menu-section-title">Workflow</div>
+            <div className="studio-modal__list command-menu-list">
               <CommandButton
                 label="Modello ER"
                 detail="Canvas concettuale"
@@ -173,9 +169,9 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             </div>
           </section>
 
-          <section className="command-menu-section">
-            <div className="command-menu-section-title">Workspace</div>
-            <div className="command-menu-list">
+          <section className="studio-modal__section command-menu-section">
+            <div className="studio-modal__section-title command-menu-section-title">Workspace</div>
+            <div className="studio-modal__list command-menu-list">
               <CommandButton
                 label={props.technicalPanelOpen ? "Nascondi dock tecnico" : "Mostra Review"}
                 detail={props.technicalPanelOpen ? "Chiude Review, Code o Notes" : "Warning ed errori del modello"}
@@ -209,28 +205,9 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             </div>
           </section>
 
-          <section className="command-menu-section command-menu-section-wide">
-            <div className="command-menu-section-title">Strumenti ER</div>
-            <div className="command-menu-tool-grid">
-              {toolDefinitions.map((tool) => {
-                const disabled = !isErView;
-                return (
-                  <CommandButton
-                    key={tool.tool}
-                    label={tool.label}
-                    shortcut={tool.shortcut.toUpperCase()}
-                    active={isErView && props.activeTool === tool.tool}
-                    disabled={disabled}
-                    onClick={() => runToolCommand(tool.tool)}
-                  />
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="command-menu-section">
-            <div className="command-menu-section-title">Edit</div>
-            <div className="command-menu-list">
+          <section className="studio-modal__section command-menu-section">
+            <div className="studio-modal__section-title command-menu-section-title">Edit</div>
+            <div className="studio-modal__list command-menu-list">
               <CommandButton
                 label="Annulla"
                 shortcut="Ctrl/Cmd Z"
@@ -264,9 +241,9 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             </div>
           </section>
 
-          <section className="command-menu-section">
-            <div className="command-menu-section-title">File ed export</div>
-            <div className="command-menu-list">
+          <section className="studio-modal__section command-menu-section">
+            <div className="studio-modal__section-title command-menu-section-title">File ed export</div>
+            <div className="studio-modal__list command-menu-list">
               <CommandButton label="Nuovo progetto" onClick={() => runCommand(props.onNewProject)} />
               <CommandButton label="Apri progetto" onClick={() => runCommand(props.onLoadProject)} />
               <CommandButton label="Apri ERS" onClick={() => runCommand(props.onLoadErs)} />
@@ -278,9 +255,9 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             </div>
           </section>
 
-          <section className="command-menu-section">
-            <div className="command-menu-section-title">Help</div>
-            <div className="command-menu-list">
+          <section className="studio-modal__section command-menu-section">
+            <div className="studio-modal__section-title command-menu-section-title">Help</div>
+            <div className="studio-modal__list command-menu-list">
               <CommandButton label="Scorciatoie tastiera" detail="Comandi supportati" onClick={() => runCommand(props.onOpenShortcuts)} />
               <CommandButton label="Guida ERS" onClick={() => runCommand(props.onOpenErsGuide)} />
               <CommandButton label="Novita" onClick={() => runCommand(props.onWhatsNew)} />
@@ -288,9 +265,9 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             </div>
           </section>
 
-          <section className="command-menu-section">
-            <div className="command-menu-section-title">Lingua: {getLanguageLabel(locale)}</div>
-            <div className="command-menu-list">
+          <section className="studio-modal__section command-menu-section">
+            <div className="studio-modal__section-title command-menu-section-title">Lingua: {getLanguageLabel(locale)}</div>
+            <div className="studio-modal__list command-menu-list">
               {SUPPORTED_LOCALES.map((language) => (
                 <CommandButton
                   key={language}

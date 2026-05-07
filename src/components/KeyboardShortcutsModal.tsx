@@ -76,34 +76,40 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
 
 export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
   return (
-    <div className="help-modal-backdrop command-modal-backdrop" role="presentation" onClick={props.onClose}>
+    <div className="studio-modal-backdrop" role="presentation" onClick={props.onClose}>
       <div
-        className="help-modal shortcuts-modal"
+        className="studio-modal studio-modal--wide shortcuts-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="keyboard-shortcuts-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="help-modal-head command-modal-head">
+        <div className="studio-modal__header">
           <div>
-            <h2 id="keyboard-shortcuts-title">Keyboard shortcuts</h2>
-            <p>Comandi da tastiera supportati da ER Studio.</p>
+            <h2 id="keyboard-shortcuts-title" className="studio-modal__title">Keyboard shortcuts</h2>
+            <p className="studio-modal__subtitle">Comandi da tastiera supportati da ER Studio.</p>
           </div>
-          <button type="button" className="help-close" onClick={props.onClose} aria-label="Chiudi scorciatoie">
-            X
+          <button
+            type="button"
+            className="studio-modal__close"
+            onClick={props.onClose}
+            aria-label="Chiudi scorciatoie"
+            autoFocus
+          >
+            Chiudi
           </button>
         </div>
 
-        <div className="shortcuts-modal-content">
+        <div className="studio-modal__body studio-modal__grid shortcuts-modal-content">
           {SHORTCUT_SECTIONS.map((section) => (
-            <section key={section.title} className="shortcut-section">
-              <h3>{section.title}</h3>
+            <section key={section.title} className="studio-modal__section shortcut-section">
+              <h3 className="studio-modal__section-title">{section.title}</h3>
               <dl>
                 {section.items.map((item) => (
-                  <div key={`${section.title}-${item.keys}-${item.action}`} className="shortcut-row">
+                  <div key={`${section.title}-${item.keys}-${item.action}`} className="studio-modal__shortcut-row shortcut-row">
                     <dt>
                       {item.keys.split(" / ").map((key) => (
-                        <kbd key={key}>{key}</kbd>
+                        <kbd key={key} className="studio-modal__kbd">{key}</kbd>
                       ))}
                     </dt>
                     <dd>{item.action}</dd>
