@@ -2440,6 +2440,82 @@ export function removeSubtypeFromGeneralizationGroup(
   });
 }
 
+export function findGeneralizationGroupsForEntity(
+  diagram: DiagramDocument,
+  entityId: string,
+): GeneralizationGroup[] {
+  return (diagram.generalizationGroups ?? []).filter(
+    (group) => group.supertypeId === entityId || group.subtypeIds.includes(entityId),
+  );
+}
+
+export function isEntityInGeneralizationGroup(diagram: DiagramDocument, entityId: string): boolean {
+  return findGeneralizationGroupsForEntity(diagram, entityId).length > 0;
+}
+
+export function removeEntityFromGeneralizationHierarchy(
+  diagram: DiagramDocument,
+  entityId: string,
+): DiagramDocument {
+  const groups = diagram.generalizationGroups ?? [];
+  const affectedGroups = findGeneralizationGroupsForEntity(diagram, entityId);
+  if (affectedGroups.length === 0) {
+    return diagram;
+  }
+
+  const removedGroupIds = new Set<string>();
+  const reducedGroupIds = new Set<string>();
+  const nextGroups: GeneralizationGroup[] = [];
+
+  groups.forEach((group) => {
+    const entityIsSupertype = group.supertypeId === entityId;
+    const entityIsSubtype = group.subtypeIds.includes(entityId);
+    if (!entityIsSupertype && !entityIsSubtype) {
+      nextGroups.push(group);
+      return;
+    }
+
+    if (entityIsSupertype) {
+      removedGroupIds.add(group.id);
+      return;
+    }
+
+    const subtypeIds = group.subtypeIds.filter((subtypeId) => subtypeId !== entityId);
+    if (subtypeIds.length === 0) {
+      removedGroupIds.add(group.id);
+      return;
+    }
+
+    reducedGroupIds.add(group.id);
+    nextGroups.push({
+      ...group,
+      subtypeIds,
+    });
+  });
+
+  const nextEdges = diagram.edges.filter((edge) => {
+    if (edge.type !== "inheritance") {
+      return true;
+    }
+
+    if (edge.generalizationGroupId && removedGroupIds.has(edge.generalizationGroupId)) {
+      return false;
+    }
+
+    return !(
+      edge.generalizationGroupId !== undefined &&
+      reducedGroupIds.has(edge.generalizationGroupId) &&
+      edge.sourceId === entityId
+    );
+  });
+
+  return {
+    ...diagram,
+    edges: nextEdges,
+    generalizationGroups: nextGroups.length > 0 ? nextGroups : undefined,
+  };
+}
+
 export function deleteGeneralizationGroup(diagram: DiagramDocument, groupId: string): DiagramDocument {
   return normalizeGeneralizationGroups({
     ...diagram,

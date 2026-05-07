@@ -36,6 +36,7 @@ interface ToolbarProps {
   onOpenMixedIdentifier?: () => void;
   onOpenExternalIdentifier?: () => void;
   onOpenInheritanceType?: () => void;
+  onRemoveFromHierarchy?: () => void;
   onToolChange: (tool: ToolKind) => void;
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
@@ -80,6 +81,7 @@ type IconName =
   | "simpleId"
   | "compositeId"
   | "externalId"
+  | "removeHierarchy"
   | "type";
 
 function ToolIcon({ name }: { name: IconName }) {
@@ -160,6 +162,12 @@ function ToolIcon({ name }: { name: IconName }) {
         <>
           <circle {...common} cx="9" cy="12" r="4" />
           <circle cx="16" cy="12" r="3.5" fill="currentColor" />
+        </>
+      ) : null}
+      {name === "removeHierarchy" ? (
+        <>
+          <path {...common} d="M12 5v9M7 14h10" />
+          <path {...common} d="M5 20 19 4" />
         </>
       ) : null}
       {name === "type" ? (
@@ -292,6 +300,16 @@ export function Toolbar(props: ToolbarProps) {
   const compositeSelection = getCompositeSelectionContext(props.diagram, props.selection);
   const connectorContext = getConnectorContext(props.diagram, props.selectedEdge);
   const connectorHostHasExternalIdentifier = (connectorContext?.entity.externalIdentifiers ?? []).length > 0;
+  const selectedEntityIsInHierarchy =
+    canEdit &&
+    props.selectedNode?.type === "entity" &&
+    props.selection.nodeIds.length === 1 &&
+    props.selection.edgeIds.length === 0 &&
+    (props.diagram.generalizationGroups ?? []).some(
+      (group) =>
+        group.supertypeId === props.selectedNode?.id ||
+        group.subtypeIds.includes(props.selectedNode?.id ?? ""),
+    );
 
   const baseCommands: ToolbarCommand[] = [
     { key: "undo", label: "Undo", icon: <ToolIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
@@ -323,6 +341,17 @@ export function Toolbar(props: ToolbarProps) {
   } else if (props.selectedNode?.type === "entity") {
     contextCommands = [
       { key: "parent", label: "To Parent", icon: <ToolIcon name="parent" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit },
+      ...(selectedEntityIsInHierarchy
+        ? [
+            {
+              key: "remove-hierarchy",
+              label: "Remove ISA",
+              icon: <ToolIcon name="removeHierarchy" />,
+              onClick: () => props.onRemoveFromHierarchy?.(),
+              title: "Remove this entity from its hierarchy",
+            } satisfies ToolbarCommand,
+          ]
+        : []),
       { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
       { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
       { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },

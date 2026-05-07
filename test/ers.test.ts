@@ -7,6 +7,7 @@ import {
   cleanupGeneralizationReferences,
   mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
+  removeEntityFromGeneralizationHierarchy,
   removeSelection,
   removeSubtypeFromGeneralizationGroup,
   renameNodeAsNameIdentity,
@@ -120,6 +121,53 @@ function createEntitaIsaCleanupDiagram(): DiagramDocument {
         subtypeIds: ["ENTITA5", "ENTITA6"],
         isaCompleteness: "total",
         isaDisjointness: "overlap",
+      },
+    ],
+  };
+}
+
+function createHierarchyRemovalDiagram(subtypeIds: string[] = ["ARG_TEORICO", "ARG_PRATICO"]): DiagramDocument {
+  const nodeIds = ["ARGOMENTO", "ARG_TEORICO", "ARG_PRATICO", "CATEGORIA"];
+  const nodes: DiagramNode[] = nodeIds.map((id, index) => ({
+    id,
+    type: "entity",
+    label: id,
+    x: index * 180,
+    y: id === "ARGOMENTO" ? 0 : 180,
+    width: 150,
+    height: 64,
+    internalIdentifiers: [{ id: `id-${id}`, attributeIds: [] }],
+    externalIdentifiers: [],
+    relationshipParticipations: [],
+  }));
+  const groupId = "isa-argomento";
+  const edges: DiagramEdge[] = subtypeIds.map((subtypeId) => ({
+    id: `edge-${subtypeId}`,
+    type: "inheritance",
+    sourceId: subtypeId,
+    targetId: "ARGOMENTO",
+    label: "",
+    lineStyle: "solid",
+    generalizationGroupId: groupId,
+    isaCompleteness: "total",
+    isaDisjointness: "disjoint",
+  }));
+
+  return {
+    meta: { name: "Remove ISA", version: 1 },
+    notes: "",
+    nodes,
+    edges,
+    generalizationGroups: [
+      {
+        id: groupId,
+        supertypeId: "ARGOMENTO",
+        subtypeIds,
+        isaCompleteness: "total",
+        isaDisjointness: "disjoint",
+        label: "ISA Argomento",
+        junctionOffsetX: 24,
+        junctionOffsetY: -12,
       },
     ],
   };
@@ -255,6 +303,66 @@ test("cancellazione edge o nodo ISA rimuove riferimenti zombie dai gruppi", () =
   assert.equal(diagram.edges.some((edge) => edge.sourceId === "ENTITA6" || edge.targetId === "ENTITA6"), false);
   assert.equal(diagram.generalizationGroups?.some((group) => group.subtypeIds.includes("ENTITA6")), false);
   assert.doesNotMatch(generalizationBlock(serializeDiagramToErs(diagram), "generalization-ENTITA1-t-o"), /\bENTITA6\b/);
+});
+
+test("rimozione entity da gerarchia stacca un sottotipo e conserva il gruppo con gli altri sottotipi", () => {
+  const diagram = createHierarchyRemovalDiagram();
+  const updated = removeEntityFromGeneralizationHierarchy(diagram, "ARG_TEORICO");
+  const group = updated.generalizationGroups?.find((candidate) => candidate.id === "isa-argomento");
+
+  assert.ok(group);
+  assert.deepEqual(group.subtypeIds, ["ARG_PRATICO"]);
+  assert.equal(updated.edges.some((edge) => edge.id === "edge-ARG_TEORICO"), false);
+  assert.equal(
+    updated.edges.some(
+      (edge) =>
+        edge.type === "inheritance" &&
+        edge.id === "edge-ARG_PRATICO" &&
+        edge.sourceId === "ARG_PRATICO" &&
+        edge.targetId === "ARGOMENTO" &&
+        edge.generalizationGroupId === "isa-argomento",
+    ),
+    true,
+  );
+  assert.deepEqual(updated.nodes.map((node) => node.id), diagram.nodes.map((node) => node.id));
+});
+
+test("rimozione entity da gerarchia elimina il gruppo quando il sottotipo era unico", () => {
+  const diagram = createHierarchyRemovalDiagram(["ARG_TEORICO"]);
+  const updated = removeEntityFromGeneralizationHierarchy(diagram, "ARG_TEORICO");
+
+  assert.equal(updated.generalizationGroups, undefined);
+  assert.equal(updated.edges.some((edge) => edge.type === "inheritance" && edge.generalizationGroupId === "isa-argomento"), false);
+  assert.deepEqual(updated.nodes.map((node) => node.id), diagram.nodes.map((node) => node.id));
+});
+
+test("rimozione supertype da gerarchia elimina l'intero gruppo ISA senza cancellare nodi", () => {
+  const diagram = createHierarchyRemovalDiagram();
+  const updated = removeEntityFromGeneralizationHierarchy(diagram, "ARGOMENTO");
+
+  assert.equal(updated.generalizationGroups, undefined);
+  assert.equal(updated.edges.some((edge) => edge.type === "inheritance" && edge.generalizationGroupId === "isa-argomento"), false);
+  assert.deepEqual(updated.nodes.map((node) => node.id), diagram.nodes.map((node) => node.id));
+});
+
+test("rimozione entity non in gerarchia lascia il diagramma invariato", () => {
+  const diagram = createHierarchyRemovalDiagram();
+  const updated = removeEntityFromGeneralizationHierarchy(diagram, "CATEGORIA");
+
+  assert.equal(updated, diagram);
+});
+
+test("rimozione subtype preserva i vincoli del gruppo ISA rimasto", () => {
+  const diagram = createHierarchyRemovalDiagram();
+  const updated = removeEntityFromGeneralizationHierarchy(diagram, "ARG_TEORICO");
+  const group = updated.generalizationGroups?.find((candidate) => candidate.id === "isa-argomento");
+
+  assert.ok(group);
+  assert.equal(group.isaCompleteness, "total");
+  assert.equal(group.isaDisjointness, "disjoint");
+  assert.equal(group.label, "ISA Argomento");
+  assert.equal(group.junctionOffsetX, 24);
+  assert.equal(group.junctionOffsetY, -12);
 });
 
 test("cambio vincolo ISA unifica gruppi compatibili", () => {

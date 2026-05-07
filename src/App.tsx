@@ -58,10 +58,12 @@ import {
   type ExternalIdentifierInvalidation,
   findNode,
   getMultivaluedAttributeSize,
+  isEntityInGeneralizationGroup,
   normalizeGeneralizationGroups,
   renameNodeAsNameIdentity,
   revalidateExternalIdentifiers,
   parseDiagram,
+  removeEntityFromGeneralizationHierarchy,
   removeSelection,
   serializeDiagram,
   updateGeneralizationGroupConstraint,
@@ -4685,6 +4687,25 @@ export default function App() {
     setStatus("Selezione eliminata.");
   }
 
+  function handleRemoveSelectedEntityFromHierarchy() {
+    if (!selectedNode || selectedNode.type !== "entity") {
+      showWarningNotice("L'entita selezionata non appartiene a una gerarchia.");
+      return;
+    }
+
+    if (!isEntityInGeneralizationGroup(history.present, selectedNode.id)) {
+      showWarningNotice("L'entita selezionata non appartiene a una gerarchia.");
+      return;
+    }
+
+    const nextDiagram = removeEntityFromGeneralizationHierarchy(history.present, selectedNode.id);
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
+    setTool("select");
+    setStatus("Entita rimossa dalla gerarchia.");
+    showSuccessNotice("Entita rimossa dalla gerarchia.");
+  }
+
   function handleDeleteNodeById(nodeId: string) {
     const nextDiagram = removeSelection(history.present, { nodeIds: [nodeId], edgeIds: [] });
     commitDiagram(nextDiagram);
@@ -5189,6 +5210,7 @@ export default function App() {
                   onOpenMixedIdentifier={handleOpenMixedIdentifierModal}
                   onOpenExternalIdentifier={() => createExternalIdentifierFromContext({ mixed: false })}
                   onOpenInheritanceType={handleOpenInheritanceTypeControl}
+                  onRemoveFromHierarchy={handleRemoveSelectedEntityFromHierarchy}
                   onToolChange={setTool}
                   onDuplicateSelection={handleDuplicateSelection}
                   onDeleteSelection={handleDeleteSelection}
