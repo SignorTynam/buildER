@@ -4662,6 +4662,16 @@ textarea:disabled {
   color: #b01876;
 }
 
+.sql-token-entity {
+  color: var(--studio-accent-strong);
+  font-weight: 600;
+}
+
+.sql-token-relationship {
+  color: var(--studio-warning);
+  font-weight: 600;
+}
+
 .sql-token-comment {
   color: #71849a;
 }

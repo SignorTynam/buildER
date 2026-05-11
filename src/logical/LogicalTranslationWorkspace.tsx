@@ -5,6 +5,7 @@ import type {
   LogicalColumn,
   LogicalSelection,
   LogicalStage,
+  LogicalTableKind,
   LogicalTranslationChoice,
   LogicalTranslationItem,
   LogicalTranslationRuleKind,
@@ -145,9 +146,34 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function highlightSql(sql: string): string {
-  const escaped = escapeHtml(sql);
-  return escaped.replace(
+function highlightSql(sql: string, model: LogicalWorkspaceDocument["model"]): string {
+  const tableKindByName = new Map<string, LogicalTableKind>();
+  model.tables.forEach((table) => tableKindByName.set(table.name, table.kind));
+
+  let placeholderIndex = 0;
+  const placeholderMap = new Map<string, string>();
+  const makePlaceholder = (quotedName: string, kind: LogicalTableKind) => {
+    const placeholder = `__SQL_NAME_${placeholderIndex += 1}__`;
+    const className = kind === "entity" ? "sql-token-entity" : "sql-token-relationship";
+    placeholderMap.set(placeholder, `<span class="${className}">${escapeHtml(quotedName)}</span>`);
+    return placeholder;
+  };
+
+  const tagTableName = (match: string, quotedName: string) => {
+    const unquoted = quotedName.slice(1, -1).replace(/""/g, '"');
+    const kind = tableKindByName.get(unquoted);
+    if (!kind) {
+      return match;
+    }
+    const placeholder = makePlaceholder(quotedName, kind);
+    return match.replace(quotedName, placeholder);
+  };
+
+  let taggedSql = sql.replace(/\bCREATE\s+TABLE\s+("(?:""|[^"])+")/gi, tagTableName);
+  taggedSql = taggedSql.replace(/\bREFERENCES\s+("(?:""|[^"])+")/gi, tagTableName);
+
+  const escaped = escapeHtml(taggedSql);
+  let highlighted = escaped.replace(
     /(--.*$|\/\*[\s\S]*?\*\/|\b(?:CREATE|TABLE|PRIMARY|KEY|FOREIGN|REFERENCES|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)\b|\b(?:INTEGER|TEXT|VARCHAR|REAL|NUMERIC|DATE|DATETIME|BLOB|JSON|BOOLEAN)\b)/gim,
     (token) => {
       if (token.startsWith("--") || token.startsWith("/*")) {
@@ -162,6 +188,12 @@ function highlightSql(sql: string): string {
       return `<span class="sql-token-keyword">${token}</span>`;
     },
   );
+
+  placeholderMap.forEach((value, placeholder) => {
+    highlighted = highlighted.split(placeholder).join(value);
+  });
+
+  return highlighted;
 }
 
 function downloadSql(sql: string): void {
@@ -592,18 +624,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             </div>
             <pre
               className="designer-sql-output"
-              dangerouslySetInnerHTML={{ __html: highlightSql(sqlPreview) }}
+              dangerouslySetInnerHTML={{ __html: highlightSql(sqlPreview, props.workspace.model) }}
             />
           </aside>
         ) : null}
 
         <section className="designer-logical-canvas">
-          {props.logicalStage === "translation" ? (
-            <div className="designer-logical-status">
-              <span>{bulkLabel}</span>
-              <span>{logicalPendingCount} pending</span>
-            </div>
-          ) : null}
+          {props.logicalStage === "translation" ? (null) : null}
           <LogicalTransformationCanvas
             workspace={props.workspace}
             selection={props.selection}
