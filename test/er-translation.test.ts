@@ -108,6 +108,45 @@ function assertNoDanglingReferences(diagram: DiagramDocument) {
   });
 }
 
+function getEntity(diagram: DiagramDocument, entityId: string): EntityNode {
+  const entity = diagram.nodes.find((node): node is EntityNode => node.id === entityId && node.type === "entity");
+  assert.ok(entity, `missing entity ${entityId}`);
+  return entity;
+}
+
+function getRelationshipByLabel(diagram: DiagramDocument, label: string) {
+  const relationship = diagram.nodes.find((node) => node.type === "relationship" && node.label === label);
+  assert.ok(relationship, `missing relationship ${label}`);
+  return relationship;
+}
+
+function getConnectorCardinality(diagram: DiagramDocument, entityId: string, relationshipId: string): string | undefined {
+  const entity = getEntity(diagram, entityId);
+  const edge = diagram.edges.find(
+    (candidate) =>
+      candidate.type === "connector" &&
+      ((candidate.sourceId === entityId && candidate.targetId === relationshipId) ||
+        (candidate.sourceId === relationshipId && candidate.targetId === entityId)),
+  );
+  assert.ok(edge, `missing connector between ${entityId} and ${relationshipId}`);
+  return entity.relationshipParticipations?.find((participation) => participation.id === edge.participationId)
+    ?.cardinality;
+}
+
+function assertSubstitutionRelationship(diagram: DiagramDocument, subtypeId: string) {
+  const relationship = getRelationshipByLabel(diagram, `IS_${subtypeId}`);
+  assert.equal(getConnectorCardinality(diagram, "ENTITY1", relationship.id), "(0,1)");
+  assert.equal(getConnectorCardinality(diagram, subtypeId, relationship.id), "(1,1)");
+
+  const subtype = getEntity(diagram, subtypeId);
+  const externalIdentifiers = subtype.externalIdentifiers ?? [];
+  assert.equal(externalIdentifiers.length, 1);
+  assert.equal(externalIdentifiers[0].relationshipId, relationship.id);
+  assert.equal(externalIdentifiers[0].sourceEntityId, "ENTITY1");
+  assert.equal(externalIdentifiers[0].importedIdentifierId, "ENTITY1-pk");
+  assert.deepEqual(externalIdentifiers[0].localAttributeIds, []);
+}
+
 function createCollapseUpDiagram(options: { childAttributes?: boolean; existingType?: boolean } = {}): DiagramDocument {
   const groupId = "G_ENTITY";
   const nodes: DiagramNode[] = [
@@ -386,6 +425,153 @@ test("collapse up non promuove gli identificatori delle figlie sul padre", () =>
   assert.equal(attribute13.isIdentifier, false);
   assert.equal(attribute13.cardinality, "(0,1)");
   assert.deepEqual(entity1.internalIdentifiers?.[0]?.attributeIds, ["Attribute9"]);
+});
+
+test("sostituzione generalizzazione con figlie con attributi crea relazioni IS e preserva attributi locali", () => {
+  const translated = applyGeneralizationTranslation(createCollapseUpDiagram({ childAttributes: true }), {
+    supertypeId: "G_ENTITY",
+    rule: "generalization-substitution",
+  });
+
+  assert.ok(getEntity(translated, "ENTITY1"));
+  assert.ok(getEntity(translated, "ENTITY2"));
+  assert.ok(getEntity(translated, "ENTITY3"));
+  assert.equal(translated.edges.some((edge) => edge.type === "inheritance"), false);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_ENTITY"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "attribute" && node.label === "Type"), false);
+
+  assert.deepEqual(
+    new Set(getDirectEntityAttributes(translated, "ENTITY1").map((attribute) => attribute.label)),
+    new Set(["Attribute9", "Attribute8", "Attribute10"]),
+  );
+  assert.deepEqual(
+    new Set(getDirectEntityAttributes(translated, "ENTITY2").map((attribute) => attribute.label)),
+    new Set(["Attribute13"]),
+  );
+  assert.deepEqual(
+    new Set(getDirectEntityAttributes(translated, "ENTITY3").map((attribute) => attribute.label)),
+    new Set(["Attribute14"]),
+  );
+  assert.deepEqual(getEntity(translated, "ENTITY1").internalIdentifiers?.[0]?.attributeIds, ["Attribute9"]);
+
+  assertSubstitutionRelationship(translated, "ENTITY2");
+  assertSubstitutionRelationship(translated, "ENTITY3");
+  assertNoDanglingReferences(translated);
+});
+
+test("sostituzione generalizzazione con figlie senza attributi mantiene le figlie e non crea attributi artificiali", () => {
+  const translated = applyGeneralizationTranslation(createCollapseUpDiagram(), {
+    supertypeId: "G_ENTITY",
+    rule: "generalization-substitution",
+  });
+
+  assert.ok(getEntity(translated, "ENTITY1"));
+  assert.ok(getEntity(translated, "ENTITY2"));
+  assert.ok(getEntity(translated, "ENTITY3"));
+  assert.equal(translated.edges.some((edge) => edge.type === "inheritance"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "attribute" && node.label === "Type"), false);
+  assert.deepEqual(getDirectEntityAttributes(translated, "ENTITY2"), []);
+  assert.deepEqual(getDirectEntityAttributes(translated, "ENTITY3"), []);
+
+  assertSubstitutionRelationship(translated, "ENTITY2");
+  assertSubstitutionRelationship(translated, "ENTITY3");
+  assertNoDanglingReferences(translated);
+});
+
+test("sostituzione non duplica relazioni IS, connector o identificatori esterni gia presenti", () => {
+  const base = createCollapseUpDiagram();
+  const diagramWithExistingSubstitution: DiagramDocument = {
+    ...base,
+    edges: [
+      ...base.edges,
+      {
+        id: "edge-ENTITY1-IS_ENTITY2",
+        type: "connector",
+        sourceId: "ENTITY1",
+        targetId: "relationship-IS_ENTITY2",
+        label: "",
+        lineStyle: "solid",
+        participationId: "part-ENTITY1-IS_ENTITY2",
+      },
+      {
+        id: "edge-ENTITY2-IS_ENTITY2",
+        type: "connector",
+        sourceId: "ENTITY2",
+        targetId: "relationship-IS_ENTITY2",
+        label: "",
+        lineStyle: "solid",
+        participationId: "part-ENTITY2-IS_ENTITY2",
+      },
+    ],
+    nodes: base.nodes
+      .map((node) => {
+        if (node.id === "ENTITY1" && node.type === "entity") {
+          return {
+            ...node,
+            relationshipParticipations: [
+              ...(node.relationshipParticipations ?? []),
+              {
+                id: "part-ENTITY1-IS_ENTITY2",
+                relationshipId: "relationship-IS_ENTITY2",
+                cardinality: "(0,N)",
+              },
+            ],
+          };
+        }
+
+        if (node.id === "ENTITY2" && node.type === "entity") {
+          return {
+            ...node,
+            relationshipParticipations: [
+              ...(node.relationshipParticipations ?? []),
+              {
+                id: "part-ENTITY2-IS_ENTITY2",
+                relationshipId: "relationship-IS_ENTITY2",
+                cardinality: "(0,N)",
+              },
+            ],
+            externalIdentifiers: [
+              {
+                id: "external-ENTITY2-IS_ENTITY2",
+                relationshipId: "relationship-IS_ENTITY2",
+                sourceEntityId: "ENTITY1",
+                importedIdentifierId: "ENTITY1-pk",
+                localAttributeIds: [],
+              },
+            ],
+          };
+        }
+
+        return node;
+      })
+      .concat({
+        id: "relationship-IS_ENTITY2",
+        type: "relationship",
+        label: "IS_ENTITY2",
+        x: 160,
+        y: 160,
+        width: 130,
+        height: 78,
+      }),
+  };
+
+  const translated = applyGeneralizationTranslation(diagramWithExistingSubstitution, {
+    supertypeId: "G_ENTITY",
+    rule: "generalization-substitution",
+  });
+
+  assert.equal(translated.nodes.filter((node) => node.type === "relationship" && node.label === "IS_ENTITY2").length, 1);
+  assert.equal(
+    translated.edges.filter(
+      (edge) =>
+        edge.type === "connector" &&
+        (edge.sourceId === "relationship-IS_ENTITY2" || edge.targetId === "relationship-IS_ENTITY2"),
+    ).length,
+    2,
+  );
+  assert.equal((getEntity(translated, "ENTITY2").externalIdentifiers ?? []).length, 1);
+  assertSubstitutionRelationship(translated, "ENTITY2");
+  assertSubstitutionRelationship(translated, "ENTITY3");
 });
 
 test("la pipeline ER->ER blocca gli attributi composti finche esistono generalizzazioni aperte", () => {

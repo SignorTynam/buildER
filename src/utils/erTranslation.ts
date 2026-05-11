@@ -94,6 +94,8 @@ const ER_TRANSLATION_STEP_DEFS: Array<{
 const STEP_ORDER: ErTranslationStep[] = ["generalizations", "composite-attributes", "review"];
 const COLLAPSE_UP_DISCRIMINATOR_LABEL = "Type";
 const COLLAPSE_UP_IMPORTED_ATTRIBUTE_CARDINALITY = "(0,1)";
+const SUBSTITUTION_SUPERTYPE_CARDINALITY = "(0,1)";
+const SUBSTITUTION_SUBTYPE_CARDINALITY = "(1,1)";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -605,6 +607,272 @@ function cloneConnectorEdgeForEntity(
     sourceId: edge.sourceId === sourceEntityId ? targetEntityId : edge.sourceId,
     targetId: edge.targetId === sourceEntityId ? targetEntityId : edge.targetId,
     participationId: undefined,
+  };
+}
+
+function buildSubstitutionRelationshipLabel(subtype: EntityNode): string {
+  const normalizedSubtypeLabel = normalizeSpaces(subtype.label).replace(/\s+/g, "_");
+  return `IS_${normalizedSubtypeLabel || subtype.id}`;
+}
+
+function findBinaryRelationshipBetweenEntities(
+  diagram: DiagramDocument,
+  relationshipLabel: string,
+  firstEntityId: string,
+  secondEntityId: string,
+): Extract<DiagramNode, { type: "relationship" }> | undefined {
+  const relationshipNodes = diagram.nodes.filter(
+    (node): node is Extract<DiagramNode, { type: "relationship" }> =>
+      node.type === "relationship" && canonicalKey(node.label) === canonicalKey(relationshipLabel),
+  );
+
+  return relationshipNodes.find((relationship) => {
+    const participantIds = diagram.edges
+      .filter(
+        (edge) =>
+          edge.type === "connector" &&
+          (edge.sourceId === relationship.id || edge.targetId === relationship.id),
+      )
+      .map((edge) => (edge.sourceId === relationship.id ? edge.targetId : edge.sourceId));
+    const distinctParticipantIds = new Set(participantIds);
+    return (
+      distinctParticipantIds.size === 2 &&
+      distinctParticipantIds.has(firstEntityId) &&
+      distinctParticipantIds.has(secondEntityId)
+    );
+  });
+}
+
+function findConnectorEdgeBetweenRelationshipAndEntity(
+  diagram: DiagramDocument,
+  relationshipId: string,
+  entityId: string,
+): Extract<DiagramEdge, { type: "connector" }> | undefined {
+  return diagram.edges.find(
+    (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
+      edge.type === "connector" &&
+      ((edge.sourceId === relationshipId && edge.targetId === entityId) ||
+        (edge.targetId === relationshipId && edge.sourceId === entityId)),
+  );
+}
+
+function ensureEntityRelationshipParticipation(
+  entity: EntityNode,
+  relationshipId: string,
+  edgeId: string,
+  cardinality: string,
+  usedParticipationIds: Set<string>,
+): { entity: EntityNode; participationId: string } {
+  const currentParticipations = entity.relationshipParticipations ?? [];
+  const existing = currentParticipations.find((participation) => participation.relationshipId === relationshipId);
+  if (existing) {
+    return {
+      entity: {
+        ...entity,
+        relationshipParticipations: currentParticipations.map((participation) =>
+          participation.id === existing.id
+            ? {
+                ...participation,
+                cardinality,
+              }
+            : participation,
+        ),
+      },
+      participationId: existing.id,
+    };
+  }
+
+  const participationId = allocateUniqueId(
+    usedParticipationIds,
+    `${entity.id}-${relationshipId}-participation`,
+    `participation-${edgeId}`,
+  );
+  return {
+    entity: {
+      ...entity,
+      relationshipParticipations: [
+        ...currentParticipations,
+        {
+          id: participationId,
+          relationshipId,
+          cardinality,
+        },
+      ],
+    },
+    participationId,
+  };
+}
+
+function ensureGeneralizationSubstitutionRelationship(
+  diagram: DiagramDocument,
+  supertype: EntityNode,
+  subtype: EntityNode,
+  importedIdentifierId: string,
+): TranslationApplyResult {
+  let nextDiagram = diagram;
+  const artifacts: ErTranslationArtifactRef[] = [];
+  const preferredRelationshipLabel = buildSubstitutionRelationshipLabel(subtype);
+  const existingRelationship = findBinaryRelationshipBetweenEntities(
+    nextDiagram,
+    preferredRelationshipLabel,
+    supertype.id,
+    subtype.id,
+  );
+  let relationship = existingRelationship;
+
+  if (!relationship) {
+    const usedNodeIds = new Set(nextDiagram.nodes.map((node) => node.id));
+    const usedRelationshipLabels = new Set(
+      nextDiagram.nodes
+        .filter((node): node is Extract<DiagramNode, { type: "relationship" }> => node.type === "relationship")
+        .map((node) => canonicalKey(node.label)),
+    );
+    const relationshipLabel = allocateUniqueLabel(usedRelationshipLabels, preferredRelationshipLabel);
+    relationship = {
+      id: allocateUniqueId(usedNodeIds, `relationship-${relationshipLabel}`, "relationship"),
+      type: "relationship",
+      label: relationshipLabel,
+      x: (supertype.x + supertype.width / 2 + subtype.x + subtype.width / 2) / 2 - 65,
+      y: (supertype.y + supertype.height / 2 + subtype.y + subtype.height / 2) / 2 - 39,
+      width: 130,
+      height: 78,
+    };
+    nextDiagram = {
+      ...nextDiagram,
+      nodes: [...nextDiagram.nodes, relationship],
+    };
+  }
+
+  artifacts.push({ kind: "node", id: relationship.id, label: relationship.label });
+
+  const usedEdgeIds = new Set(nextDiagram.edges.map((edge) => edge.id));
+  let supertypeEdge = findConnectorEdgeBetweenRelationshipAndEntity(nextDiagram, relationship.id, supertype.id);
+  let subtypeEdge = findConnectorEdgeBetweenRelationshipAndEntity(nextDiagram, relationship.id, subtype.id);
+  const addedEdges: DiagramEdge[] = [];
+
+  if (!supertypeEdge) {
+    supertypeEdge = {
+      id: allocateUniqueId(usedEdgeIds, `${relationship.id}-${supertype.id}-connector`, "connector"),
+      type: "connector",
+      sourceId: supertype.id,
+      targetId: relationship.id,
+      label: "",
+      lineStyle: "solid",
+    };
+    addedEdges.push(supertypeEdge);
+  }
+
+  if (!subtypeEdge) {
+    subtypeEdge = {
+      id: allocateUniqueId(usedEdgeIds, `${relationship.id}-${subtype.id}-connector`, "connector"),
+      type: "connector",
+      sourceId: subtype.id,
+      targetId: relationship.id,
+      label: "",
+      lineStyle: "solid",
+    };
+    addedEdges.push(subtypeEdge);
+  }
+
+  if (addedEdges.length > 0) {
+    nextDiagram = {
+      ...nextDiagram,
+      edges: [...nextDiagram.edges, ...addedEdges],
+    };
+  }
+
+  const usedParticipationIds = new Set(
+    nextDiagram.nodes.flatMap((node) =>
+      node.type === "entity" ? (node.relationshipParticipations ?? []).map((participation) => participation.id) : [],
+    ),
+  );
+  let supertypeParticipationId = supertypeEdge.participationId;
+  let subtypeParticipationId = subtypeEdge.participationId;
+  const nextNodes = nextDiagram.nodes.map((node) => {
+    if (node.type !== "entity") {
+      return node;
+    }
+
+    if (node.id === supertype.id) {
+      const updated = ensureEntityRelationshipParticipation(
+        node,
+        relationship.id,
+        supertypeEdge.id,
+        SUBSTITUTION_SUPERTYPE_CARDINALITY,
+        usedParticipationIds,
+      );
+      supertypeParticipationId = updated.participationId;
+      return updated.entity;
+    }
+
+    if (node.id === subtype.id) {
+      const updated = ensureEntityRelationshipParticipation(
+        node,
+        relationship.id,
+        subtypeEdge.id,
+        SUBSTITUTION_SUBTYPE_CARDINALITY,
+        usedParticipationIds,
+      );
+      subtypeParticipationId = updated.participationId;
+      const externalIdentifiers = node.externalIdentifiers ?? [];
+      const existingExternal = externalIdentifiers.find(
+        (identifier) =>
+          identifier.relationshipId === relationship.id &&
+          identifier.sourceEntityId === supertype.id &&
+          identifier.importedIdentifierId === importedIdentifierId &&
+          identifier.localAttributeIds.length === 0,
+      );
+      const nextExternalIdentifiers =
+        existingExternal !== undefined
+          ? externalIdentifiers
+          : [
+              {
+                id: allocateUniqueId(
+                  new Set(externalIdentifiers.map((identifier) => identifier.id)),
+                  `${subtype.id}-${relationship.id}-external`,
+                  "externalIdentifier",
+                ),
+                relationshipId: relationship.id,
+                sourceEntityId: supertype.id,
+                importedIdentifierId,
+                localAttributeIds: [],
+              },
+            ];
+
+      return {
+        ...updated.entity,
+        externalIdentifiers: nextExternalIdentifiers,
+      };
+    }
+
+    return node;
+  });
+
+  nextDiagram = {
+    ...nextDiagram,
+    nodes: nextNodes,
+    edges: nextDiagram.edges.map((edge) => {
+      if (edge.id === supertypeEdge.id && edge.type === "connector") {
+        return {
+          ...edge,
+          participationId: supertypeParticipationId,
+        };
+      }
+
+      if (edge.id === subtypeEdge.id && edge.type === "connector") {
+        return {
+          ...edge,
+          participationId: subtypeParticipationId,
+        };
+      }
+
+      return edge;
+    }),
+  };
+
+  return {
+    diagram: nextDiagram,
+    artifacts,
   };
 }
 
@@ -1142,22 +1410,43 @@ function applyGeneralizationTranslationDetailed(
       });
     });
   } else if (rule === "generalization-substitution") {
-    if (!supertype.internalIdentifiers?.some((identifier) => identifier.attributeIds.length > 0)) {
+    const importedIdentifier = supertype.internalIdentifiers?.find((identifier) => identifier.attributeIds.length > 0);
+    if (!importedIdentifier) {
       throw new Error("Sostituzione non disponibile: il padre non ha un identificatore da propagare alle figlie.");
     }
 
-    working = {
+    hierarchy.subtypes.forEach((subtype) => {
+      const supertypeCurrent = working.nodes.find((node): node is EntityNode => node.id === supertype.id && node.type === "entity");
+      const subtypeCurrent = working.nodes.find((node): node is EntityNode => node.id === subtype.id && node.type === "entity");
+      if (!supertypeCurrent || !subtypeCurrent) {
+        return;
+      }
+
+      const substituted = ensureGeneralizationSubstitutionRelationship(
+        working,
+        supertypeCurrent,
+        subtypeCurrent,
+        importedIdentifier.id,
+      );
+      working = substituted.diagram;
+      artifacts.push(...substituted.artifacts);
+    });
+
+    const hierarchyEdgeIds = new Set(hierarchy.edges.map((edge) => edge.id));
+    working = normalizeTranslatedDiagram({
       ...working,
-      edges: working.edges.filter(
-        (edge) =>
-          !(
-            edge.type === "inheritance" &&
-            edge.generalizationGroupId === hierarchy.id &&
-            edge.targetId === supertype.id
-          ),
-      ),
+      edges: working.edges.filter((edge) => {
+        if (edge.type !== "inheritance") {
+          return true;
+        }
+
+        return !(
+          hierarchyEdgeIds.has(edge.id) ||
+          (edge.generalizationGroupId === hierarchy.id && edge.targetId === supertype.id)
+        );
+      }),
       generalizationGroups: (working.generalizationGroups ?? []).filter((group) => group.id !== hierarchy.id),
-    };
+    });
     artifacts.push(
       { kind: "node", id: supertype.id, label: supertype.label },
       ...hierarchy.subtypes.map((subtype): ErTranslationArtifactRef => ({ kind: "node", id: subtype.id, label: subtype.label })),
