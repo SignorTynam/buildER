@@ -53,6 +53,8 @@ import type {
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_SELECTION_FILL = "var(--diagram-selection-fill)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
+const DIAGRAM_TRANSLATION_PENDING = "var(--diagram-translation-pending, #ff3b30)";
+const DIAGRAM_TRANSLATION_BLOCKED = "var(--diagram-translation-blocked, #b75b56)";
 
 type FocusTarget =
   | { kind: "node"; id: string }
@@ -2630,6 +2632,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         edgeIds: group.edgeIds,
         selected: group.edgeIds.some((edgeId) => props.selection.edgeIds.includes(edgeId)),
         focused: focusedTarget?.kind === "edge" && group.edgeIds.some((edgeId) => edgeId === focusedTarget.id),
+        highlighted: group.edgeIds.some((edgeId) => resolveTranslationHighlight(edgeId, props.translationHighlights) === "selected"),
+        blocked: group.edgeIds.some((edgeId) => resolveTranslationHighlight(edgeId, props.translationHighlights) === "blocked"),
+        pending: group.edgeIds.some((edgeId) => resolveTranslationHighlight(edgeId, props.translationHighlights) === "pending"),
         firstEdgeId,
         visualLayout,
         label: `(${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"})`,
@@ -2927,7 +2932,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ) : null}
 
           {groupedInheritanceLayouts.map((layout) => {
-            const stroke = layout.selected || layout.focused ? DIAGRAM_FOCUS : DIAGRAM_STROKE;
+            const stroke = layout.highlighted
+              ? DIAGRAM_TRANSLATION_PENDING
+              : layout.blocked
+                ? DIAGRAM_TRANSLATION_BLOCKED
+                : layout.pending
+                  ? DIAGRAM_TRANSLATION_PENDING
+                  : layout.selected || layout.focused
+                    ? DIAGRAM_FOCUS
+                    : DIAGRAM_STROKE;
             const trianglePath = `M ${layout.visualLayout.triangleApex.x} ${layout.visualLayout.triangleApex.y} L ${layout.visualLayout.triangleBaseA.x} ${layout.visualLayout.triangleBaseA.y} L ${layout.visualLayout.triangleBaseB.x} ${layout.visualLayout.triangleBaseB.y} Z`;
             const hitPath = pathFromPoints(layout.visualLayout.hitPoints);
             const labelWidth = layout.label ? layout.label.length * 8 + 10 : 0;
@@ -2935,7 +2948,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               <g
                 key={`inheritance-group-${layout.group.id}`}
                 className={
-                  layout.selected
+                  layout.selected || layout.highlighted
                     ? `diagram-edge selected inheritance-group inheritance-group-${layout.visualLayout.kind}`
                     : `diagram-edge inheritance-group inheritance-group-${layout.visualLayout.kind}`
                 }
@@ -2965,7 +2978,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     d={pathFromPoints([segment.from, segment.to])}
                     fill="none"
                     stroke={stroke}
-                    strokeWidth={2.2}
+                    strokeWidth={layout.highlighted ? 2.6 : 2.2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -2974,7 +2987,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   d={trianglePath}
                   fill="var(--diagram-canvas-fill)"
                   stroke={stroke}
-                  strokeWidth={2.5}
+                  strokeWidth={layout.highlighted ? 2.9 : 2.5}
                   strokeLinejoin="round"
                 />
                 {layout.label ? (

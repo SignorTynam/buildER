@@ -426,8 +426,8 @@ export const it = {
   translation: {
     restructuring: {
       stageLabel: "RESTRUCTURING",
-      undo: "Annulla",
-      redo: "Ripeti",
+      undo: "Undo",
+      redo: "Redo",
       reset: "Reset",
       fix: "Fix",
       design: "Design",

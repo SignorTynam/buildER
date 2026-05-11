@@ -5283,6 +5283,8 @@ export default function App() {
               onResetTranslation={handleResetTranslation}
               onOpenDesign={() => handleDiagramViewChange("er")}
               onOpenLogical={handleGenerateLogicalModel}
+              notesPanelOpen={notesPanelOpen}
+              onToggleNotesPanel={handleToggleNotesPanel}
               onExportProject={handleSaveProject}
               onSaveRestructuredErs={handleSaveRestructuredErs}
               onPreviewDiagram={(diagram) => {

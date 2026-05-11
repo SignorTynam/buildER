@@ -1018,6 +1018,10 @@ body,
   background: var(--studio-bg);
 }
 
+.workspace-shell.translation-workspace-shell {
+  padding: 0;
+}
+
 .er-workspace-shell,
 .structured-workspace-shell {
   display: grid;
