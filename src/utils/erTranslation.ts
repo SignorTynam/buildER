@@ -92,6 +92,8 @@ const ER_TRANSLATION_STEP_DEFS: Array<{
 ];
 
 const STEP_ORDER: ErTranslationStep[] = ["generalizations", "composite-attributes", "review"];
+const COLLAPSE_UP_DISCRIMINATOR_LABEL = "Type";
+const COLLAPSE_UP_IMPORTED_ATTRIBUTE_CARDINALITY = "(0,1)";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -803,6 +805,8 @@ function moveSubtypeAttributesIntoSupertype(
           ? {
               ...node,
               label: nextLabel,
+              isIdentifier: false,
+              cardinality: COLLAPSE_UP_IMPORTED_ATTRIBUTE_CARDINALITY,
             }
           : node,
       ),
@@ -827,6 +831,79 @@ function moveSubtypeAttributesIntoSupertype(
   return {
     diagram: nextDiagram,
     artifacts,
+  };
+}
+
+function ensureCollapseUpDiscriminatorAttribute(
+  diagram: DiagramDocument,
+  supertype: EntityNode,
+): TranslationApplyResult {
+  const ownership = buildAttributeOwnershipContext(diagram);
+  const directAttributeIds = ownership.directAttributeIdsByOwnerId.get(supertype.id) ?? [];
+  const directAttributes = directAttributeIds
+    .map((attributeId) => ownership.nodeById.get(attributeId))
+    .filter((node): node is AttributeNode => node?.type === "attribute");
+  const existingTypeAttribute = directAttributes.find(
+    (attribute) => canonicalKey(attribute.label) === canonicalKey(COLLAPSE_UP_DISCRIMINATOR_LABEL),
+  );
+
+  if (existingTypeAttribute) {
+    return {
+      diagram,
+      artifacts: [{ kind: "node", id: existingTypeAttribute.id, label: existingTypeAttribute.label }],
+    };
+  }
+
+  const usedNodeIds = new Set(diagram.nodes.map((node) => node.id));
+  const usedEdgeIds = new Set(diagram.edges.map((edge) => edge.id));
+  const typeAttributeId = allocateUniqueId(
+    usedNodeIds,
+    `${supertype.id}-collapse-up-type`,
+    "attribute",
+  );
+  const typeEdgeId = allocateUniqueId(
+    usedEdgeIds,
+    `${supertype.id}-${typeAttributeId}-edge`,
+    "attribute-edge",
+  );
+  const supertypeCenterX = supertype.x + supertype.width / 2;
+  const attributeCenters = directAttributes.map((attribute) => attribute.x + attribute.width / 2);
+  const placeOnLeft =
+    attributeCenters.length === 0 ||
+    attributeCenters.reduce((sum, centerX) => sum + centerX, 0) / attributeCenters.length < supertypeCenterX;
+  const nextY =
+    directAttributes.length > 0
+      ? Math.max(...directAttributes.map((attribute) => attribute.y)) + 52
+      : supertype.y + supertype.height + 32;
+  const typeAttribute: AttributeNode = {
+    id: typeAttributeId,
+    type: "attribute",
+    label: COLLAPSE_UP_DISCRIMINATOR_LABEL,
+    x: placeOnLeft ? supertype.x - 130 : supertype.x + supertype.width + 90,
+    y: nextY,
+    width: 150,
+    height: 28,
+    isIdentifier: false,
+    isCompositeInternal: false,
+    isMultivalued: false,
+    cardinality: undefined,
+  };
+  const typeEdge: DiagramEdge = {
+    id: typeEdgeId,
+    type: "attribute",
+    sourceId: typeAttribute.id,
+    targetId: supertype.id,
+    label: "",
+    lineStyle: "solid",
+  };
+
+  return {
+    diagram: {
+      ...diagram,
+      nodes: [...diagram.nodes, typeAttribute],
+      edges: [...diagram.edges, typeEdge],
+    },
+    artifacts: [{ kind: "node", id: typeAttribute.id, label: typeAttribute.label }],
   };
 }
 
@@ -960,6 +1037,11 @@ function applyGeneralizationTranslationDetailed(
     if (hierarchy.disjointness === "overlap") {
       throw new Error("Collasso verso l'alto non disponibile per generalizzazioni sovrapposte.");
     }
+
+    const discriminator = ensureCollapseUpDiscriminatorAttribute(working, supertype);
+    working = discriminator.diagram;
+    artifacts.push(...discriminator.artifacts);
+
     hierarchy.subtypes.forEach((subtype) => {
       const subtypeNode = currentNodeMap.get(subtype.id);
       if (subtypeNode?.type !== "entity") {
@@ -1022,8 +1104,8 @@ function applyGeneralizationTranslationDetailed(
             if (node.id === supertypeCurrent.id) {
               return {
                 ...node,
-                internalIdentifiers: mergeInternalIdentifiers(node, subtypeCurrent.internalIdentifiers),
-                externalIdentifiers: mergeExternalIdentifiers(node, supertypeCurrent.id, subtypeCurrent.externalIdentifiers),
+                internalIdentifiers: supertypeCurrent.internalIdentifiers,
+                externalIdentifiers: supertypeCurrent.externalIdentifiers,
               };
             }
 
