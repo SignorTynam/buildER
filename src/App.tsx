@@ -64,6 +64,7 @@ import {
   revalidateExternalIdentifiers,
   parseDiagram,
   removeEntityFromGeneralizationHierarchy,
+  removeExternalIdentifierFromEntity,
   removeSelection,
   serializeDiagram,
   updateGeneralizationGroupConstraint,
@@ -857,28 +858,6 @@ function updateEdgeTextInDiagram(diagram: DiagramDocument, edgeId: string, value
       }
 
       return { ...edge, label: value };
-    }),
-  };
-}
-
-function clearExternalIdentifierFromEntity(
-  diagram: DiagramDocument,
-  entityId: string,
-  externalIdentifierId: string,
-): DiagramDocument {
-  return {
-    ...diagram,
-    nodes: diagram.nodes.map((node) => {
-      if (node.id !== entityId || node.type !== "entity") {
-        return node;
-      }
-
-      return {
-        ...node,
-        externalIdentifiers: (node.externalIdentifiers ?? []).filter(
-          (identifier) => identifier.id !== externalIdentifierId,
-        ),
-      };
     }),
   };
 }
@@ -4729,10 +4708,25 @@ export default function App() {
       return;
     }
 
-    const nextDiagram = clearExternalIdentifierFromEntity(history.present, hostEntityId, externalIdentifierId);
+    const nextDiagram = removeExternalIdentifierFromEntity(history.present, hostEntityId, externalIdentifierId);
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostEntityId], edgeIds: [] });
     setStatus("Identificatore esterno rimosso.");
+  }
+
+  function handleRemoveSelectedExternalIdentifier() {
+    if (selectedNode?.type !== "entity") {
+      setStatusWarning("Seleziona un'entita con identificatore esterno.");
+      return;
+    }
+
+    const externalIdentifier = selectedNode.externalIdentifiers?.[0];
+    if (!externalIdentifier) {
+      setStatusWarning("Nessun identificatore esterno da rimuovere sull'entita selezionata.");
+      return;
+    }
+
+    handleDeleteExternalIdentifier(selectedNode.id, externalIdentifier.id);
   }
 
   function handleDuplicateSelection() {
@@ -5211,6 +5205,7 @@ export default function App() {
                   onOpenExternalIdentifier={() => createExternalIdentifierFromContext({ mixed: false })}
                   onOpenInheritanceType={handleOpenInheritanceTypeControl}
                   onRemoveFromHierarchy={handleRemoveSelectedEntityFromHierarchy}
+                  onRemoveExternalIdentifier={handleRemoveSelectedExternalIdentifier}
                   onToolChange={setTool}
                   onDuplicateSelection={handleDuplicateSelection}
                   onDeleteSelection={handleDeleteSelection}

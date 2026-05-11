@@ -37,6 +37,7 @@ interface ToolbarProps {
   onOpenExternalIdentifier?: () => void;
   onOpenInheritanceType?: () => void;
   onRemoveFromHierarchy?: () => void;
+  onRemoveExternalIdentifier?: () => void;
   onToolChange: (tool: ToolKind) => void;
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
@@ -310,6 +311,8 @@ export function Toolbar(props: ToolbarProps) {
         group.supertypeId === props.selectedNode?.id ||
         group.subtypeIds.includes(props.selectedNode?.id ?? ""),
     );
+  const selectedEntityHasExternalIdentifier =
+    props.selectedNode?.type === "entity" && (props.selectedNode.externalIdentifiers ?? []).length > 0;
 
   const baseCommands: ToolbarCommand[] = [
     { key: "undo", label: "Undo", icon: <ToolIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
@@ -349,6 +352,18 @@ export function Toolbar(props: ToolbarProps) {
               icon: <ToolIcon name="removeHierarchy" />,
               onClick: () => props.onRemoveFromHierarchy?.(),
               title: "Remove this entity from its hierarchy",
+            } satisfies ToolbarCommand,
+          ]
+        : []),
+      ...(selectedEntityHasExternalIdentifier
+        ? [
+            {
+              key: "remove-external-id",
+              label: "Remove Ext Id",
+              icon: <ToolIcon name="externalId" />,
+              onClick: () => props.onRemoveExternalIdentifier?.(),
+              disabled: !canEdit,
+              title: "Remove the external identifier from this entity",
             } satisfies ToolbarCommand,
           ]
         : []),

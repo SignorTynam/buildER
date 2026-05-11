@@ -8,6 +8,7 @@ import {
   mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
   removeEntityFromGeneralizationHierarchy,
+  removeExternalIdentifierFromEntity,
   removeSelection,
   removeSubtypeFromGeneralizationGroup,
   renameNodeAsNameIdentity,
@@ -776,6 +777,51 @@ relationship R (
 
   const serialized = serializeDiagramToErs(parsed);
   assert.match(serialized, /^    B: one\.\.one external$/m);
+});
+
+test("removeExternalIdentifierFromEntity rimuove solo l'identificatore esterno e preserva nodi, attributi e relazioni", () => {
+  const source = `/* Entities */
+entity A {
+    idA (id)
+}
+entity B {
+    attributeB
+}
+entity C
+
+/* Relationships */
+relationship R (
+    A: zero..many,
+    B: one..one external
+)
+relationship NORMAL (
+    B: zero..many,
+    C: one..one
+)`;
+
+  const parsed = parseErsDiagram(source);
+  const entityB = parsed.nodes.find((node) => node.type === "entity" && node.label === "B");
+  assert.equal(entityB?.type, "entity");
+  assert.equal(entityB?.type === "entity" ? entityB.externalIdentifiers?.length : 0, 1);
+  const externalIdentifierId = entityB?.type === "entity" ? entityB.externalIdentifiers?.[0]?.id : undefined;
+  assert.ok(externalIdentifierId);
+
+  const updated = removeExternalIdentifierFromEntity(parsed, entityB.id, externalIdentifierId);
+  const updatedEntityB = updated.nodes.find((node) => node.type === "entity" && node.label === "B");
+  assert.equal(updatedEntityB?.type, "entity");
+  assert.equal(updatedEntityB?.type === "entity" ? updatedEntityB.externalIdentifiers : undefined, undefined);
+  assert.equal(updated.nodes.some((node) => node.type === "attribute" && node.label === "attributeB"), true);
+  assert.equal(updated.nodes.some((node) => node.type === "relationship" && node.label === "R"), true);
+  assert.equal(updated.nodes.some((node) => node.type === "relationship" && node.label === "NORMAL"), true);
+
+  const nodeIds = new Set(updated.nodes.map((node) => node.id));
+  updated.edges.forEach((edge) => {
+    assert.equal(nodeIds.has(edge.sourceId), true);
+    assert.equal(nodeIds.has(edge.targetId), true);
+  });
+
+  const serialized = serializeDiagramToErs(updated);
+  assert.doesNotMatch(serialized, /\bexternal\b/);
 });
 
 test("ERS parse e serializza gruppi generalization espliciti", () => {

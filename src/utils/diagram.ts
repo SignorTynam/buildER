@@ -2823,6 +2823,41 @@ export function isExternalIdentifierStillValid(
   return validateExternalIdentifier(diagram, hostEntity, externalIdentifier).valid;
 }
 
+export function removeExternalIdentifierFromEntity(
+  diagram: DiagramDocument,
+  entityId: string,
+  externalIdentifierId?: string,
+): DiagramDocument {
+  let changed = false;
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.id !== entityId || node.type !== "entity") {
+      return node;
+    }
+
+    const currentIdentifiers = node.externalIdentifiers ?? [];
+    const nextIdentifiers =
+      externalIdentifierId === undefined
+        ? []
+        : currentIdentifiers.filter((identifier) => identifier.id !== externalIdentifierId);
+    if (nextIdentifiers.length === currentIdentifiers.length) {
+      return node;
+    }
+
+    changed = true;
+    return {
+      ...node,
+      externalIdentifiers: nextIdentifiers.length > 0 ? nextIdentifiers : undefined,
+    };
+  });
+
+  return changed
+    ? {
+        ...diagram,
+        nodes: nextNodes,
+      }
+    : diagram;
+}
+
 export function revalidateExternalIdentifiers(
   diagram: DiagramDocument,
 ): { diagram: DiagramDocument; invalidations: ExternalIdentifierInvalidation[] } {
