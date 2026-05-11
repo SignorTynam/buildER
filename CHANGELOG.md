@@ -15,6 +15,33 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.2.0] - 2026-05-11
+
+### Added
+- Nuovo sistema modale Studio per menu comandi, scorciatoie tastiera, changelog e informazioni applicative.
+- Supporto piu completo ai gruppi di generalizzazione ISA, con cleanup da UI, serializzazione coerente e test ERS dedicati.
+- Validazioni aggiuntive per sottotipi ISA senza attributi e supertypes ISA senza relazioni.
+- Vista Logica estesa con bulk fix, gestione esplicita degli stage Translation/Schema e pannelli piu coerenti.
+- Vista SQL/Schema finale con rendering relazionale in stile designER: tabelle, colonne, PK/FK sottolineate e frecce tra tabelle.
+- Toolbar Schema in doppia modalita: normale (`Undo`, `Redo`, `Reset`, `Fix Entities`, `Design`, `Done`, `Export`, `Save`) e modifica (`Unique`, `Type`, `Move`, `Rename`).
+- Menu Type compatto con tipi SQL disponibili senza pannello legacy invasivo.
+
+### Changed
+- Versione applicativa aggiornata alla release 4.2 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.2 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.2 con riepilogo delle modifiche dalla 4.1.
+- Toolbar e canvas rifiniti con placement preview, gestione cardinalita, azioni contestuali e stato UI piu pulito.
+- Vista Translation/Restructuring riallineata allo stile designER: toolbar compatta, titolo `RESTRUCTURING`, Notes, selezioni rosse coerenti e generalizzazioni piu leggibili.
+- Vista SQL/Schema riallineata allo stile designER: titolo `SCHEMA`, comando `Show` separato, tabelle pulite, frecce FK e controlli zoom minimali.
+- Layout e geometria ISA migliorati con triangolo, gap, bus e label piu stabili.
+- Evidenziazione SQL migliorata per token di entita e relazioni.
+
+### Fixed
+- Rimosso dalla vista SQL il pannello legacy `Tipo SQL colonna`; il comando `Type` usa solo il menu compatto della toolbar.
+- Corretto il salvataggio dello schema logico quando si torna alla vista ER: rename, ordine colonne e metadati SQL manuali vengono preservati durante refresh/riallineamento.
+- Migliorata la gestione di rimozione entita/sottotipi nelle gerarchie ISA per evitare riferimenti residui.
+- Rafforzati i test di regressione per ERS, generalizzazioni, workflow logico manuale, SQL/schema e persistenza progetto.
+
 ## [4.1.0] - 2026-04-30
 
 ### Changed

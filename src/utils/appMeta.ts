@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.1";
+export const APP_VERSION = "4.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,22 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.2",
+    date: "2026-05-11",
+    updates: [
+      "Versione applicativa aggiornata alla release 4.2.",
+      "Nuovo sistema modale Studio per menu comandi, scorciatoie, changelog e informazioni applicative.",
+      "Vista Translation/Restructuring riallineata allo stile designER: toolbar verticale compatta, titolo RESTRUCTURING, evidenziazioni rosse coerenti, generalizzazioni piu leggibili e comando Notes integrato.",
+      "Vista SQL/Schema aggiornata in stile designER con titolo SCHEMA, comando Show separato, toolbar normale/modifica, tabelle relazionali pulite, PK/FK sottolineate, frecce FK e menu Type compatto.",
+      "Rimosso il pannello legacy 'Tipo SQL colonna': la modifica dei tipi SQL avviene tramite menu contestuale dalla toolbar schema.",
+      "Persistenza schema logico corretta: rename, ordine colonne e metadati SQL manuali restano salvati quando si torna alla vista ER o si riallinea il workspace logico.",
+      "Generalizzazioni ISA rafforzate con gruppi dedicati, cleanup, serializzazione coerente, validazioni aggiuntive e layout triangolo/bus piu stabile.",
+      "Rendering canvas e toolbar rifiniti: placement preview, cardinalita, azioni contestuali, validazioni e riduzione degli elementi UI ridondanti.",
+      "Vista Logica migliorata con bulk fix, gestione stage Translation/Schema, layout tabelle piu leggibile e highlighting SQL per entita e relazioni.",
+      "Test di regressione estesi su ERS, generalizzazioni, workflow logico, relazione/schema SQL e persistenza progetto.",
+    ],
+  },
   {
     version: "4.1",
     date: "2026-04-30",
