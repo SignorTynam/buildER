@@ -2575,6 +2575,16 @@ function normalizeCardinality(value: string | undefined): string {
     .replace(":", ",");
 }
 
+function connectorCardinalityHasMaxOne(value: string | undefined): value is string {
+  const normalized = normalizeSupportedCardinality(value);
+  if (!normalized) {
+    return false;
+  }
+
+  const match = normalized.match(/^\(([^,]+),([^)]+)\)$/);
+  return match?.[2] === "1";
+}
+
 function buildExternalIdentifierInvalidationMessage(
   hostEntityLabel: string,
   relationshipLabel: string | undefined,
@@ -3506,6 +3516,55 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           targetId: node.id,
           targetType: "node",
         });
+      }
+
+      if (compatibleEntityIds.size >= 3) {
+        const problematicParticipants = connectors
+          .map((edge) => {
+            const entityId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+            const entityNode = nodeMap.get(entityId);
+            if (entityNode?.type !== "entity") {
+              return null;
+            }
+
+            const participation = getConnectorParticipation(
+              edge,
+              nodeMap.get(edge.sourceId),
+              nodeMap.get(edge.targetId),
+            );
+            const cardinality = normalizeSupportedCardinality(participation?.cardinality);
+            if (!connectorCardinalityHasMaxOne(cardinality)) {
+              return null;
+            }
+
+            return {
+              entity: entityNode,
+              cardinality,
+            };
+          })
+          .filter((participant): participant is { entity: EntityNode; cardinality: string } => participant !== null)
+          .filter((participant, index, source) =>
+            source.findIndex((candidate) => candidate.entity.id === participant.entity.id) === index,
+          );
+
+        if (problematicParticipants.length > 0) {
+          const participantLabels = problematicParticipants
+            .map((participant) => `${participant.entity.label} ${participant.cardinality}`)
+            .join(", ");
+          const firstParticipant = problematicParticipants[0];
+          const semanticHint =
+            problematicParticipants.length === 1
+              ? ` indica che una combinazione delle altre entita determina al massimo una istanza di "${firstParticipant.entity.label}"`
+              : " indicano dipendenze rispetto alla combinazione delle altre entita";
+
+          issues.push({
+            id: `relationship-nary-max-one-cardinality-${node.id}`,
+            level: "warning",
+            message: `Attenzione: la relazione "${node.label}" ha grado ${compatibleEntityIds.size} e contiene cardinalita con massimo 1 sui lati: ${participantLabels}. Nelle relazioni ternarie o n-arie questi vincoli non si interpretano come nelle relazioni binarie:${semanticHint}. Verifica che questa sia davvero la semantica desiderata.`,
+            targetId: node.id,
+            targetType: "node",
+          });
+        }
       }
 
       const relationshipIdentifierAttributes = connectedEdges

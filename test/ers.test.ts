@@ -173,6 +173,12 @@ function createHierarchyRemovalDiagram(subtypeIds: string[] = ["ARG_TEORICO", "A
   };
 }
 
+function getNaryMaxOneCardinalityWarnings(source: string) {
+  return validateDiagram(parseErsDiagram(source)).filter((issue) =>
+    issue.id.startsWith("relationship-nary-max-one-cardinality-"),
+  );
+}
+
 function createIsaMergeDiagram(): DiagramDocument {
   const nodeIds = ["ENTITA1", "ENTITA2", "ENTITA3", "ENTITA7", "ENTITA5"];
   const nodes: DiagramNode[] = nodeIds.map((id, index) => ({
@@ -418,6 +424,70 @@ test("validateDiagram segnala sottotipi senza attributi e supertipi ISA senza re
     issues.some((issue) => issue.id === "supertype-no-relationship-ENTITA1" && issue.level === "warning"),
     true,
   );
+});
+
+test("validateDiagram avvisa su relazione ternaria con cardinalita massima 1", () => {
+  const warnings = getNaryMaxOneCardinalityWarnings(`entity A
+entity B
+entity C
+relation R A "(1,1)" B "(1,N)" C "(0,N)"`);
+
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].level, "warning");
+  assert.match(warnings[0].message, /grado 3/);
+  assert.match(warnings[0].message, /A \(1,1\)/);
+  assert.match(warnings[0].message, /combinazione delle altre entita/);
+});
+
+test("validateDiagram avvisa su relazione ternaria con cardinalita 0,1", () => {
+  const warnings = getNaryMaxOneCardinalityWarnings(`entity A
+entity B
+entity C
+relation R A "(0,1)" B "(1,N)" C "(0,N)"`);
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /A \(0,1\)/);
+});
+
+test("validateDiagram non avvisa su relazione ternaria senza cardinalita massima 1", () => {
+  const warnings = getNaryMaxOneCardinalityWarnings(`entity A
+entity B
+entity C
+relation R A "(0,N)" B "(1,N)" C "(0,N)"`);
+
+  assert.equal(warnings.length, 0);
+});
+
+test("validateDiagram non avvisa su relazione binaria con cardinalita massima 1", () => {
+  const warnings = getNaryMaxOneCardinalityWarnings(`entity A
+entity B
+relation R A "(1,1)" B "(0,N)"`);
+
+  assert.equal(warnings.length, 0);
+});
+
+test("validateDiagram avvisa su relazione n-aria di grado 4 con cardinalita 0,1", () => {
+  const warnings = getNaryMaxOneCardinalityWarnings(`entity A
+entity B
+entity C
+entity D
+relation R A "(0,N)" B "(1,N)" C "(0,1)" D "(1,N)"`);
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /grado 4/);
+  assert.match(warnings[0].message, /C \(0,1\)/);
+});
+
+test("validateDiagram aggrega piu lati n-ari con cardinalita massima 1", () => {
+  const warnings = getNaryMaxOneCardinalityWarnings(`entity A
+entity B
+entity C
+relation R A "(1,1)" B "(0,1)" C "(1,N)"`);
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /A \(1,1\)/);
+  assert.match(warnings[0].message, /B \(0,1\)/);
+  assert.equal(warnings[0].level, "warning");
 });
 
 test("merge ISA evita duplicati di sottotipo", () => {

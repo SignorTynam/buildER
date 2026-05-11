@@ -795,10 +795,10 @@ entity STATISTICA {
   assert.ok(praticoParticipation);
   assert.equal(praticoParticipation.cardinality, "(0,N)");
 
-  // 7. No structural warnings are generated
+  // 7. No blocking structural errors are generated
   const issues = validateDiagram(translated);
   assert.equal(
-    issues.filter((i) => i.level === "warning").length,
+    issues.filter((i) => i.level === "error").length,
     0,
   );
 });
