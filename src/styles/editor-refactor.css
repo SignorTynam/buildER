@@ -373,7 +373,7 @@ body {
 
 .designer-translation-toolbar {
   top: 76px;
-  left: 0;
+  left: 54px;
 }
 
 .designer-translation-canvas {
@@ -5930,70 +5930,63 @@ button.warning-card:hover {
 }
 
 .designer-translation-view .designer-translation-toolbar {
-  top: 96px;
-  left: 0;
-  width: 78px;
-  max-height: calc(100% - 136px);
-  display: flex;
-  flex-direction: column;
+  top: 76px;
+  left: 54px;
+  width: 64px;
+  display: grid;
   gap: 0;
-  border: 1px solid #cfd5d1;
-  border-left: 0;
-  border-radius: 0 6px 6px 0;
-  background: #fafbf9;
+  border: 1px solid #cfd4d1;
+  border-radius: 5px;
+  background: #f8f9f7;
   box-shadow: none;
 }
 
 .designer-translation-view .designer-toolbar-button {
-  min-height: 64px;
-  padding: 7px 4px 6px;
-  border-bottom: 1px solid #e4e8e5;
-  color: #111713;
-  font-size: 0.76rem;
-  line-height: 1.05;
+  min-height: 66px;
+  padding: 5px 3px;
+  border-bottom: 1px solid #e0e4e1;
+  color: #000000;
 }
 
-.designer-translation-view .designer-toolbar-button:hover:not(:disabled),
+.designer-translation-view .designer-toolbar-button:hover:not(:disabled) {
+  background: transparent;
+}
+
 .designer-translation-view .designer-toolbar-button.active {
-  background: #f1f4f0;
+  background: #ffd94d;
 }
 
 .designer-translation-view .designer-toolbar-button:disabled {
-  color: #aeb5b1;
+  color: #9da29f;
   background: transparent;
   opacity: 1;
 }
 
 .designer-translation-view .designer-toolbar-icon {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  font-size: 0;
+  width: 28px;
+  height: 28px;
 }
 
 .designer-translation-view .designer-toolbar-svg {
-  width: 30px;
-  height: 30px;
-  display: block;
+  width: 25px;
+  height: 25px;
 }
 
 .designer-translation-view .designer-toolbar-label {
-  font-size: 0.73rem;
-  color: currentColor;
+  font-size: 0.68rem;
+  line-height: 1.1;
 }
 
 .designer-translation-view .designer-toolbar-separator {
   width: 100%;
   height: 1px;
   margin: 0;
-  background: #dce1de;
-  flex: 0 0 auto;
+  background: #d8ddda;
 }
 
 .designer-translation-view .designer-toolbar-spacer {
-  flex: 1 1 auto;
-  min-height: 18px;
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .designer-translation-view .designer-translation-canvas,
