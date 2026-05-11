@@ -1231,15 +1231,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }
 
       const targetEntityNode = node;
+      const localAttributes = identifier.localAttributeIds
+        .map((attributeId) => nodeMap.get(attributeId))
+        .filter((attribute): attribute is Extract<DiagramNode, { type: "attribute" }> => attribute?.type === "attribute");
       const manualOffset =
-        typeof identifier.offset === "number" && Number.isFinite(identifier.offset) ? identifier.offset : 0;
-      const markerOffsetX =
-        typeof identifier.markerOffsetX === "number" && Number.isFinite(identifier.markerOffsetX)
-          ? identifier.markerOffsetX
-          : 0;
-      const markerOffsetY =
-        typeof identifier.markerOffsetY === "number" && Number.isFinite(identifier.markerOffsetY)
-          ? identifier.markerOffsetY
+        localAttributes.length > 0 && typeof identifier.offset === "number" && Number.isFinite(identifier.offset)
+          ? identifier.offset
           : 0;
 
       const weakConnector = props.diagram.edges.find(
@@ -1289,9 +1286,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         manualOffset,
       );
       const relationNormal = getFrameSideNormal(relationSide);
-      const localAttributes = identifier.localAttributeIds
-        .map((attributeId) => nodeMap.get(attributeId))
-        .filter((attribute): attribute is Extract<DiagramNode, { type: "attribute" }> => attribute?.type === "attribute");
 
       if (localAttributes.length === 0) {
         const targetCenter = getNodeCenter(targetEntityNode);
@@ -1315,10 +1309,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           return { markerBase, score };
         });
         markerCandidates.sort((left, right) => left.score - right.score);
-        const marker = {
-          x: markerCandidates[0].markerBase.x + markerOffsetX,
-          y: markerCandidates[0].markerBase.y + markerOffsetY,
-        };
+        const marker = markerCandidates[0].markerBase;
 
         externalIdentifierLayouts.push({
           externalIdentifierId: identifier.id,
@@ -1406,6 +1397,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         x: junction.x - routeDirection.x * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
         y: junction.y - routeDirection.y * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
       };
+      const markerOffsetX =
+        typeof identifier.markerOffsetX === "number" && Number.isFinite(identifier.markerOffsetX)
+          ? identifier.markerOffsetX
+          : 0;
+      const markerOffsetY =
+        typeof identifier.markerOffsetY === "number" && Number.isFinite(identifier.markerOffsetY)
+          ? identifier.markerOffsetY
+          : 0;
       const marker = {
         x: markerBase.x + markerOffsetX,
         y: markerBase.y + markerOffsetY,
@@ -3253,13 +3252,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                       ? "external-identifier external-identifier-imported external-identifier-active"
                       : "external-identifier external-identifier-imported"
                   }
-                  onPointerDown={(event) =>
-                    handleExternalIdentifierPointerDown(
-                      event,
-                      layout.hostEntityId,
-                      layout.externalIdentifierId,
-                    )
-                  }
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    if (props.tool === "delete") {
+                      props.onDeleteExternalIdentifier(layout.hostEntityId, layout.externalIdentifierId);
+                      return;
+                    }
+
+                    if (props.tool === "select") {
+                      props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
+                    }
+                  }}
                 >
                   <path className="external-identifier-hit-path" d={markerPath} fill="none" stroke="transparent" strokeWidth={16} />
                   <path
@@ -3285,26 +3288,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     cx={layout.marker.x}
                     cy={layout.marker.y}
                     r={6.5}
-                    fill="var(--diagram-canvas-fill)"
+                    fill={DIAGRAM_STROKE}
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={1.8}
                     pointerEvents="none"
-                  />
-                  <circle
-                    className="external-identifier-marker-hit"
-                    cx={layout.marker.x}
-                    cy={layout.marker.y}
-                    r={10}
-                    fill="transparent"
-                    stroke="none"
-                    pointerEvents="all"
-                    onPointerDown={(event) =>
-                      handleExternalIdentifierMarkerPointerDown(
-                        event,
-                        layout.hostEntityId,
-                        layout.externalIdentifierId,
-                      )
-                    }
                   />
                 </g>
               );

@@ -9406,6 +9406,13 @@ textarea:focus-visible,
   fill: rgba(48, 95, 88, 0.16);
 }
 
+.external-identifier-imported .external-identifier-marker,
+.external-identifier-imported:hover .external-identifier-marker,
+.external-identifier-imported:focus-within .external-identifier-marker,
+.external-identifier-imported.external-identifier-active .external-identifier-marker {
+  fill: var(--diagram-stroke, #1f2f2b);
+}
+
 /* Inspector */
 .context-card,
 .toolbar-panel .inspector-panel-embedded .context-card,
