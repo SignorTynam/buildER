@@ -101,6 +101,131 @@ function cloneDiagram(diagram: DiagramDocument): DiagramDocument {
   return JSON.parse(JSON.stringify(diagram)) as DiagramDocument;
 }
 
+function mergeEntityExternalIdentifierOffsets(
+  nextNode: EntityNode,
+  previousNode: EntityNode,
+): EntityNode {
+  const nextIdentifiers = Array.isArray(nextNode.externalIdentifiers) ? nextNode.externalIdentifiers : [];
+  const previousIdentifiers = Array.isArray(previousNode.externalIdentifiers) ? previousNode.externalIdentifiers : [];
+  if (nextIdentifiers.length === 0 || previousIdentifiers.length === 0) {
+    return nextNode;
+  }
+
+  const previousById = new Map(previousIdentifiers.map((identifier) => [identifier.id, identifier]));
+  const mergedIdentifiers = nextIdentifiers.map((identifier) => {
+    const previous = previousById.get(identifier.id);
+    if (!previous) {
+      return identifier;
+    }
+
+    return {
+      ...identifier,
+      offset: previous.offset ?? identifier.offset,
+      markerOffsetX: previous.markerOffsetX ?? identifier.markerOffsetX,
+      markerOffsetY: previous.markerOffsetY ?? identifier.markerOffsetY,
+    };
+  });
+
+  return {
+    ...nextNode,
+    externalIdentifiers: mergedIdentifiers,
+  };
+}
+
+function mergeDiagramLayout(
+  diagram: DiagramDocument,
+  previousDiagram?: DiagramDocument,
+  options?: { skipNodeIds?: Set<string> },
+): DiagramDocument {
+  if (!previousDiagram) {
+    return diagram;
+  }
+
+  const skipNodeIds = options?.skipNodeIds ?? new Set<string>();
+  const previousNodes = new Map(previousDiagram.nodes.map((node) => [node.id, node]));
+  const previousEdges = new Map(previousDiagram.edges.map((edge) => [edge.id, edge]));
+  const previousGroups = new Map(
+    (previousDiagram.generalizationGroups ?? []).map((group) => [group.id, group]),
+  );
+
+  const nextNodes = diagram.nodes.map((node) => {
+    const previous = previousNodes.get(node.id);
+    if (!previous) {
+      return node;
+    }
+
+    const withPosition = skipNodeIds.has(node.id)
+      ? node
+      : {
+          ...node,
+          x: previous.x,
+          y: previous.y,
+        };
+
+    if (withPosition.type === "entity" && previous.type === "entity") {
+      return mergeEntityExternalIdentifierOffsets(withPosition, previous);
+    }
+
+    return withPosition;
+  });
+
+  const nextEdges = diagram.edges.map((edge) => {
+    const previous = previousEdges.get(edge.id);
+    if (!previous || previous.manualOffset === undefined) {
+      return edge;
+    }
+
+    return {
+      ...edge,
+      manualOffset: previous.manualOffset,
+    };
+  });
+
+  const nextGroups = diagram.generalizationGroups
+    ? diagram.generalizationGroups.map((group) => {
+        const previous = previousGroups.get(group.id);
+        if (!previous) {
+          return group;
+        }
+
+        return {
+          ...group,
+          junctionOffsetX: previous.junctionOffsetX ?? group.junctionOffsetX,
+          junctionOffsetY: previous.junctionOffsetY ?? group.junctionOffsetY,
+        };
+      })
+    : undefined;
+
+  return {
+    ...diagram,
+    nodes: nextNodes,
+    edges: nextEdges,
+    generalizationGroups: nextGroups,
+  };
+}
+
+function collectLayoutMovedNodeIds(
+  beforeDiagram: DiagramDocument,
+  afterDiagram: DiagramDocument,
+): Set<string> {
+  const moved = new Set<string>();
+  const beforeNodes = new Map(beforeDiagram.nodes.map((node) => [node.id, node]));
+
+  afterDiagram.nodes.forEach((node) => {
+    const previous = beforeNodes.get(node.id);
+    if (!previous) {
+      moved.add(node.id);
+      return;
+    }
+
+    if (previous.x !== node.x || previous.y !== node.y) {
+      moved.add(node.id);
+    }
+  });
+
+  return moved;
+}
+
 function normalizeSpaces(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -1384,14 +1509,19 @@ export function refreshErTranslationWorkspace(
   workspace?: ErTranslationWorkspaceDocument,
 ): ErTranslationWorkspaceDocument {
   const baseWorkspace = createEmptyErTranslationWorkspace(sourceDiagram, workspace);
+  const previousDiagram = workspace?.translatedDiagram;
+  const previousDecisionIds = new Set(
+    (workspace?.translation.mappings ?? []).map((mapping) => mapping.decisionId),
+  );
   const orderedDecisions = normalizeStepDecisionOrder(
     baseWorkspace.sourceDiagram,
     workspace?.translation.decisions ?? [],
   );
-  let translatedDiagram = baseWorkspace.sourceDiagram;
+  let translatedDiagram = mergeDiagramLayout(baseWorkspace.sourceDiagram, previousDiagram);
   const nextDecisions: ErTranslationDecision[] = [];
   const nextMappings: ErTranslationState["mappings"] = [];
   const nextConflicts: ErTranslationConflict[] = [];
+  const layoutLockedNodeIds = new Set<string>();
 
   for (const decision of orderedDecisions) {
     const previewWorkspace: ErTranslationWorkspaceDocument = {
@@ -1412,8 +1542,14 @@ export function refreshErTranslationWorkspace(
     }
 
     try {
+      const beforeDecisionDiagram = translatedDiagram;
       const applied = applyDecisionToDiagram(translatedDiagram, decision);
       translatedDiagram = applied.diagram;
+      if (!previousDecisionIds.has(decision.id)) {
+        collectLayoutMovedNodeIds(beforeDecisionDiagram, translatedDiagram).forEach((id) => {
+          layoutLockedNodeIds.add(id);
+        });
+      }
       nextDecisions.push(decision);
       nextMappings.push({
         decisionId: decision.id,
@@ -1434,9 +1570,13 @@ export function refreshErTranslationWorkspace(
     }
   }
 
+  const stabilizedDiagram = mergeDiagramLayout(translatedDiagram, previousDiagram, {
+    skipNodeIds: layoutLockedNodeIds,
+  });
+
   return {
     sourceDiagram: baseWorkspace.sourceDiagram,
-    translatedDiagram,
+    translatedDiagram: stabilizedDiagram,
     translation: {
       meta: {
         createdAt: baseWorkspace.translation.meta.createdAt,
