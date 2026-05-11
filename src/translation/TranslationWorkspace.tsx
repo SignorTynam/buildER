@@ -296,7 +296,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
 
   return (
     <div className="designer-workspace designer-translation-view">
-      <div className="designer-stage-label">{t("translation.restructuring.stageLabel")}</div>
 
       <div className="designer-context-toolbar designer-translation-toolbar" role="toolbar" aria-label="Restructuring tools">
         <ToolbarButton label={t("translation.restructuring.undo")} icon={<ToolbarIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />

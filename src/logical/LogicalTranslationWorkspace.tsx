@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { DiagramDocument, Viewport } from "../types/diagram";
 import type {
   LogicalColumn,
@@ -39,6 +40,7 @@ interface LogicalTranslationWorkspaceProps {
   typeMode: boolean;
   panelMode: "review" | "sql";
   fitRequestToken: number;
+  notesPanelOpen?: boolean;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -47,6 +49,7 @@ interface LogicalTranslationWorkspaceProps {
   onSelectionChange: (selection: LogicalSelection) => void;
   onTypeModeChange: (nextValue: boolean) => void;
   onPanelModeChange: (nextValue: "review" | "sql") => void;
+  onToggleNotesPanel?: () => void;
   onApplyChoice: (item: LogicalTranslationItem, choice: LogicalTranslationChoice) => void;
   onApplyBulkFix: (step: LogicalBulkStep) => void;
   onResetTranslation: () => void;
@@ -181,9 +184,64 @@ function renameWithPrompt(label: string, currentValue: string, onRename: (nextVa
   }
 }
 
+function ToolbarIcon(props: { name: string }) {
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (props.name === "undo") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M9 14 4 9l5-5" /><path {...common} d="M4 9h10a6 6 0 0 1 6 6v1" /></svg>;
+  }
+  if (props.name === "redo") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="m15 14 5-5-5-5" /><path {...common} d="M20 9H10a6 6 0 0 0-6 6v1" /></svg>;
+  }
+  if (props.name === "reset") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M3 12a9 9 0 1 0 3-6.7" /><path {...common} d="M3 4v5h5" /></svg>;
+  }
+  if (props.name === "fix") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="m14.7 6.3 3-3 3 3-3 3" /><path {...common} d="M4 20l7.6-7.6" /><path {...common} d="m13 5 6 6" /><path {...common} d="M4 8h5" /><path {...common} d="M6.5 5.5v5" /></svg>;
+  }
+  if (props.name === "design") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><rect {...common} x="4" y="4" width="6" height="6" /><rect {...common} x="14" y="4" width="6" height="6" /><rect {...common} x="4" y="14" width="6" height="6" /><path {...common} d="M10 7h4M7 10v4M17 10v4M10 17h4" /></svg>;
+  }
+  if (props.name === "done") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><circle {...common} cx="12" cy="12" r="9" /><path {...common} d="m7.5 12.3 3 3L17 8.8" /></svg>;
+  }
+  if (props.name === "export") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M12 3v12" /><path {...common} d="m7 10 5 5 5-5" /><path {...common} d="M5 19h14" /></svg>;
+  }
+  if (props.name === "save") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M5 4h12l2 2v14H5z" /><path {...common} d="M8 4v6h8V4" /><path {...common} d="M8 20v-6h8v6" /></svg>;
+  }
+  if (props.name === "unique") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M7 12a5 5 0 0 1 10 0v2" /><path {...common} d="M7 14a5 5 0 0 0 10 0" /><path {...common} d="M12 17v3" /></svg>;
+  }
+  if (props.name === "type") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><rect {...common} x="5" y="4" width="14" height="16" /><path {...common} d="M8 8h8M8 12h8M8 16h5" /></svg>;
+  }
+  if (props.name === "move") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M12 3v18" /><path {...common} d="m8 7 4-4 4 4" /><path {...common} d="m8 17 4 4 4-4" /></svg>;
+  }
+  if (props.name === "rename") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M4 20h4l10-10-4-4L4 16z" /><path {...common} d="m13 7 4 4" /></svg>;
+  }
+  if (props.name === "show") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M4 5h12v14H4z" /><path {...common} d="m13 9 4 3-4 3" /><path {...common} d="M17 12H8" /></svg>;
+  }
+  if (props.name === "notes") {
+    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M6 4h10l2 2v14H6z" /><path {...common} d="M16 4v4h4" /><path {...common} d="M9 12h6M9 16h5" /></svg>;
+  }
+
+  return null;
+}
+
 function ToolbarButton(props: {
   label: string;
-  icon: string;
+  icon: ReactNode;
   disabled?: boolean;
   active?: boolean;
   title?: string;
@@ -203,10 +261,10 @@ function ToolbarButton(props: {
       title={props.title}
       onClick={props.onClick}
     >
-      <span className="designer-toolbar-icon" aria-hidden="true">
+      <span className="designer-toolbar-icon designer-toolbar-svg" aria-hidden="true">
         {props.icon}
       </span>
-      <span>{props.label}</span>
+      <span className="designer-toolbar-label">{props.label}</span>
     </button>
   );
 }
@@ -290,13 +348,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     }
   }
 
-  function renderCommonLeadButtons() {
+  function renderCommonLeadButtons(includeReset = true) {
     return (
       <>
-        <ToolbarButton label={t("translation.restructuring.undo")} icon="U" disabled={!props.canUndo} onClick={props.onUndo} />
-        <ToolbarButton label={t("translation.restructuring.redo")} icon="R" disabled={!props.canRedo} onClick={props.onRedo} />
-        {props.logicalStage === "translation" ? (
-          <ToolbarButton label={t("translation.restructuring.reset")} icon="Rs" onClick={props.onResetTranslation} />
+        <ToolbarButton label={t("translation.restructuring.undo")} icon={<ToolbarIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
+        <ToolbarButton label={t("translation.restructuring.redo")} icon={<ToolbarIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
+        {includeReset ? (
+          <ToolbarButton label={t("translation.restructuring.reset")} icon={<ToolbarIcon name="reset" />} onClick={props.onResetTranslation} />
         ) : null}
         <span className="designer-toolbar-separator" aria-hidden="true" />
       </>
@@ -312,7 +370,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           <>
             <ToolbarButton
               label={t("logical.designer.fix")}
-              icon="Fx"
+              icon={<ToolbarIcon name="fix" />}
               active={fixMenuOpen}
               disabled={!preferredChoice}
               title={!preferredChoice ? t("logical.designer.notFixable") : undefined}
@@ -320,26 +378,26 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             />
             <ToolbarButton
               label={t("logical.designer.rename")}
-              icon="Rn"
+              icon={<ToolbarIcon name="rename" />}
               onClick={() => selectedTranslationItem && renameWithPrompt(t("logical.designer.rename"), selectedTranslationItem.label, () => undefined)}
             />
           </>
         ) : null}
         {nextBulkStep ? (
-          <ToolbarButton label={bulkLabel} icon="Fx*" onClick={() => props.onApplyBulkFix(nextBulkStep)} />
+          <ToolbarButton label={bulkLabel} icon={<ToolbarIcon name="fix" />} onClick={() => props.onApplyBulkFix(nextBulkStep)} />
         ) : null}
-        <ToolbarButton label={t("translation.restructuring.design")} icon="D" onClick={props.onOpenDesign} />
+        <ToolbarButton label={t("translation.restructuring.design")} icon={<ToolbarIcon name="design" />} onClick={props.onOpenDesign} />
         <ToolbarButton
           label={t("logical.designer.done")}
-          icon="Ok"
+          icon={<ToolbarIcon name="done" />}
           disabled={doneDisabled}
           title={doneDisabled ? t("logical.designer.completeBeforeSchema") : undefined}
           onClick={props.onDone}
         />
-        <ToolbarButton label={t("translation.restructuring.export")} icon="Ex" onClick={props.onExportProject} />
+        <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} onClick={props.onExportProject} />
         <ToolbarButton
           label={t("translation.restructuring.save")}
-          icon="S"
+          icon={<ToolbarIcon name="save" />}
           disabled={!hasSql}
           title={!hasSql ? t("logical.designer.noSql") : undefined}
           onClick={props.onSaveSql}
@@ -352,72 +410,95 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     const selectedColumn = selectedColumnContext?.column ?? null;
     const showColumnTools = selectedColumnContext != null;
     const showTableTools = !showColumnTools && selectedTable != null;
+    const showEditTools = showColumnTools || showTableTools;
     const uniqueLocked = selectedColumn?.isPrimaryKey === true;
     const typeLocked = selectedColumn ? isColumnTypeLockedByReference(selectedColumn) : false;
 
     return (
       <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label="Logical schema tools">
-        {renderCommonLeadButtons()}
-        {showColumnTools && selectedColumnContext ? (
+        {renderCommonLeadButtons(!showEditTools)}
+        {showEditTools ? (
           <>
             <ToolbarButton
               label={t("logical.designer.unique")}
-              icon="Uq"
-              disabled={uniqueLocked}
-              title={uniqueLocked ? t("logical.designer.primaryKeyUnique") : undefined}
+              icon={<ToolbarIcon name="unique" />}
+              disabled={!selectedColumnContext || uniqueLocked}
+              title={
+                !selectedColumnContext
+                  ? undefined
+                  : uniqueLocked
+                    ? t("logical.designer.primaryKeyUnique")
+                    : undefined
+              }
               onClick={() =>
-                props.onUpdateColumnSql(selectedColumnContext.tableId, selectedColumnContext.column.id, {
-                  isUnique: !isColumnEffectivelyUnique(selectedColumnContext.column),
-                })
+                selectedColumnContext
+                  ? props.onUpdateColumnSql(selectedColumnContext.tableId, selectedColumnContext.column.id, {
+                      isUnique: !isColumnEffectivelyUnique(selectedColumnContext.column),
+                    })
+                  : undefined
               }
             />
             <ToolbarButton
               label={t("logical.designer.type")}
-              icon="Ty"
+              icon={<ToolbarIcon name="type" />}
               active={props.typeMode}
-              disabled={typeLocked}
-              title={typeLocked ? t("logical.designer.typeInherited") : undefined}
+              disabled={!selectedColumnContext || typeLocked}
+              title={
+                !selectedColumnContext
+                  ? undefined
+                  : typeLocked
+                    ? t("logical.designer.typeInherited")
+                    : undefined
+              }
               onClick={() => props.onTypeModeChange(!props.typeMode)}
             />
             <ToolbarButton
               label={t("logical.designer.move")}
-              icon="Mv"
+              icon={<ToolbarIcon name="move" />}
               active={moveMenuOpen}
-              onClick={() => setMoveMenuOpen((current) => !current)}
+              onClick={() => {
+                if (selectedColumnContext) {
+                  setMoveMenuOpen((current) => !current);
+                }
+              }}
             />
             <ToolbarButton
               label={t("logical.designer.rename")}
-              icon="Rn"
+              icon={<ToolbarIcon name="rename" />}
               onClick={() =>
-                renameWithPrompt(t("logical.designer.renameColumn"), selectedColumnContext.column.name, (nextName) =>
-                  props.onRenameColumn(selectedColumnContext.tableId, selectedColumnContext.column.id, nextName),
-                )
+                selectedColumnContext
+                  ? renameWithPrompt(t("logical.designer.renameColumn"), selectedColumnContext.column.name, (nextName) =>
+                      props.onRenameColumn(selectedColumnContext.tableId, selectedColumnContext.column.id, nextName),
+                    )
+                  : selectedTable
+                    ? renameWithPrompt(t("logical.designer.renameTable"), selectedTable.name, (nextName) =>
+                        props.onRenameTable(selectedTable.id, nextName),
+                      )
+                    : undefined
               }
             />
           </>
         ) : null}
-        {showTableTools && selectedTable ? (
+        {!showEditTools ? (
           <>
-            <ToolbarButton label={t("logical.designer.move")} icon="Mv" title={t("logical.designer.dragTable")} />
             <ToolbarButton
-              label={t("logical.designer.rename")}
-              icon="Rn"
-              onClick={() =>
-                renameWithPrompt(t("logical.designer.renameTable"), selectedTable.name, (nextName) =>
-                  props.onRenameTable(selectedTable.id, nextName),
-                )
-              }
+              label={t("logical.designer.fixEntities")}
+              icon={<ToolbarIcon name="fix" />}
+              disabled={!nextBulkStep}
+              onClick={() => nextBulkStep && props.onApplyBulkFix(nextBulkStep)}
             />
+            <ToolbarButton label={t("translation.restructuring.design")} icon={<ToolbarIcon name="design" />} onClick={props.onOpenDesign} />
+            <ToolbarButton
+              label={t("logical.designer.done")}
+              icon={<ToolbarIcon name="done" />}
+              disabled={doneDisabled}
+              title={doneDisabled ? t("logical.designer.completeBeforeSchema") : undefined}
+              onClick={props.onDone}
+            />
+            <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} onClick={props.onExportProject} />
+            <ToolbarButton label={t("translation.restructuring.save")} icon={<ToolbarIcon name="save" />} onClick={props.onSaveSql} />
           </>
         ) : null}
-        {!showColumnTools && !showTableTools ? (
-          <ToolbarButton label={t("logical.designer.editEr")} icon="D" onClick={props.onOpenDesign} />
-        ) : null}
-        {showColumnTools || showTableTools ? (
-          <ToolbarButton label={t("logical.designer.editEr")} icon="D" onClick={props.onOpenDesign} />
-        ) : null}
-        <ToolbarButton label={t("translation.restructuring.export")} icon="Ex" onClick={props.onExportProject} />
-        <ToolbarButton label={t("translation.restructuring.save")} icon="S" onClick={props.onSaveSql} />
       </div>
     );
   }
@@ -425,15 +506,26 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   return (
     <div className={["designer-logical-view", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
       {props.logicalStage === "schema" ? (
-        <button type="button" className="designer-side-toggle designer-side-toggle-left" onClick={toggleSql}>
-          <span aria-hidden="true">{sqlOpen ? "H" : "S"}</span>
+        <button type="button" className="designer-schema-show-toggle" onClick={toggleSql}>
+          <span aria-hidden="true">
+            <ToolbarIcon name="show" />
+          </span>
           <span>{sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}</span>
         </button>
       ) : null}
 
-      <div className="designer-stage-label">
-        {props.logicalStage === "schema" ? t("logical.designer.schemaStage") : t("logical.designer.translationStage")}
-      </div>
+      {props.logicalStage === "schema" && props.onToggleNotesPanel ? (
+        <button
+          type="button"
+          className={["designer-logical-notes-toggle", props.notesPanelOpen ? "active" : ""].filter(Boolean).join(" ")}
+          onClick={props.onToggleNotesPanel}
+        >
+          <span aria-hidden="true">
+            <ToolbarIcon name="notes" />
+          </span>
+          <span>Notes</span>
+        </button>
+      ) : null}
 
       {props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()}
 
@@ -538,14 +630,15 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             <button
               key={option.value}
               type="button"
-              onClick={() =>
+              onClick={() => {
                 props.onUpdateColumnSql(selectedColumnContext.tableId, selectedColumnContext.column.id, {
                   dataType: option.value,
                   length: option.value === "VARCHAR" ? 100 : null,
                   precision: null,
                   scale: null,
-                })
-              }
+                });
+                props.onTypeModeChange(false);
+              }}
             >
               {option.label}
             </button>

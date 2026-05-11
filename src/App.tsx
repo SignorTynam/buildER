@@ -5311,6 +5311,7 @@ export default function App() {
               typeMode={logicalTypeMode}
               panelMode={logicalPanelMode}
               fitRequestToken={logicalFitRequestToken}
+              notesPanelOpen={notesPanelOpen}
               canUndo={logicalHistory.canUndo}
               canRedo={logicalHistory.canRedo}
               onUndo={handleUndoAction}
@@ -5319,6 +5320,7 @@ export default function App() {
               onSelectionChange={setLogicalSelection}
               onTypeModeChange={handleLogicalTypeModeChange}
               onPanelModeChange={setLogicalPanelMode}
+              onToggleNotesPanel={handleToggleNotesPanel}
               onApplyChoice={handleApplyLogicalTranslationChoice}
               onApplyBulkFix={handleApplyBulkLogicalFix}
               onResetTranslation={handleResetLogicalTranslation}
