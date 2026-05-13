@@ -2365,13 +2365,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.onStatusMessageChange("Trascina il simbolo per regolare il routing dell'identificatore esterno.");
   }
 
-  function handleExternalIdentifierMarkerPointerDown(
-    event: ReactPointerEvent<SVGCircleElement>,
+  function handleStaticExternalIdentifierPointerDown(
+    event: ReactPointerEvent<SVGGElement>,
     hostEntityId: string,
     externalIdentifierId: string,
   ) {
     event.stopPropagation();
-    containerRef.current?.focus();
+    event.currentTarget.focus();
 
     if (props.tool === "delete") {
       props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
@@ -2389,20 +2389,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
     props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
-    const identifier = hostEntity.externalIdentifiers?.find(
-      (candidate) => candidate.id === externalIdentifierId,
-    );
-    setInteraction({
-      kind: "external-id-marker-drag",
-      pointerId: event.pointerId,
-      startClient: { x: event.clientX, y: event.clientY },
-      originalDiagram: props.diagram,
-      hostEntityId,
-      externalIdentifierId,
-      startOffsetX: identifier?.markerOffsetX ?? 0,
-      startOffsetY: identifier?.markerOffsetY ?? 0,
-    });
-    props.onStatusMessageChange("Trascina il marker per regolare la posizione dell'identificatore esterno.");
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2508,38 +2494,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (interaction.kind === "external-id-marker-drag") {
-      const deltaX = (event.clientX - interaction.startClient.x) / props.viewport.zoom;
-      const deltaY = (event.clientY - interaction.startClient.y) / props.viewport.zoom;
-      const nextOffsetX = Math.round((interaction.startOffsetX + deltaX) / 2) * 2;
-      const nextOffsetY = Math.round((interaction.startOffsetY + deltaY) / 2) * 2;
-
-      const nextNodes = interaction.originalDiagram.nodes.map((node) => {
-        if (node.id !== interaction.hostEntityId || node.type !== "entity") {
-          return node;
-        }
-
-        return {
-          ...node,
-          externalIdentifiers: (node.externalIdentifiers ?? []).map((identifier) =>
-            identifier.id === interaction.externalIdentifierId
-              ? {
-                  ...identifier,
-                  markerOffsetX: nextOffsetX,
-                  markerOffsetY: nextOffsetY,
-                }
-              : identifier,
-          ),
-        };
-      });
-
-      props.onPreviewDiagram({
-        ...interaction.originalDiagram,
-        nodes: nextNodes,
-      });
-      return;
-    }
-
     const worldPoint = getWorldPointFromEvent(event);
     if (!worldPoint) {
       return;
@@ -2569,12 +2523,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (interaction.kind === "external-id-drag") {
-      props.onCommitDiagram(props.diagram, interaction.originalDiagram);
-      setInteraction({ kind: "idle" });
-      return;
-    }
-
-    if (interaction.kind === "external-id-marker-drag") {
       props.onCommitDiagram(props.diagram, interaction.originalDiagram);
       setInteraction({ kind: "idle" });
       return;
@@ -2818,7 +2766,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         )?.groupKey
       : null;
   const activeExternalIdentifierId =
-    interaction.kind === "external-id-drag" || interaction.kind === "external-id-marker-drag"
+    interaction.kind === "external-id-drag"
       ? interaction.externalIdentifierId
       : null;
   const visiblePersistentMessage =
@@ -2854,7 +2802,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   } else if (
     interaction.kind === "edge-drag" ||
     interaction.kind === "external-id-drag" ||
-    interaction.kind === "external-id-marker-drag" ||
     activeCompositeGroupKey
   ) {
     guidanceState = "dragging-routing";
@@ -2862,19 +2809,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     guidanceTitle =
       interaction.kind === "edge-drag"
         ? "Routing connector"
-        : interaction.kind === "external-id-marker-drag"
-          ? "Marker external identifier"
-          : interaction.kind === "external-id-drag"
-            ? "External identifier"
-            : "Backbone composite identifier";
+        : interaction.kind === "external-id-drag"
+          ? "External identifier"
+          : "Backbone composite identifier";
     guidanceMessage =
       interaction.kind === "edge-drag"
         ? "Trascina la label del connector per spostare il routing senza cambiare gli estremi."
-        : interaction.kind === "external-id-marker-drag"
-          ? "Regola il marker dell'identificatore esterno per chiarire il punto di lettura."
-          : interaction.kind === "external-id-drag"
-            ? "Regola il routing dell'identificatore esterno mantenendo leggibile la relazione di supporto."
-            : "Trascina il backbone per muovere insieme gli attributi membri dell'identificatore composto.";
+        : interaction.kind === "external-id-drag"
+          ? "Regola il routing dell'identificatore esterno mantenendo leggibile la relazione di supporto."
+          : "Trascina il backbone per muovere insieme gli attributi membri dell'identificatore composto.";
     guidanceShortcuts = ["Rilascia per salvare", "Shift + frecce per spostamenti piu ampi"];
   } else if (placementGhostNode) {
     guidanceState = "selecting-target";
@@ -2955,7 +2898,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             ? { key: "connector-label", label: "Label connector", hint: "Trascina la cardinalita per regolare il routing." }
             : null,
           externalIdentifierLayouts.length > 0
-            ? { key: "external-id-marker", label: "Marker ext. ID", hint: "Hover o focus sul marker per trascinarlo." }
+            ? { key: "external-id-marker", label: "Marker ext. ID", hint: "Hover o focus sul marker per selezionarlo." }
             : null,
           compositeIdentifierLayouts.length > 0
             ? { key: "composite-backbone", label: "Backbone composite", hint: "Trascina il backbone per muovere il gruppo." }
@@ -3428,7 +3371,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     }
                   }}
                   onPointerDown={(event) =>
-                    handleExternalIdentifierPointerDown(
+                    handleStaticExternalIdentifierPointerDown(
                       event,
                       layout.hostEntityId,
                       layout.externalIdentifierId,
@@ -3492,22 +3435,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={1.8}
                     pointerEvents="none"
-                  />
-                  <circle
-                    className="external-identifier-marker-hit"
-                    cx={layout.marker.x}
-                    cy={layout.marker.y}
-                    r={EXTERNAL_IDENTIFIER_IMPORTED_HIT_RADIUS}
-                    fill="transparent"
-                    stroke="none"
-                    pointerEvents="all"
-                    onPointerDown={(event) =>
-                      handleExternalIdentifierMarkerPointerDown(
-                        event,
-                        layout.hostEntityId,
-                        layout.externalIdentifierId,
-                      )
-                    }
                   />
                 </g>
               );
@@ -3584,22 +3511,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   stroke={DIAGRAM_STROKE}
                   strokeWidth={1.8}
                   pointerEvents="none"
-                />
-                <circle
-                  className="external-identifier-marker-hit"
-                  cx={layout.marker.x}
-                  cy={layout.marker.y}
-                  r={10}
-                  fill="transparent"
-                  stroke="none"
-                  pointerEvents="all"
-                  onPointerDown={(event) =>
-                    handleExternalIdentifierMarkerPointerDown(
-                      event,
-                      layout.hostEntityId,
-                      layout.externalIdentifierId,
-                    )
-                  }
                 />
               </g>
             );

@@ -20,7 +20,6 @@ test("external identifier imported-only: vertical layout anchors near the host t
   assert.equal(layout.junction?.y, 282);
   assert.ok((layout.marker.x ?? 0) < (layout.junction?.x ?? 0));
   assert.equal(layout.marker.y, layout.junction?.y);
-  assert.deepEqual(layout.offsetDirection, { x: 1, y: 0 });
 });
 
 test("external identifier imported-only: horizontal layout anchors near the host left side and avoids the cardinality label", () => {
@@ -35,7 +34,6 @@ test("external identifier imported-only: horizontal layout anchors near the host
   assert.equal(layout.junction?.x, 482);
   assert.ok(layout.marker.y > (layout.junction?.y ?? 0));
   assert.equal(layout.marker.x, layout.junction?.x);
-  assert.deepEqual(layout.offsetDirection, { x: 0, y: 1 });
 });
 
 test("external identifier imported-only: diagonal layout remains anchored to the host-facing side", () => {
@@ -50,19 +48,18 @@ test("external identifier imported-only: diagonal layout remains anchored to the
   assert.equal(layout.junction?.x, 278);
   assert.ok(layout.marker.x < (layout.junction?.x ?? 0));
   assert.ok(layout.marker.y < (layout.junction?.y ?? 0));
-  assert.deepEqual(layout.offsetDirection, { x: 0, y: 1 });
 });
 
-test("external identifier imported-only: offset is clamped to the computed host-side frame", () => {
+test("external identifier imported-only: layout does not expose manual offset controls", () => {
   const hostBounds: Bounds = { x: 200, y: 300, width: 160, height: 70 };
   const layout = buildImportedOnlyExternalIdentifierLayout(
     hostBounds,
     point(280, 300),
     point(280, 220),
     point(300, 260),
-    10_000,
   );
 
-  assert.equal(layout.junction?.x, 378);
-  assert.equal(layout.offsetMax, 98);
+  assert.equal("offsetDirection" in layout, false);
+  assert.equal("offsetMin" in layout, false);
+  assert.equal("offsetMax" in layout, false);
 });
