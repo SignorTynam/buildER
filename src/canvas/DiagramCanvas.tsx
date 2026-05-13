@@ -59,6 +59,7 @@ const DIAGRAM_TRANSLATION_BLOCKED = "var(--diagram-translation-blocked, #b75b56)
 type FocusTarget =
   | { kind: "node"; id: string }
   | { kind: "edge"; id: string }
+  | { kind: "externalIdentifier"; hostEntityId: string; externalIdentifierId: string }
   | null;
 
 type InteractionState =
@@ -102,16 +103,9 @@ type InteractionState =
       hostEntityId: string;
       externalIdentifierId: string;
       startOffset: number;
-    }
-  | {
-      kind: "external-id-marker-drag";
-      pointerId: number;
-      startClient: Point;
-      originalDiagram: DiagramDocument;
-      hostEntityId: string;
-      externalIdentifierId: string;
-      startOffsetX: number;
-      startOffsetY: number;
+      offsetDirection: Point;
+      offsetMin: number;
+      offsetMax: number;
     };
 
 type InlineEditState =
@@ -261,8 +255,12 @@ const COMPOSITE_INTERNAL_MIN_BRANCH_LENGTH = 10;
 const COMPOSITE_INTERNAL_MARKER_OFFSET = 22;
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
-const EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE = 24;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
+const EXTERNAL_IDENTIFIER_IMPORTED_MARKER_RADIUS = 6.5;
+const EXTERNAL_IDENTIFIER_IMPORTED_MARKER_STEM_LENGTH = 22;
+const EXTERNAL_IDENTIFIER_IMPORTED_BRACKET_LENGTH = 24;
+const EXTERNAL_IDENTIFIER_IMPORTED_HIT_STROKE_WIDTH = 22;
+const EXTERNAL_IDENTIFIER_CARDINALITY_AVOIDANCE = 12;
 
 interface CompositeIdentifierMember {
   attributeId: string;
@@ -304,8 +302,13 @@ interface ExternalIdentifierLayout {
   marker: Point;
   pathPoints: Point[];
   markerStemStart?: Point;
+  bracketStart?: Point;
+  bracketEnd?: Point;
   junction?: Point;
   attributeJunction?: Point;
+  offsetDirection?: Point;
+  offsetMin?: number;
+  offsetMax?: number;
 }
 
 type FrameSide = "left" | "right" | "top" | "bottom";
@@ -588,6 +591,117 @@ function getFrameSideNormal(side: FrameSide): Point {
   }
 
   return { x: 0, y: 1 };
+}
+
+function getFrameSideTangent(side: FrameSide): Point {
+  return side === "left" || side === "right" ? { x: 0, y: 1 } : { x: 1, y: 0 };
+}
+
+function getFrameSideOffsetRange(frame: RouteFrame, side: FrameSide, basePoint: Point): { min: number; max: number } {
+  if (side === "left" || side === "right") {
+    return {
+      min: frame.top - basePoint.y,
+      max: frame.bottom - basePoint.y,
+    };
+  }
+
+  return {
+    min: frame.left - basePoint.x,
+    max: frame.right - basePoint.x,
+  };
+}
+
+function getDefaultImportedMarkerNormal(side: FrameSide): Point {
+  if (side === "left" || side === "right") {
+    return { x: 0, y: -1 };
+  }
+
+  return { x: 1, y: 0 };
+}
+
+function getImportedMarkerNormal(
+  side: FrameSide,
+  connectorDirection: Point,
+  junction: Point,
+  cardinalityLabelPoint: Point,
+): Point {
+  const defaultNormal = getDefaultImportedMarkerNormal(side);
+  const normalizedConnector = normalizeVector(connectorDirection, getFrameSideNormal(side));
+  let normal = normalizeVector(
+    { x: -normalizedConnector.y, y: normalizedConnector.x },
+    defaultNormal,
+  );
+
+  if (normal.x * defaultNormal.x + normal.y * defaultNormal.y < 0) {
+    normal = { x: -normal.x, y: -normal.y };
+  }
+
+  const labelVector = {
+    x: cardinalityLabelPoint.x - junction.x,
+    y: cardinalityLabelPoint.y - junction.y,
+  };
+  const labelSide = labelVector.x * normal.x + labelVector.y * normal.y;
+  if (labelSide > EXTERNAL_IDENTIFIER_CARDINALITY_AVOIDANCE) {
+    return { x: -normal.x, y: -normal.y };
+  }
+
+  return normal;
+}
+
+export function buildImportedOnlyExternalIdentifierLayout(
+  hostBounds: Bounds,
+  weakSidePoint: Point,
+  weakSideAdjacentPoint: Point,
+  cardinalityLabelPoint: Point,
+): Pick<
+  ExternalIdentifierLayout,
+  | "marker"
+  | "pathPoints"
+  | "markerStemStart"
+  | "bracketStart"
+  | "bracketEnd"
+  | "junction"
+> {
+  const connectorDirection = normalizeVector(
+    {
+      x: weakSideAdjacentPoint.x - weakSidePoint.x,
+      y: weakSideAdjacentPoint.y - weakSidePoint.y,
+    },
+    { x: 0, y: -1 },
+  );
+  const frame: RouteFrame = {
+    left: hostBounds.x - EXTERNAL_IDENTIFIER_FRAME_PADDING,
+    top: hostBounds.y - EXTERNAL_IDENTIFIER_FRAME_PADDING,
+    right: hostBounds.x + hostBounds.width + EXTERNAL_IDENTIFIER_FRAME_PADDING,
+    bottom: hostBounds.y + hostBounds.height + EXTERNAL_IDENTIFIER_FRAME_PADDING,
+    centerX: hostBounds.x + hostBounds.width / 2,
+    centerY: hostBounds.y + hostBounds.height / 2,
+  };
+  const side = resolveFrameSide(hostBounds, weakSidePoint, connectorDirection);
+  const junction = computeVisibleJunctionPoint(frame, side, weakSidePoint, weakSideAdjacentPoint);
+  const markerNormal = getImportedMarkerNormal(side, connectorDirection, junction, cardinalityLabelPoint);
+  const marker = {
+    x: junction.x + markerNormal.x * EXTERNAL_IDENTIFIER_IMPORTED_MARKER_STEM_LENGTH,
+    y: junction.y + markerNormal.y * EXTERNAL_IDENTIFIER_IMPORTED_MARKER_STEM_LENGTH,
+  };
+  const halfBracket = EXTERNAL_IDENTIFIER_IMPORTED_BRACKET_LENGTH / 2;
+  const bracketStart = {
+    x: junction.x - markerNormal.x * halfBracket,
+    y: junction.y - markerNormal.y * halfBracket,
+  };
+  const bracketEnd = {
+    x: junction.x + markerNormal.x * halfBracket,
+    y: junction.y + markerNormal.y * halfBracket,
+  };
+
+  return {
+    marker,
+    pathPoints: [junction, marker],
+    markerStemStart: junction,
+    bracketStart,
+    bracketEnd,
+    junction,
+  };
 }
 
 function resolveFrameSide(bounds: Bounds, anchor: Point, outwardHint: Point): FrameSide {
@@ -1225,17 +1339,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }
 
       const importedAttributes = getExternalIdentifierImportedAttributes(props.diagram, identifier);
-      const sourceAttribute = importedAttributes[0];
-      if (!sourceAttribute) {
+      if (importedAttributes.length === 0) {
         return;
       }
 
       const targetEntityNode = node;
+      const identifierKind = identifier.localAttributeIds.length === 0 ? "imported_only" : "imported_plus_local";
       const localAttributes = identifier.localAttributeIds
         .map((attributeId) => nodeMap.get(attributeId))
         .filter((attribute): attribute is Extract<DiagramNode, { type: "attribute" }> => attribute?.type === "attribute");
       const manualOffset =
-        localAttributes.length > 0 && typeof identifier.offset === "number" && Number.isFinite(identifier.offset)
+        typeof identifier.offset === "number" && Number.isFinite(identifier.offset)
           ? identifier.offset
           : 0;
 
@@ -1263,12 +1377,31 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         weakConnector.sourceId === targetEntityNode.id
           ? weakConnectorGeometry.points[Math.min(1, weakConnectorGeometry.points.length - 1)]
           : weakConnectorGeometry.points[Math.max(0, weakConnectorGeometry.points.length - 2)];
+      const targetBounds = getNodeBounds(targetEntityNode);
+
+      if (identifierKind === "imported_only") {
+        const importedLayout = buildImportedOnlyExternalIdentifierLayout(
+          targetBounds,
+          weakSidePoint,
+          weakSideAdjacentPoint,
+          weakConnectorGeometry.labelPoint,
+        );
+
+        externalIdentifierLayouts.push({
+          externalIdentifierId: identifier.id,
+          hostEntityId: targetEntityNode.id,
+          relationshipId: relationshipNode.id,
+          kind: "imported_only",
+          ...importedLayout,
+        });
+        return;
+      }
+
       const weakDelta = {
         x: weakSideAdjacentPoint.x - weakSidePoint.x,
         y: weakSideAdjacentPoint.y - weakSidePoint.y,
       };
       const weakDirection = normalizeVector(weakDelta, { x: 0, y: -1 });
-      const targetBounds = getNodeBounds(targetEntityNode);
       const frame: RouteFrame = {
         left: targetBounds.x - EXTERNAL_IDENTIFIER_FRAME_PADDING,
         top: targetBounds.y - EXTERNAL_IDENTIFIER_FRAME_PADDING,
@@ -1278,50 +1411,22 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         centerY: targetBounds.y + targetBounds.height / 2,
       };
       const relationSide = resolveFrameSide(targetBounds, weakSidePoint, weakDirection);
+      const baseJunction = computeVisibleJunctionPoint(
+        frame,
+        relationSide,
+        weakSidePoint,
+        weakSideAdjacentPoint,
+      );
+      const offsetRange = getFrameSideOffsetRange(frame, relationSide, baseJunction);
+      const clampedManualOffset = clampNumber(manualOffset, offsetRange.min, offsetRange.max);
       const junction = computeVisibleJunctionPoint(
         frame,
         relationSide,
         weakSidePoint,
         weakSideAdjacentPoint,
-        manualOffset,
+        clampedManualOffset,
       );
       const relationNormal = getFrameSideNormal(relationSide);
-
-      if (localAttributes.length === 0) {
-        const targetCenter = getNodeCenter(targetEntityNode);
-        const sourceAttributeCenter = getNodeCenter(sourceAttribute);
-        const baseDirection = normalizeVector(
-          {
-            x: sourceAttributeCenter.x - junction.x,
-            y: sourceAttributeCenter.y - junction.y,
-          },
-          relationNormal,
-        );
-        const candidateDirections = [baseDirection, { x: -baseDirection.x, y: -baseDirection.y }];
-        const markerCandidates = candidateDirections.map((direction) => {
-          const markerBase = {
-            x: junction.x + direction.x * EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-            y: junction.y + direction.y * EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-          };
-          const sourceDistance = distanceSquared(markerBase, sourceAttributeCenter);
-          const entityDistance = distanceSquared(markerBase, targetCenter);
-          const score = sourceDistance - entityDistance * 0.3;
-          return { markerBase, score };
-        });
-        markerCandidates.sort((left, right) => left.score - right.score);
-        const marker = markerCandidates[0].markerBase;
-
-        externalIdentifierLayouts.push({
-          externalIdentifierId: identifier.id,
-          hostEntityId: targetEntityNode.id,
-          relationshipId: relationshipNode.id,
-          kind: "imported_only",
-          marker,
-          pathPoints: [marker, junction],
-          junction,
-        });
-        return;
-      }
 
       const localConnections = localAttributes
         .map((attribute) => {
@@ -1420,6 +1525,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         markerStemStart: junction,
         junction,
         attributeJunction,
+        offsetDirection: getFrameSideTangent(relationSide),
+        offsetMin: offsetRange.min,
+        offsetMax: offsetRange.max,
       });
     });
   });
@@ -1557,6 +1665,22 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       !props.diagram.edges.some((edge) => edge.id === focusedTarget.id)
     ) {
       setFocusedTarget(null);
+      return;
+    }
+
+    if (focusedTarget.kind === "externalIdentifier") {
+      const hostEntity = props.diagram.nodes.find(
+        (node) => node.id === focusedTarget.hostEntityId && node.type === "entity",
+      );
+      if (
+        !hostEntity ||
+        hostEntity.type !== "entity" ||
+        !(hostEntity.externalIdentifiers ?? []).some(
+          (identifier) => identifier.id === focusedTarget.externalIdentifierId,
+        )
+      ) {
+        setFocusedTarget(null);
+      }
     }
   }, [focusedTarget, props.diagram.edges, props.diagram.nodes]);
 
@@ -1875,6 +1999,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       event.stopPropagation();
+      if (focusedTarget?.kind === "externalIdentifier") {
+        props.onDeleteExternalIdentifier(
+          focusedTarget.hostEntityId,
+          focusedTarget.externalIdentifierId,
+        );
+        setFocusedTarget(null);
+        return;
+      }
+
       props.onDeleteSelection();
       return;
     }
@@ -2191,6 +2324,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     externalIdentifierId: string,
   ) {
     event.stopPropagation();
+    event.currentTarget.focus();
 
     if (props.tool === "delete") {
       props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
@@ -2206,9 +2340,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
     props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
     const identifier = hostEntity.externalIdentifiers?.find(
       (candidate) => candidate.id === externalIdentifierId,
+    );
+    const layout = externalIdentifierLayouts.find(
+      (candidate) =>
+        candidate.hostEntityId === hostEntityId &&
+        candidate.externalIdentifierId === externalIdentifierId,
     );
     setInteraction({
       kind: "external-id-drag",
@@ -2218,6 +2358,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       hostEntityId,
       externalIdentifierId,
       startOffset: identifier?.offset ?? 0,
+      offsetDirection: layout?.offsetDirection ?? { x: 0, y: 1 },
+      offsetMin: layout?.offsetMin ?? -80,
+      offsetMax: layout?.offsetMax ?? 80,
     });
     props.onStatusMessageChange("Trascina il simbolo per regolare il routing dell'identificatore esterno.");
   }
@@ -2228,6 +2371,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     externalIdentifierId: string,
   ) {
     event.stopPropagation();
+    containerRef.current?.focus();
 
     if (props.tool === "delete") {
       props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
@@ -2243,6 +2387,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
     props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
     const identifier = hostEntity.externalIdentifiers?.find(
       (candidate) => candidate.id === externalIdentifierId,
@@ -2329,8 +2474,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (interaction.kind === "external-id-drag") {
-      const pointerDelta = event.clientY - interaction.startClient.y;
-      const nextOffset = Math.round((interaction.startOffset + pointerDelta / props.viewport.zoom) / 2) * 2;
+      const deltaX = (event.clientX - interaction.startClient.x) / props.viewport.zoom;
+      const deltaY = (event.clientY - interaction.startClient.y) / props.viewport.zoom;
+      const pointerDelta = deltaX * interaction.offsetDirection.x + deltaY * interaction.offsetDirection.y;
+      const nextOffset = clampNumber(
+        Math.round((interaction.startOffset + pointerDelta) / 2) * 2,
+        interaction.offsetMin,
+        interaction.offsetMax,
+      );
 
       const nextNodes = interaction.originalDiagram.nodes.map((node) => {
         if (node.id !== interaction.hostEntityId || node.type !== "entity") {
@@ -3244,27 +3395,64 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           {externalIdentifierLayouts.map((layout) => {
             if (layout.kind === "imported_only" && layout.junction) {
               const markerPath = pathFromPoints(layout.pathPoints);
+              const externalIdentifierFocused =
+                focusedTarget?.kind === "externalIdentifier" &&
+                focusedTarget.hostEntityId === layout.hostEntityId &&
+                focusedTarget.externalIdentifierId === layout.externalIdentifierId;
               return (
                 <g
                   key={`external-id-${layout.externalIdentifierId}`}
                   className={
-                    activeExternalIdentifierId === layout.externalIdentifierId
+                    activeExternalIdentifierId === layout.externalIdentifierId || externalIdentifierFocused
                       ? "external-identifier external-identifier-imported external-identifier-active"
                       : "external-identifier external-identifier-imported"
                   }
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    if (props.tool === "delete") {
-                      props.onDeleteExternalIdentifier(layout.hostEntityId, layout.externalIdentifierId);
-                      return;
-                    }
-
-                    if (props.tool === "select") {
-                      props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
+                  tabIndex={props.tool === "select" ? 0 : -1}
+                  focusable={props.tool === "select" ? "true" : "false"}
+                  onFocus={() =>
+                    setFocusedTarget({
+                      kind: "externalIdentifier",
+                      hostEntityId: layout.hostEntityId,
+                      externalIdentifierId: layout.externalIdentifierId,
+                    })
+                  }
+                  onBlur={(focusEvent: ReactFocusEvent<SVGGElement>) => {
+                    if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget as Node | null)) {
+                      setFocusedTarget((current) =>
+                        current?.kind === "externalIdentifier" &&
+                        current.hostEntityId === layout.hostEntityId &&
+                        current.externalIdentifierId === layout.externalIdentifierId
+                          ? null
+                          : current,
+                      );
                     }
                   }}
+                  onPointerDown={(event) =>
+                    handleExternalIdentifierPointerDown(
+                      event,
+                      layout.hostEntityId,
+                      layout.externalIdentifierId,
+                    )
+                  }
                 >
-                  <path className="external-identifier-hit-path" d={markerPath} fill="none" stroke="transparent" strokeWidth={16} />
+                  <path
+                    className="external-identifier-hit-path"
+                    d={markerPath}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={EXTERNAL_IDENTIFIER_IMPORTED_HIT_STROKE_WIDTH}
+                  />
+                  {layout.bracketStart && layout.bracketEnd ? (
+                    <line
+                      className="external-identifier-hit-path"
+                      x1={layout.bracketStart.x}
+                      y1={layout.bracketStart.y}
+                      x2={layout.bracketEnd.x}
+                      y2={layout.bracketEnd.y}
+                      stroke="transparent"
+                      strokeWidth={EXTERNAL_IDENTIFIER_IMPORTED_HIT_STROKE_WIDTH}
+                    />
+                  ) : null}
                   <path
                     className="external-identifier-path"
                     d={markerPath}
@@ -3274,6 +3462,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
+                  {layout.bracketStart && layout.bracketEnd ? (
+                    <line
+                      className="external-identifier-path"
+                      x1={layout.bracketStart.x}
+                      y1={layout.bracketStart.y}
+                      x2={layout.bracketEnd.x}
+                      y2={layout.bracketEnd.y}
+                      stroke={DIAGRAM_STROKE}
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                    />
+                  ) : null}
                   <circle
                     className="external-identifier-junction"
                     cx={layout.junction.x}
@@ -3287,11 +3487,27 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     className="external-identifier-marker"
                     cx={layout.marker.x}
                     cy={layout.marker.y}
-                    r={6.5}
+                    r={EXTERNAL_IDENTIFIER_IMPORTED_MARKER_RADIUS}
                     fill={DIAGRAM_STROKE}
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={1.8}
                     pointerEvents="none"
+                  />
+                  <circle
+                    className="external-identifier-marker-hit"
+                    cx={layout.marker.x}
+                    cy={layout.marker.y}
+                    r={EXTERNAL_IDENTIFIER_IMPORTED_HIT_RADIUS}
+                    fill="transparent"
+                    stroke="none"
+                    pointerEvents="all"
+                    onPointerDown={(event) =>
+                      handleExternalIdentifierMarkerPointerDown(
+                        event,
+                        layout.hostEntityId,
+                        layout.externalIdentifierId,
+                      )
+                    }
                   />
                 </g>
               );
