@@ -262,6 +262,9 @@ const EXTERNAL_IDENTIFIER_IMPORTED_MARKER_STEM_LENGTH = 22;
 const EXTERNAL_IDENTIFIER_IMPORTED_BRACKET_LENGTH = 24;
 const EXTERNAL_IDENTIFIER_IMPORTED_HIT_STROKE_WIDTH = 22;
 const EXTERNAL_IDENTIFIER_CARDINALITY_AVOIDANCE = 12;
+const EXTERNAL_IDENTIFIER_GROUPING_FRAME_PADDING = 30;
+const EXTERNAL_IDENTIFIER_LOCAL_MARKER_OFFSET = 28;
+const EXTERNAL_IDENTIFIER_LOCAL_MARKER_CURVE = 18;
 
 interface CompositeIdentifierMember {
   attributeId: string;
@@ -336,6 +339,17 @@ interface RouteFrame {
   bottom: number;
   centerX: number;
   centerY: number;
+}
+
+interface ExternalIdentifierGroupingMarker {
+  marker: Point;
+  kind: ExternalIdentifierMarkerLayout["kind"];
+}
+
+interface ExternalIdentifierFrameProjection extends ExternalIdentifierGroupingMarker {
+  projection: Point;
+  side: FrameSide;
+  position: number;
 }
 
 function expandBounds(bounds: Bounds, padding: number): Bounds {
@@ -1188,6 +1202,28 @@ function pointFromEndpointAlongPolyline(
   };
 }
 
+export function getStableLocalIdentifierMarkerPoint(
+  hostEntity: Extract<DiagramNode, { type: "entity" }>,
+  attributeNode: Extract<DiagramNode, { type: "attribute" }>,
+  offset = EXTERNAL_IDENTIFIER_LOCAL_MARKER_OFFSET,
+): Point {
+  const hostCenter = getNodeCenter(hostEntity);
+  const attributeCenter = getNodeCenter(attributeNode);
+  const direction = normalizeVector(
+    {
+      x: attributeCenter.x - hostCenter.x,
+      y: attributeCenter.y - hostCenter.y,
+    },
+    { x: 1, y: 0 },
+  );
+  const anchor = getNodeAnchor(hostEntity, attributeCenter, "attribute", "source");
+
+  return {
+    x: anchor.x + direction.x * offset,
+    y: anchor.y + direction.y * offset,
+  };
+}
+
 function getFramePerimeterLength(frame: RouteFrame): number {
   return Math.max(0, (frame.right - frame.left + frame.bottom - frame.top) * 2);
 }
@@ -1210,8 +1246,9 @@ function getFramePerimeterPosition(frame: RouteFrame, side: FrameSide, point: Po
 
 function projectExternalIdentifierMarkerToFrame(
   frame: RouteFrame,
-  marker: Point,
-): { marker: Point; projection: Point; side: FrameSide; position: number } {
+  groupingMarker: ExternalIdentifierGroupingMarker,
+): ExternalIdentifierFrameProjection {
+  const { marker } = groupingMarker;
   const candidates: Array<{ side: FrameSide; distance: number }> = [
     { side: "left", distance: Math.abs(marker.x - frame.left) },
     { side: "right", distance: Math.abs(marker.x - frame.right) },
@@ -1224,6 +1261,7 @@ function projectExternalIdentifierMarkerToFrame(
   const projection = getFrameSidePoint(frame, nearest.side, marker);
 
   return {
+    ...groupingMarker,
     marker,
     projection,
     side: nearest.side,
@@ -1242,8 +1280,8 @@ function appendUniquePoint(points: Point[], point: Point): void {
 
 function orderExternalIdentifierFrameProjections(
   frame: RouteFrame,
-  projections: Array<{ marker: Point; projection: Point; side: FrameSide; position: number }>,
-): Array<{ marker: Point; projection: Point; side: FrameSide; position: number }> {
+  projections: ExternalIdentifierFrameProjection[],
+): ExternalIdentifierFrameProjection[] {
   if (projections.length <= 2) {
     return [...projections].sort((left, right) => left.position - right.position);
   }
@@ -1271,16 +1309,60 @@ function orderExternalIdentifierFrameProjections(
   ];
 }
 
-function buildExternalIdentifierGroupingPath(
+function buildExternalIdentifierMarkerConnectorPath(projection: ExternalIdentifierFrameProjection): string {
+  if (distanceSquared(projection.marker, projection.projection) <= 2.25) {
+    return "";
+  }
+
+  if (projection.kind !== "localAttribute") {
+    return `M ${projection.marker.x.toFixed(1)} ${projection.marker.y.toFixed(1)} L ${projection.projection.x.toFixed(1)} ${projection.projection.y.toFixed(1)}`;
+  }
+
+  const normal = getFrameSideNormal(projection.side);
+  const tangent = getFrameSideTangent(projection.side);
+  const markerDirection = normalizeVector(
+    {
+      x: projection.marker.x - projection.projection.x,
+      y: projection.marker.y - projection.projection.y,
+    },
+    normal,
+  );
+  const tangentSign =
+    projection.side === "left" || projection.side === "right"
+      ? projection.marker.y >= projection.projection.y
+        ? 1
+        : -1
+      : projection.marker.x >= projection.projection.x
+        ? 1
+        : -1;
+  const curve = Math.min(EXTERNAL_IDENTIFIER_LOCAL_MARKER_CURVE, distance(projection.projection, projection.marker) * 0.65);
+  const firstControl = {
+    x: projection.projection.x + tangent.x * tangentSign * curve,
+    y: projection.projection.y + tangent.y * tangentSign * curve,
+  };
+  const secondControl = {
+    x: projection.marker.x - markerDirection.x * Math.min(8, curve * 0.5),
+    y: projection.marker.y - markerDirection.y * Math.min(8, curve * 0.5),
+  };
+
+  return [
+    `M ${projection.projection.x.toFixed(1)} ${projection.projection.y.toFixed(1)}`,
+    `C ${firstControl.x.toFixed(1)} ${firstControl.y.toFixed(1)}`,
+    `${secondControl.x.toFixed(1)} ${secondControl.y.toFixed(1)}`,
+    `${projection.marker.x.toFixed(1)} ${projection.marker.y.toFixed(1)}`,
+  ].join(" ");
+}
+
+export function buildExternalIdentifierGroupingPath(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
-  markerPoints: Point[],
+  markers: ExternalIdentifierGroupingMarker[],
 ): string {
-  if (markerPoints.length < 2) {
+  if (markers.length < 2) {
     return "";
   }
 
   const hostBounds = getNodeBounds(hostEntity);
-  const padding = 30;
+  const padding = EXTERNAL_IDENTIFIER_GROUPING_FRAME_PADDING;
   const frame: RouteFrame = {
     left: hostBounds.x - padding,
     top: hostBounds.y - padding,
@@ -1291,7 +1373,7 @@ function buildExternalIdentifierGroupingPath(
   };
   const projections = orderExternalIdentifierFrameProjections(
     frame,
-    markerPoints.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker)),
+    markers.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker)),
   );
   if (projections.length < 2) {
     return "";
@@ -1315,13 +1397,10 @@ function buildExternalIdentifierGroupingPath(
 
   const pathParts = [pathFromPoints(perimeterPoints)];
   projections.forEach((projection) => {
-    if (distanceSquared(projection.marker, projection.projection) <= 2.25) {
-      return;
+    const connectorPath = buildExternalIdentifierMarkerConnectorPath(projection);
+    if (connectorPath.length > 0) {
+      pathParts.push(connectorPath);
     }
-
-    pathParts.push(
-      `M ${projection.marker.x.toFixed(1)} ${projection.marker.y.toFixed(1)} L ${projection.projection.x.toFixed(1)} ${projection.projection.y.toFixed(1)}`,
-    );
   });
 
   return pathParts.filter((part) => part.length > 0).join(" ");
@@ -1601,16 +1680,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           return;
         }
 
-        const geometry = getEdgeGeometry(
-          attributeEdge,
-          nodeMap.get(attributeEdge.sourceId) as DiagramNode,
-          nodeMap.get(attributeEdge.targetId) as DiagramNode,
-          connectorLaneMap.get(attributeEdge.id),
-        );
-        const marker = pointFromEndpointAlongPolyline(geometry.points, true, undefined, 16);
-        if (!marker) {
-          return;
-        }
+        const marker = getStableLocalIdentifierMarkerPoint(node, attributeNode);
 
         identifierMarkerLayouts.push({
           key: `${identifier.id}-attribute-${attributeId}`,
@@ -1624,7 +1694,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       externalIdentifierMarkerLayouts.push(...identifierMarkerLayouts);
       const groupingPathData = buildExternalIdentifierGroupingPath(
         node,
-        identifierMarkerLayouts.map((layout) => layout.marker),
+        identifierMarkerLayouts.map((layout) => ({ marker: layout.marker, kind: layout.kind })),
       );
       if (groupingPathData.length > 0) {
         externalIdentifierGroupingLayouts.push({

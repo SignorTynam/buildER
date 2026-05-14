@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildImportedOnlyExternalIdentifierLayout } from "../src/canvas/DiagramCanvas.tsx";
+import {
+  buildExternalIdentifierGroupingPath,
+  buildImportedOnlyExternalIdentifierLayout,
+  getStableLocalIdentifierMarkerPoint,
+} from "../src/canvas/DiagramCanvas.tsx";
 import type { Bounds, DiagramDocument, Point } from "../src/types/diagram.ts";
 import { getEligibleImportedIdentifierParts } from "../src/utils/diagram.ts";
 
@@ -63,6 +67,55 @@ test("external identifier imported-only: layout does not expose manual offset co
   assert.equal("offsetDirection" in layout, false);
   assert.equal("offsetMin" in layout, false);
   assert.equal("offsetMax" in layout, false);
+});
+
+test("mixed external identifier: local marker stays anchored near the host when attribute moves farther", () => {
+  const host = {
+    id: "CARTA_CREDITO",
+    type: "entity" as const,
+    label: "CARTA_CREDITO",
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 80,
+  };
+  const nearAttribute = {
+    id: "Num_Carta",
+    type: "attribute" as const,
+    label: "Num_Carta",
+    x: 360,
+    y: 126,
+    width: 120,
+    height: 28,
+  };
+  const farAttribute = {
+    ...nearAttribute,
+    x: 760,
+  };
+
+  assert.deepEqual(
+    getStableLocalIdentifierMarkerPoint(host, farAttribute),
+    getStableLocalIdentifierMarkerPoint(host, nearAttribute),
+  );
+});
+
+test("mixed external identifier: grouping path uses a curved connector for local attribute markers", () => {
+  const host = {
+    id: "CARTA_CREDITO",
+    type: "entity" as const,
+    label: "CARTA_CREDITO",
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 80,
+  };
+  const path = buildExternalIdentifierGroupingPath(host, [
+    { kind: "importedRelationship", marker: point(200, 82) },
+    { kind: "importedRelationship", marker: point(200, 198) },
+    { kind: "localAttribute", marker: point(328, 140) },
+  ]);
+
+  assert.match(path, / C /);
 });
 
 test("mixed external identifier options include multiple mandatory unique sources", () => {
