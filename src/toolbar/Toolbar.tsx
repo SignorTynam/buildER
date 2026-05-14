@@ -300,7 +300,6 @@ export function Toolbar(props: ToolbarProps) {
   const attributeContext = selectedAttribute ? getAttributeContext(props.diagram, selectedAttribute) : undefined;
   const compositeSelection = getCompositeSelectionContext(props.diagram, props.selection);
   const connectorContext = getConnectorContext(props.diagram, props.selectedEdge);
-  const connectorHostHasExternalIdentifier = (connectorContext?.entity.externalIdentifiers ?? []).length > 0;
   const selectedEntityIsInHierarchy =
     canEdit &&
     props.selectedNode?.type === "entity" &&
@@ -428,20 +427,15 @@ export function Toolbar(props: ToolbarProps) {
         label: "External Id",
         icon: <ToolIcon name="externalId" />,
         onClick: () => props.onOpenExternalIdentifier?.(),
-        disabled: !canEdit || connectorHostHasExternalIdentifier,
-        title: connectorHostHasExternalIdentifier ? "Questa entita ha gia un identificatore misto/esterno." : undefined,
+        disabled: !canEdit,
       },
       {
         key: "mixed-id",
         label: "Mixed Id",
         icon: <ToolIcon name="compositeId" />,
         onClick: () => props.onOpenMixedIdentifier?.(),
-        disabled: !canEdit || mixedDisabled || connectorHostHasExternalIdentifier,
-        title: connectorHostHasExternalIdentifier
-          ? "Questa entita ha gia un identificatore misto/esterno."
-          : mixedDisabled
-            ? "L'identificatore esterno misto richiede cardinalita 1,1 sull'entita."
-            : undefined,
+        disabled: !canEdit || mixedDisabled,
+        title: mixedDisabled ? "L'identificatore esterno misto richiede cardinalita 1,1 sull'entita." : undefined,
       },
       { key: "card", label: "Card", icon: <ToolIcon name="card" />, onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
       { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },

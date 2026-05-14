@@ -1333,7 +1333,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     (node.externalIdentifiers ?? []).forEach((identifier) => {
-      const relationshipNode = nodeMap.get(identifier.relationshipId);
+      const primaryImportedPart = identifier.importedParts[0];
+      const relationshipNode = primaryImportedPart ? nodeMap.get(primaryImportedPart.relationshipId) : undefined;
       if (relationshipNode?.type !== "relationship") {
         return;
       }
@@ -1896,7 +1897,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     return props.diagram.nodes.some(
       (node) =>
         node.type === "entity" &&
-        (node.externalIdentifiers ?? []).some((identifier) => identifier.relationshipId === relationshipNode.id),
+        (node.externalIdentifiers ?? []).some((identifier) =>
+          identifier.importedParts.some((part) => part.relationshipId === relationshipNode.id),
+        ),
     );
   }
 

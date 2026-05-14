@@ -2503,7 +2503,7 @@ function buildRelationLines(
     .filter((node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity")
     .flatMap((entity) =>
       (entity.externalIdentifiers ?? [])
-        .filter((identifier) => identifier.relationshipId === relationship.id)
+        .filter((identifier) => identifier.importedParts.some((part) => part.relationshipId === relationship.id))
         .map((identifier) => ({ entity, identifier })),
     );
   const externalHostEntityIds = new Set(relationshipExternalIdentifiers.map(({ entity }) => entity.id));
@@ -3222,9 +3222,14 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
       ...(hostEntityNode.externalIdentifiers ?? []),
       {
         id: `externalIdentifier-ers-${hostEntityNode.id}-${index + 1}`,
-        relationshipId: relationship.id,
-        sourceEntityId: sourceEntity.id,
-        importedIdentifierId: importedIdentifier.id,
+        importedParts: [
+          {
+            id: `externalIdentifierPart-ers-${hostEntityNode.id}-${index + 1}`,
+            relationshipId: relationship.id,
+            sourceEntityId: sourceEntity.id,
+            importedIdentifierId: importedIdentifier.id,
+          },
+        ],
         localAttributeIds: localAttributes.map((attribute) => attribute.id),
         offset: spec.offset,
         markerOffsetX: spec.markerOffsetX,
@@ -3257,9 +3262,12 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
 
     const duplicate = (hostEntityNode.externalIdentifiers ?? []).some(
       (identifier) =>
-        identifier.relationshipId === spec.relationshipId &&
-        identifier.sourceEntityId === sourceEntity.id &&
-        identifier.importedIdentifierId === importedIdentifier.id &&
+        identifier.importedParts.some(
+          (part) =>
+            part.relationshipId === spec.relationshipId &&
+            part.sourceEntityId === sourceEntity.id &&
+            part.importedIdentifierId === importedIdentifier.id,
+        ) &&
         identifier.localAttributeIds.length === 0,
     );
     if (duplicate) {
@@ -3270,9 +3278,14 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
       ...(hostEntityNode.externalIdentifiers ?? []),
       {
         id: `externalIdentifier-designer-${hostEntityNode.id}-${index + 1}`,
-        relationshipId: spec.relationshipId,
-        sourceEntityId: sourceEntity.id,
-        importedIdentifierId: importedIdentifier.id,
+        importedParts: [
+          {
+            id: `externalIdentifierPart-designer-${hostEntityNode.id}-${index + 1}`,
+            relationshipId: spec.relationshipId,
+            sourceEntityId: sourceEntity.id,
+            importedIdentifierId: importedIdentifier.id,
+          },
+        ],
         localAttributeIds: [],
       } as ExternalIdentifier,
     ];

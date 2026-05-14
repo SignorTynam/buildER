@@ -5,13 +5,15 @@ import type {
   DiagramDocument,
   EntityNode,
   ExternalIdentifier,
-  InternalIdentifier,
+  ExternalIdentifierImportPart,
 } from "../types/diagram";
 import {
   getEntityDirectAttributes,
+  getEligibleImportedIdentifierParts,
   getExternalIdentifierImportedAttributes,
+  getExternalIdentifierImportedPartAttributes,
   getExternalIdentifierKind,
-  getExternalIdentifierSourceEntity,
+  type ExternalIdentifierImportPartOption,
 } from "../utils/diagram";
 import { CollapsiblePanel, EmptyStateCard } from "../components/panels";
 
@@ -22,22 +24,13 @@ interface ExternalIdentifierSectionProps {
   readOnly?: boolean;
 }
 
-interface ExternalIdentifierOption {
-  relationshipId: string;
-  relationshipLabel: string;
-  sourceEntityId: string;
-  sourceEntityLabel: string;
-  importedIdentifierId: string;
-  importedIdentifierLabel: string;
-}
-
 interface ExternalIdentifierModalProps {
-  options: ExternalIdentifierOption[];
+  options: ExternalIdentifierImportPartOption[];
   localAttributes: AttributeNode[];
-  initialSelectionKey?: string;
+  initialSelectionKeys?: string[];
   initialLocalAttributeIds?: string[];
   onCancel: () => void;
-  onConfirm: (selectionKey: string, localAttributeIds: string[]) => void;
+  onConfirm: (selectionKeys: string[], localAttributeIds: string[]) => void;
 }
 
 function createExternalIdentifierId(): string {
@@ -48,84 +41,8 @@ function createExternalIdentifierId(): string {
   return `externalIdentifier-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function buildOptionKey(option: Pick<ExternalIdentifierOption, "relationshipId" | "sourceEntityId" | "importedIdentifierId">): string {
+function buildOptionKey(option: Pick<ExternalIdentifierImportPart, "relationshipId" | "sourceEntityId" | "importedIdentifierId">): string {
   return [option.relationshipId, option.sourceEntityId, option.importedIdentifierId].join("::");
-}
-
-function describeInternalIdentifier(
-  identifier: InternalIdentifier,
-  attributesById: Map<string, AttributeNode>,
-): string {
-  return identifier.attributeIds
-    .map((attributeId) => attributesById.get(attributeId)?.label ?? attributeId)
-    .join(", ");
-}
-
-function buildImportOptions(entity: EntityNode, diagram: DiagramDocument): ExternalIdentifierOption[] {
-  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const sourceOptions = new Map<string, ExternalIdentifierOption>();
-
-  diagram.edges.forEach((edge) => {
-    if (edge.type !== "connector") {
-      return;
-    }
-
-    const relationshipId = edge.sourceId === entity.id ? edge.targetId : edge.targetId === entity.id ? edge.sourceId : null;
-    if (!relationshipId) {
-      return;
-    }
-
-    const relationshipNode = nodeMap.get(relationshipId);
-    if (relationshipNode?.type !== "relationship") {
-      return;
-    }
-
-    const participantEntityIds = diagram.edges
-      .filter(
-        (candidate) =>
-          candidate.type === "connector" &&
-          (candidate.sourceId === relationshipNode.id || candidate.targetId === relationshipNode.id),
-      )
-      .map((candidate) => (candidate.sourceId === relationshipNode.id ? candidate.targetId : candidate.sourceId))
-      .filter((candidateId, index, source) => source.indexOf(candidateId) === index);
-
-    if (participantEntityIds.length !== 2) {
-      return;
-    }
-
-    const sourceEntity = participantEntityIds
-      .map((entityId) => nodeMap.get(entityId))
-      .find((candidate): candidate is EntityNode => candidate?.type === "entity" && candidate.id !== entity.id);
-    if (!sourceEntity) {
-      return;
-    }
-
-    const sourceAttributesById = new Map(
-      getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => [attribute.id, attribute]),
-    );
-
-    (sourceEntity.internalIdentifiers ?? []).forEach((identifier) => {
-      if (identifier.attributeIds.length === 0) {
-        return;
-      }
-
-      const option: ExternalIdentifierOption = {
-        relationshipId: relationshipNode.id,
-        relationshipLabel: relationshipNode.label,
-        sourceEntityId: sourceEntity.id,
-        sourceEntityLabel: sourceEntity.label,
-        importedIdentifierId: identifier.id,
-        importedIdentifierLabel: describeInternalIdentifier(identifier, sourceAttributesById),
-      };
-      sourceOptions.set(buildOptionKey(option), option);
-    });
-  });
-
-  return Array.from(sourceOptions.values()).sort((left, right) => {
-    const leftLabel = `${left.sourceEntityLabel} ${left.relationshipLabel} ${left.importedIdentifierLabel}`;
-    const rightLabel = `${right.sourceEntityLabel} ${right.relationshipLabel} ${right.importedIdentifierLabel}`;
-    return leftLabel.localeCompare(rightLabel, "it", { sensitivity: "base" });
-  });
 }
 
 function filterEligibleLocalAttributes(
@@ -171,27 +88,29 @@ function filterEligibleLocalAttributes(
 function ExternalIdentifierModal({
   options,
   localAttributes,
-  initialSelectionKey,
+  initialSelectionKeys = [],
   initialLocalAttributeIds = [],
   onCancel,
   onConfirm,
 }: ExternalIdentifierModalProps) {
-  const [selectedOptionKey, setSelectedOptionKey] = useState<string>(
-    () =>
-      initialSelectionKey ??
-      (options[0]
-        ? buildOptionKey(options[0])
-        : buildOptionKey({
-            relationshipId: "",
-            sourceEntityId: "",
-            importedIdentifierId: "",
-          })),
+  const [selectedOptionKeys, setSelectedOptionKeys] = useState<Set<string>>(
+    () => new Set(initialSelectionKeys),
   );
   const [selectedLocalAttributeIds, setSelectedLocalAttributeIds] = useState<Set<string>>(
     () => new Set(initialLocalAttributeIds),
   );
 
-  function toggle(attributeId: string) {
+  function toggleImportedPart(optionKey: string) {
+    const nextSelection = new Set(selectedOptionKeys);
+    if (nextSelection.has(optionKey)) {
+      nextSelection.delete(optionKey);
+    } else {
+      nextSelection.add(optionKey);
+    }
+    setSelectedOptionKeys(nextSelection);
+  }
+
+  function toggleLocalAttribute(attributeId: string) {
     const nextSelection = new Set(selectedLocalAttributeIds);
     if (nextSelection.has(attributeId)) {
       nextSelection.delete(attributeId);
@@ -201,7 +120,7 @@ function ExternalIdentifierModal({
     setSelectedLocalAttributeIds(nextSelection);
   }
 
-  const selectedOption = options.find((option) => buildOptionKey(option) === selectedOptionKey);
+  const selectedImportedCount = selectedOptionKeys.size;
   const kindLabel = selectedLocalAttributeIds.size > 0 ? "importato + locale" : "solo importato";
 
   const modalContent = (
@@ -215,22 +134,27 @@ function ExternalIdentifierModal({
         </div>
 
         <div className="action-modal-content">
-          <label className="field">
-            <span>Parte importata</span>
-            <select value={selectedOptionKey} onChange={(event) => setSelectedOptionKey(event.target.value)}>
-              {options.map((option) => (
-                <option key={buildOptionKey(option)} value={buildOptionKey(option)}>
-                  {option.sourceEntityLabel} via {option.relationshipLabel}: {option.importedIdentifierLabel}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <p className="action-hint">
-            {selectedOption
-              ? `Importa l'identificatore "${selectedOption.importedIdentifierLabel}" da "${selectedOption.sourceEntityLabel}" tramite "${selectedOption.relationshipLabel}".`
-              : "Nessuna sorgente disponibile."}
-          </p>
+          <div className="context-card-title">Parti importate eleggibili</div>
+          <div className="modal-attribute-list">
+            {options.map((option) => {
+              const optionKey = buildOptionKey(option);
+              return (
+                <label key={optionKey} className="field checkbox-field">
+                  <span>{option.sourceEntityLabel} via {option.relationshipLabel}: {option.importedIdentifierLabel}</span>
+                  <input
+                    type="checkbox"
+                    checked={selectedOptionKeys.has(optionKey)}
+                    onChange={() => toggleImportedPart(optionKey)}
+                  />
+                </label>
+              );
+            })}
+            {options.length === 0 ? (
+              <p className="action-hint">
+                Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.
+              </p>
+            ) : null}
+          </div>
 
           <div className="context-card-title">Attributi locali dell'host</div>
           <div className="modal-attribute-list">
@@ -240,7 +164,7 @@ function ExternalIdentifierModal({
                 <input
                   type="checkbox"
                   checked={selectedLocalAttributeIds.has(attribute.id)}
-                  onChange={() => toggle(attribute.id)}
+                  onChange={() => toggleLocalAttribute(attribute.id)}
                 />
               </label>
             ))}
@@ -249,7 +173,7 @@ function ExternalIdentifierModal({
             ) : null}
           </div>
 
-          <p className="action-hint">Tipo risultante: {kindLabel}.</p>
+          <p className="action-hint">Tipo risultante: {kindLabel}. Parti importate selezionate: {selectedImportedCount}.</p>
 
           <div className="action-modal-actions">
             <button type="button" onClick={onCancel}>
@@ -257,8 +181,8 @@ function ExternalIdentifierModal({
             </button>
             <button
               type="button"
-              onClick={() => onConfirm(selectedOptionKey, Array.from(selectedLocalAttributeIds))}
-              disabled={!selectedOption}
+              onClick={() => onConfirm(Array.from(selectedOptionKeys), Array.from(selectedLocalAttributeIds))}
+              disabled={selectedOptionKeys.size === 0}
             >
               Salva
             </button>
@@ -290,20 +214,14 @@ export function ExternalIdentifierSection({
       ),
     [diagram, entity.id],
   );
-  const importOptions = useMemo(() => buildImportOptions(entity, diagram), [diagram, entity]);
-  const canAddExternalIdentifier = importOptions.length > 0 && externalIdentifiers.length === 0;
+  const importOptions = useMemo(() => getEligibleImportedIdentifierParts(diagram, entity.id), [diagram, entity.id]);
+  const canAddExternalIdentifier = importOptions.length > 0;
 
   const selectedExternalIdentifier =
     modalIndex !== null && modalIndex < externalIdentifiers.length ? externalIdentifiers[modalIndex] : undefined;
-  const selectedOptionKey = selectedExternalIdentifier
-    ? buildOptionKey({
-        relationshipId: selectedExternalIdentifier.relationshipId,
-        sourceEntityId: selectedExternalIdentifier.sourceEntityId,
-        importedIdentifierId: selectedExternalIdentifier.importedIdentifierId,
-      })
-    : importOptions[0]
-      ? buildOptionKey(importOptions[0])
-      : undefined;
+  const selectedOptionKeys = selectedExternalIdentifier
+    ? selectedExternalIdentifier.importedParts.map((part) => buildOptionKey(part))
+    : [];
   const selectableLocalAttributes = useMemo(() => {
     if (modalIndex === null) {
       return [] as AttributeNode[];
@@ -331,47 +249,52 @@ export function ExternalIdentifierSection({
     });
   }
 
-  function handleSave(selectionKey: string, localAttributeIds: string[]) {
+  function handleSave(selectionKeys: string[], localAttributeIds: string[]) {
     if (modalIndex === null) {
       return;
     }
 
-    const selectedOption = importOptions.find((option) => buildOptionKey(option) === selectionKey);
-    if (!selectedOption) {
+    const selectedOptions = selectionKeys
+      .map((selectionKey) => importOptions.find((option) => buildOptionKey(option) === selectionKey))
+      .filter((option): option is ExternalIdentifierImportPartOption => option !== undefined);
+    if (selectedOptions.length === 0) {
       return;
     }
 
+    const selectedOptionKeySet = new Set<string>();
+    const importedParts = selectedOptions
+      .filter((option) => {
+        const optionKey = buildOptionKey(option);
+        if (selectedOptionKeySet.has(optionKey)) {
+          return false;
+        }
+        selectedOptionKeySet.add(optionKey);
+        return true;
+      })
+      .map((option) => {
+        const previousPart = selectedExternalIdentifier?.importedParts.find(
+          (part) => buildOptionKey(part) === buildOptionKey(option),
+        );
+        return {
+          id: previousPart?.id ?? createExternalIdentifierId(),
+          relationshipId: option.relationshipId,
+          sourceEntityId: option.sourceEntityId,
+          importedIdentifierId: option.importedIdentifierId,
+        };
+      });
     const selectableAttributeIds = new Set(selectableLocalAttributes.map((attribute) => attribute.id));
     const normalizedLocalAttributeIds = localAttributeIds.filter((attributeId) => selectableAttributeIds.has(attributeId));
     const nextIdentifiers = [...externalIdentifiers];
     const previousIdentifier = modalIndex < externalIdentifiers.length ? externalIdentifiers[modalIndex] : undefined;
-    const baseIdentifier: ExternalIdentifier =
-      previousIdentifier &&
-      previousIdentifier.relationshipId === selectedOption.relationshipId &&
-      previousIdentifier.sourceEntityId === selectedOption.sourceEntityId &&
-      previousIdentifier.importedIdentifierId === selectedOption.importedIdentifierId
-        ? previousIdentifier
-        : {
-            id: previousIdentifier?.id ?? createExternalIdentifierId(),
-            relationshipId: selectedOption.relationshipId,
-            sourceEntityId: selectedOption.sourceEntityId,
-            importedIdentifierId: selectedOption.importedIdentifierId,
-            localAttributeIds: [],
-          };
 
     const nextIdentifier: ExternalIdentifier = {
-      ...baseIdentifier,
-      relationshipId: selectedOption.relationshipId,
-      sourceEntityId: selectedOption.sourceEntityId,
-      importedIdentifierId: selectedOption.importedIdentifierId,
+      ...previousIdentifier,
+      id: previousIdentifier?.id ?? createExternalIdentifierId(),
+      importedParts,
       localAttributeIds: normalizedLocalAttributeIds,
     };
 
     if (modalIndex >= externalIdentifiers.length) {
-      if (externalIdentifiers.length > 0) {
-        setModalIndex(null);
-        return;
-      }
       nextIdentifiers.push(nextIdentifier);
     } else {
       nextIdentifiers[modalIndex] = nextIdentifier;
@@ -391,23 +314,27 @@ export function ExternalIdentifierSection({
     <CollapsiblePanel title="Identificatori esterni" defaultOpen className="context-card identifier-section identifier-section-external">
       <div className="identifier-list">
         {externalIdentifiers.map((identifier, index) => {
-          const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
           const importedAttributes = getExternalIdentifierImportedAttributes(diagram, identifier);
-          const importedLabel = importedAttributes.map((attribute) => attribute.label).join(", ");
+          const importedLabel = importedAttributes.map((attribute) => attribute.label).join(" + ");
           const localLabel = identifier.localAttributeIds
             .map((attributeId) => directAttributes.find((attribute) => attribute.id === attributeId)?.label ?? attributeId)
+            .join(" + ");
+          const relationLabel = identifier.importedParts
+            .map((part) => diagram.nodes.find((node) => node.id === part.relationshipId && node.type === "relationship")?.label ?? part.relationshipId)
             .join(", ");
-          const relationLabel =
-            diagram.nodes.find((node) => node.id === identifier.relationshipId && node.type === "relationship")?.label ??
-            identifier.relationshipId;
           const kind = getExternalIdentifierKind(identifier);
           const kindLabel = kind === "imported_only" ? "Importato" : "Importato + locale";
+          const importedPartLabels = identifier.importedParts.map((part) => {
+            const sourceEntity = diagram.nodes.find((node) => node.id === part.sourceEntityId && node.type === "entity");
+            const attributes = getExternalIdentifierImportedPartAttributes(diagram, part).map((attribute) => attribute.label).join(" + ");
+            return sourceEntity ? `${sourceEntity.label}: ${attributes || part.importedIdentifierId}` : part.importedIdentifierId;
+          });
 
           return (
             <div key={identifier.id} className="identifier-row identifier-row-external">
               <div className="identifier-main">
                 <span className="identifier-attrs">
-                  {sourceEntity ? `${sourceEntity.label}: ${importedLabel || identifier.importedIdentifierId}` : identifier.importedIdentifierId}
+                  {importedPartLabels.length > 0 ? importedPartLabels.join(" + ") : importedLabel}
                   {localLabel ? ` + ${localLabel}` : ""}
                 </span>
                 <span className="identifier-meta">via {relationLabel}</span>
@@ -445,9 +372,7 @@ export function ExternalIdentifierSection({
 
       {!readOnly && !canAddExternalIdentifier ? (
         <p className="action-hint">
-          {externalIdentifiers.length > 0
-            ? "Questa entita ha gia un identificatore esterno o misto."
-            : "Servono una relazione identificante valida e almeno un identificatore interno disponibile sulla sorgente."}
+          Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.
         </p>
       ) : null}
 
@@ -455,7 +380,7 @@ export function ExternalIdentifierSection({
         <ExternalIdentifierModal
           options={importOptions}
           localAttributes={selectableLocalAttributes}
-          initialSelectionKey={selectedOptionKey}
+          initialSelectionKeys={selectedOptionKeys}
           initialLocalAttributeIds={selectedExternalIdentifier?.localAttributeIds}
           onCancel={() => setModalIndex(null)}
           onConfirm={handleSave}

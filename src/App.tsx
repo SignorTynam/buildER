@@ -56,6 +56,7 @@ import {
   duplicateSelection,
   edgeAlreadyExists,
   type ExternalIdentifierInvalidation,
+  getEligibleImportedIdentifierParts,
   findNode,
   getMultivaluedAttributeSize,
   isEntityInGeneralizationGroup,
@@ -171,10 +172,14 @@ interface CardinalityDialogState {
 
 interface MixedIdentifierDialogState {
   hostEntityId: string;
-  relationshipId: string;
-  sourceEntityId: string;
-  importedIdentifierId: string;
+  importedParts: Array<{
+    relationshipId: string;
+    sourceEntityId: string;
+    importedIdentifierId: string;
+    label: string;
+  }>;
   attributes: Array<{ id: string; label: string }>;
+  selectedImportedPartKeys: string[];
   selectedAttributeIds: string[];
   error: string;
 }
@@ -701,8 +706,6 @@ function sanitizeFileNameBase(value: string): string {
 }
 
 const DEFAULT_ATTRIBUTE_SIZE = { width: 170, height: 72 };
-const DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE =
-  "Questa entita ha gia un identificatore: non e possibile aggiungere un altro identificatore misto/esterno.";
 
 function clampValue(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -923,8 +926,16 @@ function findRelationshipBetweenEntities(
 function findInternalIdentifierContainingAttribute(
   entity: EntityNode,
   attributeId: string,
-): ExternalIdentifier["importedIdentifierId"] | undefined {
+): string | undefined {
   return entity.internalIdentifiers?.find((identifier) => identifier.attributeIds.includes(attributeId))?.id;
+}
+
+function buildExternalImportPartKey(part: {
+  relationshipId: string;
+  sourceEntityId: string;
+  importedIdentifierId: string;
+}): string {
+  return [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join("::");
 }
 
 function getNodeKindLabel(node: DiagramNode): string {
@@ -3640,7 +3651,7 @@ export default function App() {
     return getConnectorCardinality(connectorContext.edge) === "(1,1)";
   }
 
-  async function createExternalIdentifierFromContext(options: { mixed: boolean; localAttributeIds?: string[] }) {
+  async function createExternalIdentifierFromContext(options: { mixed: boolean; localAttributeIds?: string[]; importedPartKeys?: string[] }) {
     let hostEntity: EntityNode | undefined;
     let relationshipId: string | undefined;
     let selectedConnectorId: string | undefined;
@@ -3660,49 +3671,17 @@ export default function App() {
       return;
     }
 
-    if ((hostEntity.externalIdentifiers ?? []).length > 0) {
-      setStatusWarning(DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE);
-      return;
-    }
-
-    const relationships = relationshipId
-      ? history.present.nodes.filter((node): node is Extract<DiagramNode, { type: "relationship" }> =>
-          node.id === relationshipId && node.type === "relationship",
-        )
-      : history.present.nodes.filter((node): node is Extract<DiagramNode, { type: "relationship" }> => {
-          if (node.type !== "relationship") {
-            return false;
-          }
-          return history.present.edges.some(
-            (edge) => edge.type === "connector" && (edge.sourceId === node.id || edge.targetId === node.id) &&
-              (edge.sourceId === hostEntity?.id || edge.targetId === hostEntity?.id),
-          );
-        });
-
-    const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
-    const candidates = relationships.flatMap((relationship) => {
-      const participants = history.present.edges
-        .filter((edge) => edge.type === "connector" && (edge.sourceId === relationship.id || edge.targetId === relationship.id))
-        .map((edge) => {
-          const entityId = edge.sourceId === relationship.id ? edge.targetId : edge.sourceId;
-          const entity = nodeMap.get(entityId);
-          return entity?.type === "entity" ? { edge, entity } : null;
-        })
-        .filter((item): item is { edge: Extract<DiagramEdge, { type: "connector" }>; entity: EntityNode } => item !== null);
-      return participants
-        .filter((participant) => participant.entity.id !== hostEntity?.id)
-        .flatMap((participant) =>
-          (participant.entity.internalIdentifiers ?? []).map((identifier) => ({
-            relationship,
-            sourceEntity: participant.entity,
-            importedIdentifier: identifier,
-          })),
-        );
+    const importOptions = getEligibleImportedIdentifierParts(history.present, hostEntity.id);
+    const selectedKeySet = new Set(options.importedPartKeys ?? []);
+    const selectedImportParts = importOptions.filter((option) => {
+      if (selectedKeySet.size > 0) {
+        return selectedKeySet.has(buildExternalImportPartKey(option));
+      }
+      return relationshipId ? option.relationshipId === relationshipId : true;
     });
 
-    const candidate = candidates[0];
-    if (!candidate) {
-      setStatusWarning("Nessuna entita sorgente con identificatore interno disponibile.");
+    if (selectedImportParts.length === 0) {
+      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.");
       return;
     }
 
@@ -3719,17 +3698,19 @@ export default function App() {
     if (options.mixed) {
       const eligibleIds = new Set(localEligible.map((attribute) => attribute.id));
       localAttributeIds = localAttributeIds.filter((attributeId) => eligibleIds.has(attributeId));
-      if (localAttributeIds.length === 0) {
-        setStatusWarning("Mixed Id richiede almeno un attributo semplice locale selezionato.");
-        return;
-      }
     }
 
     const nextIdentifier: ExternalIdentifier = {
       id: `externalIdentifier-${Date.now()}`,
-      relationshipId: candidate.relationship.id,
-      sourceEntityId: candidate.sourceEntity.id,
-      importedIdentifierId: candidate.importedIdentifier.id,
+      importedParts: selectedImportParts.map((part) => ({
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `externalIdentifierPart-${Math.random().toString(36).slice(2, 11)}`,
+        relationshipId: part.relationshipId,
+        sourceEntityId: part.sourceEntityId,
+        importedIdentifierId: part.importedIdentifierId,
+      })),
       localAttributeIds,
     };
     const nextDiagram: DiagramDocument = {
@@ -3754,12 +3735,12 @@ export default function App() {
           : undefined;
         const participationId = connector?.participationId ?? (selectedConnectorId ? `participation-${selectedConnectorId}` : undefined);
         const nextParticipations =
-          participationId && candidate.relationship.id === relationshipId
+          participationId && selectedImportParts.some((part) => part.relationshipId === relationshipId)
             ? participations.some((participation) => participation.id === participationId)
               ? participations.map((participation) =>
                   participation.id === participationId ? { ...participation, cardinality: "(1,1)" } : participation,
                 )
-              : [...participations, { id: participationId, relationshipId: candidate.relationship.id, cardinality: "(1,1)" }]
+              : [...participations, { id: participationId, relationshipId: relationshipId as string, cardinality: "(1,1)" }]
             : participations;
         return {
           ...node,
@@ -3787,23 +3768,9 @@ export default function App() {
     }
 
     const hostEntity = connectorContext.entity;
-    const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
-    const participants = history.present.edges
-      .filter(
-        (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
-          edge.type === "connector" &&
-          (edge.sourceId === connectorContext.relationship.id || edge.targetId === connectorContext.relationship.id),
-      )
-      .map((edge) => {
-        const entityId = edge.sourceId === connectorContext.relationship.id ? edge.targetId : edge.sourceId;
-        const entity = nodeMap.get(entityId);
-        return entity?.type === "entity" ? entity : null;
-      })
-      .filter((entity): entity is EntityNode => entity !== null && entity.id !== hostEntity.id);
-    const sourceEntity = participants.find((entity) => (entity.internalIdentifiers ?? []).length > 0);
-    const importedIdentifier = sourceEntity?.internalIdentifiers?.[0];
-    if (!sourceEntity || !importedIdentifier) {
-      setStatusWarning("Nessuna entita sorgente con identificatore interno disponibile.");
+    const importOptions = getEligibleImportedIdentifierParts(history.present, hostEntity.id);
+    if (importOptions.length === 0) {
+      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.");
       return;
     }
 
@@ -3824,10 +3791,16 @@ export default function App() {
 
     setMixedIdentifierDialog({
       hostEntityId: hostEntity.id,
-      relationshipId: connectorContext.relationship.id,
-      sourceEntityId: sourceEntity.id,
-      importedIdentifierId: importedIdentifier.id,
+      importedParts: importOptions.map((option) => ({
+        relationshipId: option.relationshipId,
+        sourceEntityId: option.sourceEntityId,
+        importedIdentifierId: option.importedIdentifierId,
+        label: `${option.sourceEntityLabel} via ${option.relationshipLabel}: ${option.importedIdentifierLabel}`,
+      })),
       attributes,
+      selectedImportedPartKeys: importOptions
+        .filter((option) => option.relationshipId === connectorContext.relationship.id)
+        .map((option) => buildExternalImportPartKey(option)),
       selectedAttributeIds: [],
       error: attributes.length === 0 ? "Nessun attributo semplice locale eleggibile." : "",
     });
@@ -3838,10 +3811,10 @@ export default function App() {
       return;
     }
 
-    if (mixedIdentifierDialog.selectedAttributeIds.length === 0) {
+    if (mixedIdentifierDialog.selectedImportedPartKeys.length === 0) {
       setMixedIdentifierDialog({
         ...mixedIdentifierDialog,
-        error: "Seleziona almeno un attributo semplice locale.",
+        error: "Seleziona almeno una parte importata per creare un identificatore esterno/misto.",
       });
       return;
     }
@@ -3849,6 +3822,7 @@ export default function App() {
     void createExternalIdentifierFromContext({
       mixed: true,
       localAttributeIds: mixedIdentifierDialog.selectedAttributeIds,
+      importedPartKeys: mixedIdentifierDialog.selectedImportedPartKeys,
     });
     setMixedIdentifierDialog(null);
   }
@@ -4016,13 +3990,6 @@ export default function App() {
       };
     }
 
-    if ((targetEntity.externalIdentifiers ?? []).length > 0) {
-      return {
-        success: false,
-        message: DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE,
-      };
-    }
-
     const relationship = findRelationshipBetweenEntities(history.present, sourceEntity.id, targetEntity.id);
     if (!relationship || relationship.type !== "relationship") {
       return {
@@ -4040,16 +4007,31 @@ export default function App() {
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
           : `externalIdentifier-${Math.random().toString(36).slice(2, 11)}`,
-      relationshipId: relationship.id,
-      sourceEntityId: sourceEntity.id,
-      importedIdentifierId,
+      importedParts: [
+        {
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `externalIdentifierPart-${Math.random().toString(36).slice(2, 11)}`,
+          relationshipId: relationship.id,
+          sourceEntityId: sourceEntity.id,
+          importedIdentifierId,
+        },
+      ],
       localAttributeIds,
     };
     const duplicateExists = (targetEntity.externalIdentifiers ?? []).some(
       (identifier) =>
-        identifier.relationshipId === nextExternalIdentifier.relationshipId &&
-        identifier.sourceEntityId === nextExternalIdentifier.sourceEntityId &&
-        identifier.importedIdentifierId === nextExternalIdentifier.importedIdentifierId &&
+        identifier.importedParts.length === nextExternalIdentifier.importedParts.length &&
+        identifier.importedParts.every((part, index) => {
+          const nextPart = nextExternalIdentifier.importedParts[index];
+          return (
+            nextPart !== undefined &&
+            part.relationshipId === nextPart.relationshipId &&
+            part.sourceEntityId === nextPart.sourceEntityId &&
+            part.importedIdentifierId === nextPart.importedIdentifierId
+          );
+        }) &&
         identifier.localAttributeIds.length === nextExternalIdentifier.localAttributeIds.length &&
         identifier.localAttributeIds.every(
           (attributeId, index) => nextExternalIdentifier.localAttributeIds[index] === attributeId,
@@ -4208,10 +4190,6 @@ export default function App() {
     const nextExternalIdentifiers = Array.isArray(patch.externalIdentifiers)
       ? patch.externalIdentifiers
       : entityNode.externalIdentifiers;
-    if ((nextExternalIdentifiers ?? []).length > 1) {
-      setStatusWarning(DUPLICATE_EXTERNAL_IDENTIFIER_MESSAGE);
-      return;
-    }
 
     const externalIdentifierAttributeIds = new Set(
       (nextExternalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds),
@@ -5623,6 +5601,28 @@ export default function App() {
                 submitMixedIdentifierDialog();
               }}
             >
+              <div className="context-card-title">Parti importate eleggibili</div>
+              <div className="checkbox-list">
+                {mixedIdentifierDialog.importedParts.map((part) => {
+                  const partKey = buildExternalImportPartKey(part);
+                  return (
+                    <label key={partKey} className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={mixedIdentifierDialog.selectedImportedPartKeys.includes(partKey)}
+                        onChange={(event) => {
+                          const selectedImportedPartKeys = event.target.checked
+                            ? [...mixedIdentifierDialog.selectedImportedPartKeys, partKey]
+                            : mixedIdentifierDialog.selectedImportedPartKeys.filter((id) => id !== partKey);
+                          setMixedIdentifierDialog({ ...mixedIdentifierDialog, selectedImportedPartKeys, error: "" });
+                        }}
+                      />
+                      <span>{part.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="context-card-title">Attributi locali dell'host</div>
               <div className="checkbox-list">
                 {mixedIdentifierDialog.attributes.map((attribute) => (
                   <label key={attribute.id} className="checkbox-row">
@@ -5645,7 +5645,7 @@ export default function App() {
                 <button type="button" className="header-button" onClick={() => setMixedIdentifierDialog(null)}>
                   Annulla
                 </button>
-                <button type="submit" className="mode-button active" disabled={mixedIdentifierDialog.attributes.length === 0}>
+                <button type="submit" className="mode-button active" disabled={mixedIdentifierDialog.importedParts.length === 0}>
                   Crea
                 </button>
               </div>

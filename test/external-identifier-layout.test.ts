@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildImportedOnlyExternalIdentifierLayout } from "../src/canvas/DiagramCanvas.tsx";
-import type { Bounds, Point } from "../src/types/diagram.ts";
+import type { Bounds, DiagramDocument, Point } from "../src/types/diagram.ts";
+import { getEligibleImportedIdentifierParts } from "../src/utils/diagram.ts";
 
 function point(x: number, y: number): Point {
   return { x, y };
@@ -62,4 +63,68 @@ test("external identifier imported-only: layout does not expose manual offset co
   assert.equal("offsetDirection" in layout, false);
   assert.equal("offsetMin" in layout, false);
   assert.equal("offsetMax" in layout, false);
+});
+
+test("mixed external identifier options include multiple mandatory unique sources", () => {
+  const diagram: DiagramDocument = {
+    meta: { name: "Carta credito", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "PERSONA",
+        type: "entity",
+        label: "PERSONA",
+        x: 0,
+        y: 0,
+        width: 140,
+        height: 64,
+        internalIdentifiers: [{ id: "PERSONA-id", attributeIds: ["CF"] }],
+        relationshipParticipations: [{ id: "p-persona-possiede", relationshipId: "POSSIEDE", cardinality: "(0,N)" }],
+      },
+      {
+        id: "BANCA",
+        type: "entity",
+        label: "BANCA",
+        x: 0,
+        y: 0,
+        width: 140,
+        height: 64,
+        internalIdentifiers: [{ id: "BANCA-id", attributeIds: ["IdBanca"] }],
+        relationshipParticipations: [{ id: "p-banca-produce", relationshipId: "PRODUCE", cardinality: "(0,N)" }],
+      },
+      {
+        id: "CARTA_CREDITO",
+        type: "entity",
+        label: "CARTA_CREDITO",
+        x: 0,
+        y: 0,
+        width: 180,
+        height: 64,
+        relationshipParticipations: [
+          { id: "p-carta-possiede", relationshipId: "POSSIEDE", cardinality: "(1,1)" },
+          { id: "p-carta-produce", relationshipId: "PRODUCE", cardinality: "(1,1)" },
+        ],
+      },
+      { id: "POSSIEDE", type: "relationship", label: "POSSIEDE", x: 0, y: 0, width: 130, height: 78 },
+      { id: "PRODUCE", type: "relationship", label: "PRODUCE", x: 0, y: 0, width: 130, height: 78 },
+      { id: "CF", type: "attribute", label: "CF", x: 0, y: 0, width: 80, height: 28, isIdentifier: true },
+      { id: "IdBanca", type: "attribute", label: "IdBanca", x: 0, y: 0, width: 100, height: 28, isIdentifier: true },
+      { id: "Num_Carta", type: "attribute", label: "Num_Carta", x: 0, y: 0, width: 120, height: 28 },
+    ],
+    edges: [
+      { id: "e-persona-possiede", type: "connector", sourceId: "PERSONA", targetId: "POSSIEDE", label: "", lineStyle: "solid", participationId: "p-persona-possiede" },
+      { id: "e-carta-possiede", type: "connector", sourceId: "CARTA_CREDITO", targetId: "POSSIEDE", label: "", lineStyle: "solid", participationId: "p-carta-possiede" },
+      { id: "e-banca-produce", type: "connector", sourceId: "BANCA", targetId: "PRODUCE", label: "", lineStyle: "solid", participationId: "p-banca-produce" },
+      { id: "e-carta-produce", type: "connector", sourceId: "CARTA_CREDITO", targetId: "PRODUCE", label: "", lineStyle: "solid", participationId: "p-carta-produce" },
+      { id: "e-persona-cf", type: "attribute", sourceId: "PERSONA", targetId: "CF", label: "", lineStyle: "solid" },
+      { id: "e-banca-id", type: "attribute", sourceId: "BANCA", targetId: "IdBanca", label: "", lineStyle: "solid" },
+      { id: "e-carta-num", type: "attribute", sourceId: "CARTA_CREDITO", targetId: "Num_Carta", label: "", lineStyle: "solid" },
+    ],
+  };
+
+  const labels = getEligibleImportedIdentifierParts(diagram, "CARTA_CREDITO").map(
+    (option) => `${option.sourceEntityLabel} via ${option.relationshipLabel}: ${option.importedIdentifierLabel}`,
+  );
+
+  assert.deepEqual(labels, ["BANCA via PRODUCE: IdBanca", "PERSONA via POSSIEDE: CF"]);
 });

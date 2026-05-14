@@ -586,7 +586,10 @@ function mergeExternalIdentifiers(
     nextExternal.push({
       ...identifier,
       id: nextId,
-      sourceEntityId,
+      importedParts: identifier.importedParts.map((part) => ({
+        ...part,
+        sourceEntityId,
+      })),
       localAttributeIds: identifier.localAttributeIds.map((attributeId) => idRemap.get(attributeId) ?? attributeId),
     });
   });
@@ -817,24 +820,37 @@ function ensureGeneralizationSubstitutionRelationship(
       const externalIdentifiers = node.externalIdentifiers ?? [];
       const existingExternal = externalIdentifiers.find(
         (identifier) =>
-          identifier.relationshipId === relationship.id &&
-          identifier.sourceEntityId === supertype.id &&
-          identifier.importedIdentifierId === importedIdentifierId &&
+          (identifier.importedParts ?? []).some(
+            (part) =>
+              part.relationshipId === relationship.id &&
+              part.sourceEntityId === supertype.id &&
+              part.importedIdentifierId === importedIdentifierId,
+          ) &&
           identifier.localAttributeIds.length === 0,
       );
       const nextExternalIdentifiers =
         existingExternal !== undefined
           ? externalIdentifiers
           : [
+              ...externalIdentifiers,
               {
                 id: allocateUniqueId(
                   new Set(externalIdentifiers.map((identifier) => identifier.id)),
                   `${subtype.id}-${relationship.id}-external`,
                   "externalIdentifier",
                 ),
-                relationshipId: relationship.id,
-                sourceEntityId: supertype.id,
-                importedIdentifierId,
+                importedParts: [
+                  {
+                    id: allocateUniqueId(
+                      new Set(externalIdentifiers.flatMap((identifier) => (identifier.importedParts ?? []).map((part) => part.id))),
+                      `${subtype.id}-${relationship.id}-external-part`,
+                      "externalIdentifierPart",
+                    ),
+                    relationshipId: relationship.id,
+                    sourceEntityId: supertype.id,
+                    importedIdentifierId,
+                  },
+                ],
                 localAttributeIds: [],
               },
             ];

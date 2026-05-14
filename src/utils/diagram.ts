@@ -4,6 +4,7 @@ import type {
   DiagramNode,
   EdgeKind,
   ExternalIdentifier,
+  ExternalIdentifierImportPart,
   GeneralizationGroup,
   EntityRelationshipParticipation,
   InternalIdentifier,
@@ -65,6 +66,12 @@ export interface ExternalIdentifierInvalidation {
   sourceEntityLabel?: string;
   reason: string;
   message: string;
+}
+
+export interface ExternalIdentifierImportPartOption extends ExternalIdentifierImportPart {
+  relationshipLabel: string;
+  sourceEntityLabel: string;
+  importedIdentifierLabel: string;
 }
 
 export interface NodeNameIdentitySyncResult {
@@ -138,6 +145,74 @@ function sanitizeEntityRelationshipParticipations(
   return parsedParticipations.length > 0 ? parsedParticipations : undefined;
 }
 
+function sanitizeExternalIdentifierImportParts(rawIdentifier: {
+  importedParts?: unknown;
+  relationshipId?: unknown;
+  sourceEntityId?: unknown;
+  importedIdentifierId?: unknown;
+}): ExternalIdentifierImportPart[] {
+  const parsedParts: ExternalIdentifierImportPart[] = [];
+  const seenPartKeys = new Set<string>();
+  const pushPart = (part: {
+    id?: unknown;
+    relationshipId?: unknown;
+    sourceEntityId?: unknown;
+    importedIdentifierId?: unknown;
+  }) => {
+    if (
+      typeof part.relationshipId !== "string" ||
+      part.relationshipId.trim().length === 0 ||
+      typeof part.sourceEntityId !== "string" ||
+      part.sourceEntityId.trim().length === 0 ||
+      typeof part.importedIdentifierId !== "string" ||
+      part.importedIdentifierId.trim().length === 0
+    ) {
+      return;
+    }
+
+    const key = [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join("|");
+    if (seenPartKeys.has(key)) {
+      return;
+    }
+
+    seenPartKeys.add(key);
+    parsedParts.push({
+      id:
+        typeof part.id === "string" && part.id.trim().length > 0
+          ? part.id
+          : createId("externalIdentifierPart"),
+      relationshipId: part.relationshipId,
+      sourceEntityId: part.sourceEntityId,
+      importedIdentifierId: part.importedIdentifierId,
+    });
+  };
+
+  if (Array.isArray(rawIdentifier.importedParts)) {
+    rawIdentifier.importedParts.forEach((part) => {
+      if (typeof part !== "object" || part === null) {
+        return;
+      }
+
+      pushPart(part as {
+        id?: unknown;
+        relationshipId?: unknown;
+        sourceEntityId?: unknown;
+        importedIdentifierId?: unknown;
+      });
+    });
+  }
+
+  if (parsedParts.length === 0) {
+    pushPart({
+      relationshipId: rawIdentifier.relationshipId,
+      sourceEntityId: rawIdentifier.sourceEntityId,
+      importedIdentifierId: rawIdentifier.importedIdentifierId,
+    });
+  }
+
+  return parsedParts;
+}
+
 function sanitizeExternalIdentifiers(rawIdentifiers: unknown): ExternalIdentifier[] | undefined {
   const parsedIdentifiers: ExternalIdentifier[] = [];
   if (Array.isArray(rawIdentifiers)) {
@@ -155,15 +230,10 @@ function sanitizeExternalIdentifiers(rawIdentifiers: unknown): ExternalIdentifie
         offset?: unknown;
         markerOffsetX?: unknown;
         markerOffsetY?: unknown;
+        importedParts?: unknown;
       };
-      if (
-        typeof rawIdentifier.relationshipId !== "string" ||
-        rawIdentifier.relationshipId.trim().length === 0 ||
-        typeof rawIdentifier.sourceEntityId !== "string" ||
-        rawIdentifier.sourceEntityId.trim().length === 0 ||
-        typeof rawIdentifier.importedIdentifierId !== "string" ||
-        rawIdentifier.importedIdentifierId.trim().length === 0
-      ) {
+      const importedParts = sanitizeExternalIdentifierImportParts(rawIdentifier);
+      if (importedParts.length === 0) {
         return;
       }
 
@@ -172,9 +242,7 @@ function sanitizeExternalIdentifiers(rawIdentifiers: unknown): ExternalIdentifie
           typeof rawIdentifier.id === "string" && rawIdentifier.id.trim().length > 0
             ? rawIdentifier.id
             : createId("externalIdentifier"),
-        relationshipId: rawIdentifier.relationshipId,
-        sourceEntityId: rawIdentifier.sourceEntityId,
-        importedIdentifierId: rawIdentifier.importedIdentifierId,
+        importedParts,
         localAttributeIds: Array.isArray(rawIdentifier.localAttributeIds)
           ? rawIdentifier.localAttributeIds.filter(
               (attributeId): attributeId is string =>
@@ -238,9 +306,7 @@ function areExternalIdentifierListsEqual(
     if (
       other === undefined ||
       other.id !== identifier.id ||
-      other.relationshipId !== identifier.relationshipId ||
-      other.sourceEntityId !== identifier.sourceEntityId ||
-      other.importedIdentifierId !== identifier.importedIdentifierId ||
+      other.importedParts.length !== identifier.importedParts.length ||
       other.localAttributeIds.length !== identifier.localAttributeIds.length ||
       other.offset !== identifier.offset ||
       other.markerOffsetX !== identifier.markerOffsetX ||
@@ -249,8 +315,20 @@ function areExternalIdentifierListsEqual(
       return false;
     }
 
-    return other.localAttributeIds.every((attributeId, attributeIndex) =>
-      attributeId === identifier.localAttributeIds[attributeIndex],
+    return (
+      other.importedParts.every((part, partIndex) => {
+        const leftPart = identifier.importedParts[partIndex];
+        return (
+          leftPart !== undefined &&
+          part.id === leftPart.id &&
+          part.relationshipId === leftPart.relationshipId &&
+          part.sourceEntityId === leftPart.sourceEntityId &&
+          part.importedIdentifierId === leftPart.importedIdentifierId
+        );
+      }) &&
+      other.localAttributeIds.every((attributeId, attributeIndex) =>
+        attributeId === identifier.localAttributeIds[attributeIndex],
+      )
     );
   });
 }
@@ -532,8 +610,11 @@ function remapNodeScopedMetadata(node: DiagramNode, nodeIdMap: Map<string, strin
       Array.isArray(node.externalIdentifiers) && node.externalIdentifiers.length > 0
         ? node.externalIdentifiers.map((identifier) => ({
             ...identifier,
-            relationshipId: nodeIdMap.get(identifier.relationshipId) ?? identifier.relationshipId,
-            sourceEntityId: nodeIdMap.get(identifier.sourceEntityId) ?? identifier.sourceEntityId,
+            importedParts: identifier.importedParts.map((part) => ({
+              ...part,
+              relationshipId: nodeIdMap.get(part.relationshipId) ?? part.relationshipId,
+              sourceEntityId: nodeIdMap.get(part.sourceEntityId) ?? part.sourceEntityId,
+            })),
             localAttributeIds: identifier.localAttributeIds.map(
               (attributeId) => nodeIdMap.get(attributeId) ?? attributeId,
             ),
@@ -1400,7 +1481,7 @@ export function getExternalIdentifierSourceEntity(
   diagram: DiagramDocument,
   identifier: ExternalIdentifier,
 ): EntityNode | undefined {
-  const sourceEntity = diagram.nodes.find((node) => node.id === identifier.sourceEntityId);
+  const sourceEntity = diagram.nodes.find((node) => node.id === identifier.importedParts[0]?.sourceEntityId);
   return sourceEntity?.type === "entity" ? sourceEntity : undefined;
 }
 
@@ -1410,7 +1491,7 @@ export function getExternalIdentifierImportedIdentifier(
 ): InternalIdentifier | undefined {
   const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
   return sourceEntity?.internalIdentifiers?.find(
-    (candidate) => candidate.id === identifier.importedIdentifierId,
+    (candidate) => candidate.id === identifier.importedParts[0]?.importedIdentifierId,
   );
 }
 
@@ -1418,8 +1499,17 @@ export function getExternalIdentifierImportedAttributes(
   diagram: DiagramDocument,
   identifier: ExternalIdentifier,
 ): AttributeNode[] {
-  const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
-  const importedIdentifier = getExternalIdentifierImportedIdentifier(diagram, identifier);
+  return identifier.importedParts.flatMap((part) => getExternalIdentifierImportedPartAttributes(diagram, part));
+}
+
+export function getExternalIdentifierImportedPartAttributes(
+  diagram: DiagramDocument,
+  part: ExternalIdentifierImportPart,
+): AttributeNode[] {
+  const sourceEntity = diagram.nodes.find((node): node is EntityNode => node.id === part.sourceEntityId && node.type === "entity");
+  const importedIdentifier = sourceEntity?.internalIdentifiers?.find(
+    (candidate) => candidate.id === part.importedIdentifierId,
+  );
   if (!sourceEntity || !importedIdentifier) {
     return [];
   }
@@ -1470,53 +1560,82 @@ function normalizeExternalIdentifierSet(
   const rawIdentifiers = Array.isArray(entity.externalIdentifiers) ? entity.externalIdentifiers : [];
 
   rawIdentifiers.forEach((identifier) => {
-    if (normalizedIdentifiers.length > 0) {
-      return;
-    }
+    const seenImportedPartKeys = new Set<string>();
+    const importedParts = Array.isArray(identifier.importedParts)
+      ? identifier.importedParts
+      : sanitizeExternalIdentifierImportParts(identifier as unknown as {
+          importedParts?: unknown;
+          relationshipId?: unknown;
+          sourceEntityId?: unknown;
+          importedIdentifierId?: unknown;
+        });
+    const normalizedImportedParts = importedParts
+      .filter((part) => {
+        const relationshipNode = nodeMap.get(part.relationshipId);
+        if (relationshipNode?.type !== "relationship") {
+          return false;
+        }
 
-    const relationshipNode = nodeMap.get(identifier.relationshipId);
-    if (relationshipNode?.type !== "relationship") {
-      return;
-    }
+        const sourceEntity = nodeMap.get(part.sourceEntityId);
+        if (sourceEntity?.type !== "entity" || sourceEntity.id === entity.id) {
+          return false;
+        }
 
-    const sourceEntity = nodeMap.get(identifier.sourceEntityId);
-    if (sourceEntity?.type !== "entity" || sourceEntity.id === entity.id) {
-      return;
-    }
+        const importedIdentifier = sourceEntity.internalIdentifiers?.find(
+          (candidate) => candidate.id === part.importedIdentifierId,
+        );
+        if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
+          return false;
+        }
 
-    const importedIdentifier = sourceEntity.internalIdentifiers?.find(
-      (candidate) => candidate.id === identifier.importedIdentifierId,
-    );
-    if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
-      return;
-    }
+        const sourceDirectAttributeIds = directAttributeIdsByEntityId.get(sourceEntity.id) ?? new Set<string>();
+        if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
+          return false;
+        }
 
-    const sourceDirectAttributeIds = directAttributeIdsByEntityId.get(sourceEntity.id) ?? new Set<string>();
-    if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
-      return;
-    }
+        const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationshipNode.id);
+        const participantIds = new Set(participants.map((participant) => participant.entity.id));
+        if (
+          participantIds.size !== 2 ||
+          !participantIds.has(entity.id) ||
+          !participantIds.has(sourceEntity.id)
+        ) {
+          return false;
+        }
 
-    const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationshipNode.id);
-    const participantIds = new Set(participants.map((participant) => participant.entity.id));
-    if (
-      participantIds.size !== 2 ||
-      !participantIds.has(entity.id) ||
-      !participantIds.has(sourceEntity.id)
-    ) {
-      return;
-    }
+        const dependentParticipant = participants.find((participant) => participant.entity.id === entity.id);
+        const dependentCardinality = normalizeCardinality(
+          dependentParticipant
+            ? getConnectorParticipation(
+                dependentParticipant.edge,
+                nodeMap.get(dependentParticipant.edge.sourceId),
+                nodeMap.get(dependentParticipant.edge.targetId),
+              )?.cardinality
+            : undefined,
+        );
+        if (dependentCardinality !== "1,1") {
+          return false;
+        }
 
-    const dependentParticipant = participants.find((participant) => participant.entity.id === entity.id);
-    const dependentCardinality = normalizeCardinality(
-      dependentParticipant
-        ? getConnectorParticipation(
-            dependentParticipant.edge,
-            nodeMap.get(dependentParticipant.edge.sourceId),
-            nodeMap.get(dependentParticipant.edge.targetId),
-          )?.cardinality
-        : undefined,
-    );
-    if (dependentCardinality !== "1,1") {
+        const key = [relationshipNode.id, sourceEntity.id, importedIdentifier.id].join("|");
+        if (seenImportedPartKeys.has(key)) {
+          return false;
+        }
+
+        seenImportedPartKeys.add(key);
+        return true;
+      })
+      .map((part) => ({
+        id:
+          typeof part.id === "string" && part.id.trim().length > 0
+            ? part.id
+            : createId("externalIdentifierPart"),
+        relationshipId: part.relationshipId,
+        sourceEntityId: part.sourceEntityId,
+        importedIdentifierId: part.importedIdentifierId,
+      }));
+
+    if (normalizedImportedParts.length === 0) {
       return;
     }
 
@@ -1544,12 +1663,10 @@ function normalizeExternalIdentifierSet(
       });
 
     normalizedLocalAttributeIds.forEach((attributeId) => usedLocalAttributeIds.add(attributeId));
-    const signature = [
-      relationshipNode.id,
-      sourceEntity.id,
-      importedIdentifier.id,
-      normalizedLocalAttributeIds.join(","),
-    ].join("|");
+    const importedSignature = normalizedImportedParts
+      .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join(":"))
+      .join(",");
+    const signature = [importedSignature, normalizedLocalAttributeIds.join(",")].join("|");
     if (usedIdentifierSignatures.has(signature)) {
       return;
     }
@@ -1560,9 +1677,7 @@ function normalizeExternalIdentifierSet(
         typeof identifier.id === "string" && identifier.id.trim().length > 0
           ? identifier.id
           : createId("externalIdentifier"),
-      relationshipId: relationshipNode.id,
-      sourceEntityId: sourceEntity.id,
-      importedIdentifierId: importedIdentifier.id,
+      importedParts: normalizedImportedParts,
       localAttributeIds: normalizedLocalAttributeIds,
       offset:
         typeof identifier.offset === "number" && Number.isFinite(identifier.offset)
@@ -1774,10 +1889,14 @@ export function duplicateSelection(
       .map((identifier) => ({
         ...identifier,
         id: createId("externalIdentifier"),
-        relationshipId: idMap.get(identifier.relationshipId) ?? identifier.relationshipId,
-        sourceEntityId: idMap.get(identifier.sourceEntityId) ?? identifier.sourceEntityId,
-        importedIdentifierId:
-          internalIdentifierIdMap.get(identifier.importedIdentifierId) ?? identifier.importedIdentifierId,
+        importedParts: identifier.importedParts.map((part) => ({
+          ...part,
+          id: createId("externalIdentifierPart"),
+          relationshipId: idMap.get(part.relationshipId) ?? part.relationshipId,
+          sourceEntityId: idMap.get(part.sourceEntityId) ?? part.sourceEntityId,
+          importedIdentifierId:
+            internalIdentifierIdMap.get(part.importedIdentifierId) ?? part.importedIdentifierId,
+        })),
         localAttributeIds: identifier.localAttributeIds
           .map((attributeId) => idMap.get(attributeId) ?? attributeId)
           .filter((attributeId, index, source) => source.indexOf(attributeId) === index),
@@ -2658,6 +2777,89 @@ function normalizeRelationshipExternalIdentifierParticipants(
     .filter((candidate): candidate is { edge: ConnectorEdge; entity: EntityNode } => candidate !== null);
 }
 
+function describeInternalIdentifier(
+  identifier: InternalIdentifier,
+  attributesById: Map<string, AttributeNode>,
+): string {
+  return identifier.attributeIds
+    .map((attributeId) => attributesById.get(attributeId)?.label ?? attributeId)
+    .join(", ");
+}
+
+export function getEligibleImportedIdentifierParts(
+  diagram: DiagramDocument,
+  hostEntityId: string,
+): ExternalIdentifierImportPartOption[] {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const hostEntity = nodeMap.get(hostEntityId);
+  if (hostEntity?.type !== "entity") {
+    return [];
+  }
+
+  const options = new Map<string, ExternalIdentifierImportPartOption>();
+  diagram.nodes.forEach((node) => {
+    if (node.type !== "relationship") {
+      return;
+    }
+
+    const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, node.id);
+    const participantByEntityId = new Map(participants.map((participant) => [participant.entity.id, participant]));
+    const hostParticipant = participantByEntityId.get(hostEntity.id);
+    if (!hostParticipant || participants.length !== 2) {
+      return;
+    }
+
+    const hostCardinality = normalizeCardinality(
+      getConnectorParticipation(
+        hostParticipant.edge,
+        nodeMap.get(hostParticipant.edge.sourceId),
+        nodeMap.get(hostParticipant.edge.targetId),
+      )?.cardinality,
+    );
+    if (hostCardinality !== "1,1") {
+      return;
+    }
+
+    const sourceEntity = participants.find((participant) => participant.entity.id !== hostEntity.id)?.entity;
+    if (!sourceEntity) {
+      return;
+    }
+
+    const sourceAttributesById = new Map(
+      getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => [attribute.id, attribute]),
+    );
+    (sourceEntity.internalIdentifiers ?? []).forEach((identifier) => {
+      if (
+        identifier.attributeIds.length === 0 ||
+        identifier.attributeIds.some((attributeId) => !sourceAttributesById.has(attributeId))
+      ) {
+        return;
+      }
+
+      const key = [node.id, sourceEntity.id, identifier.id].join("|");
+      if (options.has(key)) {
+        return;
+      }
+
+      options.set(key, {
+        id: createId("externalIdentifierPart"),
+        relationshipId: node.id,
+        relationshipLabel: node.label,
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+        importedIdentifierId: identifier.id,
+        importedIdentifierLabel: describeInternalIdentifier(identifier, sourceAttributesById),
+      });
+    });
+  });
+
+  return Array.from(options.values()).sort((left, right) => {
+    const leftLabel = `${left.sourceEntityLabel} ${left.relationshipLabel} ${left.importedIdentifierLabel}`;
+    const rightLabel = `${right.sourceEntityLabel} ${right.relationshipLabel} ${right.importedIdentifierLabel}`;
+    return leftLabel.localeCompare(rightLabel, "it", { sensitivity: "base" });
+  });
+}
+
 export function validateExternalIdentifier(
   diagram: DiagramDocument,
   hostEntity: EntityNode,
@@ -2668,94 +2870,125 @@ export function validateExternalIdentifier(
     externalIdentifierId: externalIdentifier.id,
     hostEntityId: hostEntity.id,
     hostEntityLabel: hostEntity.label,
-    relationshipId: externalIdentifier.relationshipId,
+    relationshipId: externalIdentifier.importedParts[0]?.relationshipId,
   };
 
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const relationshipNode = nodeMap.get(externalIdentifier.relationshipId);
-  const relationshipLabel = relationshipNode?.type === "relationship" ? relationshipNode.label : undefined;
   const fail = (
     reason: string,
-    context?: Pick<ExternalIdentifierValidationResult, "sourceEntityId" | "sourceEntityLabel" | "kind">,
+    context?: Pick<ExternalIdentifierValidationResult, "relationshipId" | "relationshipLabel" | "sourceEntityId" | "sourceEntityLabel" | "kind">,
   ): ExternalIdentifierValidationResult => ({
     ...baseResult,
     ...context,
-    relationshipLabel,
     valid: false,
     reason,
     message: buildExternalIdentifierInvalidationMessage(
       hostEntity.label,
-      relationshipLabel,
+      context?.relationshipLabel,
       reason,
     ),
   });
 
-  if (!relationshipNode || relationshipNode.type !== "relationship") {
-    return fail("la relazione identificante non e piu disponibile");
+  if (externalIdentifier.importedParts.length === 0) {
+    return fail("non contiene nessuna parte importata", { kind: getExternalIdentifierKind(externalIdentifier) });
   }
 
-  const sourceEntity = nodeMap.get(externalIdentifier.sourceEntityId);
-  if (!sourceEntity || sourceEntity.type !== "entity") {
-    return fail("l'entita sorgente importata e stata rimossa");
-  }
+  const seenImportedPartKeys = new Set<string>();
+  let firstValidRelationshipLabel: string | undefined;
+  let firstValidSourceEntity: EntityNode | undefined;
+  for (const part of externalIdentifier.importedParts) {
+    const relationshipNode = nodeMap.get(part.relationshipId);
+    const relationshipLabel = relationshipNode?.type === "relationship" ? relationshipNode.label : undefined;
+    const partContext = {
+      relationshipId: part.relationshipId,
+      relationshipLabel,
+      kind: getExternalIdentifierKind(externalIdentifier),
+    };
+    if (!relationshipNode || relationshipNode.type !== "relationship") {
+      return fail("la relazione identificante non e piu disponibile", partContext);
+    }
 
-  if (sourceEntity.id === hostEntity.id) {
-    return fail("origine e destinazione coincidono sulla stessa entita", {
-      sourceEntityId: sourceEntity.id,
-      sourceEntityLabel: sourceEntity.label,
-    });
-  }
+    const sourceEntity = nodeMap.get(part.sourceEntityId);
+    if (!sourceEntity || sourceEntity.type !== "entity") {
+      return fail("l'entita sorgente importata e stata rimossa", partContext);
+    }
 
-  const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationshipNode.id);
-  const participantByEntityId = new Map(participants.map((participant) => [participant.entity.id, participant]));
-  const distinctParticipantIds = new Set(participants.map((participant) => participant.entity.id));
-  if (
-    distinctParticipantIds.size !== 2 ||
-    !participantByEntityId.has(sourceEntity.id) ||
-    !participantByEntityId.has(hostEntity.id)
-  ) {
-    return fail(
-      `la relazione non collega piu in modo coerente "${sourceEntity.label}" e "${hostEntity.label}"`,
-      {
+    if (sourceEntity.id === hostEntity.id) {
+      return fail("origine e destinazione coincidono sulla stessa entita", {
+        ...partContext,
         sourceEntityId: sourceEntity.id,
         sourceEntityLabel: sourceEntity.label,
-      },
+      });
+    }
+
+    const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationshipNode.id);
+    const participantByEntityId = new Map(participants.map((participant) => [participant.entity.id, participant]));
+    const distinctParticipantIds = new Set(participants.map((participant) => participant.entity.id));
+    if (
+      distinctParticipantIds.size !== 2 ||
+      !participantByEntityId.has(sourceEntity.id) ||
+      !participantByEntityId.has(hostEntity.id)
+    ) {
+      return fail(
+        `la relazione non collega piu in modo coerente "${sourceEntity.label}" e "${hostEntity.label}"`,
+        {
+          ...partContext,
+          sourceEntityId: sourceEntity.id,
+          sourceEntityLabel: sourceEntity.label,
+        },
+      );
+    }
+
+    const dependentConnector = participantByEntityId.get(hostEntity.id);
+    const dependentCardinality = normalizeCardinality(
+      dependentConnector
+        ? getConnectorParticipation(
+            dependentConnector.edge,
+            nodeMap.get(dependentConnector.edge.sourceId),
+            nodeMap.get(dependentConnector.edge.targetId),
+          )?.cardinality
+        : undefined,
     );
-  }
+    if (dependentCardinality !== "1,1") {
+      return fail(`la cardinalita sul lato dipendente "${hostEntity.label}" non e piu (1,1)`, {
+        ...partContext,
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+      });
+    }
 
-  const dependentConnector = participantByEntityId.get(hostEntity.id);
-  const dependentCardinality = normalizeCardinality(
-    dependentConnector
-      ? getConnectorParticipation(
-          dependentConnector.edge,
-          nodeMap.get(dependentConnector.edge.sourceId),
-          nodeMap.get(dependentConnector.edge.targetId),
-        )?.cardinality
-      : undefined,
-  );
-  if (dependentCardinality !== "1,1") {
-    return fail(`la cardinalita sul lato dipendente "${hostEntity.label}" non e piu (1,1)`, {
-      sourceEntityId: sourceEntity.id,
-      sourceEntityLabel: sourceEntity.label,
-    });
-  }
+    const importedIdentifier = sourceEntity.internalIdentifiers?.find(
+      (candidate) => candidate.id === part.importedIdentifierId,
+    );
+    if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
+      return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu disponibile`, {
+        ...partContext,
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+      });
+    }
 
-  const importedIdentifier = sourceEntity.internalIdentifiers?.find(
-    (candidate) => candidate.id === externalIdentifier.importedIdentifierId,
-  );
-  if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
-    return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu disponibile`, {
-      sourceEntityId: sourceEntity.id,
-      sourceEntityLabel: sourceEntity.label,
-    });
-  }
+    const sourceDirectAttributeIds = new Set(getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => attribute.id));
+    if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
+      return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu composto da attributi validi`, {
+        ...partContext,
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+      });
+    }
 
-  const sourceDirectAttributeIds = new Set(getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => attribute.id));
-  if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
-    return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu composto da attributi validi`, {
-      sourceEntityId: sourceEntity.id,
-      sourceEntityLabel: sourceEntity.label,
-    });
+    const partKey = [relationshipNode.id, sourceEntity.id, importedIdentifier.id].join("|");
+    if (seenImportedPartKeys.has(partKey)) {
+      return fail("contiene piu volte la stessa parte importata", {
+        ...partContext,
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+      });
+    }
+
+    seenImportedPartKeys.add(partKey);
+    firstValidRelationshipLabel = firstValidRelationshipLabel ?? relationshipLabel;
+    firstValidSourceEntity = firstValidSourceEntity ?? sourceEntity;
   }
 
   const hostDirectAttributes = getEntityDirectAttributes(diagram, hostEntity.id);
@@ -2764,12 +2997,17 @@ export function validateExternalIdentifier(
     (hostEntity.internalIdentifiers ?? []).flatMap((identifier) => identifier.attributeIds),
   );
   const seenLocalAttributeIds = new Set<string>();
+  const localFailureContext = {
+    relationshipId: externalIdentifier.importedParts[0]?.relationshipId,
+    relationshipLabel: firstValidRelationshipLabel,
+    sourceEntityId: firstValidSourceEntity?.id,
+    sourceEntityLabel: firstValidSourceEntity?.label,
+    kind: getExternalIdentifierKind(externalIdentifier),
+  };
   for (const attributeId of externalIdentifier.localAttributeIds) {
     if (seenLocalAttributeIds.has(attributeId)) {
       return fail("contiene piu volte lo stesso attributo locale", {
-        sourceEntityId: sourceEntity.id,
-        sourceEntityLabel: sourceEntity.label,
-        kind: getExternalIdentifierKind(externalIdentifier),
+        ...localFailureContext,
       });
     }
 
@@ -2777,26 +3015,22 @@ export function validateExternalIdentifier(
     const attributeNode = hostDirectAttributeMap.get(attributeId);
     if (!attributeNode) {
       return fail("contiene un attributo locale non piu diretto o non piu disponibile", {
-        sourceEntityId: sourceEntity.id,
-        sourceEntityLabel: sourceEntity.label,
-        kind: getExternalIdentifierKind(externalIdentifier),
+        ...localFailureContext,
       });
     }
 
     if (!isEligibleLocalExternalIdentifierAttribute(attributeNode, hostInternalAttributeIds)) {
       return fail(`l'attributo locale "${attributeNode.label}" non e piu eleggibile`, {
-        sourceEntityId: sourceEntity.id,
-        sourceEntityLabel: sourceEntity.label,
-        kind: getExternalIdentifierKind(externalIdentifier),
+        ...localFailureContext,
       });
     }
   }
 
   return {
     ...baseResult,
-    relationshipLabel,
-    sourceEntityId: sourceEntity.id,
-    sourceEntityLabel: sourceEntity.label,
+    relationshipLabel: firstValidRelationshipLabel,
+    sourceEntityId: firstValidSourceEntity?.id,
+    sourceEntityLabel: firstValidSourceEntity?.label,
     kind: getExternalIdentifierKind(externalIdentifier),
   };
 }
@@ -3175,9 +3409,12 @@ function migrateLegacyRelationshipExternalIdentifiers(
 
     const duplicate = existingExternalIdentifiers.some(
       (identifier) =>
-        identifier.relationshipId === relationshipNode.id &&
-        identifier.sourceEntityId === sourceEntity.id &&
-        identifier.importedIdentifierId === sourceIdentifier.id &&
+        identifier.importedParts.some(
+          (part) =>
+            part.relationshipId === relationshipNode.id &&
+            part.sourceEntityId === sourceEntity.id &&
+            part.importedIdentifierId === sourceIdentifier.id,
+        ) &&
         identifier.localAttributeIds.length === (legacyIdentifier.localAttributeId ? 1 : 0) &&
         (legacyIdentifier.localAttributeId === undefined ||
           identifier.localAttributeIds[0] === legacyIdentifier.localAttributeId),
@@ -3192,9 +3429,14 @@ function migrateLegacyRelationshipExternalIdentifiers(
         ...existingExternalIdentifiers,
         {
           id: `externalIdentifier-legacy-${hostEntity.id}-${legacyIndex + 1}`,
-          relationshipId: relationshipNode.id,
-          sourceEntityId: sourceEntity.id,
-          importedIdentifierId: sourceIdentifier.id,
+          importedParts: [
+            {
+              id: `externalIdentifierPart-legacy-${hostEntity.id}-${legacyIndex + 1}`,
+              relationshipId: relationshipNode.id,
+              sourceEntityId: sourceEntity.id,
+              importedIdentifierId: sourceIdentifier.id,
+            },
+          ],
           localAttributeIds:
             typeof legacyIdentifier.localAttributeId === "string" ? [legacyIdentifier.localAttributeId] : [],
           offset: legacyIdentifier.offset,

@@ -141,9 +141,10 @@ function assertSubstitutionRelationship(diagram: DiagramDocument, subtypeId: str
   const subtype = getEntity(diagram, subtypeId);
   const externalIdentifiers = subtype.externalIdentifiers ?? [];
   assert.equal(externalIdentifiers.length, 1);
-  assert.equal(externalIdentifiers[0].relationshipId, relationship.id);
-  assert.equal(externalIdentifiers[0].sourceEntityId, "ENTITY1");
-  assert.equal(externalIdentifiers[0].importedIdentifierId, "ENTITY1-pk");
+  assert.equal(externalIdentifiers[0].importedParts.length, 1);
+  assert.equal(externalIdentifiers[0].importedParts[0].relationshipId, relationship.id);
+  assert.equal(externalIdentifiers[0].importedParts[0].sourceEntityId, "ENTITY1");
+  assert.equal(externalIdentifiers[0].importedParts[0].importedIdentifierId, "ENTITY1-pk");
   assert.deepEqual(externalIdentifiers[0].localAttributeIds, []);
 }
 

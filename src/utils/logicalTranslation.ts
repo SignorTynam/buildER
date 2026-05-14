@@ -641,9 +641,7 @@ function getAbsorbedExternalIdentifierRelationshipIds(
           : getWeakEntityMode(decision.configuration).externalIdentifierId;
       const identifier =
         findExternalIdentifierById(entity, identifierId) ?? entity.externalIdentifiers?.[0];
-      if (identifier?.relationshipId) {
-        absorbed.add(identifier.relationshipId);
-      }
+      identifier?.importedParts.forEach((part) => absorbed.add(part.relationshipId));
     });
 
   return absorbed;
@@ -788,17 +786,21 @@ function describePrimaryKeyFromIdentifier(
     return attributes.length > 0 ? attributes.map((attribute) => attribute.label).join(", ") : "nessun identificatore definito";
   }
 
-  const sourceEntity = diagram.nodes.find(
-    (node): node is EntityNode => node.id === identifier.sourceEntityId && node.type === "entity",
-  );
-  const importedIdentifier = sourceEntity?.internalIdentifiers?.find(
-    (candidate) => candidate.id === identifier.importedIdentifierId,
-  );
-  const importedLabel = importedIdentifier
-    ? expandAttributeIdsToLeafAttributes(importedIdentifier.attributeIds, ownership)
-        .map((attribute) => attribute.label)
-        .join(", ")
-    : "identificatore importato";
+  const importedLabel = identifier.importedParts
+    .map((part) => {
+      const sourceEntity = diagram.nodes.find(
+        (node): node is EntityNode => node.id === part.sourceEntityId && node.type === "entity",
+      );
+      const importedIdentifier = sourceEntity?.internalIdentifiers?.find(
+        (candidate) => candidate.id === part.importedIdentifierId,
+      );
+      return importedIdentifier
+        ? expandAttributeIdsToLeafAttributes(importedIdentifier.attributeIds, ownership)
+            .map((attribute) => attribute.label)
+            .join(", ")
+        : "identificatore importato";
+    })
+    .join(" + ");
   const localLabel = expandAttributeIdsToLeafAttributes(identifier.localAttributeIds, ownership)
     .map((attribute) => attribute.label)
     .join(", ");
@@ -964,23 +966,27 @@ function buildWeakEntityChoices(
   }
 
   return externalIdentifiers.map((identifier) => {
-    const sourceEntity = diagram.nodes.find(
-      (node): node is EntityNode => node.id === identifier.sourceEntityId && node.type === "entity",
-    );
+    const sourceLabels = identifier.importedParts.map((part) => {
+      const sourceEntity = diagram.nodes.find(
+        (node): node is EntityNode => node.id === part.sourceEntityId && node.type === "entity",
+      );
+      return sourceEntity?.label ?? part.sourceEntityId;
+    });
+    const ownerLabel = sourceLabels.length > 0 ? sourceLabels.join(" + ") : "sorgente non definita";
     return {
       id: `weak-${entity.id}-${identifier.id}`,
       targetType: "weak-entity" as const,
       targetId: entity.id,
       step: "weak-entities" as const,
       rule: "weak-entity-table" as const,
-      label: `Tabella debole con owner ${sourceEntity?.label ?? identifier.sourceEntityId}`,
+      label: `Tabella debole con owner ${ownerLabel}`,
       description: "Assorbe l'identificatore esterno nella tabella debole: FK dell'owner dentro la PK composta.",
-      summary: `Tabella debole "${entity.label}" fissata con owner ${sourceEntity?.label ?? identifier.sourceEntityId}.`,
+      summary: `Tabella debole "${entity.label}" fissata con owner ${ownerLabel}.`,
       configuration: {
         externalIdentifierId: identifier.id,
       },
       previewLines: [
-        `Owner: ${sourceEntity?.label ?? identifier.sourceEntityId}`,
+        `Owner: ${ownerLabel}`,
         `PK composta: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
       ],
       recommended: true,
@@ -1807,19 +1813,21 @@ function collectExternalIdentifierColumnIds(
     expandAttributeIdsToLeafAttributes(identifier.localAttributeIds, ownership).map((attribute) => attribute.id),
   ).forEach((column) => columnIds.add(column.id));
 
-  const sourceTableId = context.entityTableByEntityId.get(identifier.sourceEntityId);
-  if (!sourceTableId) {
-    return [...columnIds];
-  }
+  identifier.importedParts.forEach((part) => {
+    const sourceTableId = context.entityTableByEntityId.get(part.sourceEntityId);
+    if (!sourceTableId) {
+      return;
+    }
 
-  table.columns
-    .filter(
-      (column) =>
-        column.generatedByDecisionId === decisionId &&
-        column.sourceRelationshipId === identifier.relationshipId &&
-        column.references.some((reference) => reference.targetTableId === sourceTableId),
-    )
-    .forEach((column) => columnIds.add(column.id));
+    table.columns
+      .filter(
+        (column) =>
+          column.generatedByDecisionId === decisionId &&
+          column.sourceRelationshipId === part.relationshipId &&
+          column.references.some((reference) => reference.targetTableId === sourceTableId),
+      )
+      .forEach((column) => columnIds.add(column.id));
+  });
 
   return [...columnIds];
 }
@@ -2238,37 +2246,39 @@ function buildModelFromDecisions(
         return;
       }
 
-      const sourceTableId = entityTableByEntityId.get(externalIdentifier.sourceEntityId);
-      if (!sourceTableId) {
-        pushIssue(
-          context,
-          "UNRESOLVED_TRANSFORMATION",
-          `L'identificatore esterno di "${entity.label}" dipende da una sorgente non ancora trasformata.`,
-          "warning",
-          {
-            tableId,
-            relationshipId: externalIdentifier.relationshipId,
-          },
-        );
-        return;
-      }
+      externalIdentifier.importedParts.forEach((part) => {
+        const sourceTableId = entityTableByEntityId.get(part.sourceEntityId);
+        if (!sourceTableId) {
+          pushIssue(
+            context,
+            "UNRESOLVED_TRANSFORMATION",
+            `L'identificatore esterno di "${entity.label}" dipende da una sorgente non ancora trasformata.`,
+            "warning",
+            {
+              tableId,
+              relationshipId: part.relationshipId,
+            },
+          );
+          return;
+        }
 
-      addForeignKey(context, {
-        decisionId: decision.id,
-        fromTableId: tableId,
-        toTableId: sourceTableId,
-        sourceRelationshipId: externalIdentifier.relationshipId,
-        required: true,
-        includeInPrimaryKey: true,
-      });
-
-      const relationshipAttributes = getRelationshipLeafAttributes(externalIdentifier.relationshipId, ownership);
-      if (relationshipAttributes.length > 0) {
-        addOwnedLeafAttributes(context, tableId, relationshipAttributes, {
+        addForeignKey(context, {
           decisionId: decision.id,
-          sourceRelationshipId: externalIdentifier.relationshipId,
+          fromTableId: tableId,
+          toTableId: sourceTableId,
+          sourceRelationshipId: part.relationshipId,
+          required: true,
+          includeInPrimaryKey: true,
         });
-      }
+
+        const relationshipAttributes = getRelationshipLeafAttributes(part.relationshipId, ownership);
+        if (relationshipAttributes.length > 0) {
+          addOwnedLeafAttributes(context, tableId, relationshipAttributes, {
+            decisionId: decision.id,
+            sourceRelationshipId: part.relationshipId,
+          });
+        }
+      });
     });
 
   finalizeEntityKeys(
