@@ -59,15 +59,23 @@ export interface InternalIdentifier {
   attributeIds: string[];
 }
 
-export interface ExternalIdentifier {
-  id: string;
+export interface ExternalIdentifierImportPart {
   relationshipId: string;
   sourceEntityId: string;
   importedIdentifierId: string;
+}
+
+export interface ExternalIdentifier {
+  id: string;
+  importedParts: ExternalIdentifierImportPart[];
   localAttributeIds: string[];
   offset?: number;
   markerOffsetX?: number;
   markerOffsetY?: number;
+  // Legacy fields for backwards compatibility (will be migrated)
+  relationshipId?: string;
+  sourceEntityId?: string;
+  importedIdentifierId?: string;
 }
 
 export interface EntityRelationshipParticipation {

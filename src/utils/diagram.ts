@@ -1432,6 +1432,32 @@ export function getExternalIdentifierImportedAttributes(
     .filter((attribute): attribute is AttributeNode => attribute !== undefined);
 }
 
+export function getExternalIdentifierImportedRelationshipIds(entity: EntityNode): Set<string> {
+  const relationshipIds = new Set<string>();
+  (entity.externalIdentifiers ?? []).forEach((identifier) => {
+    // Support both old format (single relationshipId) and new format (multiple importedParts)
+    if (identifier.importedParts && Array.isArray(identifier.importedParts)) {
+      identifier.importedParts.forEach((part) => {
+        relationshipIds.add(part.relationshipId);
+      });
+    } else if (identifier.relationshipId) {
+      // Legacy support
+      relationshipIds.add(identifier.relationshipId);
+    }
+  });
+  return relationshipIds;
+}
+
+export function getExternalIdentifierLocalAttributeIds(entity: EntityNode): Set<string> {
+  const attributeIds = new Set<string>();
+  (entity.externalIdentifiers ?? []).forEach((identifier) => {
+    identifier.localAttributeIds.forEach((attributeId) => {
+      attributeIds.add(attributeId);
+    });
+  });
+  return attributeIds;
+}
+
 function isEligibleLocalExternalIdentifierAttribute(
   attribute: AttributeNode,
   internalIdentifierAttributeIds: Set<string>,

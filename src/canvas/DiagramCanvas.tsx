@@ -297,10 +297,15 @@ interface CompositeIdentifierLayout {
 interface ExternalIdentifierLayout {
   externalIdentifierId: string;
   hostEntityId: string;
-  relationshipId: string;
+  relationshipIds: string[]; // Changed to array for multiple imported parts
   kind: "imported_only" | "imported_plus_local";
-  marker: Point;
-  pathPoints: Point[];
+  markers: Array<{
+    point: Point;
+    type: "relationship" | "attribute" | "local-attribute";
+    relationshipId?: string;
+    attributeId?: string;
+  }>;
+  pathPoints?: Point[];
   markerStemStart?: Point;
   junction?: Point;
   attributeJunction?: Point;
@@ -1217,208 +1222,133 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     (node.externalIdentifiers ?? []).forEach((identifier) => {
-      const relationshipNode = nodeMap.get(identifier.relationshipId);
-      if (relationshipNode?.type !== "relationship") {
-        return;
-      }
-
-      const importedAttributes = getExternalIdentifierImportedAttributes(props.diagram, identifier);
-      const sourceAttribute = importedAttributes[0];
-      if (!sourceAttribute) {
-        return;
-      }
-
       const targetEntityNode = node;
-      const manualOffset =
-        typeof identifier.offset === "number" && Number.isFinite(identifier.offset) ? identifier.offset : 0;
-      const markerOffsetX =
-        typeof identifier.markerOffsetX === "number" && Number.isFinite(identifier.markerOffsetX)
-          ? identifier.markerOffsetX
-          : 0;
-      const markerOffsetY =
-        typeof identifier.markerOffsetY === "number" && Number.isFinite(identifier.markerOffsetY)
-          ? identifier.markerOffsetY
-          : 0;
-
-      const weakConnector = props.diagram.edges.find(
-        (edge) =>
-          edge.type === "connector" &&
-          ((edge.sourceId === relationshipNode.id && edge.targetId === targetEntityNode.id) ||
-            (edge.targetId === relationshipNode.id && edge.sourceId === targetEntityNode.id)),
-      );
-      if (!weakConnector) {
+      
+      // Support both new format (importedParts) and legacy format (single relationshipId)
+      const importedParts = identifier.importedParts || (identifier.relationshipId ? [{
+        relationshipId: identifier.relationshipId,
+        sourceEntityId: identifier.sourceEntityId,
+        importedIdentifierId: identifier.importedIdentifierId,
+      }] : []);
+      
+      if (importedParts.length === 0) {
         return;
       }
 
-      const weakConnectorGeometry = getEdgeGeometry(
-        weakConnector,
-        nodeMap.get(weakConnector.sourceId) as DiagramNode,
-        nodeMap.get(weakConnector.targetId) as DiagramNode,
-        connectorLaneMap.get(weakConnector.id),
-      );
-      const weakSidePoint =
-        weakConnector.sourceId === targetEntityNode.id
-          ? weakConnectorGeometry.points[0]
-          : weakConnectorGeometry.points[weakConnectorGeometry.points.length - 1];
-      const weakSideAdjacentPoint =
-        weakConnector.sourceId === targetEntityNode.id
-          ? weakConnectorGeometry.points[Math.min(1, weakConnectorGeometry.points.length - 1)]
-          : weakConnectorGeometry.points[Math.max(0, weakConnectorGeometry.points.length - 2)];
-      const weakDelta = {
-        x: weakSideAdjacentPoint.x - weakSidePoint.x,
-        y: weakSideAdjacentPoint.y - weakSidePoint.y,
-      };
-      const weakDirection = normalizeVector(weakDelta, { x: 0, y: -1 });
-      const targetBounds = getNodeBounds(targetEntityNode);
-      const frame: RouteFrame = {
-        left: targetBounds.x - EXTERNAL_IDENTIFIER_FRAME_PADDING,
-        top: targetBounds.y - EXTERNAL_IDENTIFIER_FRAME_PADDING,
-        right: targetBounds.x + targetBounds.width + EXTERNAL_IDENTIFIER_FRAME_PADDING,
-        bottom: targetBounds.y + targetBounds.height + EXTERNAL_IDENTIFIER_FRAME_PADDING,
-        centerX: targetBounds.x + targetBounds.width / 2,
-        centerY: targetBounds.y + targetBounds.height / 2,
-      };
-      const relationSide = resolveFrameSide(targetBounds, weakSidePoint, weakDirection);
-      const junction = computeVisibleJunctionPoint(
-        frame,
-        relationSide,
-        weakSidePoint,
-        weakSideAdjacentPoint,
-        manualOffset,
-      );
-      const relationNormal = getFrameSideNormal(relationSide);
+      const markers: Array<{
+        point: Point;
+        type: "relationship" | "local-attribute";
+        relationshipId?: string;
+        attributeId?: string;
+      }> = [];
+
+      // Process each imported part - create a marker for each
+      importedParts.forEach((part) => {
+        const relationshipNode = nodeMap.get(part.relationshipId);
+        if (relationshipNode?.type !== "relationship") {
+          return;
+        }
+
+        const weakConnector = props.diagram.edges.find(
+          (edge) =>
+            edge.type === "connector" &&
+            ((edge.sourceId === relationshipNode.id && edge.targetId === targetEntityNode.id) ||
+              (edge.targetId === relationshipNode.id && edge.sourceId === targetEntityNode.id)),
+        );
+        if (!weakConnector) {
+          return;
+        }
+
+        const weakConnectorGeometry = getEdgeGeometry(
+          weakConnector,
+          nodeMap.get(weakConnector.sourceId) as DiagramNode,
+          nodeMap.get(weakConnector.targetId) as DiagramNode,
+          connectorLaneMap.get(weakConnector.id),
+        );
+        
+        const weakSidePoint =
+          weakConnector.sourceId === targetEntityNode.id
+            ? weakConnectorGeometry.points[0]
+            : weakConnectorGeometry.points[weakConnectorGeometry.points.length - 1];
+        const weakSideAdjacentPoint =
+          weakConnector.sourceId === targetEntityNode.id
+            ? weakConnectorGeometry.points[Math.min(1, weakConnectorGeometry.points.length - 1)]
+            : weakConnectorGeometry.points[Math.max(0, weakConnectorGeometry.points.length - 2)];
+
+        // Calculate marker position on the weak connector line, close to the entity side
+        const deltaX = weakSideAdjacentPoint.x - weakSidePoint.x;
+        const deltaY = weakSideAdjacentPoint.y - weakSidePoint.y;
+        const distanceToAdjacent = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distanceToAdjacent > 0) {
+          const markerDistance = Math.min(12, distanceToAdjacent * 0.3);
+          const markerX = weakSidePoint.x + (deltaX / distanceToAdjacent) * markerDistance;
+          const markerY = weakSidePoint.y + (deltaY / distanceToAdjacent) * markerDistance;
+          
+          markers.push({
+            point: { x: markerX, y: markerY },
+            type: "relationship",
+            relationshipId: part.relationshipId,
+          });
+        }
+      });
+
+      // Process each local attribute - create a marker for each
       const localAttributes = identifier.localAttributeIds
         .map((attributeId) => nodeMap.get(attributeId))
         .filter((attribute): attribute is Extract<DiagramNode, { type: "attribute" }> => attribute?.type === "attribute");
 
-      if (localAttributes.length === 0) {
-        const targetCenter = getNodeCenter(targetEntityNode);
-        const sourceAttributeCenter = getNodeCenter(sourceAttribute);
-        const baseDirection = normalizeVector(
-          {
-            x: sourceAttributeCenter.x - junction.x,
-            y: sourceAttributeCenter.y - junction.y,
-          },
-          relationNormal,
+      localAttributes.forEach((attribute) => {
+        const attributeEdge = props.diagram.edges.find(
+          (edge) =>
+            edge.type === "attribute" &&
+            ((edge.sourceId === attribute.id && edge.targetId === targetEntityNode.id) ||
+              (edge.targetId === attribute.id && edge.sourceId === targetEntityNode.id)),
         );
-        const candidateDirections = [baseDirection, { x: -baseDirection.x, y: -baseDirection.y }];
-        const markerCandidates = candidateDirections.map((direction) => {
-          const markerBase = {
-            x: junction.x + direction.x * EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-            y: junction.y + direction.y * EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-          };
-          const sourceDistance = distanceSquared(markerBase, sourceAttributeCenter);
-          const entityDistance = distanceSquared(markerBase, targetCenter);
-          const score = sourceDistance - entityDistance * 0.3;
-          return { markerBase, score };
-        });
-        markerCandidates.sort((left, right) => left.score - right.score);
-        const marker = {
-          x: markerCandidates[0].markerBase.x + markerOffsetX,
-          y: markerCandidates[0].markerBase.y + markerOffsetY,
-        };
+        if (!attributeEdge) {
+          return;
+        }
 
-        externalIdentifierLayouts.push({
-          externalIdentifierId: identifier.id,
-          hostEntityId: targetEntityNode.id,
-          relationshipId: relationshipNode.id,
-          kind: "imported_only",
-          marker,
-          pathPoints: [marker, junction],
-          junction,
-        });
+        const attributeEdgeGeometry = getEdgeGeometry(
+          attributeEdge,
+          nodeMap.get(attributeEdge.sourceId) as DiagramNode,
+          nodeMap.get(attributeEdge.targetId) as DiagramNode,
+          connectorLaneMap.get(attributeEdge.id),
+        );
+
+        const attributeAnchor = attributeEdgeGeometry.points[0];
+        const entityAnchor = attributeEdgeGeometry.points[attributeEdgeGeometry.points.length - 1];
+        
+        // Calculate marker position on the attribute connector line, close to the entity side
+        const deltaX = attributeAnchor.x - entityAnchor.x;
+        const deltaY = attributeAnchor.y - entityAnchor.y;
+        const distanceToAttribute = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distanceToAttribute > 0) {
+          const markerDistance = Math.min(12, distanceToAttribute * 0.3);
+          const markerX = entityAnchor.x + (deltaX / distanceToAttribute) * markerDistance;
+          const markerY = entityAnchor.y + (deltaY / distanceToAttribute) * markerDistance;
+          
+          markers.push({
+            point: { x: markerX, y: markerY },
+            type: "local-attribute",
+            attributeId: attribute.id,
+          });
+        }
+      });
+
+      if (markers.length === 0) {
         return;
       }
 
-      const localConnections = localAttributes
-        .map((attribute) => {
-          const attributeEdge = props.diagram.edges.find(
-            (edge) =>
-              edge.type === "attribute" &&
-              ((edge.sourceId === attribute.id && edge.targetId === targetEntityNode.id) ||
-                (edge.targetId === attribute.id && edge.sourceId === targetEntityNode.id)),
-          );
-          if (!attributeEdge) {
-            return null;
-          }
-
-          const attributeEdgeGeometry = getEdgeGeometry(
-            attributeEdge,
-            nodeMap.get(attributeEdge.sourceId) as DiagramNode,
-            nodeMap.get(attributeEdge.targetId) as DiagramNode,
-            connectorLaneMap.get(attributeEdge.id),
-          );
-
-          return {
-            attribute,
-            attributeAnchor: attributeEdgeGeometry.points[0],
-            entityAnchor: attributeEdgeGeometry.points[attributeEdgeGeometry.points.length - 1],
-          };
-        })
-        .filter(
-          (
-            connection,
-          ): connection is {
-            attribute: Extract<DiagramNode, { type: "attribute" }>;
-            attributeAnchor: Point;
-            entityAnchor: Point;
-          } => connection !== null,
-        );
-      if (localConnections.length === 0) {
-        return;
-      }
-
-      const centroid = localConnections.reduce(
-        (current, connection) => ({
-          x: current.x + connection.attributeAnchor.x,
-          y: current.y + connection.attributeAnchor.y,
-        }),
-        { x: 0, y: 0 },
-      );
-      const centroidPoint = {
-        x: centroid.x / localConnections.length,
-        y: centroid.y / localConnections.length,
-      };
-      const primaryConnection = localConnections.reduce((best, candidate) =>
-        distanceSquared(candidate.attributeAnchor, centroidPoint) <
-        distanceSquared(best.attributeAnchor, centroidPoint)
-          ? candidate
-          : best,
-      );
-      const branchVector = {
-        x: primaryConnection.attributeAnchor.x - primaryConnection.entityAnchor.x,
-        y: primaryConnection.attributeAnchor.y - primaryConnection.entityAnchor.y,
-      };
-      const branchDirection = normalizeVector(branchVector, relationNormal);
-      const attributeSide = resolveFrameSide(targetBounds, primaryConnection.entityAnchor, branchDirection);
-      const attributeJunction = computeVisibleJunctionPoint(
-        frame,
-        attributeSide,
-        primaryConnection.entityAnchor,
-        primaryConnection.attributeAnchor,
-      );
-      const frameRoute = selectFrameRoute(frame, relationSide, junction, attributeSide, attributeJunction);
-      const routePoints = pruneTinyRouteSegments(frameRoute, EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH);
-      const routeDirection = getFirstRouteDirection(routePoints, relationNormal);
-      const markerBase = {
-        x: junction.x - routeDirection.x * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
-        y: junction.y - routeDirection.y * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
-      };
-      const marker = {
-        x: markerBase.x + markerOffsetX,
-        y: markerBase.y + markerOffsetY,
-      };
-
+      const kind = identifier.localAttributeIds.length > 0 ? "imported_plus_local" : "imported_only";
+      
       externalIdentifierLayouts.push({
         externalIdentifierId: identifier.id,
         hostEntityId: targetEntityNode.id,
-        relationshipId: relationshipNode.id,
-        kind: "imported_plus_local",
-        marker,
-        pathPoints: routePoints,
-        markerStemStart: junction,
-        junction,
-        attributeJunction,
+        relationshipIds: importedParts.map((p) => p.relationshipId),
+        kind,
+        markers,
       });
     });
   });
@@ -1771,7 +1701,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     return props.diagram.nodes.some(
       (node) =>
         node.type === "entity" &&
-        (node.externalIdentifiers ?? []).some((identifier) => identifier.relationshipId === relationshipNode.id),
+        (node.externalIdentifiers ?? []).some((identifier) => {
+          // Support both old format (single relationshipId) and new format (multiple importedParts)
+          if (identifier.importedParts && Array.isArray(identifier.importedParts)) {
+            return identifier.importedParts.some((part) => part.relationshipId === relationshipNode.id);
+          } else if (identifier.relationshipId) {
+            return identifier.relationshipId === relationshipNode.id;
+          }
+          return false;
+        }),
     );
   }
 
@@ -3230,11 +3168,69 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ))}
 
           {externalIdentifierLayouts.map((layout) => {
+            return (
+              <g
+                key={`external-id-${layout.externalIdentifierId}`}
+                className={
+                  activeExternalIdentifierId === layout.externalIdentifierId
+                    ? layout.kind === "imported_only" ? "external-identifier external-identifier-imported external-identifier-active" : "external-identifier external-identifier-mixed external-identifier-active"
+                    : layout.kind === "imported_only" ? "external-identifier external-identifier-imported" : "external-identifier external-identifier-mixed"
+                }
+                onPointerDown={(event) =>
+                  handleExternalIdentifierPointerDown(
+                    event,
+                    layout.hostEntityId,
+                    layout.externalIdentifierId,
+                  )
+                }
+              >
+                {/* Render markers for each imported part and local attribute */}
+                {layout.markers.map((marker, index) => (
+                  <g key={`marker-${layout.externalIdentifierId}-${index}`}>
+                    <circle
+                      className="external-identifier-marker"
+                      cx={marker.point.x}
+                      cy={marker.point.y}
+                      r={6.5}
+                      fill={DIAGRAM_STROKE}
+                      stroke={DIAGRAM_STROKE}
+                      strokeWidth={2}
+                      pointerEvents="none"
+                    />
+                    <circle
+                      className="external-identifier-marker-hit"
+                      cx={marker.point.x}
+                      cy={marker.point.y}
+                      r={10}
+                      fill="transparent"
+                      stroke="none"
+                      pointerEvents="all"
+                      onPointerDown={(event) =>
+                        handleExternalIdentifierMarkerPointerDown(
+                          event,
+                          layout.hostEntityId,
+                          layout.externalIdentifierId,
+                        )
+                      }
+                    />
+                  </g>
+                ))}
+              </g>
+            );
+          })}
+
+          {/* Legacy rendering for old layout format - can be removed once migration is complete */}
+          {externalIdentifierLayouts.map((layout) => {
+            // Skip if layout is already using new markers array
+            if (layout.markers && layout.markers.length > 0) {
+              return null;
+            }
+
             if (layout.kind === "imported_only" && layout.junction) {
-              const markerPath = pathFromPoints(layout.pathPoints);
+              const markerPath = layout.pathPoints ? pathFromPoints(layout.pathPoints) : "";
               return (
                 <g
-                  key={`external-id-${layout.externalIdentifierId}`}
+                  key={`external-id-legacy-${layout.externalIdentifierId}`}
                   className={
                     activeExternalIdentifierId === layout.externalIdentifierId
                       ? "external-identifier external-identifier-imported external-identifier-active"
@@ -3258,73 +3254,71 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
-                  <circle
-                    className="external-identifier-junction"
-                    cx={layout.junction.x}
-                    cy={layout.junction.y}
-                    r={4.3}
-                    fill={DIAGRAM_STROKE}
+                </g>
+              );
+            }
+
+            if (layout.pathPoints && layout.pathPoints.length > 0) {
+              const pathData = pathFromPoints(layout.pathPoints);
+              return (
+                <g
+                  key={`external-id-legacy-mixed-${layout.externalIdentifierId}`}
+                  className={
+                    activeExternalIdentifierId === layout.externalIdentifierId
+                      ? "external-identifier external-identifier-mixed external-identifier-active"
+                      : "external-identifier external-identifier-mixed"
+                  }
+                  onPointerDown={(event) =>
+                    handleExternalIdentifierPointerDown(
+                      event,
+                      layout.hostEntityId,
+                      layout.externalIdentifierId,
+                    )
+                  }
+                >
+                  <path className="external-identifier-hit-path" d={pathData} fill="none" stroke="transparent" strokeWidth={14} />
+                  <path
+                    className="external-identifier-path"
+                    d={pathData}
+                    fill="none"
                     stroke={DIAGRAM_STROKE}
-                    strokeWidth={1.2}
-                  />
-                  <circle
-                    className="external-identifier-marker"
-                    cx={layout.marker.x}
-                    cy={layout.marker.y}
-                    r={6.5}
-                    fill="var(--diagram-canvas-fill)"
-                    stroke={DIAGRAM_STROKE}
-                    strokeWidth={1.8}
-                    pointerEvents="none"
-                  />
-                  <circle
-                    className="external-identifier-marker-hit"
-                    cx={layout.marker.x}
-                    cy={layout.marker.y}
-                    r={10}
-                    fill="transparent"
-                    stroke="none"
-                    pointerEvents="all"
-                    onPointerDown={(event) =>
-                      handleExternalIdentifierMarkerPointerDown(
-                        event,
-                        layout.hostEntityId,
-                        layout.externalIdentifierId,
-                      )
-                    }
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 </g>
               );
             }
 
-            const pathData = pathFromPoints(layout.pathPoints);
+            return null;
+          })}
+
+          {externalIdentifierLayouts.map((layout) => {
+            // Only render legacy paths if pathPoints exist
+            if (!layout.pathPoints || layout.pathPoints.length === 0) {
+              return null;
+            }
+
+            if (layout.kind === "imported_only" && layout.junction) {
+              return (
+                <g key={`external-id-${layout.externalIdentifierId}-legacy-path`}>
+                  {layout.junction ? (
+                    <circle
+                      className="external-identifier-junction"
+                      cx={layout.junction.x}
+                      cy={layout.junction.y}
+                      r={4.3}
+                      fill={DIAGRAM_STROKE}
+                      stroke={DIAGRAM_STROKE}
+                      strokeWidth={1.2}
+                    />
+                  ) : null}
+                </g>
+              );
+            }
 
             return (
-              <g
-                key={`external-id-${layout.externalIdentifierId}`}
-                className={
-                  activeExternalIdentifierId === layout.externalIdentifierId
-                    ? "external-identifier external-identifier-mixed external-identifier-active"
-                    : "external-identifier external-identifier-mixed"
-                }
-                onPointerDown={(event) =>
-                  handleExternalIdentifierPointerDown(
-                    event,
-                    layout.hostEntityId,
-                    layout.externalIdentifierId,
-                  )
-                }
-              >
-                <path className="external-identifier-hit-path" d={pathData} fill="none" stroke="transparent" strokeWidth={14} />
-                <path
-                  className="external-identifier-path"
-                  d={pathData}
-                  fill="none"
-                  stroke={DIAGRAM_STROKE}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+              <g key={`external-id-${layout.externalIdentifierId}-legacy-junctions`}>
                 {layout.junction ? (
                   <circle
                     className="external-identifier-junction"
