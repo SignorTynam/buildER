@@ -1460,6 +1460,20 @@ export function getExternalIdentifierKind(identifier: ExternalIdentifier): Exter
   return identifier.localAttributeIds.length > 0 ? "imported_plus_local" : "imported_only";
 }
 
+export function getExternalIdentifierImportedRelationshipIds(entity: EntityNode): Set<string> {
+  return new Set(
+    (entity.externalIdentifiers ?? []).flatMap((identifier) =>
+      identifier.importedParts.map((part) => part.relationshipId),
+    ),
+  );
+}
+
+export function getExternalIdentifierLocalAttributeIds(entity: EntityNode): Set<string> {
+  return new Set(
+    (entity.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds),
+  );
+}
+
 export function getEntityDirectAttributes(
   diagram: DiagramDocument,
   entityId: string,

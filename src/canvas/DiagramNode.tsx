@@ -208,7 +208,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           strokeDasharray={baseDash}
           opacity={baseOpacity}
         />
-        {node.isWeak === true ? (
+        {node.isWeak === true || (node.externalIdentifiers ?? []).length > 0 ? (
           <rect
             x={node.x + inset}
             y={node.y + inset}
