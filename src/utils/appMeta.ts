@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.2";
+export const APP_VERSION = "4.3";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,19 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.3",
+    date: "2026-05-19",
+    updates: [
+      "Versione applicativa aggiornata alla release 4.3.",
+      "Ruoli per le associazioni ad anello: gestione dedicata e validazioni per ruoli distinti.",
+      "Geometria connector migliorata per collegamenti multipli/loop e label role separati.",
+      "Identificatori esterni: layout importati/misti piu stabile, grouping path e marker locali coerenti.",
+      "Traduzione generalizzazioni: regole collapse-up con attributo Type e substitution con relazioni IS.",
+      "Validazioni ERS: warning su relazioni n-arie con cardinalita massima 1.",
+      "Persistenza: ruoli dei connector ricorsivi preservati in ERS e file progetto.",
+    ],
+  },
   {
     version: "4.2",
     date: "2026-05-11",

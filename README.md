@@ -1,6 +1,16 @@
-# Chen ER Diagram Studio (v4.2)
+# Chen ER Diagram Studio (v4.3)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG e sincronizzazione ERS live.
+
+## Novita 4.3
+
+- Versione aggiornata a `4.3`.
+- Ruoli per associazioni ad anello: gestione da toolbar e validazioni per ruoli distinti.
+- Avvisi per relazioni n-arie con cardinalita massima 1.
+- Traduzione generalizzazioni: collapse-up con attributo Type e substitution con relazioni IS.
+- Identificatori esterni: layout importati/misti piu stabile, grouping path e marker locali coerenti.
+- Geometria connector migliorata per collegamenti multipli/loop e label role separate.
+- ERS e file progetto: persistenza dei ruoli sui connector ricorsivi.
 
 ## Novita 4.2
 

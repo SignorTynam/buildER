@@ -15,6 +15,21 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.3.0] - 2026-05-19
+
+### Added
+- Ruoli per associazioni ad anello con gestione da toolbar e validazioni di unicita.
+- Warning per relazioni n-arie con cardinalita massima 1.
+- Traduzione generalizzazioni con regola substitution che crea relazioni IS.
+
+### Changed
+- Traduzione generalizzazioni collapse-up: attributo Type, import attributi opzionali dalle figlie e gestione identificatori.
+- Identificatori esterni: layout importati/misti piu stabile, grouping path e marker locali coerenti, azione di rimozione da toolbar.
+- Geometria connector aggiornata per collegamenti multipli/loop e label role separate; persistenza dei ruoli in ERS e file progetto.
+- Versione applicativa aggiornata alla release 4.3 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.3 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.3 con riepilogo sintetico della release.
+
 ## [4.2.0] - 2026-05-11
 
 ### Added
