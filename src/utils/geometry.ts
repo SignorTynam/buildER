@@ -505,11 +505,11 @@ function buildParallelConnectorRenderedPoints(
 
   const normalX = -deltaY / length;
   const normalY = deltaX / length;
-  const sourceEndpoint = clipPointToNodePerimeter(sourceNode, targetAnchor);
-  const targetEndpoint = clipPointToNodePerimeter(targetNode, sourceAnchor);
+  const shiftedSourceAnchor = offsetPoint(sourceAnchor, normalX, normalY, laneOffset);
+  const shiftedTargetAnchor = offsetPoint(targetAnchor, normalX, normalY, laneOffset);
   return [
-    offsetPoint(sourceEndpoint, normalX, normalY, laneOffset),
-    offsetPoint(targetEndpoint, normalX, normalY, laneOffset),
+    clipPointToNodePerimeter(sourceNode, shiftedTargetAnchor),
+    clipPointToNodePerimeter(targetNode, shiftedSourceAnchor),
   ];
 }
 

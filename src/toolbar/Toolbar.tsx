@@ -31,6 +31,7 @@ interface ToolbarProps {
   onCreateRelationship?: () => void;
   onSaveErs?: () => void;
   onOpenCardinality?: () => void;
+  onOpenRole?: () => void;
   onToggleSimpleIdentifier?: () => void;
   onOpenCompositeIdentifier?: () => void;
   onOpenMixedIdentifier?: () => void;
@@ -76,6 +77,7 @@ type IconName =
   | "rename"
   | "delete"
   | "card"
+  | "role"
   | "translate"
   | "export"
   | "save"
@@ -133,6 +135,11 @@ function ToolIcon({ name }: { name: IconName }) {
             1,N
           </text>
         </>
+      ) : null}
+      {name === "role" ? (
+        <text className="designer-toolbar-svg-text" x="12" y="14" textAnchor="middle">
+          R
+        </text>
       ) : null}
       {name === "translate" ? (
         <>
@@ -438,6 +445,7 @@ export function Toolbar(props: ToolbarProps) {
         title: mixedDisabled ? "L'identificatore esterno misto richiede cardinalita 1,1 sull'entita." : undefined,
       },
       { key: "card", label: "Card", icon: <ToolIcon name="card" />, onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
+      { key: "role", label: "Role", icon: <ToolIcon name="role" />, onClick: () => props.onOpenRole?.(), disabled: !canEdit },
       { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedEdge?.type === "inheritance") {

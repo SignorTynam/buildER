@@ -3493,6 +3493,82 @@ export default function App() {
     return true;
   }
 
+  async function handleOpenConnectorRoleControl() {
+    if (!selectedEdge || selectedEdge.type !== "connector") {
+      setStatusWarning("Seleziona un collegamento entita-relazione per assegnare un ruolo.");
+      return;
+    }
+
+    const currentNodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
+    const sourceNode = currentNodeMap.get(selectedEdge.sourceId);
+    const targetNode = currentNodeMap.get(selectedEdge.targetId);
+    const context = getConnectorParticipationContext(sourceNode, targetNode);
+    if (!context) {
+      setStatusWarning("Il ruolo e disponibile solo sui collegamenti tra entita e relazione.");
+      return;
+    }
+
+    const currentParticipation = getConnectorParticipation(selectedEdge, sourceNode, targetNode);
+    const nextRole = await requestPromptDialog({
+      title: "Role",
+      label: "Role del collegamento",
+      placeholder: "parent, child, supervisor...",
+      initialValue: currentParticipation?.role ?? "",
+      required: false,
+      requiredMessage: "",
+    });
+    if (nextRole == null) {
+      return;
+    }
+
+    const participationId = selectedEdge.participationId ?? `participation-${selectedEdge.id}`;
+    const normalizedRole = nextRole.trim().length > 0 ? nextRole : undefined;
+    const nextDiagram: DiagramDocument = {
+      ...history.present,
+      edges: history.present.edges.map((edge) =>
+        edge.id === selectedEdge.id && edge.type === "connector"
+          ? {
+              ...edge,
+              participationId,
+            }
+          : edge,
+      ),
+      nodes: history.present.nodes.map((node) => {
+        if (node.id !== context.entity.id || node.type !== "entity") {
+          return node;
+        }
+
+        const participations = node.relationshipParticipations ?? [];
+        const existing = participations.find((participation) => participation.id === participationId);
+        return {
+          ...node,
+          relationshipParticipations: existing
+            ? participations.map((participation) =>
+                participation.id === participationId
+                  ? {
+                      ...participation,
+                      relationshipId: context.relationship.id,
+                      role: normalizedRole,
+                    }
+                  : participation,
+              )
+            : [
+                ...participations,
+                {
+                  id: participationId,
+                  relationshipId: context.relationship.id,
+                  role: normalizedRole,
+                },
+              ],
+        };
+      }),
+    };
+
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [], edgeIds: [selectedEdge.id] });
+    setStatus(normalizedRole ? "Role del collegamento aggiornato." : "Role del collegamento rimosso.");
+  }
+
   function submitCardinalityDialog() {
     if (!cardinalityDialog) {
       return;
@@ -5177,6 +5253,7 @@ export default function App() {
                   onCreateRelationship={() => handleCreateNodeFromToolbar("relationship")}
                   onSaveErs={handleSaveErs}
                   onOpenCardinality={handleOpenCardinalityControl}
+                  onOpenRole={handleOpenConnectorRoleControl}
                   onToggleSimpleIdentifier={handleToggleSimpleIdentifierFromSelection}
                   onOpenCompositeIdentifier={handleCreateCompositeIdentifierFromSelection}
                   onOpenMixedIdentifier={handleOpenMixedIdentifierModal}
