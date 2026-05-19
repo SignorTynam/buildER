@@ -476,41 +476,61 @@ function getParallelLaneOffset(laneInfo?: EdgeLaneInfo): number {
     return 0;
   }
 
-  const step = 60;
+  const step = 48;
   const center = (laneInfo.laneCount - 1) / 2;
   return (laneInfo.laneIndex - center) * step;
 }
 
-function offsetPoint(point: Point, normalX: number, normalY: number, offset: number): Point {
-  return {
-    x: point.x + normalX * offset,
-    y: point.y + normalY * offset,
-  };
-}
-
-function buildParallelConnectorRenderedPoints(
-  sourceNode: DiagramNode,
-  targetNode: DiagramNode,
-  laneOffset: number,
-): Point[] {
-  const sourceAnchor = getNodeLogicalAnchor(sourceNode);
-  const targetAnchor = getNodeLogicalAnchor(targetNode);
-  const deltaX = targetAnchor.x - sourceAnchor.x;
-  const deltaY = targetAnchor.y - sourceAnchor.y;
-  const length = Math.hypot(deltaX, deltaY);
-
-  if (length <= 0.001 || Math.abs(laneOffset) <= 0.001) {
-    return attachPolylineToNodeBounds([sourceAnchor, targetAnchor], sourceNode, targetNode);
+function getDistributedLaneFactor(laneInfo?: EdgeLaneInfo): number {
+  if (!laneInfo || laneInfo.laneCount <= 1) {
+    return 0;
   }
 
-  const normalX = -deltaY / length;
-  const normalY = deltaX / length;
-  const shiftedSourceAnchor = offsetPoint(sourceAnchor, normalX, normalY, laneOffset);
-  const shiftedTargetAnchor = offsetPoint(targetAnchor, normalX, normalY, laneOffset);
-  return [
-    clipPointToNodePerimeter(sourceNode, shiftedTargetAnchor),
-    clipPointToNodePerimeter(targetNode, shiftedSourceAnchor),
-  ];
+  const center = (laneInfo.laneCount - 1) / 2;
+  if (center <= 0) {
+    return 0;
+  }
+
+  return (center - laneInfo.laneIndex) / center;
+}
+
+function buildRecursiveConnectorPoints(
+  sourceNode: DiagramNode,
+  targetNode: DiagramNode,
+  laneInfo?: EdgeLaneInfo,
+  manualOffset = 0,
+): Point[] {
+  const sourceIsEntity = sourceNode.type === "entity";
+  const targetIsEntity = targetNode.type === "entity";
+  const sourceIsRelationship = sourceNode.type === "relationship";
+  const targetIsRelationship = targetNode.type === "relationship";
+
+  if (!(sourceIsEntity || targetIsEntity) || !(sourceIsRelationship || targetIsRelationship)) {
+    return attachPolylineToNodeBounds(
+      [getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode)],
+      sourceNode,
+      targetNode,
+    );
+  }
+
+  const entityNode = sourceIsEntity ? sourceNode : targetNode;
+  const relationshipNode = sourceIsRelationship ? sourceNode : targetNode;
+  const entityCenter = getNodeLogicalAnchor(entityNode);
+  const relationshipEndpoint = getNodeLogicalAnchor(relationshipNode);
+  const side = getDominantConnectionSide(entityCenter, relationshipEndpoint);
+  const laneFactor = getDistributedLaneFactor(laneInfo);
+
+  if (side === "top" || side === "bottom") {
+    relationshipEndpoint.x += laneFactor * relationshipNode.width / 2 + manualOffset;
+  } else {
+    relationshipEndpoint.y += laneFactor * relationshipNode.height / 2 + manualOffset;
+  }
+
+  const entityEndpoint = clipPointToNodePerimeter(entityNode, relationshipEndpoint);
+
+  return sourceIsEntity
+    ? [entityEndpoint, relationshipEndpoint]
+    : [relationshipEndpoint, entityEndpoint];
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -726,11 +746,15 @@ export function getEdgeGeometry(
       getNodeLogicalAnchor(attributeNode),
       getNodeLogicalAnchor(hostNode),
     ], attributeNode, hostNode);
-  } else if (edge.type === "connector" && (laneInfo?.laneCount ?? 1) > 1) {
-    points = buildParallelConnectorRenderedPoints(
+  } else if (
+    edge.type === "connector" &&
+    ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(edge.manualOffset ?? 0) > 0.001)
+  ) {
+    points = buildRecursiveConnectorPoints(
       sourceNode,
       targetNode,
-      getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0),
+      laneInfo,
+      (laneInfo?.laneCount ?? 1) > 1 ? 0 : edge.manualOffset ?? 0,
     );
   } else {
     const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
@@ -750,11 +774,12 @@ export function getRenderedEdgeGeometry(
   laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
   if (edge.type === "connector") {
-    if ((laneInfo?.laneCount ?? 1) > 1) {
-      const points = buildParallelConnectorRenderedPoints(
+    if ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(edge.manualOffset ?? 0) > 0.001) {
+      const points = buildRecursiveConnectorPoints(
         sourceNode,
         targetNode,
-        getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0),
+        laneInfo,
+        (laneInfo?.laneCount ?? 1) > 1 ? 0 : edge.manualOffset ?? 0,
       );
 
       return {

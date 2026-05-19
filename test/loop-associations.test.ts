@@ -143,6 +143,8 @@ test("due collegamenti tra gli stessi nodi ricevono geometrie separate", () => {
   assert.notDeepEqual(firstGeometry.labelPoint, secondGeometry.labelPoint);
   assert.equal(firstGeometry.points.length, 2);
   assert.equal(secondGeometry.points.length, 2);
+  assert.equal(firstGeometry.points[1].x, secondGeometry.points[1].x);
+  assert.notEqual(firstGeometry.points[1].y, secondGeometry.points[1].y);
 });
 
 test("i ruoli delle partecipazioni ad anello persistono nel file progetto", () => {
