@@ -1,7 +1,7 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramHighlightKind, DiagramNode, IsaCompleteness, IsaDisjointness, Point } from "../types/diagram";
-import { getEdgeCardinalityLabel } from "../utils/cardinality";
+import { getConnectorParticipation, getEdgeCardinalityLabel } from "../utils/cardinality";
 import { useI18n } from "../i18n/useI18n";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
@@ -98,6 +98,53 @@ function formatIsaConstraint(completeness?: IsaCompleteness, disjointness?: IsaD
   return `(${c},${d})`;
 }
 
+function getDistance(start: Point, end: Point): number {
+  return Math.hypot(end.x - start.x, end.y - start.y);
+}
+
+function getPointAlongPolyline(points: Point[], progress: number): Point {
+  if (points.length === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  if (points.length === 1) {
+    return points[0];
+  }
+
+  const totalLength = points.reduce((sum, point, index) => {
+    if (index === 0) {
+      return sum;
+    }
+
+    return sum + getDistance(points[index - 1], point);
+  }, 0);
+
+  if (totalLength <= 0.001) {
+    return points[0];
+  }
+
+  const targetLength = totalLength * Math.min(1, Math.max(0, progress));
+  let travelled = 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const segmentLength = getDistance(start, end);
+
+    if (travelled + segmentLength >= targetLength) {
+      const segmentProgress = (targetLength - travelled) / Math.max(segmentLength, 0.001);
+      return {
+        x: start.x + (end.x - start.x) * segmentProgress,
+        y: start.y + (end.y - start.y) * segmentProgress,
+      };
+    }
+
+    travelled += segmentLength;
+  }
+
+  return points[points.length - 1];
+}
+
 export function DiagramEdgeView(props: DiagramEdgeProps) {
   const { t } = useI18n();
   const isGhost = props.ghost === true;
@@ -114,6 +161,10 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       : props.edge.type === "inheritance"
         ? props.edge.label
         : "";
+  const roleLabel =
+    props.edge.type === "connector"
+      ? getConnectorParticipation(props.edge, props.sourceNode, props.targetNode)?.role?.trim() ?? ""
+      : "";
   const translationStroke =
     props.translationHighlight === "pending" || props.translationHighlight === "selected"
       ? DIAGRAM_TRANSLATION_PENDING
@@ -126,13 +177,30 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const selectedStrokeColor =
     props.translationHighlight === "selected" ? DIAGRAM_TRANSLATION_PENDING : isEdgeHighlighted ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
-  const badgeY = geometry.labelPoint.y - (inheritanceConstraintLabel ? 28 : 16);
   const baseOpacity = isGhost ? 0.58 : 1;
   const labelOpacity = isGhost ? 0.72 : 1;
   const inheritanceConstraintY = geometry.labelPoint.y - (displayLabel ? 18 : 8);
-  const displayLabelY = geometry.labelPoint.y + (inheritanceConstraintLabel ? 10 : -6);
+  const entityIsSource = props.edge.type === "connector" && props.sourceNode.type === "entity";
+  const isConnector = props.edge.type === "connector";
+  const usesSplitConnectorLabels = isConnector && ((props.laneInfo?.laneCount ?? 1) > 1 || roleLabel.length > 0);
+  const displayLabelPoint =
+    usesSplitConnectorLabels
+      ? getPointAlongPolyline(geometry.points, entityIsSource ? 0.38 : 0.62)
+      : geometry.labelPoint;
+  const roleLabelPoint =
+    usesSplitConnectorLabels
+      ? getPointAlongPolyline(geometry.points, entityIsSource ? 0.68 : 0.32)
+      : geometry.labelPoint;
   const inheritanceConstraintWidth = inheritanceConstraintLabel.length * 8 + 10;
   const displayLabelWidth = displayLabel.length * 7 + 10;
+  const roleLabelWidth = roleLabel.length * 7 + 10;
+  const displayLabelY = usesSplitConnectorLabels
+    ? displayLabelPoint.y
+    : geometry.labelPoint.y + (inheritanceConstraintLabel ? 10 : -6);
+  const roleLabelY = roleLabelPoint.y;
+  const badgePoint = roleLabel ? roleLabelPoint : usesSplitConnectorLabels ? roleLabelPoint : displayLabelPoint;
+  const badgeXOffset = Math.max((roleLabel ? roleLabelWidth : displayLabelWidth) / 2 + 14, 24);
+  const badgeY = (roleLabel ? roleLabelY : displayLabelY) - 12;
   const primaryDashArray = isGhost ? "10 8" : dashArray;
   const groupClassName = isGhost ? "diagram-edge ghost" : props.selected ? "diagram-edge selected" : "diagram-edge";
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
@@ -165,7 +233,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           d={pathData}
           fill="none"
           stroke={haloColor}
-          strokeWidth={7}
+          strokeWidth={5}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -218,7 +286,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       {displayLabel ? (
         <>
           <rect
-            x={geometry.labelPoint.x - displayLabelWidth / 2}
+            x={displayLabelPoint.x - displayLabelWidth / 2}
             y={displayLabelY - 13}
             width={displayLabelWidth}
             height={18}
@@ -228,7 +296,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
             pointerEvents="none"
           />
           <text
-            x={geometry.labelPoint.x}
+            x={displayLabelPoint.x}
             y={displayLabelY}
             textAnchor="middle"
             className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
@@ -240,7 +308,32 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           </text>
         </>
       ) : null}
-      {!isGhost ? renderValidationBadge(geometry.labelPoint.x + 18, badgeY, props.validationLevel, props.validationCount) : null}
+      {roleLabel ? (
+        <>
+          <rect
+            x={roleLabelPoint.x - roleLabelWidth / 2}
+            y={roleLabelY - 13}
+            width={roleLabelWidth}
+            height={18}
+            rx={3}
+            fill="var(--diagram-canvas-fill)"
+            opacity={0.9}
+            pointerEvents="none"
+          />
+          <text
+            x={roleLabelPoint.x}
+            y={roleLabelY}
+            textAnchor="middle"
+            className="edge-label connector-role-label"
+            fill={selectedStrokeColor}
+            opacity={labelOpacity}
+            onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
+          >
+            {roleLabel}
+          </text>
+        </>
+      ) : null}
+      {!isGhost ? renderValidationBadge(badgePoint.x + badgeXOffset, badgeY, props.validationLevel, props.validationCount) : null}
     </g>
   );
 }

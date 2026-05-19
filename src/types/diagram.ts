@@ -79,6 +79,7 @@ export interface EntityRelationshipParticipation {
   id: string;
   relationshipId: string;
   cardinality?: ConnectorCardinality;
+  role?: string;
 }
 
 export interface EntityNode extends BaseNode {

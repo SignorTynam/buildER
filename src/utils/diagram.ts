@@ -121,6 +121,7 @@ function sanitizeEntityRelationshipParticipations(
         id?: unknown;
         relationshipId?: unknown;
         cardinality?: unknown;
+        role?: unknown;
       };
       if (
         typeof rawParticipation.relationshipId !== "string" ||
@@ -137,6 +138,9 @@ function sanitizeEntityRelationshipParticipations(
         relationshipId: rawParticipation.relationshipId,
         ...(typeof rawParticipation.cardinality === "string"
           ? { cardinality: normalizeSupportedCardinality(rawParticipation.cardinality) }
+          : {}),
+        ...(typeof rawParticipation.role === "string" && rawParticipation.role.trim().length > 0
+          ? { role: rawParticipation.role.trim() }
           : {}),
       });
     });
@@ -285,7 +289,8 @@ function areEntityRelationshipParticipationsEqual(
       other !== undefined &&
       other.id === participation.id &&
       other.relationshipId === participation.relationshipId &&
-      other.cardinality === participation.cardinality
+      other.cardinality === participation.cardinality &&
+      (other.role ?? "") === (participation.role ?? "")
     );
   });
 }
@@ -3790,8 +3795,12 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
 
     if (node.type === "relationship") {
       const connectors = connectedEdges.filter((edge) => edge.type === "connector");
+      const compatibleConnectors = connectors.filter((edge) => {
+        const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+        return nodeMap.get(otherId)?.type === "entity";
+      });
       const compatibleEntityIds = new Set(
-        connectors
+        compatibleConnectors
           .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId))
           .filter((otherId) => {
             const otherNode = nodeMap.get(otherId);
@@ -3799,7 +3808,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           }),
       );
 
-      if (compatibleEntityIds.size < 2) {
+      if (compatibleConnectors.length < 2) {
         issues.push({
           id: `relationship-${node.id}`,
           level: "warning",
@@ -3809,7 +3818,61 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         });
       }
 
-      if (compatibleEntityIds.size >= 3) {
+      const connectorGroupsByEntityId = new Map<string, Extract<DiagramEdge, { type: "connector" }>[]>();
+      compatibleConnectors.forEach((edge) => {
+        const entityId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+        const group = connectorGroupsByEntityId.get(entityId) ?? [];
+        group.push(edge);
+        connectorGroupsByEntityId.set(entityId, group);
+      });
+      connectorGroupsByEntityId.forEach((loopEdges) => {
+        if (loopEdges.length <= 1) {
+          return;
+        }
+
+        const seenRoles = new Map<string, string>();
+        const duplicateReportedEdgeIds = new Set<string>();
+        loopEdges.forEach((edge) => {
+          const sourceNode = nodeMap.get(edge.sourceId);
+          const targetNode = nodeMap.get(edge.targetId);
+          const participation = getConnectorParticipation(edge, sourceNode, targetNode);
+          const role = participation?.role?.trim() ?? "";
+          if (role.length === 0) {
+            issues.push({
+              id: `loop-role-missing-${edge.id}`,
+              level: "error",
+              message: "Loop association requires a role for each connection.",
+              targetId: edge.id,
+              targetType: "edge",
+            });
+            return;
+          }
+
+          const roleKey = role.toLocaleLowerCase("it");
+          const existingEdgeId = seenRoles.get(roleKey);
+          if (existingEdgeId) {
+            [edge.id, existingEdgeId].forEach((duplicateEdgeId) => {
+              if (duplicateReportedEdgeIds.has(duplicateEdgeId)) {
+                return;
+              }
+
+              duplicateReportedEdgeIds.add(duplicateEdgeId);
+              issues.push({
+                id: `loop-role-duplicate-${duplicateEdgeId}`,
+                level: "error",
+                message: "Each connection in a loop association must have a distinct role.",
+                targetId: duplicateEdgeId,
+                targetType: "edge",
+              });
+            });
+            return;
+          }
+
+          seenRoles.set(roleKey, edge.id);
+        });
+      });
+
+      if (compatibleConnectors.length >= 3) {
         const problematicParticipants = connectors
           .map((edge) => {
             const entityId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
@@ -3851,7 +3914,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           issues.push({
             id: `relationship-nary-max-one-cardinality-${node.id}`,
             level: "warning",
-            message: `Attenzione: la relazione "${node.label}" ha grado ${compatibleEntityIds.size} e contiene cardinalita con massimo 1 sui lati: ${participantLabels}. Nelle relazioni ternarie o n-arie questi vincoli non si interpretano come nelle relazioni binarie:${semanticHint}. Verifica che questa sia davvero la semantica desiderata.`,
+            message: `Attenzione: la relazione "${node.label}" ha grado ${compatibleConnectors.length} e contiene cardinalita con massimo 1 sui lati: ${participantLabels}. Nelle relazioni ternarie o n-arie questi vincoli non si interpretano come nelle relazioni binarie:${semanticHint}. Verifica che questa sia davvero la semantica desiderata.`,
             targetId: node.id,
             targetType: "node",
           });

@@ -78,6 +78,7 @@ interface ParsedEdgeSpec {
   lineStyle: LineStyle;
   manualOffset?: number;
   cardinality?: string;
+  role?: string;
   isaDisjointness?: IsaDisjointness;
   isaCompleteness?: IsaCompleteness;
   isExternalIdentifierHost?: boolean;
@@ -134,6 +135,7 @@ interface StructuredAttributeFlags {
 interface StructuredConnectionSpec {
   entityAlias: string;
   cardinality?: string;
+  role?: string;
   line: number;
 }
 
@@ -1251,15 +1253,22 @@ function expandDesignerRelationship(
       throw new ErsParseError(currentLine, `Partecipazione relazione non valida: "${compact}".`);
     }
 
-    const cardinality = normalizeDesignerCardinality(connectionMatch[2]);
+    const roleMatch = connectionMatch[2].match(/\brole\s+(?:"([^"]*)"|([^\s]+))\s*$/i);
+    const role = roleMatch?.[1] ?? roleMatch?.[2];
+    const connectionDetails = (roleMatch
+      ? connectionMatch[2].slice(0, roleMatch.index).trim()
+      : connectionMatch[2]
+    ).replace(/\bexternal\b/gi, "").trim();
+    const cardinality = normalizeDesignerCardinality(connectionDetails);
     if (!cardinality) {
       throw new ErsParseError(currentLine, `Cardinalita relazione non valida: "${connectionMatch[2]}".`);
     }
     const externalSuffix = /\bexternal\b/i.test(connectionMatch[2]) ? " external" : "";
+    const roleSuffix = role && role.trim().length > 0 ? ` role ${quoteValue(role.trim())}` : "";
 
     emitted.push({
       line: currentLine,
-      text: `connector ${alias} -> ${connectionMatch[1]} card ${quoteValue(cardinality)}${externalSuffix}`,
+      text: `connector ${alias} -> ${connectionMatch[1]} card ${quoteValue(cardinality)}${externalSuffix}${roleSuffix}`,
     });
   }
 
@@ -2040,6 +2049,12 @@ function parseEdgeStatement(edgeType: EdgeKind, tokens: string[], line: number):
         }
         edge.cardinality = readStringValue(tokens, state, line, "Cardinalita mancante.");
         break;
+      case "role":
+        if (edgeType !== "connector") {
+          throw new ErsParseError(line, "La direttiva role e valida solo per connector.");
+        }
+        edge.role = readStringValue(tokens, state, line, "Role collegamento mancante.");
+        break;
       case "external":
         if (edgeType !== "connector") {
           throw new ErsParseError(line, "La direttiva external e valida solo per connector.");
@@ -2492,13 +2507,21 @@ function buildRelationLines(
       const entityId = edge.sourceId === relationship.id ? edge.targetId : edge.sourceId;
       const sourceNode = nodeMap.get(edge.sourceId);
       const targetNode = nodeMap.get(edge.targetId);
+      const participation = getConnectorParticipation(edge, sourceNode, targetNode);
       return {
         entityAlias: aliasByNodeId.get(entityId) ?? entityId,
-        cardinality:
-          getConnectorParticipation(edge, sourceNode, targetNode)?.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER,
+        cardinality: participation?.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER,
+        role: participation?.role,
       };
     })
-    .sort((left, right) => left.entityAlias.localeCompare(right.entityAlias, "it", { sensitivity: "base" }));
+    .sort((left, right) => {
+      const byEntity = left.entityAlias.localeCompare(right.entityAlias, "it", { sensitivity: "base" });
+      if (byEntity !== 0) {
+        return byEntity;
+      }
+
+      return (left.role ?? "").localeCompare(right.role ?? "", "it", { sensitivity: "base" });
+    });
   const relationshipExternalIdentifiers = diagram.nodes
     .filter((node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity")
     .flatMap((entity) =>
@@ -2512,8 +2535,9 @@ function buildRelationLines(
   connectors.forEach((connector, index) => {
     const entityNode = diagram.nodes.find((node) => node.type === "entity" && (aliasByNodeId.get(node.id) ?? node.id) === connector.entityAlias);
     const externalSuffix = entityNode && externalHostEntityIds.has(entityNode.id) ? " external" : "";
+    const roleSuffix = connector.role && connector.role.trim().length > 0 ? ` role ${quoteValue(connector.role.trim())}` : "";
     lines.push(
-      `    ${connector.entityAlias}: ${formatDesignerCardinality(connector.cardinality)}${externalSuffix}${
+      `    ${connector.entityAlias}: ${formatDesignerCardinality(connector.cardinality)}${externalSuffix}${roleSuffix}${
         index < connectors.length - 1 ? "," : ""
       }`,
     );
@@ -3063,6 +3087,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
           id: createGeneratedId("participation"),
           relationshipId: connectorContext.relationship.id,
           cardinality: normalizedCardinality,
+          ...(edgeSpec.role && edgeSpec.role.trim().length > 0 ? { role: edgeSpec.role.trim() } : {}),
         };
         entityNode.relationshipParticipations = [...(entityNode.relationshipParticipations ?? []), participation];
         participationId = participation.id;

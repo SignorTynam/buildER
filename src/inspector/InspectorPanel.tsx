@@ -16,6 +16,7 @@ import {
   CONNECTOR_CARDINALITIES,
   CONNECTOR_CARDINALITY_PLACEHOLDER,
   getAttributeCardinalityOwner,
+  getConnectorParticipation,
   getConnectorParticipationContext,
   normalizeSupportedCardinality,
 } from "../utils/cardinality";
@@ -590,6 +591,58 @@ export function InspectorPanel(props: InspectorPanelProps) {
       edge.type === "attribute" ? getAttributeCardinalityOwner(sourceNode, targetNode) : undefined;
     const connectorContext =
       edge.type === "connector" ? getConnectorParticipationContext(sourceNode, targetNode) : undefined;
+    const connectorParticipation =
+      edge.type === "connector" ? getConnectorParticipation(edge, sourceNode, targetNode) : undefined;
+    const connectorParticipationId =
+      edge.type === "connector" ? edge.participationId ?? `participation-${edge.id}` : undefined;
+
+    function updateConnectorRole(value: string) {
+      if (edge.type !== "connector" || !connectorContext || !connectorParticipationId) {
+        return;
+      }
+
+      const normalizedRole = value.trim().length > 0 ? value : undefined;
+      const nextNodes = props.diagram.nodes.map((node) => {
+        if (node.id !== connectorContext.entity.id || node.type !== "entity") {
+          return node;
+        }
+
+        const participations = node.relationshipParticipations ?? [];
+        const existing = participations.find((participation) => participation.id === connectorParticipationId);
+        return {
+          ...node,
+          relationshipParticipations: existing
+            ? participations.map((participation) =>
+                participation.id === connectorParticipationId
+                  ? {
+                      ...participation,
+                      relationshipId: connectorContext.relationship.id,
+                      role: normalizedRole,
+                    }
+                  : participation,
+              )
+            : [
+                ...participations,
+                {
+                  id: connectorParticipationId,
+                  relationshipId: connectorContext.relationship.id,
+                  role: normalizedRole,
+                },
+              ],
+        };
+      });
+      const nextEdges = props.diagram.edges.map((candidate) =>
+        candidate.id === edge.id && candidate.type === "connector" && candidate.participationId !== connectorParticipationId
+          ? { ...candidate, participationId: connectorParticipationId }
+          : candidate,
+      );
+
+      props.onDiagramChange({
+        ...props.diagram,
+        nodes: nextNodes,
+        edges: nextEdges,
+      });
+    }
 
     return (
       <>
@@ -600,6 +653,17 @@ export function InspectorPanel(props: InspectorPanelProps) {
               <p className="action-hint">
                 La cardinalita di questo collegamento si modifica nell&apos;entita "{connectorContext.entity.label}".
               </p>
+            ) : null}
+
+            {edge.type === "connector" && connectorContext ? (
+              <label className="field">
+                <span>Role</span>
+                <input
+                  value={connectorParticipation?.role ?? ""}
+                  disabled={!canEdit}
+                  onChange={(event) => updateConnectorRole(event.target.value)}
+                />
+              </label>
             ) : null}
 
             {edge.type === "attribute" && attributeOwner ? (

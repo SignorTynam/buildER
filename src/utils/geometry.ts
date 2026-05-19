@@ -431,6 +431,26 @@ export function buildOrthogonalPoints(
   const sourceSide = getDominantConnectionSide(source, target);
   const horizontalBias = sourceSide === "left" || sourceSide === "right";
 
+  if (Math.abs(laneOffset) > 0.001 && Math.abs(source.y - target.y) <= 8) {
+    const laneY = (source.y + target.y) / 2 + laneOffset;
+    return simplifyPoints([
+      source,
+      { x: source.x, y: laneY },
+      { x: target.x, y: laneY },
+      target,
+    ]);
+  }
+
+  if (Math.abs(laneOffset) > 0.001 && Math.abs(source.x - target.x) <= 8) {
+    const laneX = (source.x + target.x) / 2 + laneOffset;
+    return simplifyPoints([
+      source,
+      { x: laneX, y: source.y },
+      { x: laneX, y: target.y },
+      target,
+    ]);
+  }
+
   if (horizontalBias) {
     // Shift the shared trunk instead of the endpoints so exit/entry stay coherent with center-to-center direction.
     const midX = (source.x + target.x) / 2 + laneOffset;
@@ -456,9 +476,41 @@ function getParallelLaneOffset(laneInfo?: EdgeLaneInfo): number {
     return 0;
   }
 
-  const step = 16;
+  const step = 60;
   const center = (laneInfo.laneCount - 1) / 2;
   return (laneInfo.laneIndex - center) * step;
+}
+
+function offsetPoint(point: Point, normalX: number, normalY: number, offset: number): Point {
+  return {
+    x: point.x + normalX * offset,
+    y: point.y + normalY * offset,
+  };
+}
+
+function buildParallelConnectorRenderedPoints(
+  sourceNode: DiagramNode,
+  targetNode: DiagramNode,
+  laneOffset: number,
+): Point[] {
+  const sourceAnchor = getNodeLogicalAnchor(sourceNode);
+  const targetAnchor = getNodeLogicalAnchor(targetNode);
+  const deltaX = targetAnchor.x - sourceAnchor.x;
+  const deltaY = targetAnchor.y - sourceAnchor.y;
+  const length = Math.hypot(deltaX, deltaY);
+
+  if (length <= 0.001 || Math.abs(laneOffset) <= 0.001) {
+    return attachPolylineToNodeBounds([sourceAnchor, targetAnchor], sourceNode, targetNode);
+  }
+
+  const normalX = -deltaY / length;
+  const normalY = deltaX / length;
+  const sourceEndpoint = clipPointToNodePerimeter(sourceNode, targetAnchor);
+  const targetEndpoint = clipPointToNodePerimeter(targetNode, sourceAnchor);
+  return [
+    offsetPoint(sourceEndpoint, normalX, normalY, laneOffset),
+    offsetPoint(targetEndpoint, normalX, normalY, laneOffset),
+  ];
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -640,15 +692,18 @@ function buildNonAttributeLogicalPoints(
 ): Point[] {
   const laneCount = laneInfo?.laneCount ?? 1;
   const connectorLaneOffset = getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
+  const sourceAnchor = getNodeLogicalAnchor(sourceNode);
+  const targetAnchor = getNodeLogicalAnchor(targetNode);
+
   const shouldUseStraightRoute =
     edge.type === "inheritance" ||
     (edge.type === "connector" && laneCount === 1 && connectorLaneOffset === 0);
 
   return shouldUseStraightRoute
-    ? [getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode)]
+    ? [sourceAnchor, targetAnchor]
     : buildOrthogonalPoints(
-        getNodeLogicalAnchor(sourceNode),
-        getNodeLogicalAnchor(targetNode),
+        sourceAnchor,
+        targetAnchor,
         edge.type,
         connectorLaneOffset,
       );
@@ -671,6 +726,12 @@ export function getEdgeGeometry(
       getNodeLogicalAnchor(attributeNode),
       getNodeLogicalAnchor(hostNode),
     ], attributeNode, hostNode);
+  } else if (edge.type === "connector" && (laneInfo?.laneCount ?? 1) > 1) {
+    points = buildParallelConnectorRenderedPoints(
+      sourceNode,
+      targetNode,
+      getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0),
+    );
   } else {
     const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
     points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
@@ -689,6 +750,19 @@ export function getRenderedEdgeGeometry(
   laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
   if (edge.type === "connector") {
+    if ((laneInfo?.laneCount ?? 1) > 1) {
+      const points = buildParallelConnectorRenderedPoints(
+        sourceNode,
+        targetNode,
+        getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0),
+      );
+
+      return {
+        points,
+        labelPoint: resolveEdgeLabelPoint(edge, sourceNode, targetNode, points),
+      };
+    }
+
     const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
     const points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
 
