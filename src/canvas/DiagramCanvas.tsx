@@ -12,6 +12,7 @@ import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
 import { getToolDefinitions } from "../utils/toolConfig";
 import {
   expandNodeIdsForMove,
+  getExternalIdentifierImportedPartAttributes,
   getExternalIdentifierImportedRelationshipIds,
   getExternalIdentifierLocalAttributeIds,
 } from "../utils/diagram";
@@ -265,6 +266,8 @@ const EXTERNAL_IDENTIFIER_CARDINALITY_AVOIDANCE = 12;
 const EXTERNAL_IDENTIFIER_GROUPING_FRAME_PADDING = 30;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_OFFSET = 28;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_CURVE = 18;
+const EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET = 16;
+const EXTERNAL_IDENTIFIER_ENTITY_FRAME_RADIUS = 18;
 
 interface CompositeIdentifierMember {
   attributeId: string;
@@ -320,7 +323,9 @@ interface ExternalIdentifierMarkerLayout {
   hostEntityId: string;
   externalIdentifierId: string;
   marker: Point;
+  entityEndpoint?: Point;
   kind: "importedRelationship" | "localAttribute";
+  tooltip?: string;
 }
 
 interface ExternalIdentifierGroupingLayout {
@@ -328,6 +333,17 @@ interface ExternalIdentifierGroupingLayout {
   hostEntityId: string;
   externalIdentifierId: string;
   pathData: string;
+}
+
+interface ExternalIdentifierFrameLayout {
+  key: string;
+  hostEntityId: string;
+  externalIdentifierId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rx: number;
 }
 
 type FrameSide = "left" | "right" | "top" | "bottom";
@@ -1202,6 +1218,77 @@ function pointFromEndpointAlongPolyline(
   };
 }
 
+function getExternalIdentifierFrameNode(entity: Extract<DiagramNode, { type: "entity" }>): Extract<DiagramNode, { type: "entity" }> {
+  return {
+    ...entity,
+    x: entity.x - EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET,
+    y: entity.y - EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET,
+    width: entity.width + EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET * 2,
+    height: entity.height + EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET * 2,
+  };
+}
+
+function getExternalIdentifierFramePoint(
+  entity: Extract<DiagramNode, { type: "entity" }>,
+  toward: Point,
+): Point {
+  return clipPointToNodePerimeter(getExternalIdentifierFrameNode(entity), toward);
+}
+
+function getExternalIdentifierFrameLayout(
+  entity: Extract<DiagramNode, { type: "entity" }>,
+  externalIdentifierId: string,
+): ExternalIdentifierFrameLayout {
+  const frameNode = getExternalIdentifierFrameNode(entity);
+  return {
+    key: `${entity.id}-${externalIdentifierId}`,
+    hostEntityId: entity.id,
+    externalIdentifierId,
+    x: frameNode.x,
+    y: frameNode.y,
+    width: frameNode.width,
+    height: frameNode.height,
+    rx: Math.min(EXTERNAL_IDENTIFIER_ENTITY_FRAME_RADIUS, frameNode.height / 2),
+  };
+}
+
+function renderExternalIdentifierFrame(layout: ExternalIdentifierFrameLayout) {
+  return (
+    <rect
+      key={`external-id-frame-${layout.key}`}
+      className="external-identifier-entity-frame"
+      x={layout.x}
+      y={layout.y}
+      width={layout.width}
+      height={layout.height}
+      rx={layout.rx}
+      ry={layout.rx}
+      fill="none"
+      stroke={DIAGRAM_STROKE}
+      strokeWidth={2}
+      pointerEvents="none"
+    />
+  );
+}
+
+function renderExternalIdentifierMarker(layout: ExternalIdentifierMarkerLayout) {
+  return (
+    <circle
+      key={`external-id-marker-${layout.key}`}
+      className={`external-identifier-marker external-identifier-marker-${layout.kind}`}
+      cx={layout.marker.x}
+      cy={layout.marker.y}
+      r={5.4}
+      fill={DIAGRAM_STROKE}
+      stroke="var(--diagram-canvas-fill)"
+      strokeWidth={1.4}
+      pointerEvents={layout.tooltip ? "visiblePainted" : "none"}
+    >
+      {layout.tooltip ? <title>{layout.tooltip}</title> : null}
+    </circle>
+  );
+}
+
 export function getStableLocalIdentifierMarkerPoint(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
   attributeNode: Extract<DiagramNode, { type: "attribute" }>,
@@ -1430,7 +1517,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const compositeGroupMemberIdsByGroupKey = new Map<string, string[]>();
   const compositeIdentifierLayouts: CompositeIdentifierLayout[] = [];
   const externalIdentifierLayouts: ExternalIdentifierLayout[] = [];
-  const externalIdentifierGroupingLayouts: ExternalIdentifierGroupingLayout[] = [];
+  const externalIdentifierFrameLayouts: ExternalIdentifierFrameLayout[] = [];
   const externalIdentifierMarkerLayouts: ExternalIdentifierMarkerLayout[] = [];
   const edgeGeometryMap = new Map<string, Point[]>();
   const originalAttributeDirectionMap =
@@ -1615,6 +1702,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     (node.externalIdentifiers ?? []).forEach((identifier) => {
       const identifierMarkerLayouts: ExternalIdentifierMarkerLayout[] = [];
+      // externalIdentifiers is a model-level key definition: render importedParts as dots where
+      // relationship connectors hit the outer frame, and localAttributeIds as dots where local
+      // attribute links hit the same frame. This is intentionally presentation-only.
+      externalIdentifierFrameLayouts.push(getExternalIdentifierFrameLayout(node, identifier.id));
       identifier.importedParts.forEach((part) => {
         if (!importedRelationshipIds.has(part.relationshipId)) {
           return;
@@ -1634,6 +1725,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         if (relationshipNode?.type !== "relationship") {
           return;
         }
+        const sourceEntity = nodeMap.get(part.sourceEntityId);
+        const sourceAttributeLabel = getExternalIdentifierImportedPartAttributes(props.diagram, part)
+          .map((attribute) => attribute.label)
+          .join(" + ");
 
         const geometry = getEdgeGeometry(
           connectorEdge,
@@ -1641,15 +1736,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           nodeMap.get(connectorEdge.targetId) as DiagramNode,
           connectorLaneMap.get(connectorEdge.id),
         );
-        const marker = pointFromEndpointAlongPolyline(
-          geometry.points,
-          connectorEdge.sourceId === node.id,
-          geometry.labelPoint,
-          18,
-        );
-        if (!marker) {
+        if (geometry.points.length < 2) {
           return;
         }
+        const entityIsSource = connectorEdge.sourceId === node.id;
+        const entityEndpoint = entityIsSource ? geometry.points[0] : geometry.points[geometry.points.length - 1];
+        const adjacentPoint = entityIsSource ? geometry.points[1] : geometry.points[geometry.points.length - 2];
+        const marker = getExternalIdentifierFramePoint(node, adjacentPoint);
+        const tooltip =
+          sourceEntity?.type === "entity" && sourceAttributeLabel.length > 0
+            ? `Importa ${sourceAttributeLabel} da ${sourceEntity.label}`
+            : undefined;
 
         identifierMarkerLayouts.push({
           key: `${identifier.id}-relationship-${part.relationshipId}`,
@@ -1657,6 +1754,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           externalIdentifierId: identifier.id,
           kind: "importedRelationship",
           marker,
+          entityEndpoint,
+          tooltip,
         });
       });
 
@@ -1680,7 +1779,19 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           return;
         }
 
-        const marker = getStableLocalIdentifierMarkerPoint(node, attributeNode);
+        const geometry = getEdgeGeometry(
+          attributeEdge,
+          nodeMap.get(attributeEdge.sourceId) as DiagramNode,
+          nodeMap.get(attributeEdge.targetId) as DiagramNode,
+          undefined,
+        );
+        if (geometry.points.length < 2) {
+          return;
+        }
+        const entityIsSource = attributeEdge.sourceId === node.id;
+        const entityEndpoint = entityIsSource ? geometry.points[0] : geometry.points[geometry.points.length - 1];
+        const adjacentPoint = entityIsSource ? geometry.points[1] : geometry.points[geometry.points.length - 2];
+        const marker = getExternalIdentifierFramePoint(node, adjacentPoint);
 
         identifierMarkerLayouts.push({
           key: `${identifier.id}-attribute-${attributeId}`,
@@ -1688,22 +1799,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           externalIdentifierId: identifier.id,
           kind: "localAttribute",
           marker,
+          entityEndpoint,
         });
       });
 
       externalIdentifierMarkerLayouts.push(...identifierMarkerLayouts);
-      const groupingPathData = buildExternalIdentifierGroupingPath(
-        node,
-        identifierMarkerLayouts.map((layout) => ({ marker: layout.marker, kind: layout.kind })),
-      );
-      if (groupingPathData.length > 0) {
-        externalIdentifierGroupingLayouts.push({
-          key: `${node.id}-${identifier.id}`,
-          hostEntityId: node.id,
-          externalIdentifierId: identifier.id,
-          pathData: groupingPathData,
-        });
-      }
     });
   });
 
@@ -3347,6 +3447,23 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             );
           })}
 
+          {externalIdentifierMarkerLayouts.map((layout) =>
+            layout.entityEndpoint ? (
+              <line
+                key={`external-id-mask-${layout.key}`}
+                className="external-identifier-edge-mask"
+                x1={layout.marker.x}
+                y1={layout.marker.y}
+                x2={layout.entityEndpoint.x}
+                y2={layout.entityEndpoint.y}
+                stroke="var(--diagram-canvas-fill)"
+                strokeWidth={6}
+                strokeLinecap="round"
+                pointerEvents="none"
+              />
+            ) : null,
+          )}
+
           {props.diagram.nodes.map((node) => (
             <DiagramNodeView
               key={node.id}
@@ -3373,33 +3490,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             />
           ))}
 
-          {externalIdentifierGroupingLayouts.map((layout) => (
-            <path
-              key={`external-id-grouping-${layout.key}`}
-              className="external-identifier-grouping-path"
-              d={layout.pathData}
-              fill="none"
-              stroke={DIAGRAM_STROKE}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              pointerEvents="none"
-            />
-          ))}
+          {externalIdentifierFrameLayouts.map(renderExternalIdentifierFrame)}
 
-          {externalIdentifierMarkerLayouts.map((layout) => (
-            <circle
-              key={`external-id-marker-${layout.key}`}
-              className={`external-identifier-marker external-identifier-marker-${layout.kind}`}
-              cx={layout.marker.x}
-              cy={layout.marker.y}
-              r={layout.kind === "importedRelationship" ? 5.2 : 5.8}
-              fill={DIAGRAM_STROKE}
-              stroke="var(--diagram-canvas-fill)"
-              strokeWidth={1.4}
-              pointerEvents="none"
-            />
-          ))}
+          {externalIdentifierMarkerLayouts.map(renderExternalIdentifierMarker)}
 
           {pendingConnectionPath ? (
             <g className="connection-preview" pointerEvents="none">

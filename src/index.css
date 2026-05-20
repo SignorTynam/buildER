@@ -9358,6 +9358,7 @@ textarea:focus-visible,
 }
 
 .external-identifier-path,
+.external-identifier-entity-frame,
 .external-identifier-marker,
 .composite-identifier-path,
 .composite-identifier-marker,
@@ -9411,6 +9412,14 @@ textarea:focus-visible,
 .external-identifier-imported:focus-within .external-identifier-marker,
 .external-identifier-imported.external-identifier-active .external-identifier-marker {
   fill: var(--diagram-stroke, #1f2f2b);
+}
+
+.external-identifier-entity-frame {
+  vector-effect: non-scaling-stroke;
+}
+
+.external-identifier-edge-mask {
+  vector-effect: non-scaling-stroke;
 }
 
 /* Inspector */
