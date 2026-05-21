@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.3";
+export const APP_VERSION = "4.3.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,18 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.3.1",
+    date: "2026-05-21",
+    updates: [
+      "Versione applicativa aggiornata alla release 4.3.1.",
+      "Diagnostica canvas ora controllabile: gli indicatori di warning/error possono essere nascosti senza disattivare la validazione.",
+      "Identificatori esterni renderizzati con cornice dedicata sull'entita, marker coerenti per parti importate/locali e tooltip sulle parti importate.",
+      "Routing degli identificatori esterni migliorato con percorsi aperti che privilegiano i lati marcati ed evitano segmenti superflui.",
+      "Bloccata la creazione di attributi composti annidati: gli attributi figli di un composto non possono diventare a loro volta composti.",
+      "Aggiunti test di regressione per routing degli identificatori esterni, validazione dei path e attributi composti annidati.",
+    ],
+  },
   {
     version: "4.3",
     date: "2026-05-19",

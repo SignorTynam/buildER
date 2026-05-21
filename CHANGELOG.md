@@ -15,6 +15,29 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.3.1] - 2026-05-21
+
+### Added
+- Toggle Diagnostica nel canvas per mostrare o nascondere gli indicatori di warning/error senza disattivare la validazione.
+- Stato `showDiagnostics` salvato nella sessione locale, cosi la preferenza viene ripristinata con il workspace.
+- Cornice dedicata per gli identificatori esterni sull'entita, con marker distinti per parti importate e attributi locali.
+- Tooltip sui marker delle parti importate con attributi importati e relativa entita sorgente.
+- Test di regressione per routing degli identificatori esterni, validazione dei path e attributi composti annidati.
+
+### Changed
+- Versione applicativa aggiornata alla release 4.3.1 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.3.1 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.3.1 con riepilogo delle modifiche dalla 4.3.
+- Rendering degli identificatori esterni spostato da doppio rettangolo interno a cornice esterna dedicata; il doppio rettangolo resta riservato alle entita deboli.
+- Routing della cornice identificatore esterno reso piu stabile con percorsi aperti, preferenza per i lati marcati, deduplica delle proiezioni e gestione compatta dei marker sullo stesso lato.
+- Marker degli identificatori esterni ancorati al punto in cui collegamenti importati o attributi locali incontrano la cornice dell'entita.
+- Aggiunti stili per toggle diagnostica, cornice identificatore esterno e mascheramento dei segmenti di collegamento interni alla cornice.
+
+### Fixed
+- Bloccata la creazione di attributi composti annidati: gli attributi figli di un composto non possono diventare composti tramite toolbar, nuovo collegamento, creazione sotto-attributo o modifica multipla.
+- La finestra Errori segnala quando gli indicatori canvas sono nascosti, mantenendo visibile lo stato della validazione.
+- Corretti i casi in cui il percorso degli identificatori esterni percorreva lati non necessari o produceva una chiusura visiva eccessiva.
+
 ## [4.3.0] - 2026-05-19
 
 ### Added
