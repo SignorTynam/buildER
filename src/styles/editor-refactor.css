@@ -507,6 +507,85 @@ body {
   top: 54px;
 }
 
+.designer-side-toggle-group {
+  position: absolute;
+  z-index: 14;
+  top: 10px;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  border: 1px solid rgba(47, 57, 51, 0.1);
+  border-radius: 9px;
+  background: rgba(248, 249, 247, 0.92);
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.05), 0 8px 20px rgba(17, 17, 17, 0.06);
+  overflow: hidden;
+}
+
+.designer-side-toggle-group.designer-side-toggle-left {
+  left: 14px;
+}
+
+.designer-side-toggle-group .designer-side-toggle {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 68px;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-right: 1px solid rgba(47, 57, 51, 0.08);
+  background: transparent;
+  color: #17201b;
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.designer-side-toggle-group .designer-side-toggle:last-child {
+  border-right: 0;
+}
+
+.designer-side-toggle-group .designer-side-toggle:hover {
+  background: rgba(47, 57, 51, 0.06);
+}
+
+.designer-side-toggle-group .designer-side-toggle span,
+.designer-side-toggle-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.designer-side-toggle-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+}
+
+.designer-side-toggle-label {
+  white-space: nowrap;
+}
+
+.designer-side-toggle-diagnostics {
+  min-width: 116px;
+}
+
+.designer-side-toggle-diagnostics.active {
+  background: rgba(47, 57, 51, 0.08);
+}
+
+.designer-side-toggle-diagnostics.muted {
+  color: #717b75;
+}
+
+.errors-modal-note {
+  margin: 0;
+  color: var(--studio-muted);
+  font-size: 0.86rem;
+}
+
 .designer-code-dock {
   width: 25vw;
   min-width: 320px;

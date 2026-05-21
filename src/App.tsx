@@ -244,6 +244,7 @@ interface WorkspaceSessionSnapshot {
   toolbarCollapsed: boolean;
   focusMode: boolean;
   toolbarWidth: number;
+  showDiagnostics: boolean;
 }
 
 interface WorkspaceSessionBootstrap {
@@ -273,6 +274,7 @@ interface WorkspaceSessionBootstrap {
   toolbarCollapsed: boolean;
   focusMode: boolean;
   toolbarWidth: number;
+  showDiagnostics: boolean;
   restored: boolean;
 }
 
@@ -520,6 +522,7 @@ function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     toolbarCollapsed: INITIAL_WINDOW_WIDTH < 1460,
     focusMode: false,
     toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
+    showDiagnostics: true,
     restored: false,
   };
 }
@@ -619,6 +622,7 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
         typeof parsed.toolbarWidth === "number" && Number.isFinite(parsed.toolbarWidth)
           ? parsed.toolbarWidth
           : fallback.toolbarWidth,
+      showDiagnostics: typeof parsed.showDiagnostics === "boolean" ? parsed.showDiagnostics : true,
       restored: true,
     };
   } catch {
@@ -1217,6 +1221,7 @@ export default function App() {
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
   const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
   const [toolbarWidth, setToolbarWidth] = useState(sessionBootstrap.toolbarWidth);
+  const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -1249,6 +1254,7 @@ export default function App() {
   const restoredSessionNoticeShownRef = useRef(false);
 
   const issues = validateDiagram(history.present);
+  const canvasIssues = showDiagnostics ? issues : [];
   const selectedNode =
     selection.nodeIds.length === 1 && selection.edgeIds.length === 0
       ? history.present.nodes.find((node) => node.id === selection.nodeIds[0])
@@ -1467,6 +1473,7 @@ export default function App() {
       toolbarCollapsed,
       focusMode,
       toolbarWidth,
+      showDiagnostics,
     };
   }, [
     codeDraft,
@@ -1494,6 +1501,7 @@ export default function App() {
     tool,
     toolbarCollapsed,
     toolbarWidth,
+    showDiagnostics,
     viewport,
   ]);
 
@@ -1529,6 +1537,7 @@ export default function App() {
     tool,
     toolbarCollapsed,
     toolbarWidth,
+    showDiagnostics,
     translationHistory.present,
     translationSelection,
     translationViewport,
@@ -2342,6 +2351,10 @@ export default function App() {
     }
 
     openTechnicalPanelTab("code");
+  }
+
+  function handleToggleDiagnosticsVisibility() {
+    setShowDiagnostics((current) => !current);
   }
 
   function handleToggleNotesPanel() {
@@ -5223,6 +5236,35 @@ export default function App() {
                     <span aria-hidden="true">{issues.some((issue) => issue.level === "error") ? "X" : "!"}</span>
                     Errors
                   </button>
+                  <button
+                    type="button"
+                    className={`designer-side-toggle designer-side-toggle-diagnostics ${
+                      showDiagnostics ? "active" : "muted"
+                    }`}
+                    onClick={handleToggleDiagnosticsVisibility}
+                    title={
+                      showDiagnostics
+                        ? "Hide warnings and errors on canvas"
+                        : "Show warnings and errors on canvas"
+                    }
+                    aria-pressed={showDiagnostics}
+                  >
+                    <span className="designer-side-toggle-icon" aria-hidden="true">
+                      <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+                        <path
+                          d="M1.9 8.5s2.4-4 6.6-4 6.6 4 6.6 4-2.4 4-6.6 4-6.6-4-6.6-4Z"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="8.5" cy="8.5" r="1.8" stroke="currentColor" strokeWidth="1.6" />
+                        {!showDiagnostics ? (
+                          <path d="M3.4 13.6 13.6 3.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        ) : null}
+                      </svg>
+                    </span>
+                    <span className="designer-side-toggle-label">Diagnostics</span>
+                  </button>
                 </div>
                 <button
                   type="button"
@@ -5284,7 +5326,7 @@ export default function App() {
                   tool={tool}
                   mode={mode}
                   viewport={viewport}
-                  issues={issues}
+                  issues={canvasIssues}
                   statusMessage={statusMessage}
                   svgRef={svgRef}
                   onViewportChange={setViewport}
@@ -5567,6 +5609,11 @@ export default function App() {
               </button>
             </div>
             <div className="action-modal-content errors-modal-list">
+              {!showDiagnostics && issues.filter(issueTargetExists).length > 0 ? (
+                <p className="errors-modal-note">
+                  Gli indicatori sul canvas sono nascosti; la validazione resta attiva.
+                </p>
+              ) : null}
               {issues.filter(issueTargetExists).length === 0 ? (
                 <p>Nessun errore o warning nel diagramma.</p>
               ) : (
