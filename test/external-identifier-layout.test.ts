@@ -169,6 +169,37 @@ test("mixed external identifier: markers on one side produce only that side segm
   assert.deepEqual(route, [point(140, 84), point(240, 84)]);
 });
 
+test("mixed external identifier: left top bottom markers prefer the marked-side bracket", () => {
+  const host = {
+    id: "CARTA_CREDITO",
+    type: "entity" as const,
+    label: "CARTA_CREDITO",
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 80,
+  };
+  const route = buildExternalIdentifierGroupingRoutePoints(host, [
+    { kind: "importedRelationship", marker: point(84, 116) },
+    { kind: "importedRelationship", marker: point(220, 84) },
+    { kind: "localAttribute", marker: point(300, 196) },
+  ]);
+  const path = buildExternalIdentifierGroupingPath(host, [
+    { kind: "importedRelationship", marker: point(84, 116) },
+    { kind: "importedRelationship", marker: point(220, 84) },
+    { kind: "localAttribute", marker: point(300, 196) },
+  ]);
+
+  assert.deepEqual(route, [
+    point(300, 196),
+    point(84, 196),
+    point(84, 116),
+    point(84, 84),
+    point(220, 84),
+  ]);
+  assert.doesNotMatch(path, /316\.0/);
+});
+
 test("mixed external identifier options include multiple mandatory unique sources", () => {
   const diagram: DiagramDocument = {
     meta: { name: "Carta credito", version: 3 },

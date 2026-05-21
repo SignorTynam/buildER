@@ -566,6 +566,124 @@ function routeLength(points: Point[]): number {
   return total;
 }
 
+function getFrameSideForSegment(frame: RouteFrame, start: Point, end: Point): FrameSide | null {
+  if (distanceSquared(start, end) <= 0.25) {
+    return null;
+  }
+
+  if (Math.abs(start.x - end.x) <= 0.01) {
+    if (Math.abs(start.x - frame.left) <= 0.01) {
+      return "left";
+    }
+    if (Math.abs(start.x - frame.right) <= 0.01) {
+      return "right";
+    }
+  }
+
+  if (Math.abs(start.y - end.y) <= 0.01) {
+    if (Math.abs(start.y - frame.top) <= 0.01) {
+      return "top";
+    }
+    if (Math.abs(start.y - frame.bottom) <= 0.01) {
+      return "bottom";
+    }
+  }
+
+  return null;
+}
+
+function scoreExternalIdentifierGroupingRoute(
+  frame: RouteFrame,
+  route: Point[],
+  markerSides: Set<FrameSide>,
+): { unmarkedSideCount: number; unmarkedSideLength: number; totalLength: number } {
+  const unmarkedSides = new Set<FrameSide>();
+  let unmarkedSideLength = 0;
+
+  for (let index = 1; index < route.length; index += 1) {
+    const side = getFrameSideForSegment(frame, route[index - 1], route[index]);
+    if (!side || markerSides.has(side)) {
+      continue;
+    }
+
+    unmarkedSides.add(side);
+    unmarkedSideLength += distance(route[index - 1], route[index]);
+  }
+
+  return {
+    unmarkedSideCount: unmarkedSides.size,
+    unmarkedSideLength,
+    totalLength: routeLength(route),
+  };
+}
+
+function compareExternalIdentifierGroupingRouteScores(
+  left: { unmarkedSideCount: number; unmarkedSideLength: number; totalLength: number },
+  right: { unmarkedSideCount: number; unmarkedSideLength: number; totalLength: number },
+): number {
+  if (left.unmarkedSideCount !== right.unmarkedSideCount) {
+    return left.unmarkedSideCount - right.unmarkedSideCount;
+  }
+  if (Math.abs(left.unmarkedSideLength - right.unmarkedSideLength) > 0.5) {
+    return left.unmarkedSideLength - right.unmarkedSideLength;
+  }
+  if (Math.abs(left.totalLength - right.totalLength) > 0.5) {
+    return left.totalLength - right.totalLength;
+  }
+
+  return 0;
+}
+
+function buildClockwiseOpenFrameRoute(
+  frame: RouteFrame,
+  orderedProjections: ExternalIdentifierFrameProjection[],
+): Point[] {
+  const perimeterPoints: Point[] = [];
+  appendUniquePoint(perimeterPoints, orderedProjections[0].projection);
+
+  for (let index = 1; index < orderedProjections.length; index += 1) {
+    const previous = orderedProjections[index - 1];
+    const current = orderedProjections[index];
+    const route = buildFrameRoute(
+      frame,
+      previous.side,
+      previous.projection,
+      current.side,
+      current.projection,
+      "cw",
+    );
+    route.slice(1).forEach((point) => appendUniquePoint(perimeterPoints, point));
+  }
+
+  return perimeterPoints;
+}
+
+function selectExternalIdentifierGroupingRoute(
+  frame: RouteFrame,
+  projections: ExternalIdentifierFrameProjection[],
+): Point[] {
+  const sorted = [...projections].sort((left, right) => left.position - right.position);
+  const markerSides = new Set(sorted.map((projection) => projection.side));
+  let bestRoute: Point[] = [];
+  let bestScore: ReturnType<typeof scoreExternalIdentifierGroupingRoute> | null = null;
+
+  sorted.forEach((_, gapIndex) => {
+    const ordered = [
+      ...sorted.slice(gapIndex + 1),
+      ...sorted.slice(0, gapIndex + 1),
+    ];
+    const route = buildClockwiseOpenFrameRoute(frame, ordered);
+    const score = scoreExternalIdentifierGroupingRoute(frame, route, markerSides);
+
+    if (!bestScore || compareExternalIdentifierGroupingRouteScores(score, bestScore) < 0) {
+      bestRoute = route;
+      bestScore = score;
+    }
+  });
+
+  return bestRoute;
+}
+
 function routeTouchesBottom(route: Point[], frame: RouteFrame): boolean {
   return route.some((point) => Math.abs(point.y - frame.bottom) <= 0.01);
 }
@@ -1498,24 +1616,7 @@ function buildExternalIdentifierGroupingRoutePointsFromProjections(
     return points;
   }
 
-  const ordered = orderExternalIdentifierFrameProjections(frame, uniqueProjections);
-  const perimeterPoints: Point[] = [];
-  appendUniquePoint(perimeterPoints, ordered[0].projection);
-  for (let index = 1; index < ordered.length; index += 1) {
-    const previous = ordered[index - 1];
-    const current = ordered[index];
-    const route = buildFrameRoute(
-      frame,
-      previous.side,
-      previous.projection,
-      current.side,
-      current.projection,
-      "cw",
-    );
-    route.slice(1).forEach((point) => appendUniquePoint(perimeterPoints, point));
-  }
-
-  return perimeterPoints;
+  return selectExternalIdentifierGroupingRoute(frame, uniqueProjections);
 }
 
 export function buildExternalIdentifierGroupingRoutePoints(
