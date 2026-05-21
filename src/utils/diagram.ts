@@ -1107,6 +1107,11 @@ export function canAttributeHaveCardinality(diagram: DiagramDocument, attribute:
   return !isAttributeUsedInAnyIdentifier(diagram, attribute.id);
 }
 
+export function canAttributeBecomeComposite(diagram: DiagramDocument, attribute: AttributeNode): boolean {
+  const host = getAttributeHost(diagram, attribute.id);
+  return host?.type !== "attribute";
+}
+
 export function canConnect(
   edgeType: EdgeKind,
   sourceNode: DiagramNode,

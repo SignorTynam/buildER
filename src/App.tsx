@@ -50,6 +50,7 @@ import {
   assignInheritanceConstraintToGroup,
   canConnect,
   canAttributeHaveCardinality,
+  canAttributeBecomeComposite,
   createEdge,
   createEmptyDiagram,
   createNode,
@@ -3287,6 +3288,22 @@ export default function App() {
       targetNode = findNode(history.present, resolvedTargetId) as DiagramNode;
     }
 
+    if (
+      type === "attribute" &&
+      sourceNode.type === "attribute" &&
+      targetNode.type === "attribute" &&
+      !canAttributeBecomeComposite(history.present, targetNode)
+    ) {
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "il collegamento non e stato creato",
+          `l'attributo "${targetNode.label}" appartiene gia a un attributo composto e non puo diventare composto`,
+          "collega il nuovo attributo direttamente all'attributo composto principale",
+        ),
+      };
+    }
+
     if (!canConnect(type, sourceNode, targetNode)) {
       const failureReason = getConnectionFailureReason(type, sourceNode, targetNode);
       return {
@@ -4183,6 +4200,17 @@ export default function App() {
       return;
     }
 
+    if (hostNode.type === "attribute" && !canAttributeBecomeComposite(history.present, hostNode)) {
+      setStatusError(
+        buildStructuredErrorMessage(
+          "l'attributo non e stato creato",
+          `l'attributo "${hostNode.label}" appartiene gia a un attributo composto e non puo diventare composto`,
+          "seleziona l'attributo composto principale e aggiungi li il nuovo attributo",
+        ),
+      );
+      return;
+    }
+
     const draftAttribute = createNode("attribute", { x: 0, y: 0 }, history.present) as Extract<
       DiagramNode,
       { type: "attribute" }
@@ -4445,6 +4473,17 @@ export default function App() {
       }
 
       if (attributePatch.isMultivalued === true) {
+        if (!canAttributeBecomeComposite(workingDiagram, currentNode)) {
+          setStatusError(
+            buildStructuredErrorMessage(
+              "la modifica dell'attributo non e stata applicata",
+              `l'attributo "${currentNode.label}" appartiene gia a un attributo composto e non puo diventare composto`,
+              "usa come composto solo attributi collegati direttamente a entita o relazioni",
+            ),
+          );
+          return;
+        }
+
         normalizedAttributePatch = {
           ...normalizedAttributePatch,
           isIdentifier: false,
@@ -4590,15 +4629,22 @@ export default function App() {
     if (attributePatch.isMultivalued === true) {
       targetIds = targetIds.filter((nodeId) => {
         const node = history.present.nodes.find((item) => item.id === nodeId);
-        return node?.type !== "attribute" || (node.isIdentifier !== true && node.isCompositeInternal !== true);
+        return (
+          node?.type !== "attribute" ||
+          (
+            node.isIdentifier !== true &&
+            node.isCompositeInternal !== true &&
+            canAttributeBecomeComposite(history.present, node)
+          )
+        );
       });
 
       if (targetIds.length !== nodeIds.length) {
         setStatusError(
           buildStructuredErrorMessage(
             "la modifica degli attributi non e stata applicata a tutta la selezione",
-            "un attributo usato come identificatore non puo diventare composto",
-            "rimuovi il flag identificatore prima di impostare il composto",
+            "un attributo usato come identificatore o figlio di un composto non puo diventare composto",
+            "usa come composti solo attributi semplici collegati direttamente a entita o relazioni",
           ),
         );
       }

@@ -4,6 +4,7 @@ import test from "node:test";
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
 import {
   assignInheritanceConstraintToGroup,
+  canAttributeBecomeComposite,
   cleanupGeneralizationReferences,
   mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
@@ -19,6 +20,62 @@ import { computeClassicIsaGroupLayout } from "../src/utils/geometry.ts";
 import { buildInheritanceGroups, getInheritanceGroupLayout } from "../src/utils/inheritanceLayout.ts";
 import { parseErsDiagram, serializeDiagramToErs } from "../src/utils/ers.ts";
 import { normalizeCardinalityInput } from "../src/utils/cardinality.ts";
+
+test("un attributo figlio di un attributo composto non puo diventare composto", () => {
+  const diagram: DiagramDocument = {
+    meta: { name: "Attributo composto annidato", version: 3 },
+    notes: "",
+    nodes: [
+      { id: "entity-viaggio", type: "entity", label: "VIAGGIO", x: 0, y: 0, width: 140, height: 64 },
+      {
+        id: "attr-cabine-seconda",
+        type: "attribute",
+        label: "cabineSecondaClasse",
+        x: 180,
+        y: 0,
+        width: 180,
+        height: 64,
+        isMultivalued: true,
+      },
+      { id: "attr-cabina", type: "attribute", label: "ATTRIBUTO1", x: 400, y: 0, width: 120, height: 28 },
+      { id: "attr-diretto", type: "attribute", label: "cabinePrimaClasse", x: 0, y: 120, width: 140, height: 28 },
+    ],
+    edges: [
+      {
+        id: "edge-entity-cabine",
+        type: "attribute",
+        sourceId: "attr-cabine-seconda",
+        targetId: "entity-viaggio",
+        label: "",
+        lineStyle: "solid",
+      },
+      {
+        id: "edge-cabine-cabina",
+        type: "attribute",
+        sourceId: "attr-cabina",
+        targetId: "attr-cabine-seconda",
+        label: "",
+        lineStyle: "solid",
+      },
+      {
+        id: "edge-entity-diretto",
+        type: "attribute",
+        sourceId: "attr-diretto",
+        targetId: "entity-viaggio",
+        label: "",
+        lineStyle: "solid",
+      },
+    ],
+  };
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const compositeRoot = nodeById.get("attr-cabine-seconda");
+  const compositeChild = nodeById.get("attr-cabina");
+  const directAttribute = nodeById.get("attr-diretto");
+
+  assert.equal(compositeRoot?.type === "attribute" && canAttributeBecomeComposite(diagram, compositeRoot), true);
+  assert.equal(compositeChild?.type === "attribute" && canAttributeBecomeComposite(diagram, compositeChild), false);
+  assert.equal(directAttribute?.type === "attribute" && canAttributeBecomeComposite(diagram, directAttribute), true);
+});
 
 test("la serializzazione ERS usa il nome corrente della shape invece dell'id legacy", () => {
   const source = `diagram "Nuovo diagramma"

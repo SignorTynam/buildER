@@ -10,7 +10,7 @@ import type {
   ValidationIssue,
 } from "../types/diagram";
 import { getConnectorParticipation, getConnectorParticipationContext } from "../utils/cardinality";
-import { canAttributeHaveCardinality } from "../utils/diagram";
+import { canAttributeBecomeComposite, canAttributeHaveCardinality } from "../utils/diagram";
 
 interface ToolbarProps {
   diagram: DiagramDocument;
@@ -304,6 +304,8 @@ export function Toolbar(props: ToolbarProps) {
   const selectedAttribute = props.selectedNode?.type === "attribute" ? props.selectedNode : undefined;
   const selectedAttributeCanHaveCardinality =
     selectedAttribute !== undefined && canAttributeHaveCardinality(props.diagram, selectedAttribute);
+  const selectedAttributeCanCreateSubattribute =
+    selectedAttribute !== undefined && canAttributeBecomeComposite(props.diagram, selectedAttribute);
   const attributeContext = selectedAttribute ? getAttributeContext(props.diagram, selectedAttribute) : undefined;
   const compositeSelection = getCompositeSelectionContext(props.diagram, props.selection);
   const connectorContext = getConnectorContext(props.diagram, props.selectedEdge);
@@ -394,7 +396,10 @@ export function Toolbar(props: ToolbarProps) {
         label: selectedAttribute.isMultivalued === true ? "Attribute" : "Subattribute",
         icon: <ToolIcon name="attribute" />,
         onClick: props.onCreateAttributeForSelection,
-        disabled: !canEdit,
+        disabled: !canEdit || !selectedAttributeCanCreateSubattribute,
+        title: selectedAttributeCanCreateSubattribute
+          ? undefined
+          : "Un attributo figlio di un attributo composto non puo diventare composto.",
       },
       {
         key: "simple-id",
