@@ -263,11 +263,9 @@ const EXTERNAL_IDENTIFIER_IMPORTED_MARKER_STEM_LENGTH = 22;
 const EXTERNAL_IDENTIFIER_IMPORTED_BRACKET_LENGTH = 24;
 const EXTERNAL_IDENTIFIER_IMPORTED_HIT_STROKE_WIDTH = 22;
 const EXTERNAL_IDENTIFIER_CARDINALITY_AVOIDANCE = 12;
-const EXTERNAL_IDENTIFIER_GROUPING_FRAME_PADDING = 30;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_OFFSET = 28;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_CURVE = 18;
 const EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET = 16;
-const EXTERNAL_IDENTIFIER_ENTITY_FRAME_RADIUS = 18;
 
 interface CompositeIdentifierMember {
   attributeId: string;
@@ -328,22 +326,11 @@ interface ExternalIdentifierMarkerLayout {
   tooltip?: string;
 }
 
-interface ExternalIdentifierGroupingLayout {
-  key: string;
-  hostEntityId: string;
-  externalIdentifierId: string;
-  pathData: string;
-}
-
 interface ExternalIdentifierFrameLayout {
   key: string;
   hostEntityId: string;
   externalIdentifierId: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rx: number;
+  pathData: string;
 }
 
 type FrameSide = "left" | "right" | "top" | "bottom";
@@ -1235,37 +1222,17 @@ function getExternalIdentifierFramePoint(
   return clipPointToNodePerimeter(getExternalIdentifierFrameNode(entity), toward);
 }
 
-function getExternalIdentifierFrameLayout(
-  entity: Extract<DiagramNode, { type: "entity" }>,
-  externalIdentifierId: string,
-): ExternalIdentifierFrameLayout {
-  const frameNode = getExternalIdentifierFrameNode(entity);
-  return {
-    key: `${entity.id}-${externalIdentifierId}`,
-    hostEntityId: entity.id,
-    externalIdentifierId,
-    x: frameNode.x,
-    y: frameNode.y,
-    width: frameNode.width,
-    height: frameNode.height,
-    rx: Math.min(EXTERNAL_IDENTIFIER_ENTITY_FRAME_RADIUS, frameNode.height / 2),
-  };
-}
-
 function renderExternalIdentifierFrame(layout: ExternalIdentifierFrameLayout) {
   return (
-    <rect
+    <path
       key={`external-id-frame-${layout.key}`}
       className="external-identifier-entity-frame"
-      x={layout.x}
-      y={layout.y}
-      width={layout.width}
-      height={layout.height}
-      rx={layout.rx}
-      ry={layout.rx}
+      d={layout.pathData}
       fill="none"
       stroke={DIAGRAM_STROKE}
       strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
       pointerEvents="none"
     />
   );
@@ -1440,17 +1407,11 @@ function buildExternalIdentifierMarkerConnectorPath(projection: ExternalIdentifi
   ].join(" ");
 }
 
-export function buildExternalIdentifierGroupingPath(
-  hostEntity: Extract<DiagramNode, { type: "entity" }>,
-  markers: ExternalIdentifierGroupingMarker[],
-): string {
-  if (markers.length < 2) {
-    return "";
-  }
-
+function getExternalIdentifierGroupingFrame(hostEntity: Extract<DiagramNode, { type: "entity" }>): RouteFrame {
   const hostBounds = getNodeBounds(hostEntity);
-  const padding = EXTERNAL_IDENTIFIER_GROUPING_FRAME_PADDING;
-  const frame: RouteFrame = {
+  const padding = EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET;
+
+  return {
     left: hostBounds.x - padding,
     top: hostBounds.y - padding,
     right: hostBounds.x + hostBounds.width + padding,
@@ -1458,19 +1419,91 @@ export function buildExternalIdentifierGroupingPath(
     centerX: hostBounds.x + hostBounds.width / 2,
     centerY: hostBounds.y + hostBounds.height / 2,
   };
-  const projections = orderExternalIdentifierFrameProjections(
-    frame,
-    markers.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker)),
-  );
-  if (projections.length < 2) {
-    return "";
+}
+
+function dedupeExternalIdentifierFrameProjections(
+  projections: ExternalIdentifierFrameProjection[],
+): ExternalIdentifierFrameProjection[] {
+  const deduped: ExternalIdentifierFrameProjection[] = [];
+
+  projections
+    .sort((left, right) => left.position - right.position)
+    .forEach((projection) => {
+      if (
+        deduped.some(
+          (entry) =>
+            entry.side === projection.side &&
+            distanceSquared(entry.projection, projection.projection) <= 0.25,
+        )
+      ) {
+        return;
+      }
+
+      deduped.push(projection);
+    });
+
+  return deduped;
+}
+
+function buildSingleProjectionFrameSegment(frame: RouteFrame, projection: ExternalIdentifierFrameProjection): Point[] {
+  const halfLength = EXTERNAL_IDENTIFIER_IMPORTED_BRACKET_LENGTH / 2;
+
+  if (projection.side === "left" || projection.side === "right") {
+    return [
+      {
+        x: projection.projection.x,
+        y: clampNumber(projection.projection.y - halfLength, frame.top, frame.bottom),
+      },
+      {
+        x: projection.projection.x,
+        y: clampNumber(projection.projection.y + halfLength, frame.top, frame.bottom),
+      },
+    ];
   }
 
+  return [
+    {
+      x: clampNumber(projection.projection.x - halfLength, frame.left, frame.right),
+      y: projection.projection.y,
+    },
+    {
+      x: clampNumber(projection.projection.x + halfLength, frame.left, frame.right),
+      y: projection.projection.y,
+    },
+  ];
+}
+
+function buildExternalIdentifierGroupingRoutePointsFromProjections(
+  frame: RouteFrame,
+  projections: ExternalIdentifierFrameProjection[],
+): Point[] {
+  const uniqueProjections = dedupeExternalIdentifierFrameProjections(projections);
+  if (uniqueProjections.length === 0) {
+    return [];
+  }
+  if (uniqueProjections.length === 1) {
+    return buildSingleProjectionFrameSegment(frame, uniqueProjections[0]);
+  }
+  if (uniqueProjections.length === 2) {
+    const [start, end] = orderExternalIdentifierFrameProjections(frame, uniqueProjections);
+    const route = selectFrameRoute(
+      frame,
+      start.side,
+      start.projection,
+      end.side,
+      end.projection,
+    );
+    const points: Point[] = [];
+    route.forEach((point) => appendUniquePoint(points, point));
+    return points;
+  }
+
+  const ordered = orderExternalIdentifierFrameProjections(frame, uniqueProjections);
   const perimeterPoints: Point[] = [];
-  appendUniquePoint(perimeterPoints, projections[0].projection);
-  for (let index = 1; index < projections.length; index += 1) {
-    const previous = projections[index - 1];
-    const current = projections[index];
+  appendUniquePoint(perimeterPoints, ordered[0].projection);
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1];
+    const current = ordered[index];
     const route = buildFrameRoute(
       frame,
       previous.side,
@@ -1482,6 +1515,30 @@ export function buildExternalIdentifierGroupingPath(
     route.slice(1).forEach((point) => appendUniquePoint(perimeterPoints, point));
   }
 
+  return perimeterPoints;
+}
+
+export function buildExternalIdentifierGroupingRoutePoints(
+  hostEntity: Extract<DiagramNode, { type: "entity" }>,
+  markers: ExternalIdentifierGroupingMarker[],
+): Point[] {
+  const frame = getExternalIdentifierGroupingFrame(hostEntity);
+  const projections = markers.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker));
+
+  return buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
+}
+
+export function buildExternalIdentifierGroupingPath(
+  hostEntity: Extract<DiagramNode, { type: "entity" }>,
+  markers: ExternalIdentifierGroupingMarker[],
+): string {
+  if (markers.length === 0) {
+    return "";
+  }
+
+  const frame = getExternalIdentifierGroupingFrame(hostEntity);
+  const projections = markers.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker));
+  const perimeterPoints = buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
   const pathParts = [pathFromPoints(perimeterPoints)];
   projections.forEach((projection) => {
     const connectorPath = buildExternalIdentifierMarkerConnectorPath(projection);
@@ -1705,7 +1762,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       // externalIdentifiers is a model-level key definition: render importedParts as dots where
       // relationship connectors hit the outer frame, and localAttributeIds as dots where local
       // attribute links hit the same frame. This is intentionally presentation-only.
-      externalIdentifierFrameLayouts.push(getExternalIdentifierFrameLayout(node, identifier.id));
       identifier.importedParts.forEach((part) => {
         if (!importedRelationshipIds.has(part.relationshipId)) {
           return;
@@ -1803,6 +1859,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         });
       });
 
+      const framePathData = buildExternalIdentifierGroupingPath(node, identifierMarkerLayouts);
+      if (framePathData.length > 0) {
+        externalIdentifierFrameLayouts.push({
+          key: `${node.id}-${identifier.id}`,
+          hostEntityId: node.id,
+          externalIdentifierId: identifier.id,
+          pathData: framePathData,
+        });
+      }
       externalIdentifierMarkerLayouts.push(...identifierMarkerLayouts);
     });
   });

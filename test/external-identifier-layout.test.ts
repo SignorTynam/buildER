@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildExternalIdentifierGroupingPath,
+  buildExternalIdentifierGroupingRoutePoints,
   buildImportedOnlyExternalIdentifierLayout,
   getStableLocalIdentifierMarkerPoint,
 } from "../src/canvas/DiagramCanvas.tsx";
@@ -116,6 +117,56 @@ test("mixed external identifier: grouping path uses a curved connector for local
   ]);
 
   assert.match(path, / C /);
+});
+
+test("mixed external identifier: grouping route stays open and skips sides without markers", () => {
+  const host = {
+    id: "CARTA_CREDITO",
+    type: "entity" as const,
+    label: "CARTA_CREDITO",
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 80,
+  };
+  const route = buildExternalIdentifierGroupingRoutePoints(host, [
+    { kind: "importedRelationship", marker: point(84, 140) },
+    { kind: "importedRelationship", marker: point(200, 196) },
+    { kind: "localAttribute", marker: point(180, 84) },
+  ]);
+  const path = buildExternalIdentifierGroupingPath(host, [
+    { kind: "importedRelationship", marker: point(84, 140) },
+    { kind: "importedRelationship", marker: point(200, 196) },
+    { kind: "localAttribute", marker: point(180, 84) },
+  ]);
+
+  assert.deepEqual(route, [
+    point(200, 196),
+    point(84, 196),
+    point(84, 140),
+    point(84, 84),
+    point(180, 84),
+  ]);
+  assert.doesNotMatch(path, /316\.0/);
+  assert.doesNotMatch(path, /Z/i);
+});
+
+test("mixed external identifier: markers on one side produce only that side segment", () => {
+  const host = {
+    id: "CARTA_CREDITO",
+    type: "entity" as const,
+    label: "CARTA_CREDITO",
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 80,
+  };
+  const route = buildExternalIdentifierGroupingRoutePoints(host, [
+    { kind: "importedRelationship", marker: point(140, 84) },
+    { kind: "localAttribute", marker: point(240, 84) },
+  ]);
+
+  assert.deepEqual(route, [point(140, 84), point(240, 84)]);
 });
 
 test("mixed external identifier options include multiple mandatory unique sources", () => {
