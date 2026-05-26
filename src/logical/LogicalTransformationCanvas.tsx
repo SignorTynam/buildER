@@ -704,12 +704,6 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   }, [props.fitRequestToken]);
 
   useEffect(() => {
-    requestFitToContent();
-    // Refit after each transformation decision update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.workspace.translation.meta.updatedAt]);
-
-  useEffect(() => {
     if (!containerRef.current || typeof ResizeObserver === "undefined") {
       return;
     }

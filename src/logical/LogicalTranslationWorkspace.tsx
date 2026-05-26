@@ -511,6 +511,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             />
           </>
         ) : null}
+        <ToolbarButton
+          label={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
+          icon={<ToolbarIcon name="show" />}
+          active={sqlOpen}
+          disabled={props.logicalStage !== "schema"}
+          onClick={toggleSql}
+        />
         {!showEditTools ? (
           <>
             <ToolbarButton
@@ -536,142 +543,133 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   }
 
   return (
-    <div className={["designer-logical-view", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
-      {props.logicalStage === "schema" ? (
-        <button type="button" className="designer-schema-show-toggle" onClick={toggleSql}>
-          <span aria-hidden="true">
-            <ToolbarIcon name="show" />
-          </span>
-          <span>{sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}</span>
-        </button>
-      ) : null}
-
-      {props.logicalStage === "schema" && props.onToggleNotesPanel ? (
-        <button
-          type="button"
-          className={["designer-logical-notes-toggle", props.notesPanelOpen ? "active" : ""].filter(Boolean).join(" ")}
-          onClick={props.onToggleNotesPanel}
-        >
-          <span aria-hidden="true">
-            <ToolbarIcon name="notes" />
-          </span>
-          <span>Notes</span>
-        </button>
-      ) : null}
-
-      {props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()}
-
-      {fixMenuOpen && selectedTranslationItem ? (
-        <div className="designer-fix-popover designer-logical-fix-popover">
-          {selectedChoices.map((choice) => (
-            <button
-              key={choice.id}
-              type="button"
-              className="designer-fix-option"
-              onClick={() => {
-                props.onApplyChoice(selectedTranslationItem, choice);
-                setFixMenuOpen(false);
-              }}
-            >
-              <span>{choice.label}</span>
-              {choice.recommended ? <span className="designer-fix-badge">{t("translation.restructuring.recommended")}</span> : null}
-              <small>{choice.description}</small>
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {moveMenuOpen && selectedColumnContext ? (
-        <div className="designer-fix-popover designer-logical-move-popover">
-          {[
-            ["up", t("logical.designer.moveUp")],
-            ["down", t("logical.designer.moveDown")],
-            ["top", t("logical.designer.moveTop")],
-            ["bottom", t("logical.designer.moveBottom")],
-          ].map(([direction, label]) => (
-            <button
-              key={direction}
-              type="button"
-              className="designer-fix-option"
-              onClick={() => {
-                props.onMoveColumn(
-                  selectedColumnContext.tableId,
-                  selectedColumnContext.column.id,
-                  direction as ColumnMoveDirection,
-                );
-                setMoveMenuOpen(false);
-              }}
-            >
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      <div className={["designer-logical-workspace", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
-        {sqlOpen ? (
-          <aside className="designer-sql-dock" aria-label="SQL">
-            <div className="designer-sql-dock-header">
-              <span>SQL</span>
-              <div className="designer-sql-actions">
-                <button type="button" onClick={copySql}>
-                  {t("logical.designer.copySql")}
-                </button>
-                <button type="button" onClick={() => downloadSql(sqlPreview)}>
-                  {t("logical.designer.downloadSql")}
-                </button>
-              </div>
-            </div>
-            <pre
-              className="designer-sql-output"
-              dangerouslySetInnerHTML={{ __html: highlightSql(sqlPreview, props.workspace.model) }}
-            />
-          </aside>
+    <div className={["designer-workspace", "designer-logical-view", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
+      <div className={["designer-canvas-region", "designer-logical-canvas", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
+        {props.logicalStage === "schema" && props.onToggleNotesPanel ? (
+          <button
+            type="button"
+            className="designer-side-toggle designer-side-toggle-right designer-logical-notes-toggle"
+            onClick={props.onToggleNotesPanel}
+            title={props.notesPanelOpen ? "Chiudi note" : "Apri note"}
+          >
+            <span aria-hidden="true">N</span>
+            {props.notesPanelOpen ? "Hide" : "Notes"}
+          </button>
         ) : null}
 
-        <section className="designer-logical-canvas">
-          {props.logicalStage === "translation" ? (null) : null}
-          <LogicalTransformationCanvas
-            workspace={props.workspace}
-            selection={props.selection}
-            viewport={props.viewport}
-            typeMode={props.logicalStage === "schema" ? props.typeMode : false}
-            fitRequestToken={props.fitRequestToken}
-            activeTargetKeys={highlightedTargetKeys}
-            focusedTargetKey={selectedTargetKey}
-            schemaOnly={props.logicalStage === "schema"}
-            onViewportChange={props.onViewportChange}
-            onSelectionChange={props.onSelectionChange}
-            onPreviewModel={props.onPreviewModel}
-            onCommitModel={props.onCommitModel}
-            onRenameTable={props.onRenameTable}
-            onRenameColumn={props.onRenameColumn}
-            onUpdateColumnSql={props.onUpdateColumnSql}
-          />
-        </section>
-      </div>
+        {props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()}
 
-      {props.logicalStage === "schema" && selectedColumnContext && props.typeMode ? (
-        <div className="designer-schema-type-shortcuts" aria-hidden="true">
-          {SQL_TYPE_PICKER_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                props.onUpdateColumnSql(selectedColumnContext.tableId, selectedColumnContext.column.id, {
-                  dataType: option.value,
-                  length: option.value === "VARCHAR" ? 100 : null,
-                  precision: null,
-                  scale: null,
-                });
-                props.onTypeModeChange(false);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
+        {fixMenuOpen && selectedTranslationItem ? (
+          <div className="designer-fix-popover designer-logical-fix-popover">
+            {selectedChoices.map((choice) => (
+              <button
+                key={choice.id}
+                type="button"
+                className="designer-fix-option"
+                onClick={() => {
+                  props.onApplyChoice(selectedTranslationItem, choice);
+                  setFixMenuOpen(false);
+                }}
+              >
+                <span>{choice.label}</span>
+                {choice.recommended ? <span className="designer-fix-badge">{t("translation.restructuring.recommended")}</span> : null}
+                <small>{choice.description}</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {moveMenuOpen && selectedColumnContext ? (
+          <div className="designer-fix-popover designer-logical-move-popover">
+            {[
+              ["up", t("logical.designer.moveUp")],
+              ["down", t("logical.designer.moveDown")],
+              ["top", t("logical.designer.moveTop")],
+              ["bottom", t("logical.designer.moveBottom")],
+            ].map(([direction, label]) => (
+              <button
+                key={direction}
+                type="button"
+                className="designer-fix-option"
+                onClick={() => {
+                  props.onMoveColumn(
+                    selectedColumnContext.tableId,
+                    selectedColumnContext.column.id,
+                    direction as ColumnMoveDirection,
+                  );
+                  setMoveMenuOpen(false);
+                }}
+              >
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className={["designer-logical-workspace", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
+          {sqlOpen ? (
+            <aside className="designer-sql-dock" aria-label="SQL">
+              <div className="designer-sql-dock-header">
+                <span>SQL</span>
+                <div className="designer-sql-actions">
+                  <button type="button" onClick={copySql}>
+                    {t("logical.designer.copySql")}
+                  </button>
+                  <button type="button" onClick={() => downloadSql(sqlPreview)}>
+                    {t("logical.designer.downloadSql")}
+                  </button>
+                </div>
+              </div>
+              <pre
+                className="designer-sql-output"
+                dangerouslySetInnerHTML={{ __html: highlightSql(sqlPreview, props.workspace.model) }}
+              />
+            </aside>
+          ) : null}
+
+          <section className="designer-logical-stage">
+            <LogicalTransformationCanvas
+              workspace={props.workspace}
+              selection={props.selection}
+              viewport={props.viewport}
+              typeMode={props.logicalStage === "schema" ? props.typeMode : false}
+              fitRequestToken={props.fitRequestToken}
+              activeTargetKeys={highlightedTargetKeys}
+              focusedTargetKey={selectedTargetKey}
+              schemaOnly={props.logicalStage === "schema"}
+              onViewportChange={props.onViewportChange}
+              onSelectionChange={props.onSelectionChange}
+              onPreviewModel={props.onPreviewModel}
+              onCommitModel={props.onCommitModel}
+              onRenameTable={props.onRenameTable}
+              onRenameColumn={props.onRenameColumn}
+              onUpdateColumnSql={props.onUpdateColumnSql}
+            />
+          </section>
         </div>
-      ) : null}
+
+        {props.logicalStage === "schema" && selectedColumnContext && props.typeMode ? (
+          <div className="designer-schema-type-shortcuts" aria-hidden="true">
+            {SQL_TYPE_PICKER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  props.onUpdateColumnSql(selectedColumnContext.tableId, selectedColumnContext.column.id, {
+                    dataType: option.value,
+                    length: option.value === "VARCHAR" ? 100 : null,
+                    precision: null,
+                    scale: null,
+                  });
+                  props.onTypeModeChange(false);
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

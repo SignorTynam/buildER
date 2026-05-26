@@ -2464,6 +2464,10 @@ summary:focus-visible,
 
 .app-shell.app-shell-view-logical {
   grid-template-rows: 42px minmax(0, 1fr) auto !important;
+  background: #dfe3dc;
+  --diagram-canvas-fill: #dfe3dc;
+  --diagram-node-fill: #dfe3dc;
+  --logical-edge-stroke: var(--diagram-stroke);
 }
 
 .app-header.studio-topbar {
@@ -2629,6 +2633,27 @@ summary:focus-visible,
     linear-gradient(90deg, var(--diagram-grid) 1px, transparent 1px),
     var(--diagram-canvas-fill);
   background-size: 24px 24px, 24px 24px, auto;
+}
+
+.app-shell-view-logical .app-workspace-region,
+.app-shell-view-logical .structured-workspace-shell,
+.app-shell-view-logical .designer-workspace,
+.app-shell-view-logical .designer-canvas-region,
+.app-shell-view-logical .designer-logical-workspace,
+.app-shell-view-logical .designer-logical-stage,
+.app-shell-view-logical .logical-canvas-panel,
+.app-shell-view-logical .transformation-canvas-panel,
+.app-shell-view-logical .logical-canvas,
+.app-shell-view-logical .logical-transformation-canvas {
+  --diagram-canvas-fill: #dfe3dc !important;
+  --diagram-node-fill: #dfe3dc !important;
+  background: #dfe3dc !important;
+  background-image: none !important;
+}
+
+.app-shell-view-logical .logical-table {
+  --logical-table-fill: var(--diagram-node-fill);
+  --logical-table-header-fill: var(--diagram-node-fill);
 }
 
 .canvas-viewport-hud,
