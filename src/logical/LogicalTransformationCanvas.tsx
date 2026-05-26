@@ -81,7 +81,7 @@ const EDGE_LABEL_HALF_WIDTH = 56;
 const EDGE_LABEL_HALF_HEIGHT = 12;
 const EDGE_LABEL_VERTICAL_OFFSET = 6;
 const DESIGNER_TABLE_MIN_WIDTH = 180;
-const DESIGNER_TABLE_MAX_WIDTH = 390;
+const DESIGNER_TABLE_MAX_WIDTH = 860;
 const DESIGNER_TABLE_HEADER_HEIGHT = 36;
 const DESIGNER_TABLE_ROW_HEIGHT = 34;
 const DESIGNER_TABLE_HORIZONTAL_PADDING = 18;
@@ -89,19 +89,24 @@ const DESIGNER_TABLE_INLINE_EDITOR_TOP = 6;
 const DESIGNER_EDGE_DEFAULT_STROKE_WIDTH = 1.2;
 const DESIGNER_EDGE_ACTIVE_STROKE_WIDTH = 1.45;
 const DESIGNER_EDGE_SELECTED_STROKE_WIDTH = 1.7;
-const DESIGNER_COLUMN_TYPE_GAP = 18;
+const DESIGNER_COLUMN_TYPE_GAP = 32;
 
 function clampDesignerDimension(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function estimateDesignerTextWidth(value: string, variant: "title" | "column"): number {
+function estimateDesignerTextWidth(value: string, variant: "title" | "column" | "type"): number {
   const normalized = value.trim();
-  const charWidth = variant === "title" ? 10.8 : 8.8;
+  const charWidth = variant === "title" ? 10.8 : variant === "type" ? 7.4 : 9.4;
   return normalized.length * charWidth;
 }
 
-function getDesignerLogicalTableDimensions(label: string, columns: LogicalColumn[]): {
+export function getDesignerLogicalColumnTypeLabel(column: LogicalColumn): string {
+  const typeLabel = formatSqlType(column);
+  return isColumnTypeLockedByReference(column) ? `${typeLabel} <- FK` : typeLabel;
+}
+
+export function getDesignerLogicalTableDimensions(label: string, columns: LogicalColumn[]): {
   width: number;
   height: number;
 } {
@@ -112,7 +117,7 @@ function getDesignerLogicalTableDimensions(label: string, columns: LogicalColumn
           ...columns.map(
             (column) =>
               estimateDesignerTextWidth(column.name, "column") +
-              estimateDesignerTextWidth(formatSqlType(column), "column") +
+              estimateDesignerTextWidth(getDesignerLogicalColumnTypeLabel(column), "type") +
               DESIGNER_TABLE_HORIZONTAL_PADDING * 2 +
               DESIGNER_COLUMN_TYPE_GAP,
           ),
@@ -1339,7 +1344,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                     tableNode.y + DESIGNER_TABLE_HEADER_HEIGHT + rowIndex * DESIGNER_TABLE_ROW_HEIGHT;
                   const isSelectedColumn = props.selection.columnId === column.id;
                   const isTypeMenuColumn = props.typeMode && isSelectedColumn;
-                  const typeLabel = formatSqlType(column);
+                  const typeLabel = getDesignerLogicalColumnTypeLabel(column);
                   const typeLockedByFk = isColumnTypeLockedByReference(column);
 
                   return (
@@ -1396,7 +1401,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                           .filter(Boolean)
                           .join(" ")}
                       >
-                        {typeLockedByFk ? `${typeLabel} <- FK` : typeLabel}
+                        {typeLabel}
                       </text>
                     </g>
                   );
