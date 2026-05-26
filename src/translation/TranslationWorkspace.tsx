@@ -7,7 +7,6 @@ import {
   canOpenLogicalView,
   getErTranslationChoicesForItem,
 } from "../utils/erTranslation";
-import { validateDiagram } from "../utils/diagram";
 import { useI18n } from "../i18n/useI18n";
 
 interface TranslationWorkspaceProps {
@@ -87,16 +86,12 @@ function getChoiceIcon(choice: ErTranslationChoice): string {
 
 function buildTranslationHighlights(
   workspace: ErTranslationWorkspaceDocument,
-  selectedItem: ErTranslationItem | null,
-  selection: SelectionState,
 ): DiagramHighlights {
   const overview = buildErTranslationOverview(workspace);
   const pendingNodeIds: string[] = [];
   const pendingEdgeIds: string[] = [];
   const blockedNodeIds: string[] = [];
   const blockedEdgeIds: string[] = [];
-  const selectedNodeIds: string[] = [];
-  const selectedEdgeIds: string[] = [];
   const groupEdges = new Map<string, DiagramEdge[]>();
 
   workspace.translatedDiagram.edges.forEach((edge) => {
@@ -122,61 +117,7 @@ function buildTranslationHighlights(
     }
   });
 
-  if (selectedItem?.targetType === "attribute") {
-    selectedNodeIds.push(selectedItem.id);
-    workspace.translatedDiagram.edges.forEach((edge) => {
-      if (edge.type !== "attribute") {
-        return;
-      }
-
-      const isSelectedEndpoint = edge.sourceId === selectedItem.id || edge.targetId === selectedItem.id;
-      if (!isSelectedEndpoint) {
-        return;
-      }
-
-      const otherNodeId = edge.sourceId === selectedItem.id ? edge.targetId : edge.sourceId;
-      const otherNode = workspace.translatedDiagram.nodes.find((node) => node.id === otherNodeId);
-      if (otherNode?.type !== "attribute") {
-        selectedEdgeIds.push(edge.id);
-      }
-    });
-  } else if (selectedItem?.targetType === "generalization") {
-    selectedEdgeIds.push(...(groupEdges.get(selectedItem.id) ?? []).map((edge) => edge.id));
-  }
-
-  selection.nodeIds.forEach((nodeId) => {
-    if (!selectedNodeIds.includes(nodeId)) {
-      selectedNodeIds.push(nodeId);
-    }
-
-    const node = workspace.translatedDiagram.nodes.find((candidate) => candidate.id === nodeId);
-    workspace.translatedDiagram.edges.forEach((edge) => {
-      const touchesNode = edge.sourceId === nodeId || edge.targetId === nodeId;
-      if (!touchesNode) {
-        return;
-      }
-
-      if (node?.type === "attribute") {
-        const otherNodeId = edge.sourceId === nodeId ? edge.targetId : edge.sourceId;
-        const otherNode = workspace.translatedDiagram.nodes.find((candidate) => candidate.id === otherNodeId);
-        if (otherNode?.type === "attribute") {
-          return;
-        }
-      }
-
-      if (!selectedEdgeIds.includes(edge.id)) {
-        selectedEdgeIds.push(edge.id);
-      }
-    });
-  });
-
-  selection.edgeIds.forEach((edgeId) => {
-    if (!selectedEdgeIds.includes(edgeId)) {
-      selectedEdgeIds.push(edgeId);
-    }
-  });
-
-  return { pendingNodeIds, pendingEdgeIds, blockedNodeIds, blockedEdgeIds, selectedNodeIds, selectedEdgeIds };
+  return { pendingNodeIds, pendingEdgeIds, blockedNodeIds, blockedEdgeIds };
 }
 
 function ToolbarIcon(props: { name: "undo" | "redo" | "reset" | "design" | "translate" | "export" | "save" | "fix" }) {
@@ -280,12 +221,8 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
     [props.workspace, selectedItem],
   );
   const highlights = useMemo(
-    () => buildTranslationHighlights(props.workspace, selectedItem, props.selection),
-    [props.workspace, selectedItem, props.selection],
-  );
-  const diagramIssues = useMemo(
-    () => validateDiagram(props.workspace.translatedDiagram),
-    [props.workspace.translatedDiagram],
+    () => buildTranslationHighlights(props.workspace),
+    [props.workspace],
   );
   const generalizationPending = overview.itemsByStep.generalizations.filter((item) => item.status === "pending").length;
   const attributePending = overview.itemsByStep["composite-attributes"].filter((item) => item.status === "pending").length;
@@ -377,7 +314,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           tool="select"
           mode="edit"
           viewport={props.viewport}
-          issues={diagramIssues}
+          issues={[]}
           statusMessage={canvasStatus}
           svgRef={svgRef}
           translationHighlights={highlights}
