@@ -1374,6 +1374,10 @@ function renderExternalIdentifierMarker(layout: ExternalIdentifierMarkerLayout) 
   );
 }
 
+export function shouldRenderExternalIdentifierEdgeMask(kind: "importedRelationship" | "localAttribute"): boolean {
+  return kind === "importedRelationship";
+}
+
 export function getStableLocalIdentifierMarkerPoint(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
   attributeNode: Extract<DiagramNode, { type: "attribute" }>,
@@ -3614,7 +3618,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           })}
 
           {externalIdentifierMarkerLayouts.map((layout) =>
-            layout.entityEndpoint ? (
+            layout.entityEndpoint && shouldRenderExternalIdentifierEdgeMask(layout.kind) ? (
               <line
                 key={`external-id-mask-${layout.key}`}
                 className="external-identifier-edge-mask"

@@ -6,6 +6,7 @@ import {
   buildExternalIdentifierGroupingRoutePoints,
   buildImportedOnlyExternalIdentifierLayout,
   getStableLocalIdentifierMarkerPoint,
+  shouldRenderExternalIdentifierEdgeMask,
 } from "../src/canvas/DiagramCanvas.tsx";
 import type { Bounds, DiagramDocument, Point } from "../src/types/diagram.ts";
 import { getEligibleImportedIdentifierParts } from "../src/utils/diagram.ts";
@@ -68,6 +69,11 @@ test("external identifier imported-only: layout does not expose manual offset co
   assert.equal("offsetDirection" in layout, false);
   assert.equal("offsetMin" in layout, false);
   assert.equal("offsetMax" in layout, false);
+});
+
+test("external identifier edge mask renders only for imported relationship markers", () => {
+  assert.equal(shouldRenderExternalIdentifierEdgeMask("importedRelationship"), true);
+  assert.equal(shouldRenderExternalIdentifierEdgeMask("localAttribute"), false);
 });
 
 test("mixed external identifier: local marker stays anchored near the host when attribute moves farther", () => {
