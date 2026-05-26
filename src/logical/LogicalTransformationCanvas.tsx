@@ -102,8 +102,34 @@ function estimateDesignerTextWidth(value: string, variant: "title" | "column" | 
 }
 
 export function getDesignerLogicalColumnTypeLabel(column: LogicalColumn): string {
-  const typeLabel = formatSqlType(column);
-  return isColumnTypeLockedByReference(column) ? `${typeLabel} <- FK` : typeLabel;
+  return formatSqlType(column);
+}
+
+export function getDesignerLogicalColumnQualifierLabels(column: LogicalColumn): string[] {
+  const qualifiers: string[] = [];
+
+  if (column.isPrimaryKey) {
+    qualifiers.push("PK");
+  }
+
+  if (column.isForeignKey) {
+    qualifiers.push("FK");
+  }
+
+  if (!column.isNullable && !column.isPrimaryKey) {
+    qualifiers.push("NN");
+  }
+
+  if (column.isUnique === true && !column.isPrimaryKey) {
+    qualifiers.push("U");
+  }
+
+  return qualifiers;
+}
+
+export function getDesignerLogicalColumnNameLabel(column: LogicalColumn): string {
+  const qualifiers = getDesignerLogicalColumnQualifierLabels(column);
+  return qualifiers.length > 0 ? `${qualifiers.join(" ")} ${column.name}` : column.name;
 }
 
 export function getDesignerLogicalTableDimensions(label: string, columns: LogicalColumn[]): {
@@ -116,7 +142,7 @@ export function getDesignerLogicalTableDimensions(label: string, columns: Logica
       ? Math.max(
           ...columns.map(
             (column) =>
-              estimateDesignerTextWidth(column.name, "column") +
+              estimateDesignerTextWidth(getDesignerLogicalColumnNameLabel(column), "column") +
               estimateDesignerTextWidth(getDesignerLogicalColumnTypeLabel(column), "type") +
               DESIGNER_TABLE_HORIZONTAL_PADDING * 2 +
               DESIGNER_COLUMN_TYPE_GAP,
@@ -168,7 +194,7 @@ function pathFromOrthogonalPoints(points: Point[]): string {
 }
 
 function isColumnUnderlinedInDesignerTheme(column: LogicalColumn): boolean {
-  return column.isPrimaryKey || column.isForeignKey;
+  return column.isPrimaryKey;
 }
 
 function getDesignerLogicalColumnTextClassName(column: LogicalColumn): string {
@@ -1385,7 +1411,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                         className={getDesignerLogicalColumnTextClassName(column)}
                         textDecoration={isColumnUnderlinedInDesignerTheme(column) ? "underline" : undefined}
                       >
-                        {column.name}
+                        {getDesignerLogicalColumnNameLabel(column)}
                       </text>
 
                       <text

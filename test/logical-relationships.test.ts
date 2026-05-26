@@ -3,7 +3,11 @@ import test from "node:test";
 
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
 import type { LogicalModel } from "../src/types/logical.ts";
-import { getDesignerLogicalTableDimensions } from "../src/logical/LogicalTransformationCanvas.tsx";
+import {
+  getDesignerLogicalColumnNameLabel,
+  getDesignerLogicalColumnTypeLabel,
+  getDesignerLogicalTableDimensions,
+} from "../src/logical/LogicalTransformationCanvas.tsx";
 import {
   LOGICAL_TRANSLATION_STEPS,
   applyLogicalTranslationChoice,
@@ -16,25 +20,29 @@ import { generateLogicalSql } from "../src/utils/logicalSql.ts";
 import { updateLogicalColumnSqlMetadata } from "../src/utils/logicalSqlMetadata.ts";
 
 test("logical table dimensions include long foreign key type labels", () => {
+  const fkColumn = {
+    id: "col-passenger",
+    name: "PASSEGGERO_codPasseggero",
+    isPrimaryKey: false,
+    isForeignKey: true,
+    isUnique: true,
+    isNullable: false,
+    dataType: "VARCHAR",
+    length: 100,
+    references: [
+      {
+        foreignKeyId: "fk-passenger",
+        targetTableId: "PASSEGGERO",
+        targetColumnId: "codPasseggero",
+      },
+    ],
+  };
   const compact = getDesignerLogicalTableDimensions("BIGLIETTO", [
-    {
-      id: "col-passenger",
-      name: "PASSEGGERO_codPasseggero",
-      isPrimaryKey: false,
-      isForeignKey: true,
-      isNullable: false,
-      dataType: "VARCHAR",
-      length: 100,
-      references: [
-        {
-          foreignKeyId: "fk-passenger",
-          targetTableId: "PASSEGGERO",
-          targetColumnId: "codPasseggero",
-        },
-      ],
-    },
+    fkColumn,
   ]);
 
+  assert.equal(getDesignerLogicalColumnNameLabel(fkColumn), "FK NN U PASSEGGERO_codPasseggero");
+  assert.equal(getDesignerLogicalColumnTypeLabel(fkColumn), "VARCHAR(100)");
   assert.ok(compact.width > 390);
 });
 
