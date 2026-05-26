@@ -2376,6 +2376,7 @@ export default function App() {
 
   function handleOpenTranslationStage() {
     setLogicalPanelMode("review");
+    setTranslationViewport(viewport);
     handleDiagramViewChange("translation");
   }
 

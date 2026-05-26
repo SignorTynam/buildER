@@ -329,6 +329,16 @@ body {
   background: #dfe3dc !important;
 }
 
+.app-shell-view-translation .translation-workspace-shell {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #dfe3dc !important;
+  box-shadow: none !important;
+}
+
 .app-shell.app-shell-view-translation {
   grid-template-rows: 42px minmax(0, 1fr) auto !important;
 }
@@ -6175,172 +6185,10 @@ button.warning-card:hover {
   --diagram-node-fill: #dfe3dc !important;
 }
 
-/* Restructuring view mirrors designER: neutral diagram primitives, red translation focus. */
+/* Restructuring view mirrors designER; only translation-specific highlights differ. */
 .designer-translation-view {
-  --diagram-canvas-fill: #dfe3dc;
-  --diagram-node-fill: #dfe3dc;
-  --diagram-stroke: #26322d;
-  --diagram-text: #101513;
-  --diagram-focus: #ff3b30;
-  --diagram-selection-stroke: #ff3b30;
-  --diagram-selection-fill: rgba(255, 59, 48, 0.08);
   --diagram-translation-pending: #ff3b30;
   --diagram-translation-blocked: #ff3b30;
-  background: #dfe3dc !important;
-}
-
-.designer-translation-view .designer-stage-label {
-  top: 34px;
-  left: 24px;
-  color: #a5ada8;
-  font-size: 0.78rem;
-  font-weight: 400;
-  text-transform: uppercase;
-}
-
-.designer-translation-view .designer-translation-toolbar {
-  top: 76px;
-  left: 54px;
-  width: 64px;
-  display: grid;
-  gap: 0;
-  border: 1px solid #cfd4d1;
-  border-radius: 5px;
-  background: #f8f9f7;
-  box-shadow: none;
-}
-
-.designer-translation-view .designer-toolbar-button {
-  min-height: 66px;
-  padding: 5px 3px;
-  border-bottom: 1px solid #e0e4e1;
-  color: #000000;
-}
-
-.designer-translation-view .designer-toolbar-button:hover:not(:disabled) {
-  background: transparent;
-}
-
-.designer-translation-view .designer-toolbar-button.active {
-  background: #ffd94d;
-}
-
-.designer-translation-view .designer-toolbar-button:disabled {
-  color: #9da29f;
-  background: transparent;
-  opacity: 1;
-}
-
-.designer-translation-view .designer-toolbar-icon {
-  width: 28px;
-  height: 28px;
-}
-
-.designer-translation-view .designer-toolbar-svg {
-  width: 25px;
-  height: 25px;
-}
-
-.designer-translation-view .designer-toolbar-label {
-  font-size: 0.68rem;
-  line-height: 1.1;
-}
-
-.designer-translation-view .designer-toolbar-separator {
-  width: 100%;
-  height: 1px;
-  margin: 0;
-  background: #d8ddda;
-}
-
-.designer-translation-view .designer-toolbar-spacer {
-  flex: 0 0 auto;
-  min-height: 0;
-}
-
-.designer-translation-view .designer-translation-canvas,
-.designer-translation-view .canvas-panel,
-.designer-translation-view .diagram-canvas {
-  background: #dfe3dc !important;
-  background-image: none !important;
-}
-
-.designer-translation-view .diagram-node.selected,
-.designer-translation-view .diagram-edge.selected {
-  filter: none;
-}
-
-.designer-translation-view .entity-label,
-.designer-translation-view .shape-label,
-.designer-translation-view .attribute-label,
-.designer-translation-view .edge-label {
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.designer-translation-view .entity-label,
-.designer-translation-view .shape-label {
-  font-size: 17px;
-}
-
-.designer-translation-view .attribute-label {
-  font-size: 15px;
-}
-
-.designer-translation-view .edge-label {
-  font-size: 14px;
-}
-
-.designer-translation-view .connector-label,
-.designer-translation-view .inheritance-constraint-label {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.designer-translation-view .canvas-viewport-hud {
-  right: 34px !important;
-  bottom: 34px !important;
-  padding: 6px;
-  border: 1px solid #d8ded9;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: none;
-}
-
-.designer-translation-view .canvas-hud-cluster-viewport {
-  display: flex;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.designer-translation-view .canvas-hud-button {
-  min-width: 38px;
-  min-height: 38px;
-  border-radius: 8px;
-  border: 0;
-  background: #ffffff;
-  color: #0e1411;
-  font-size: 1.2rem;
-  font-weight: 700;
-  box-shadow: none;
-}
-
-.designer-translation-view .designer-translation-notes-toggle {
-  top: 10px;
-  right: 14px;
-  min-width: 48px;
-  min-height: 46px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #111713;
-}
-
-.designer-translation-view .designer-translation-notes-toggle span {
-  font-size: 1.35rem;
-  font-weight: 700;
 }
 
 .app-shell-view-er .canvas-viewport-hud {

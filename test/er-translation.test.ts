@@ -12,7 +12,9 @@ import {
   canOpenLogicalView,
   createEmptyErTranslationWorkspace,
   getErTranslationChoicesForItem,
+  refreshErTranslationWorkspace,
 } from "../src/utils/erTranslation.ts";
+import type { ErTranslationDecision } from "../src/types/translation.ts";
 
 function createEntity(
   id: string,
@@ -256,6 +258,132 @@ function createCompositeDiagram(): DiagramDocument {
     edges,
   };
 }
+
+function createLayoutRegressionDiagram(): DiagramDocument {
+  const entity = {
+    ...createEntity("entity-viaggio", "VIAGGIO", ["attr-codice"]),
+    x: 120,
+    y: 80,
+    width: 180,
+    height: 72,
+  };
+  const relationship = {
+    id: "rel-tratta",
+    type: "relationship" as const,
+    label: "TRATTA",
+    x: 410,
+    y: 92,
+    width: 128,
+    height: 74,
+  };
+  const code = {
+    ...createAttribute("attr-codice", "codViaggio", { isIdentifier: true }),
+    x: 92,
+    y: 216,
+    width: 118,
+    height: 36,
+  };
+  const date = {
+    ...createAttribute("attr-partenza", "dataOraPartenza"),
+    x: 330,
+    y: 228,
+    width: 154,
+    height: 38,
+  };
+  const connector: DiagramEdge = {
+    id: "edge-viaggio-tratta",
+    type: "connector",
+    sourceId: entity.id,
+    targetId: relationship.id,
+    label: "",
+    lineStyle: "solid",
+    manualOffset: 24,
+  };
+
+  return {
+    meta: { name: "Layout regression", version: 1 },
+    notes: "Keep this layout stable.",
+    nodes: [entity, relationship, code, date],
+    edges: [
+      createAttributeEdge("edge-codice", code.id, entity.id),
+      createAttributeEdge("edge-partenza", entity.id, date.id),
+      connector,
+    ],
+  };
+}
+
+function assertSameNodeLayout(actual: DiagramDocument, expected: DiagramDocument) {
+  const expectedNodes = new Map(expected.nodes.map((node) => [node.id, node]));
+
+  actual.nodes.forEach((node) => {
+    const expectedNode = expectedNodes.get(node.id);
+    assert.ok(expectedNode, `missing source node ${node.id}`);
+    assert.deepEqual(
+      { x: node.x, y: node.y, width: node.width, height: node.height },
+      { x: expectedNode.x, y: expectedNode.y, width: expectedNode.width, height: expectedNode.height },
+    );
+  });
+}
+
+test("ER translation workspace without decisions preserves source diagram layout", () => {
+  const sourceDiagram = createLayoutRegressionDiagram();
+  const workspace = createEmptyErTranslationWorkspace(sourceDiagram);
+
+  assertSameNodeLayout(workspace.translatedDiagram, sourceDiagram);
+});
+
+test("refreshErTranslationWorkspace without decisions keeps current ER layout unchanged", () => {
+  const sourceDiagram = createLayoutRegressionDiagram();
+  const previousWorkspace = createEmptyErTranslationWorkspace(sourceDiagram);
+  const shiftedWorkspace = {
+    ...previousWorkspace,
+    translatedDiagram: {
+      ...previousWorkspace.translatedDiagram,
+      nodes: previousWorkspace.translatedDiagram.nodes.map((node) => ({
+        ...node,
+        x: node.x + 500,
+        y: node.y + 500,
+      })),
+    },
+  };
+
+  const workspace = refreshErTranslationWorkspace(sourceDiagram, shiftedWorkspace);
+
+  assertSameNodeLayout(workspace.translatedDiagram, sourceDiagram);
+});
+
+test("refreshErTranslationWorkspace resets stale decisions when source signature changes", () => {
+  const sourceDiagram = createLayoutRegressionDiagram();
+  const baseWorkspace = createEmptyErTranslationWorkspace(sourceDiagram);
+  const staleDecision: ErTranslationDecision = {
+    id: "stale-generalization-decision",
+    targetType: "generalization",
+    targetId: "old-generalization",
+    step: "generalizations",
+    rule: "generalization-collapse-up",
+    summary: "Old decision",
+    appliedAt: "2024-01-01T00:00:00.000Z",
+    status: "applied",
+  };
+  const previousWorkspace = {
+    ...baseWorkspace,
+    translation: {
+      ...baseWorkspace.translation,
+      decisions: [staleDecision],
+    },
+  };
+  const changedSourceDiagram = {
+    ...sourceDiagram,
+    nodes: sourceDiagram.nodes.map((node) =>
+      node.id === "entity-viaggio" ? { ...node, x: node.x + 72 } : node,
+    ),
+  };
+
+  const workspace = refreshErTranslationWorkspace(changedSourceDiagram, previousWorkspace);
+
+  assert.deepEqual(workspace.translation.decisions, []);
+  assertSameNodeLayout(workspace.translatedDiagram, changedSourceDiagram);
+});
 
 test("GeneralizationGroup condivisi e separati producono item distinti nella overview", () => {
   const diagram = parseErsDiagram(`entity PERSONA {

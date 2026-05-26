@@ -1896,6 +1896,14 @@ export function refreshErTranslationWorkspace(
   workspace?: ErTranslationWorkspaceDocument,
 ): ErTranslationWorkspaceDocument {
   const baseWorkspace = createEmptyErTranslationWorkspace(sourceDiagram, workspace);
+  const previousSourceSignature = workspace?.translation.meta.sourceSignature;
+  if (
+    previousSourceSignature &&
+    previousSourceSignature !== baseWorkspace.translation.meta.sourceSignature
+  ) {
+    return baseWorkspace;
+  }
+
   const previousDiagram = workspace?.translatedDiagram;
   const previousDecisionIds = new Set(
     (workspace?.translation.mappings ?? []).map((mapping) => mapping.decisionId),
@@ -1904,6 +1912,10 @@ export function refreshErTranslationWorkspace(
     baseWorkspace.sourceDiagram,
     workspace?.translation.decisions ?? [],
   );
+  if (orderedDecisions.length === 0) {
+    return baseWorkspace;
+  }
+
   let translatedDiagram = mergeDiagramLayout(baseWorkspace.sourceDiagram, previousDiagram);
   const nextDecisions: ErTranslationDecision[] = [];
   const nextMappings: ErTranslationState["mappings"] = [];
