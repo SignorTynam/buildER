@@ -1505,15 +1505,26 @@ function getColumnsBySourceAttributeIds(
   sourceAttributeIds: string[],
 ): LogicalColumn[] {
   const pending = new Set(sourceAttributeIds);
-  const matches: LogicalColumn[] = [];
+  const matchesBySourceAttributeId = new Map<string, LogicalColumn>();
 
   table.columns.forEach((column) => {
-    if (!column.sourceAttributeId || !pending.has(column.sourceAttributeId)) {
+    if (!column.sourceAttributeId || !pending.has(column.sourceAttributeId) || matchesBySourceAttributeId.has(column.sourceAttributeId)) {
+      return;
+    }
+
+    matchesBySourceAttributeId.set(column.sourceAttributeId, column);
+  });
+
+  const matches: LogicalColumn[] = [];
+
+  sourceAttributeIds.forEach((sourceAttributeId) => {
+    const column = matchesBySourceAttributeId.get(sourceAttributeId);
+    if (!column) {
       return;
     }
 
     matches.push(column);
-    pending.delete(column.sourceAttributeId);
+    pending.delete(sourceAttributeId);
   });
 
   return matches;

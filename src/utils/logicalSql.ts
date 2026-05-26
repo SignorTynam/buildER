@@ -94,11 +94,18 @@ export function generateLogicalSql(model: LogicalModel): string {
       const renderedUniqueSignatures = new Set(
         (uniqueConstraintsByTableId.get(table.id) ?? []).map((constraint) => buildUniqueConstraintSignature(constraint.columnIds)),
       );
+      const columnsCoveredByTableUniqueConstraints = new Set(
+        (uniqueConstraintsByTableId.get(table.id) ?? []).flatMap((constraint) => constraint.columnIds),
+      );
       lines.push(...renderedUniqueConstraints);
 
       table.columns
         .filter((column) => column.isUnique && !column.isPrimaryKey)
         .forEach((column) => {
+          if (columnsCoveredByTableUniqueConstraints.has(column.id)) {
+            return;
+          }
+
           const signature = buildUniqueConstraintSignature([column.id]);
           if (renderedUniqueSignatures.has(signature)) {
             return;

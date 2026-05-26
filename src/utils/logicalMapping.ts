@@ -488,6 +488,23 @@ function getPrimaryKeyColumns(table: LogicalTable): LogicalColumn[] {
   return table.columns.filter((column) => column.isPrimaryKey);
 }
 
+function getColumnIdsBySourceAttributeIds(table: LogicalTable, sourceAttributeIds: string[]): string[] {
+  const pending = new Set(sourceAttributeIds);
+  const columnIdBySourceAttributeId = new Map<string, string>();
+
+  table.columns.forEach((column) => {
+    if (!column.sourceAttributeId || !pending.has(column.sourceAttributeId) || columnIdBySourceAttributeId.has(column.sourceAttributeId)) {
+      return;
+    }
+
+    columnIdBySourceAttributeId.set(column.sourceAttributeId, column.id);
+  });
+
+  return sourceAttributeIds
+    .map((sourceAttributeId) => columnIdBySourceAttributeId.get(sourceAttributeId))
+    .filter((columnId): columnId is string => typeof columnId === "string");
+}
+
 function addForeignKey(
   context: MappingContext,
   options: {
@@ -947,9 +964,7 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
     });
 
     internalIdentifiers.slice(1).forEach((identifier) => {
-      const columnIds = table.columns
-        .filter((column) => column.sourceAttributeId && identifier.attributeIds.includes(column.sourceAttributeId))
-        .map((column) => column.id);
+      const columnIds = getColumnIdsBySourceAttributeIds(table, identifier.attributeIds);
       addUniqueConstraint(context, table.id, columnIds, `Identificatore alternativo ${identifier.id}`);
     });
 

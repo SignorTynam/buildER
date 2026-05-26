@@ -68,6 +68,7 @@ function getEntityAttributes(entity: EntityNode, diagram: DiagramDocument): Attr
 function filterEligibleAttributes(
   attrs: AttributeNode[],
   currentIdentifiers: InternalIdentifier[],
+  externalIdentifierAttributeIds: Set<string>,
   excludedIdentifierIndex?: number,
 ): AttributeNode[] {
   const used = new Set<string>();
@@ -90,6 +91,10 @@ function filterEligibleAttributes(
     }
 
     if (used.has(attribute.id)) {
+      return false;
+    }
+
+    if (externalIdentifierAttributeIds.has(attribute.id)) {
       return false;
     }
 
@@ -178,9 +183,13 @@ export function InternalIdentifierSection({
   const [modalIndex, setModalIndex] = useState<number | null>(null);
   const attributes = useMemo(() => getEntityAttributes(entity, diagram), [diagram, entity]);
   const internalIdentifiers = entity.internalIdentifiers ?? [];
+  const externalIdentifierAttributeIds = useMemo(
+    () => new Set((entity.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds)),
+    [entity.externalIdentifiers],
+  );
   const canAddIdentifier = useMemo(
-    () => filterEligibleAttributes(attributes, internalIdentifiers).length > 0,
-    [attributes, internalIdentifiers],
+    () => filterEligibleAttributes(attributes, internalIdentifiers, externalIdentifierAttributeIds).length > 0,
+    [attributes, externalIdentifierAttributeIds, internalIdentifiers],
   );
 
   const selectedAttributeIds =
@@ -194,7 +203,12 @@ export function InternalIdentifierSection({
     }
 
     const editingIndex = modalIndex < internalIdentifiers.length ? modalIndex : undefined;
-    const eligible = filterEligibleAttributes(attributes, internalIdentifiers, editingIndex);
+    const eligible = filterEligibleAttributes(
+      attributes,
+      internalIdentifiers,
+      externalIdentifierAttributeIds,
+      editingIndex,
+    );
     const byId = new Map(eligible.map((attribute) => [attribute.id, attribute]));
 
     selectedAttributeIds.forEach((attributeId) => {
@@ -207,7 +221,7 @@ export function InternalIdentifierSection({
     return Array.from(byId.values()).sort((left, right) =>
       left.label.localeCompare(right.label, "it", { sensitivity: "base" }),
     );
-  }, [attributes, internalIdentifiers, modalIndex, selectedAttributeIds]);
+  }, [attributes, externalIdentifierAttributeIds, internalIdentifiers, modalIndex, selectedAttributeIds]);
 
   function applyUpdate(nextIdentifiers: InternalIdentifier[]) {
     const attributePatches: Record<string, Partial<AttributeNode>> = {};
