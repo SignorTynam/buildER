@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildExternalIdentifierGroupingFrameLayout,
   buildExternalIdentifierGroupingPath,
   buildExternalIdentifierGroupingRoutePoints,
   buildImportedOnlyExternalIdentifierLayout,
+  extendOpenRouteEndpoints,
   getStableLocalIdentifierMarkerPoint,
   shouldRenderExternalIdentifierEdgeMask,
 } from "../src/canvas/DiagramCanvas.tsx";
@@ -74,6 +76,42 @@ test("external identifier imported-only: layout does not expose manual offset co
 test("external identifier edge mask renders only for imported relationship markers", () => {
   assert.equal(shouldRenderExternalIdentifierEdgeMask("importedRelationship"), true);
   assert.equal(shouldRenderExternalIdentifierEdgeMask("localAttribute"), false);
+});
+
+test("mixed external identifier: open frame route extends beyond first and last marker projections", () => {
+  const route = [
+    { x: 84, y: 140 },
+    { x: 84, y: 196 },
+    { x: 240, y: 196 },
+  ];
+
+  const extended = extendOpenRouteEndpoints(route, 16);
+
+  assert.deepEqual(extended, [
+    { x: 84, y: 124 },
+    { x: 84, y: 196 },
+    { x: 256, y: 196 },
+  ]);
+});
+
+test("mixed external identifier: frame layout exposes a terminal marker on the extended route", () => {
+  const host = {
+    id: "CARTA_CREDITO",
+    type: "entity" as const,
+    label: "CARTA_CREDITO",
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 80,
+  };
+
+  const layout = buildExternalIdentifierGroupingFrameLayout(host, [
+    { kind: "importedRelationship", marker: { x: 84, y: 140 } },
+    { kind: "localAttribute", marker: { x: 240, y: 196 } },
+  ]);
+
+  assert.ok(layout.pathData.length > 0);
+  assert.ok(layout.terminalMarker);
 });
 
 test("mixed external identifier: local marker stays anchored near the host when attribute moves farther", () => {
@@ -203,7 +241,7 @@ test("mixed external identifier: left top bottom markers prefer the marked-side 
     point(84, 84),
     point(220, 84),
   ]);
-  assert.doesNotMatch(path, /316\.0/);
+  assert.match(path, /^M 316\.0 196\.0 L 106\.0 196\.0/);
 });
 
 test("mixed external identifier options include multiple mandatory unique sources", () => {

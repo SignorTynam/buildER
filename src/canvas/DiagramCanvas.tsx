@@ -266,6 +266,8 @@ const EXTERNAL_IDENTIFIER_CARDINALITY_AVOIDANCE = 12;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_OFFSET = 28;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_CURVE = 18;
 const EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET = 16;
+const EXTERNAL_IDENTIFIER_ROUTE_TERMINAL_EXTENSION = 16;
+const EXTERNAL_IDENTIFIER_TERMINAL_MARKER_RADIUS = 6.5;
 
 interface CompositeIdentifierMember {
   attributeId: string;
@@ -331,6 +333,7 @@ interface ExternalIdentifierFrameLayout {
   hostEntityId: string;
   externalIdentifierId: string;
   pathData: string;
+  terminalMarker?: Point;
 }
 
 type FrameSide = "left" | "right" | "top" | "bottom";
@@ -1342,17 +1345,34 @@ function getExternalIdentifierFramePoint(
 
 function renderExternalIdentifierFrame(layout: ExternalIdentifierFrameLayout) {
   return (
-    <path
+    <g
       key={`external-id-frame-${layout.key}`}
-      className="external-identifier-entity-frame"
-      d={layout.pathData}
-      fill="none"
-      stroke={DIAGRAM_STROKE}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      className="external-identifier-frame"
       pointerEvents="none"
-    />
+    >
+      <path
+        className="external-identifier-entity-frame"
+        d={layout.pathData}
+        fill="none"
+        stroke={DIAGRAM_STROKE}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pointerEvents="none"
+      />
+      {layout.terminalMarker ? (
+        <circle
+          className="external-identifier-terminal-marker"
+          cx={layout.terminalMarker.x}
+          cy={layout.terminalMarker.y}
+          r={EXTERNAL_IDENTIFIER_TERMINAL_MARKER_RADIUS}
+          fill={DIAGRAM_STROKE}
+          stroke={DIAGRAM_STROKE}
+          strokeWidth={2}
+          pointerEvents="none"
+        />
+      ) : null}
+    </g>
   );
 }
 
@@ -1633,18 +1653,53 @@ export function buildExternalIdentifierGroupingRoutePoints(
   return buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
 }
 
-export function buildExternalIdentifierGroupingPath(
+export function extendOpenRouteEndpoints(
+  points: Point[],
+  extension = EXTERNAL_IDENTIFIER_ROUTE_TERMINAL_EXTENSION,
+): Point[] {
+  if (points.length < 2 || extension <= 0) {
+    return points;
+  }
+
+  const first = points[0];
+  const second = points[1];
+  const last = points[points.length - 1];
+  const previous = points[points.length - 2];
+  const startDirection = normalizeVector(
+    { x: first.x - second.x, y: first.y - second.y },
+    { x: 0, y: -1 },
+  );
+  const endDirection = normalizeVector(
+    { x: last.x - previous.x, y: last.y - previous.y },
+    { x: 1, y: 0 },
+  );
+
+  return [
+    {
+      x: first.x + startDirection.x * extension,
+      y: first.y + startDirection.y * extension,
+    },
+    ...points.slice(1, -1),
+    {
+      x: last.x + endDirection.x * extension,
+      y: last.y + endDirection.y * extension,
+    },
+  ];
+}
+
+export function buildExternalIdentifierGroupingFrameLayout(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
   markers: ExternalIdentifierGroupingMarker[],
-): string {
+): { pathData: string; terminalMarker?: Point } {
   if (markers.length === 0) {
-    return "";
+    return { pathData: "" };
   }
 
   const frame = getExternalIdentifierGroupingFrame(hostEntity);
   const projections = markers.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker));
   const perimeterPoints = buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
-  const pathParts = [pathFromPoints(perimeterPoints)];
+  const extendedPerimeterPoints = extendOpenRouteEndpoints(perimeterPoints);
+  const pathParts = [pathFromPoints(extendedPerimeterPoints)];
   projections.forEach((projection) => {
     const connectorPath = buildExternalIdentifierMarkerConnectorPath(projection);
     if (connectorPath.length > 0) {
@@ -1652,7 +1707,17 @@ export function buildExternalIdentifierGroupingPath(
     }
   });
 
-  return pathParts.filter((part) => part.length > 0).join(" ");
+  return {
+    pathData: pathParts.filter((part) => part.length > 0).join(" "),
+    terminalMarker: extendedPerimeterPoints.length >= 2 ? extendedPerimeterPoints[0] : undefined,
+  };
+}
+
+export function buildExternalIdentifierGroupingPath(
+  hostEntity: Extract<DiagramNode, { type: "entity" }>,
+  markers: ExternalIdentifierGroupingMarker[],
+): string {
+  return buildExternalIdentifierGroupingFrameLayout(hostEntity, markers).pathData;
 }
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
@@ -1964,13 +2029,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         });
       });
 
-      const framePathData = buildExternalIdentifierGroupingPath(node, identifierMarkerLayouts);
-      if (framePathData.length > 0) {
+      const frameLayout = buildExternalIdentifierGroupingFrameLayout(node, identifierMarkerLayouts);
+      if (frameLayout.pathData.length > 0) {
         externalIdentifierFrameLayouts.push({
           key: `${node.id}-${identifier.id}`,
           hostEntityId: node.id,
           externalIdentifierId: identifier.id,
-          pathData: framePathData,
+          pathData: frameLayout.pathData,
+          terminalMarker: frameLayout.terminalMarker,
         });
       }
       externalIdentifierMarkerLayouts.push(...identifierMarkerLayouts);
