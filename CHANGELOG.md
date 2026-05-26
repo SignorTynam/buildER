@@ -15,6 +15,18 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.4] - 2026-05-26
+
+### Added
+- Badge per le keyword PK/FK/NN/U nelle colonne della Vista Logica con colori dedicati.
+
+### Changed
+- Versione applicativa aggiornata alla release 4.4 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.4 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.4 con riepilogo delle modifiche dalla 4.3.1.
+- Rimossa la sottolineatura delle PK: le chiavi ora sono rese come badge distinti.
+- Layout e calcolo larghezze della tabella logica aggiornati per integrare i badge senza sovrapposizioni.
+
 ## [4.3.1] - 2026-05-21
 
 ### Added
