@@ -90,6 +90,11 @@ const DESIGNER_EDGE_DEFAULT_STROKE_WIDTH = 1.2;
 const DESIGNER_EDGE_ACTIVE_STROKE_WIDTH = 1.45;
 const DESIGNER_EDGE_SELECTED_STROKE_WIDTH = 1.7;
 const DESIGNER_COLUMN_TYPE_GAP = 32;
+const DESIGNER_QUALIFIER_BADGE_HEIGHT = 18;
+const DESIGNER_QUALIFIER_BADGE_PADDING_X = 6;
+const DESIGNER_QUALIFIER_BADGE_GAP = 6;
+const DESIGNER_QUALIFIER_BADGE_TEXT_GAP = 8;
+const DESIGNER_QUALIFIER_CHAR_WIDTH = 7.2;
 
 function clampDesignerDimension(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -99,6 +104,15 @@ function estimateDesignerTextWidth(value: string, variant: "title" | "column" | 
   const normalized = value.trim();
   const charWidth = variant === "title" ? 10.8 : variant === "type" ? 7.4 : 9.4;
   return normalized.length * charWidth;
+}
+
+function estimateDesignerQualifierTextWidth(value: string): number {
+  const normalized = value.trim();
+  return normalized.length * DESIGNER_QUALIFIER_CHAR_WIDTH;
+}
+
+function getDesignerLogicalColumnQualifierBadgeWidth(label: string): number {
+  return estimateDesignerQualifierTextWidth(label) + DESIGNER_QUALIFIER_BADGE_PADDING_X * 2;
 }
 
 export function getDesignerLogicalColumnTypeLabel(column: LogicalColumn): string {
@@ -132,6 +146,30 @@ export function getDesignerLogicalColumnNameLabel(column: LogicalColumn): string
   return qualifiers.length > 0 ? `${qualifiers.join(" ")} ${column.name}` : column.name;
 }
 
+function getDesignerLogicalColumnQualifierWidth(qualifiers: string[]): number {
+  if (qualifiers.length === 0) {
+    return 0;
+  }
+
+  return qualifiers.reduce((sum, label, index) => {
+    const gap = index < qualifiers.length - 1 ? DESIGNER_QUALIFIER_BADGE_GAP : 0;
+    return sum + getDesignerLogicalColumnQualifierBadgeWidth(label) + gap;
+  }, 0);
+}
+
+function getDesignerLogicalColumnNameOffset(qualifiers: string[]): number {
+  if (qualifiers.length === 0) {
+    return 0;
+  }
+
+  return getDesignerLogicalColumnQualifierWidth(qualifiers) + DESIGNER_QUALIFIER_BADGE_TEXT_GAP;
+}
+
+function getDesignerLogicalColumnLabelWidth(column: LogicalColumn): number {
+  const qualifiers = getDesignerLogicalColumnQualifierLabels(column);
+  return getDesignerLogicalColumnNameOffset(qualifiers) + estimateDesignerTextWidth(column.name, "column");
+}
+
 export function getDesignerLogicalTableDimensions(label: string, columns: LogicalColumn[]): {
   width: number;
   height: number;
@@ -142,7 +180,7 @@ export function getDesignerLogicalTableDimensions(label: string, columns: Logica
       ? Math.max(
           ...columns.map(
             (column) =>
-              estimateDesignerTextWidth(getDesignerLogicalColumnNameLabel(column), "column") +
+              getDesignerLogicalColumnLabelWidth(column) +
               estimateDesignerTextWidth(getDesignerLogicalColumnTypeLabel(column), "type") +
               DESIGNER_TABLE_HORIZONTAL_PADDING * 2 +
               DESIGNER_COLUMN_TYPE_GAP,
@@ -193,14 +231,60 @@ function pathFromOrthogonalPoints(points: Point[]): string {
     .join(" ");
 }
 
-function isColumnUnderlinedInDesignerTheme(column: LogicalColumn): boolean {
-  return column.isPrimaryKey;
+function getDesignerLogicalColumnTextClassName(): string {
+  return "logical-column-name";
 }
 
-function getDesignerLogicalColumnTextClassName(column: LogicalColumn): string {
-  return ["logical-column-name", isColumnUnderlinedInDesignerTheme(column) ? "underlined" : ""]
-    .filter(Boolean)
-    .join(" ");
+function getDesignerLogicalColumnQualifierLayout(qualifiers: string[]): {
+  items: { label: string; x: number; width: number }[];
+  textOffset: number;
+} {
+  let offset = 0;
+  const items = qualifiers.map((label, index) => {
+    const width = getDesignerLogicalColumnQualifierBadgeWidth(label);
+    const item = { label, x: offset, width };
+    offset += width + (index < qualifiers.length - 1 ? DESIGNER_QUALIFIER_BADGE_GAP : 0);
+    return item;
+  });
+
+  const textOffset = qualifiers.length > 0 ? offset + DESIGNER_QUALIFIER_BADGE_TEXT_GAP : 0;
+
+  return { items, textOffset };
+}
+
+function renderDesignerLogicalColumnLabel(column: LogicalColumn, x: number, y: number) {
+  const qualifiers = getDesignerLogicalColumnQualifierLabels(column);
+  const layout = getDesignerLogicalColumnQualifierLayout(qualifiers);
+
+  return (
+    <g transform={`translate(${x}, ${y})`} className="logical-column-label" pointerEvents="none">
+      {layout.items.map((item) => (
+        <g key={`${item.label}-${item.x}`} transform={`translate(${item.x}, 0)`}>
+          <rect
+            x={0}
+            y={-DESIGNER_QUALIFIER_BADGE_HEIGHT / 2}
+            width={item.width}
+            height={DESIGNER_QUALIFIER_BADGE_HEIGHT}
+            rx={8}
+            ry={8}
+            className={`logical-column-qualifier-badge logical-column-qualifier-badge-${item.label.toLowerCase()}`}
+          />
+          <text
+            x={item.width / 2}
+            y={0}
+            dominantBaseline="middle"
+            textAnchor="middle"
+            className={`logical-column-qualifier logical-column-qualifier-${item.label.toLowerCase()}`}
+          >
+            {item.label}
+          </text>
+        </g>
+      ))}
+      <text x={layout.textOffset} y={0} dominantBaseline="middle" className={getDesignerLogicalColumnTextClassName()}>
+        {column.name}
+      </text>
+    </g>
+  );
 }
 
 function shouldRenderDesignerLogicalEdgeLabel(selected: boolean, focusHighlighted: boolean): boolean {
@@ -1404,15 +1488,11 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                         />
                       ) : null}
 
-                      <text
-                        x={tableNode.x + DESIGNER_TABLE_HORIZONTAL_PADDING}
-                        y={rowY + DESIGNER_TABLE_ROW_HEIGHT / 2}
-                        dominantBaseline="middle"
-                        className={getDesignerLogicalColumnTextClassName(column)}
-                        textDecoration={isColumnUnderlinedInDesignerTheme(column) ? "underline" : undefined}
-                      >
-                        {getDesignerLogicalColumnNameLabel(column)}
-                      </text>
+                      {renderDesignerLogicalColumnLabel(
+                        column,
+                        tableNode.x + DESIGNER_TABLE_HORIZONTAL_PADDING,
+                        rowY + DESIGNER_TABLE_ROW_HEIGHT / 2,
+                      )}
 
                       <text
                         x={tableNode.x + tableNode.width - DESIGNER_TABLE_HORIZONTAL_PADDING}

@@ -7563,6 +7563,59 @@ textarea.diagram-notes-editor::placeholder {
   pointer-events: none;
 }
 
+.logical-column-qualifier {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.logical-column-label,
+.logical-column-qualifier-badge {
+  pointer-events: none;
+}
+
+.logical-column-qualifier-badge {
+  stroke-width: 0.7px;
+}
+
+.logical-column-qualifier-pk {
+  fill: rgba(9, 86, 72, 0.95);
+}
+
+.logical-column-qualifier-badge-pk {
+  fill: rgba(9, 86, 72, 0.16);
+  stroke: rgba(9, 86, 72, 0.45);
+}
+
+.logical-column-qualifier-fk {
+  fill: rgba(35, 71, 116, 0.9);
+}
+
+.logical-column-qualifier-badge-fk {
+  fill: rgba(35, 71, 116, 0.16);
+  stroke: rgba(35, 71, 116, 0.4);
+}
+
+.logical-column-qualifier-nn {
+  fill: rgba(140, 84, 24, 0.92);
+}
+
+.logical-column-qualifier-badge-nn {
+  fill: rgba(140, 84, 24, 0.16);
+  stroke: rgba(140, 84, 24, 0.42);
+}
+
+.logical-column-qualifier-u {
+  fill: rgba(94, 42, 28, 0.9);
+}
+
+.logical-column-qualifier-badge-u {
+  fill: rgba(94, 42, 28, 0.16);
+  stroke: rgba(94, 42, 28, 0.4);
+}
+
 .logical-column-name.underlined {
   text-decoration: underline;
   text-decoration-thickness: 1.2px;

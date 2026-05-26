@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.3.1";
+export const APP_VERSION = "4.4";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,16 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.4",
+    date: "2026-05-26",
+    updates: [
+      "Versione applicativa aggiornata alla release 4.4.",
+      "Etichette colonne nella Vista Logica aggiornate con badge per le keyword PK/FK/NN/U e colori dedicati.",
+      "Rimossa la sottolineatura delle PK: le chiavi sono ora rese come pill badge distinti.",
+      "Layout e calcolo larghezze della tabella logica aggiornati per integrare i badge senza sovrapposizioni.",
+    ],
+  },
   {
     version: "4.3.1",
     date: "2026-05-21",
