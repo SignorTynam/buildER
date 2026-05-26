@@ -1385,17 +1385,13 @@ function renderExternalIdentifierMarker(layout: ExternalIdentifierMarkerLayout) 
       cy={layout.marker.y}
       r={5.4}
       fill={DIAGRAM_STROKE}
-      stroke="var(--diagram-canvas-fill)"
-      strokeWidth={1.4}
+      stroke={DIAGRAM_STROKE}
+      strokeWidth={1.2}
       pointerEvents={layout.tooltip ? "visiblePainted" : "none"}
     >
       {layout.tooltip ? <title>{layout.tooltip}</title> : null}
     </circle>
   );
-}
-
-export function shouldRenderExternalIdentifierEdgeMask(kind: "importedRelationship" | "localAttribute"): boolean {
-  return kind === "importedRelationship";
 }
 
 export function getStableLocalIdentifierMarkerPoint(
@@ -3682,23 +3678,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               />
             );
           })}
-
-          {externalIdentifierMarkerLayouts.map((layout) =>
-            layout.entityEndpoint && shouldRenderExternalIdentifierEdgeMask(layout.kind) ? (
-              <line
-                key={`external-id-mask-${layout.key}`}
-                className="external-identifier-edge-mask"
-                x1={layout.marker.x}
-                y1={layout.marker.y}
-                x2={layout.entityEndpoint.x}
-                y2={layout.entityEndpoint.y}
-                stroke="var(--diagram-canvas-fill)"
-                strokeWidth={6}
-                strokeLinecap="round"
-                pointerEvents="none"
-              />
-            ) : null,
-          )}
 
           {props.diagram.nodes.map((node) => (
             <DiagramNodeView

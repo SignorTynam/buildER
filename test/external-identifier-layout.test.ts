@@ -8,7 +8,6 @@ import {
   buildImportedOnlyExternalIdentifierLayout,
   extendOpenRouteEndpoints,
   getStableLocalIdentifierMarkerPoint,
-  shouldRenderExternalIdentifierEdgeMask,
 } from "../src/canvas/DiagramCanvas.tsx";
 import type { Bounds, DiagramDocument, Point } from "../src/types/diagram.ts";
 import { getEligibleImportedIdentifierParts } from "../src/utils/diagram.ts";
@@ -71,11 +70,6 @@ test("external identifier imported-only: layout does not expose manual offset co
   assert.equal("offsetDirection" in layout, false);
   assert.equal("offsetMin" in layout, false);
   assert.equal("offsetMax" in layout, false);
-});
-
-test("external identifier edge mask renders only for imported relationship markers", () => {
-  assert.equal(shouldRenderExternalIdentifierEdgeMask("importedRelationship"), true);
-  assert.equal(shouldRenderExternalIdentifierEdgeMask("localAttribute"), false);
 });
 
 test("mixed external identifier: open frame route extends beyond first and last marker projections", () => {
