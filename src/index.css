@@ -8222,6 +8222,125 @@ textarea.diagram-notes-editor::placeholder {
   background: rgba(34, 109, 87, 0.12);
 }
 
+.entity-key-modal-progress {
+  display: grid;
+  gap: 3px;
+}
+
+.entity-key-option-kind {
+  justify-self: start;
+  border: 1px solid rgba(31, 92, 77, 0.2);
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: rgba(31, 92, 77, 0.08);
+  color: rgba(22, 82, 65, 0.95);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.entity-key-preview-canvas {
+  overflow-y: auto;
+}
+
+.entity-key-preview {
+  grid-template-rows: auto auto minmax(250px, 1fr) auto auto;
+  align-content: start;
+}
+
+.entity-key-preview-summary,
+.entity-key-preview-effect,
+.entity-key-preview-alternatives {
+  border: 1px solid rgba(35, 47, 42, 0.14);
+  border-radius: 8px;
+  background: rgba(251, 252, 250, 0.86);
+}
+
+.entity-key-preview-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 0.48fr) minmax(0, 0.52fr);
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.entity-key-preview-status,
+.entity-key-preview-current-choice {
+  display: grid;
+  gap: 3px;
+}
+
+.entity-key-preview-status span,
+.entity-key-preview-current-choice span,
+.entity-key-preview-current-choice small {
+  color: var(--muted-text, rgba(39, 48, 43, 0.68));
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.entity-key-preview-status strong,
+.entity-key-preview-current-choice strong,
+.entity-key-preview-effect strong,
+.entity-key-preview-alternatives strong {
+  color: var(--diagram-text, #101513);
+  font-size: 0.84rem;
+}
+
+.entity-key-preview-effect,
+.entity-key-preview-alternatives {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.entity-key-preview-effect ul,
+.entity-key-preview-alternatives ul {
+  margin: 0;
+  padding-left: 17px;
+  color: rgba(39, 48, 43, 0.78);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.entity-key-preview-logical-stage {
+  background: var(--diagram-canvas-fill, #dfe3dc);
+}
+
+.entity-key-preview-logical-stage .logical-table {
+  --logical-table-stroke: var(--diagram-stroke);
+  --logical-table-fill: var(--diagram-node-fill);
+  --logical-table-header-fill: var(--diagram-node-fill);
+  --logical-table-stroke-width: 1.6px;
+}
+
+.entity-key-preview-logical-stage .logical-table-body,
+.entity-key-preview-logical-stage .logical-table-header {
+  fill: var(--logical-table-fill);
+  stroke: var(--logical-table-stroke);
+  stroke-width: var(--logical-table-stroke-width);
+}
+
+.entity-key-preview-logical-stage .logical-table-title {
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.entity-key-preview-logical-stage .logical-column-name {
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.entity-key-preview-logical-edge {
+  fill: none;
+  stroke: var(--diagram-stroke);
+  stroke-width: 2;
+  marker-end: url("#entity-key-preview-arrow");
+}
+
+.entity-key-preview-logical-edge-label {
+  fill: rgba(35, 71, 116, 0.9);
+  font-size: 10px;
+  font-weight: 760;
+}
+
 @media (max-width: 900px) {
   .entity-key-modal {
     width: calc(100vw - 24px);

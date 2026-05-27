@@ -22,6 +22,7 @@ import {
   type LogicalEntityKeySelectionRequest,
 } from "../utils/logicalTranslation";
 import {
+  buildEntityKeyChoicePreviewData,
   getNextEntityKeyModalIndex,
   getPreviousEntityKeyModalIndex,
 } from "../utils/logicalKeyPreview";
@@ -381,6 +382,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const currentEntityKeyChoiceConfirmed = Boolean(
     currentEntityKeyRequest && currentEntityKeySelectedChoiceId === currentEntityKeyPreviewChoice?.id,
   );
+  const currentEntityKeyPreviewData = currentEntityKeyRequest
+    ? buildEntityKeyChoicePreviewData({
+        diagram: props.sourceDiagram,
+        request: currentEntityKeyRequest,
+        choice: currentEntityKeyPreviewChoice,
+      })
+    : null;
   const currentEntityKeyPage = (entityKeySelectionModal?.currentIndex ?? 0) + 1;
   const entityKeyModalTitleId = "entity-key-modal-title";
   const entityKeyModalDescriptionId = "entity-key-modal-description";
@@ -760,8 +768,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                     Seleziona quale identificatore diventera la PK. Gli altri identificatori candidati saranno tradotti come UNIQUE NOT NULL.
                   </p>
                   <span className="entity-key-modal-progress">
-                    Entita {currentEntityKeyPage} di {entityKeySelectionTotalCount}
-                    {currentEntityKeyRequest ? ` - ${currentEntityKeyRequest.item.label}` : ""} - {entityKeySelectionCompletedCount}/{entityKeySelectionTotalCount} scelte completate
+                    <span aria-live="polite">
+                      Entita {currentEntityKeyPage} di {entityKeySelectionTotalCount}
+                      {currentEntityKeyRequest ? ` - ${currentEntityKeyRequest.item.label}` : ""}
+                    </span>
+                    <span>{entityKeySelectionCompletedCount} scelte completate su {entityKeySelectionTotalCount}</span>
                   </span>
                 </div>
                 <button
@@ -787,6 +798,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                         {currentEntityKeyRequest.choices.map((choice) => {
                           const selected = currentEntityKeySelectedChoiceId === choice.id;
                           const inputId = `entity-key-${toDomId(currentEntityKeyRequest.targetKey)}-${toDomId(choice.id)}`;
+                          const choicePreview = buildEntityKeyChoicePreviewData({
+                            diagram: props.sourceDiagram,
+                            request: currentEntityKeyRequest,
+                            choice,
+                          });
                           return (
                             <label
                               key={choice.id}
@@ -814,14 +830,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                                 }
                               />
                               <span className="entity-key-option-content">
-                                <strong className="entity-key-option-title">{formatEntityKeyChoiceTitle(choice)}</strong>
-                                <small className="entity-key-option-description">{choice.description}</small>
-                                {choice.previewLines && choice.previewLines.length > 0 ? (
-                                  <span className="entity-key-option-preview">
-                                    <span>Preview</span>
-                                    {choice.previewLines.join(" - ")}
-                                  </span>
-                                ) : null}
+                                <span className="entity-key-option-kind">{choicePreview.kindLabel}</span>
+                                <strong className="entity-key-option-title">{choicePreview.title}</strong>
+                                <small className="entity-key-option-description">{choicePreview.explanation}</small>
+                                <span className="entity-key-option-preview">
+                                  <span>Risultato</span>
+                                  {choicePreview.summary}
+                                </span>
                               </span>
                             </label>
                           );
@@ -831,12 +846,12 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
                     <section className="entity-key-modal-preview-pane">
                       <div className="entity-key-preview-pane-head">
-                        <span>Preview alternativa</span>
-                        <strong>{currentEntityKeyPreviewChoice ? formatEntityKeyChoiceTitle(currentEntityKeyPreviewChoice) : "Nessuna alternativa"}</strong>
+                        <span>Risultato della scelta</span>
+                        <strong>{currentEntityKeyPreviewData?.title ?? "Nessuna alternativa"}</strong>
                         <small>
                           {currentEntityKeyChoiceConfirmed
-                            ? "Alternativa selezionata"
-                            : "Anteprima: seleziona una card per confermare"}
+                            ? `Questa alternativa verra applicata a ${currentEntityKeyRequest.item.label}.`
+                            : "Anteprima della prima alternativa. Seleziona una card a sinistra per confermare."}
                         </small>
                       </div>
                       <div className="entity-key-preview-canvas">
@@ -856,10 +871,12 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 <div className="entity-key-modal-footer-status" aria-live="polite">
                   <strong>Entita {currentEntityKeyPage} di {entityKeySelectionTotalCount}</strong>
                   <span>
-                    {currentEntityKeyRequest && currentEntityKeySelectedChoiceId
-                      ? `Scelta completata per ${currentEntityKeyRequest.item.label}`
-                      : currentEntityKeyRequest
-                        ? `Scelta mancante per ${currentEntityKeyRequest.item.label}`
+                    {entityKeySelectionComplete
+                      ? "Tutte le entita sono pronte per la conversione."
+                      : currentEntityKeyRequest && currentEntityKeySelectedChoiceId
+                        ? `${currentEntityKeyRequest.item.label} completata.`
+                        : currentEntityKeyRequest
+                          ? `Seleziona una chiave primaria per ${currentEntityKeyRequest.item.label}.`
                         : "Seleziona una chiave primaria per ogni entita."}
                   </span>
                 </div>

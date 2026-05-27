@@ -31,24 +31,52 @@ export interface EntityKeyPreviewRelationship {
   targetEntityId: string;
 }
 
+export interface EntityKeyPreviewColumn {
+  id: string;
+  name: string;
+  label: string;
+  isPrimaryKey: boolean;
+  isForeignKey: boolean;
+  isNullable: boolean;
+  isUniqueAlternative: boolean;
+  references?: {
+    tableName: string;
+    columnName: string;
+  };
+}
+
 export interface EntityKeyPreviewData {
   kind: EntityKeyPreviewKind;
   hostEntityId: string;
   hostEntityLabel: string;
   title: string;
+  kindLabel: string;
+  explanation: string;
   summary: string;
+  effectLines: string[];
   entities: EntityKeyPreviewEntity[];
   relationships: EntityKeyPreviewRelationship[];
   logicalTable: {
     name: string;
-    columns: Array<{
-      id: string;
-      label: string;
-      isPrimaryKey: boolean;
-      isForeignKey: boolean;
-      isUniqueAlternative: boolean;
-    }>;
+    columns: EntityKeyPreviewColumn[];
   };
+  tables: Array<{
+    id: string;
+    name: string;
+    role: "host" | "referenced";
+    columns: EntityKeyPreviewColumn[];
+  }>;
+  foreignKeys: Array<{
+    fromTableName: string;
+    fromColumnNames: string[];
+    toTableName: string;
+    toColumnNames: string[];
+    relationshipName?: string;
+  }>;
+  alternativeKeys: Array<{
+    label: string;
+    columnNames: string[];
+  }>;
 }
 
 function findEntity(diagram: DiagramDocument, entityId: string): EntityNode | null {
@@ -85,15 +113,77 @@ function addColumn(
   existing.isPrimaryKey = existing.isPrimaryKey || column.isPrimaryKey;
   existing.isForeignKey = existing.isForeignKey || column.isForeignKey;
   existing.isUniqueAlternative = existing.isUniqueAlternative || column.isUniqueAlternative;
+  existing.isNullable = existing.isNullable && column.isNullable;
+  existing.references = existing.references ?? column.references;
+}
+
+function joinNames(values: string[]): string {
+  return values.length > 0 ? values.join(" + ") : "nessuna colonna";
+}
+
+function attributeLabels(diagram: DiagramDocument, attributeIds: string[]): string[] {
+  return attributeIds.map((attributeId) => findAttribute(diagram, attributeId)?.label ?? attributeId);
+}
+
+function describeInternalIdentifier(diagram: DiagramDocument, identifier: InternalIdentifier): string[] {
+  return attributeLabels(diagram, identifier.attributeIds);
+}
+
+function describeExternalIdentifier(diagram: DiagramDocument, identifier: ExternalIdentifier): string[] {
+  const importedLabels = identifier.importedParts.flatMap((part) => {
+    const sourceEntity = findEntity(diagram, part.sourceEntityId);
+    const importedIdentifier = sourceEntity?.internalIdentifiers?.find((candidate) => candidate.id === part.importedIdentifierId);
+    return importedIdentifier ? attributeLabels(diagram, importedIdentifier.attributeIds) : ["identificatore importato"];
+  });
+  return [...importedLabels, ...attributeLabels(diagram, identifier.localAttributeIds)];
+}
+
+function alternativeKeysForChoices(
+  diagram: DiagramDocument,
+  entity: EntityNode,
+  request: LogicalEntityKeySelectionRequest,
+  selectedChoiceId: string | undefined,
+): EntityKeyPreviewData["alternativeKeys"] {
+  return request.choices
+    .filter((choice) => choice.id !== selectedChoiceId)
+    .map((choice) => {
+      const keySourceType = choice.configuration?.keySourceType;
+      const keySourceId = typeof choice.configuration?.keySourceId === "string" ? choice.configuration.keySourceId : undefined;
+      if (keySourceType === "internal" && keySourceId) {
+        const identifier = entity.internalIdentifiers?.find((candidate) => candidate.id === keySourceId);
+        const columnNames = identifier ? describeInternalIdentifier(diagram, identifier) : [];
+        return {
+          label: `${joinNames(columnNames)} sara tradotta come UNIQUE NOT NULL.`,
+          columnNames,
+        };
+      }
+      if (keySourceType === "external" && keySourceId) {
+        const identifier = entity.externalIdentifiers?.find((candidate) => candidate.id === keySourceId);
+        const columnNames = identifier ? describeExternalIdentifier(diagram, identifier) : [];
+        return {
+          label: `${joinNames(columnNames)} sara tradotta come UNIQUE NOT NULL.`,
+          columnNames,
+        };
+      }
+      return null;
+    })
+    .filter((item): item is EntityKeyPreviewData["alternativeKeys"][number] => item != null);
 }
 
 function fallbackPreview(hostEntity: EntityNode | null, choice: LogicalTranslationChoice | null): EntityKeyPreviewData {
+  const logicalTable = {
+    name: hostEntity?.label ?? "Tabella",
+    columns: [],
+  };
   return {
     kind: "none",
     hostEntityId: hostEntity?.id ?? "",
     hostEntityLabel: hostEntity?.label ?? "Entita",
     title: choice?.label ?? "Preview non disponibile",
+    kindLabel: "Preview non disponibile",
+    explanation: "Non ci sono dati sufficienti per descrivere questa scelta.",
     summary: "Preview non disponibile per questa alternativa.",
+    effectLines: ["Preview non disponibile per questa alternativa."],
     entities: hostEntity
       ? [{
           id: hostEntity.id,
@@ -103,10 +193,10 @@ function fallbackPreview(hostEntity: EntityNode | null, choice: LogicalTranslati
         }]
       : [],
     relationships: [],
-    logicalTable: {
-      name: hostEntity?.label ?? "Tabella",
-      columns: [],
-    },
+    logicalTable,
+    tables: hostEntity ? [{ id: hostEntity.id, name: hostEntity.label, role: "host", columns: logicalTable.columns }] : [],
+    foreignKeys: [],
+    alternativeKeys: [],
   };
 }
 
@@ -123,9 +213,11 @@ function addAlternativeInternalColumns(
         const attribute = findAttribute(diagram, attributeId);
         addColumn(columns, {
           id: `unique-${attributeId}`,
+          name: attribute?.label ?? attributeId,
           label: attribute?.label ?? attributeId,
           isPrimaryKey: false,
           isForeignKey: false,
+          isNullable: false,
           isUniqueAlternative: true,
         });
       });
@@ -137,27 +229,45 @@ function buildInternalPreview(
   entity: EntityNode,
   identifier: InternalIdentifier,
   choice: LogicalTranslationChoice,
+  request: LogicalEntityKeySelectionRequest,
 ): EntityKeyPreviewData {
   const selectedAttributes = identifier.attributeIds.map((attributeId) => attributePreview(diagram, attributeId, "selected-local"));
   const columns: EntityKeyPreviewData["logicalTable"]["columns"] = [];
+  const pkNames = selectedAttributes.map((attribute) => attribute.label);
 
   selectedAttributes.forEach((attribute) => {
     addColumn(columns, {
       id: attribute.id,
+      name: attribute.label,
       label: attribute.label,
       isPrimaryKey: true,
       isForeignKey: false,
+      isNullable: false,
       isUniqueAlternative: false,
     });
   });
   addAlternativeInternalColumns(diagram, entity, identifier.id, columns);
+  const logicalTable = {
+    name: entity.label,
+    columns,
+  };
+  const kindLabel = pkNames.length > 1 ? "Chiave interna composta" : "Chiave interna";
+  const title = `Usa ${joinNames(pkNames)} come PK`;
 
   return {
     kind: "internal",
     hostEntityId: entity.id,
     hostEntityLabel: entity.label,
-    title: choice.label,
-    summary: `PK interna: ${selectedAttributes.map((attribute) => attribute.label).join(" + ")}`,
+    title,
+    kindLabel,
+    explanation: pkNames.length > 1
+      ? "Gli attributi selezionati formano insieme la chiave primaria."
+      : `${pkNames[0] ?? "L'attributo selezionato"} e un identificatore interno di ${entity.label}.`,
+    summary: `${entity.label} PK = ${joinNames(pkNames)}`,
+    effectLines: [
+      `La tabella ${entity.label} usera ${pkNames.length > 1 ? "una PK composta" : "una PK semplice"}.`,
+      ...pkNames.map((name) => `${name} sara una colonna PK locale.`),
+    ],
     entities: [{
       id: entity.id,
       label: entity.label,
@@ -165,10 +275,10 @@ function buildInternalPreview(
       attributes: selectedAttributes,
     }],
     relationships: [],
-    logicalTable: {
-      name: entity.label,
-      columns,
-    },
+    logicalTable,
+    tables: [{ id: entity.id, name: entity.label, role: "host", columns }],
+    foreignKeys: [],
+    alternativeKeys: alternativeKeysForChoices(diagram, entity, request, choice.id),
   };
 }
 
@@ -177,26 +287,34 @@ function buildExternalPreview(
   entity: EntityNode,
   identifier: ExternalIdentifier,
   choice: LogicalTranslationChoice,
+  request: LogicalEntityKeySelectionRequest,
 ): EntityKeyPreviewData {
   const hostAttributes = identifier.localAttributeIds.map((attributeId) => attributePreview(diagram, attributeId, "selected-local"));
   const columns: EntityKeyPreviewData["logicalTable"]["columns"] = [];
   const sourceEntities = new Map<string, EntityKeyPreviewEntity>();
   const relationships: EntityKeyPreviewRelationship[] = [];
+  const referencedTables = new Map<string, EntityKeyPreviewData["tables"][number]>();
+  const foreignKeys: EntityKeyPreviewData["foreignKeys"] = [];
+  const effectLines: string[] = [];
 
   hostAttributes.forEach((attribute) => {
     addColumn(columns, {
       id: attribute.id,
+      name: attribute.label,
       label: attribute.label,
       isPrimaryKey: true,
       isForeignKey: false,
+      isNullable: false,
       isUniqueAlternative: false,
     });
+    effectLines.push(`${attribute.label} sara una colonna PK locale.`);
   });
 
   identifier.importedParts.forEach((part) => {
     const sourceEntity = findEntity(diagram, part.sourceEntityId);
     const relationship = findRelationship(diagram, part.relationshipId);
     const importedIdentifier = sourceEntity?.internalIdentifiers?.find((candidate) => candidate.id === part.importedIdentifierId);
+    const importedColumnNames: string[] = [];
 
     if (relationship && sourceEntity) {
       relationships.push({
@@ -220,27 +338,79 @@ function buildExternalPreview(
 
     importedIdentifier.attributeIds.forEach((attributeId) => {
       const attribute = attributePreview(diagram, attributeId, "selected-imported");
+      importedColumnNames.push(attribute.label);
       if (!sourcePreview.attributes.some((candidate) => candidate.id === attribute.id)) {
         sourcePreview.attributes.push(attribute);
       }
       addColumn(columns, {
         id: `imported-${sourceEntity.id}-${attribute.id}`,
+        name: attribute.label,
         label: attribute.label,
         isPrimaryKey: true,
         isForeignKey: true,
+        isNullable: false,
         isUniqueAlternative: false,
+        references: {
+          tableName: sourceEntity.label,
+          columnName: attribute.label,
+        },
       });
     });
 
+    if (importedColumnNames.length > 0) {
+      const relationshipName = relationship?.label ?? part.relationshipId;
+      effectLines.push(`Importa ${joinNames(importedColumnNames)} da ${sourceEntity.label} tramite ${relationshipName}.`);
+      foreignKeys.push({
+        fromTableName: entity.label,
+        fromColumnNames: importedColumnNames,
+        toTableName: sourceEntity.label,
+        toColumnNames: importedColumnNames,
+        relationshipName,
+      });
+      referencedTables.set(sourceEntity.id, {
+        id: sourceEntity.id,
+        name: sourceEntity.label,
+        role: "referenced",
+        columns: importedColumnNames.map((name, index) => ({
+          id: `${sourceEntity.id}-${importedIdentifier.attributeIds[index] ?? name}`,
+          name,
+          label: name,
+          isPrimaryKey: true,
+          isForeignKey: false,
+          isNullable: false,
+          isUniqueAlternative: false,
+        })),
+      });
+    }
+
     sourceEntities.set(sourceEntity.id, sourcePreview);
   });
+
+  const pkNames = describeExternalIdentifier(diagram, identifier);
+  const logicalTable = {
+    name: entity.label,
+    columns,
+  };
+  const kindLabel =
+    hostAttributes.length > 0 && identifier.importedParts.length > 0
+      ? "Chiave esterna/mista"
+      : "Chiave esterna";
 
   return {
     kind: "external",
     hostEntityId: entity.id,
     hostEntityLabel: entity.label,
-    title: choice.label,
-    summary: `PK esterna: ${columns.filter((column) => column.isPrimaryKey).map((column) => column.label).join(" + ")}`,
+    title: `Usa ${joinNames(pkNames)} come PK`,
+    kindLabel,
+    explanation:
+      kindLabel === "Chiave esterna/mista"
+        ? "Combina attributi locali e colonne importate tramite relazioni identificanti."
+        : "Usa una chiave primaria importata tramite una relazione identificante.",
+    summary: `${entity.label} PK = ${joinNames(pkNames)}`,
+    effectLines: [
+      `La tabella ${entity.label} usera ${pkNames.length > 1 ? "una PK composta" : "una PK semplice"}.`,
+      ...effectLines,
+    ],
     entities: [{
       id: entity.id,
       label: entity.label,
@@ -248,10 +418,10 @@ function buildExternalPreview(
       attributes: hostAttributes,
     }, ...sourceEntities.values()],
     relationships,
-    logicalTable: {
-      name: entity.label,
-      columns,
-    },
+    logicalTable,
+    tables: [{ id: entity.id, name: entity.label, role: "host", columns }, ...referencedTables.values()],
+    foreignKeys,
+    alternativeKeys: alternativeKeysForChoices(diagram, entity, request, choice.id),
   };
 }
 
@@ -272,12 +442,16 @@ export function buildEntityKeyChoicePreviewData(options: {
 
   if (keySourceType === "internal" && keySourceId) {
     const identifier = entity.internalIdentifiers?.find((candidate) => candidate.id === keySourceId);
-    return identifier ? buildInternalPreview(options.diagram, entity, identifier, options.choice) : fallbackPreview(entity, options.choice);
+    return identifier
+      ? buildInternalPreview(options.diagram, entity, identifier, options.choice, options.request)
+      : fallbackPreview(entity, options.choice);
   }
 
   if (keySourceType === "external" && keySourceId) {
     const identifier = entity.externalIdentifiers?.find((candidate) => candidate.id === keySourceId);
-    return identifier ? buildExternalPreview(options.diagram, entity, identifier, options.choice) : fallbackPreview(entity, options.choice);
+    return identifier
+      ? buildExternalPreview(options.diagram, entity, identifier, options.choice, options.request)
+      : fallbackPreview(entity, options.choice);
   }
 
   return fallbackPreview(entity, options.choice);
