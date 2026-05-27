@@ -7,7 +7,7 @@ import type {
   RefObject,
   WheelEvent as ReactWheelEvent,
 } from "react";
-import { DiagramEdgeView } from "./DiagramEdge";
+import { DiagramEdgeView, type EdgeLabelLayoutOverride } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
 import { getToolDefinitions } from "../utils/toolConfig";
 import {
@@ -32,6 +32,15 @@ import {
   WORLD_EXTENT,
   worldPointFromClient,
 } from "../utils/geometry";
+import { getConnectorParticipation, getEdgeCardinalityLabel } from "../utils/cardinality";
+import {
+  buildAttributeLabelBounds,
+  buildEdgeLabelBounds,
+  buildNodeReservedBounds,
+  chooseCollisionFreeEdgeLabelPlacement,
+  getPointAlongPolyline,
+  type ReservedLabelBox,
+} from "../utils/edgeLabelLayout";
 import {
   buildInheritanceGroups,
   getInheritanceGroupLayout,
@@ -2073,6 +2082,105 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
 
+  const reservedLabelBoxes: ReservedLabelBox[] = [];
+  props.diagram.nodes.forEach((node) => {
+    reservedLabelBoxes.push(...buildNodeReservedBounds(node));
+
+    if (node.type !== "attribute" || node.isMultivalued === true) {
+      return;
+    }
+
+    reservedLabelBoxes.push({
+      id: `${node.id}:label`,
+      kind: "attribute-label",
+      ...buildAttributeLabelBounds(
+        node.label,
+        getAttributeLabelLayout(node, attributeDirectionMap.get(node.id)),
+      ),
+    });
+  });
+
+  externalIdentifierMarkerLayouts.forEach((layout) => {
+    reservedLabelBoxes.push({
+      id: layout.key,
+      kind: "external-identifier",
+      x: layout.marker.x - 10,
+      y: layout.marker.y - 10,
+      width: 20,
+      height: 20,
+    });
+  });
+
+  const edgeLabelLayoutOverrides = new Map<string, EdgeLabelLayoutOverride>();
+  const alreadyPlacedEdgeLabelBoxes: ReservedLabelBox[] = [];
+  const edgeOrder = new Map<EdgeKind, number>([
+    ["connector", 0],
+    ["attribute", 1],
+    ["inheritance", 2],
+  ]);
+
+  [...props.diagram.edges]
+    .sort((left, right) => {
+      const kindDelta = (edgeOrder.get(left.type) ?? 99) - (edgeOrder.get(right.type) ?? 99);
+      if (kindDelta !== 0) {
+        return kindDelta;
+      }
+
+      return left.id.localeCompare(right.id);
+    })
+    .forEach((edge) => {
+      if (edge.type !== "connector" && edge.type !== "attribute") {
+        return;
+      }
+
+      const sourceNode = nodeMap.get(edge.sourceId);
+      const targetNode = nodeMap.get(edge.targetId);
+      const points = edgeGeometryMap.get(edge.id);
+      if (!sourceNode || !targetNode || !points || points.length < 2) {
+        return;
+      }
+
+      const displayLabel = getEdgeCardinalityLabel(edge, sourceNode, targetNode);
+      if (!displayLabel) {
+        return;
+      }
+
+      const roleLabel =
+        edge.type === "connector"
+          ? getConnectorParticipation(edge, sourceNode, targetNode)?.role?.trim() ?? ""
+          : "";
+      const entityIsSource = edge.type === "connector" && sourceNode.type === "entity";
+      const usesSplitConnectorLabels =
+        edge.type === "connector" && ((connectorLaneMap.get(edge.id)?.laneCount ?? 1) > 1 || roleLabel.length > 0);
+      const geometryLabelPoint = getEdgeGeometry(edge, sourceNode, targetNode, connectorLaneMap.get(edge.id)).labelPoint;
+      const defaultDisplayLabelPoint = usesSplitConnectorLabels
+        ? getPointAlongPolyline(points, entityIsSource ? 0.38 : 0.62)
+        : {
+            x: geometryLabelPoint.x,
+            y: geometryLabelPoint.y - 6,
+          };
+      const placement = chooseCollisionFreeEdgeLabelPlacement({
+        edge,
+        sourceNode,
+        targetNode,
+        points,
+        defaultPoint: defaultDisplayLabelPoint,
+        label: displayLabel,
+        reservedBoxes: reservedLabelBoxes,
+        alreadyPlacedBoxes: alreadyPlacedEdgeLabelBoxes,
+      });
+
+      edgeLabelLayoutOverrides.set(edge.id, {
+        displayLabelPoint: placement.point,
+        displayLabelY: placement.y,
+      });
+      alreadyPlacedEdgeLabelBoxes.push({
+        id: edge.id,
+        kind: "edge-label",
+        ...placement.bounds,
+      });
+    });
+
   const activeDragNodeIds = interaction.kind === "drag" ? interaction.nodeIds : props.selection.nodeIds;
   const selectionBounds = getSelectionBounds(props.diagram.nodes.filter((node) => activeDragNodeIds.includes(node.id)));
   const dragOriginBounds =
@@ -3691,6 +3799,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 sourceNode={sourceNode}
                 targetNode={targetNode}
                 laneInfo={connectorLaneMap.get(edge.id)}
+                labelLayoutOverride={edgeLabelLayoutOverrides.get(edge.id)}
                 selected={props.selection.edgeIds.includes(edge.id)}
                 dragging={interaction.kind === "edge-drag" && interaction.edgeId === edge.id}
                 validationLevel={edgeIssueMap.get(edge.id)?.level}

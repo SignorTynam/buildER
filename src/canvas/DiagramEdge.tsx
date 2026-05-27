@@ -2,6 +2,7 @@ import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramHighlightKind, DiagramNode, IsaCompleteness, IsaDisjointness, Point } from "../types/diagram";
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "../utils/cardinality";
+import { getPointAlongPolyline } from "../utils/edgeLabelLayout";
 import { useI18n } from "../i18n/useI18n";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
@@ -21,12 +22,20 @@ interface EdgeLaneInfo {
   laneCount: number;
 }
 
+export interface EdgeLabelLayoutOverride {
+  displayLabelPoint?: Point;
+  displayLabelY?: number;
+  roleLabelPoint?: Point;
+  roleLabelY?: number;
+}
+
 interface DiagramEdgeProps {
   edge: DiagramEdge;
   sourceNode: DiagramNode;
   targetNode: DiagramNode;
   laneInfo?: EdgeLaneInfo;
   displayLabelOverride?: string;
+  labelLayoutOverride?: EdgeLabelLayoutOverride;
   selected: boolean;
   dragging: boolean;
   ghost?: boolean;
@@ -98,53 +107,6 @@ function formatIsaConstraint(completeness?: IsaCompleteness, disjointness?: IsaD
   return `(${c},${d})`;
 }
 
-function getDistance(start: Point, end: Point): number {
-  return Math.hypot(end.x - start.x, end.y - start.y);
-}
-
-function getPointAlongPolyline(points: Point[], progress: number): Point {
-  if (points.length === 0) {
-    return { x: 0, y: 0 };
-  }
-
-  if (points.length === 1) {
-    return points[0];
-  }
-
-  const totalLength = points.reduce((sum, point, index) => {
-    if (index === 0) {
-      return sum;
-    }
-
-    return sum + getDistance(points[index - 1], point);
-  }, 0);
-
-  if (totalLength <= 0.001) {
-    return points[0];
-  }
-
-  const targetLength = totalLength * Math.min(1, Math.max(0, progress));
-  let travelled = 0;
-
-  for (let index = 1; index < points.length; index += 1) {
-    const start = points[index - 1];
-    const end = points[index];
-    const segmentLength = getDistance(start, end);
-
-    if (travelled + segmentLength >= targetLength) {
-      const segmentProgress = (targetLength - travelled) / Math.max(segmentLength, 0.001);
-      return {
-        x: start.x + (end.x - start.x) * segmentProgress,
-        y: start.y + (end.y - start.y) * segmentProgress,
-      };
-    }
-
-    travelled += segmentLength;
-  }
-
-  return points[points.length - 1];
-}
-
 export function DiagramEdgeView(props: DiagramEdgeProps) {
   const { t } = useI18n();
   const isGhost = props.ghost === true;
@@ -183,21 +145,25 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const entityIsSource = props.edge.type === "connector" && props.sourceNode.type === "entity";
   const isConnector = props.edge.type === "connector";
   const usesSplitConnectorLabels = isConnector && ((props.laneInfo?.laneCount ?? 1) > 1 || roleLabel.length > 0);
-  const displayLabelPoint =
+  const defaultDisplayLabelPoint =
     usesSplitConnectorLabels
       ? getPointAlongPolyline(geometry.points, entityIsSource ? 0.38 : 0.62)
       : geometry.labelPoint;
-  const roleLabelPoint =
+  const defaultRoleLabelPoint =
     usesSplitConnectorLabels
       ? getPointAlongPolyline(geometry.points, entityIsSource ? 0.68 : 0.32)
       : geometry.labelPoint;
   const inheritanceConstraintWidth = inheritanceConstraintLabel.length * 8 + 10;
   const displayLabelWidth = displayLabel.length * 7 + 10;
   const roleLabelWidth = roleLabel.length * 7 + 10;
-  const displayLabelY = usesSplitConnectorLabels
-    ? displayLabelPoint.y
+  const defaultDisplayLabelY = usesSplitConnectorLabels
+    ? defaultDisplayLabelPoint.y
     : geometry.labelPoint.y + (inheritanceConstraintLabel ? 10 : -6);
-  const roleLabelY = roleLabelPoint.y;
+  const defaultRoleLabelY = defaultRoleLabelPoint.y;
+  const displayLabelPoint = props.labelLayoutOverride?.displayLabelPoint ?? defaultDisplayLabelPoint;
+  const roleLabelPoint = props.labelLayoutOverride?.roleLabelPoint ?? defaultRoleLabelPoint;
+  const displayLabelY = props.labelLayoutOverride?.displayLabelY ?? defaultDisplayLabelY;
+  const roleLabelY = props.labelLayoutOverride?.roleLabelY ?? defaultRoleLabelY;
   const badgePoint = roleLabel ? roleLabelPoint : usesSplitConnectorLabels ? roleLabelPoint : displayLabelPoint;
   const badgeXOffset = Math.max((roleLabel ? roleLabelWidth : displayLabelWidth) / 2 + 14, 24);
   const badgeY = (roleLabel ? roleLabelY : displayLabelY) - 12;
