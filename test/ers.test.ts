@@ -21,6 +21,35 @@ import { buildInheritanceGroups, getInheritanceGroupLayout } from "../src/utils/
 import { parseErsDiagram, serializeDiagramToErs } from "../src/utils/ers.ts";
 import { normalizeCardinalityInput } from "../src/utils/cardinality.ts";
 
+function findEntity(diagram: DiagramDocument, label: string): Extract<DiagramNode, { type: "entity" }> | undefined {
+  return diagram.nodes.find(
+    (node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity" && node.label === label,
+  );
+}
+
+function findDirectAttribute(
+  diagram: DiagramDocument,
+  entityLabel: string,
+  attributeLabel: string,
+): Extract<DiagramNode, { type: "attribute" }> | undefined {
+  const entity = findEntity(diagram, entityLabel);
+  if (!entity) {
+    return undefined;
+  }
+
+  return diagram.nodes.find(
+    (node): node is Extract<DiagramNode, { type: "attribute" }> =>
+      node.type === "attribute" &&
+      node.label === attributeLabel &&
+      diagram.edges.some(
+        (edge) =>
+          edge.type === "attribute" &&
+          ((edge.sourceId === node.id && edge.targetId === entity.id) ||
+            (edge.sourceId === entity.id && edge.targetId === node.id)),
+      ),
+  );
+}
+
 test("un attributo figlio di un attributo composto non puo diventare composto", () => {
   const diagram: DiagramDocument = {
     meta: { name: "Attributo composto annidato", version: 3 },
@@ -98,7 +127,7 @@ relation RELAZIONE2 ENTITA1 "(X,Y)" ENTITA2 "(X,Y)"`;
   assert.match(serialized, /^entity PROGETTO \{$/m);
   assert.match(serialized, /^    Budget,?$/m);
   assert.match(serialized, /^    DataConsegna,?$/m);
-  assert.match(serialized, /^    Nome \(id\)$/m);
+  assert.match(serialized, /^    identifier\(Nome\)$/m);
   assert.match(serialized, /^relationship RELAZIONE2 \($/m);
   assert.match(serialized, /^    PROGETTO: X\.\.Y$/m);
   assert.doesNotMatch(serialized, /\bENTITA1\b/);
@@ -812,7 +841,7 @@ TRENO <= {
   assert.match(serialized, /^\/\* Entities \*\//m);
   assert.match(serialized, /^relationship RELATIONSHIP18 \($/m);
   assert.match(serialized, /generalization TRENO_generalization_\d+ TRENO \(p,e\) \{/);
-  assert.match(serialized, /identifier \(Nome, Cognome\)/);
+  assert.match(serialized, /identifier\(Nome, Cognome\)/);
 });
 
 test("ERS designER ricostruisce identificatori esterni da partecipazioni external valide", () => {
@@ -833,7 +862,146 @@ relationship R (
   assert.equal(entityB?.type === "entity" ? entityB.externalIdentifiers?.length : 0, 1);
 
   const serialized = serializeDiagramToErs(parsed);
-  assert.match(serialized, /^    B: one\.\.one external$/m);
+  assert.match(serialized, /^    identifier\(R\)$/m);
+  assert.doesNotMatch(serialized, /^    B: one\.\.one external$/m);
+});
+
+test("ERS serializza identificatori semplici nel formato identifier", () => {
+  const diagram = parseErsDiagram(`entity BIGLIETTO {
+    codBiglietto (id)
+}`);
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /identifier\(codBiglietto\)/);
+  assert.doesNotMatch(serialized, /codBiglietto \(id\)/);
+});
+
+test("ERS parse nuovo identificatore semplice e crea l'attributo diretto", () => {
+  const diagram = parseErsDiagram(`entity BIGLIETTO {
+    identifier(codBiglietto)
+}`);
+
+  const entity = findEntity(diagram, "BIGLIETTO");
+  const attribute = findDirectAttribute(diagram, "BIGLIETTO", "codBiglietto");
+
+  assert.ok(entity);
+  assert.ok(attribute);
+  assert.equal(
+    entity.internalIdentifiers?.some((identifier) => identifier.attributeIds.includes(attribute.id)),
+    true,
+  );
+});
+
+test("ERS parse e serializza identificatore interno composto canonico", () => {
+  const diagram = parseErsDiagram(`entity VIAGGIO {
+    chilometraggio,
+    identifier(codViaggio, dataOraArrivo),
+    dataOraPartenza
+}`);
+
+  const codViaggio = findDirectAttribute(diagram, "VIAGGIO", "codViaggio");
+  const dataOraArrivo = findDirectAttribute(diagram, "VIAGGIO", "dataOraArrivo");
+  ["chilometraggio", "codViaggio", "dataOraArrivo", "dataOraPartenza"].forEach((label) => {
+    assert.ok(findDirectAttribute(diagram, "VIAGGIO", label));
+  });
+
+  const entity = findEntity(diagram, "VIAGGIO");
+  assert.equal(
+    entity?.internalIdentifiers?.some(
+      (identifier) =>
+        codViaggio &&
+        dataOraArrivo &&
+        identifier.attributeIds.includes(codViaggio.id) &&
+        identifier.attributeIds.includes(dataOraArrivo.id),
+    ),
+    true,
+  );
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /identifier\(codViaggio, dataOraArrivo\)/);
+  assert.doesNotMatch(serialized, /codViaggio \(id\)/);
+  assert.doesNotMatch(serialized, /dataOraArrivo \(id\)/);
+});
+
+test("ERS parse e serializza identificatore misto nel nuovo formato", () => {
+  const diagram = parseErsDiagram(`entity ENTITA1 {
+    identifier(ATTRIBUTO1, RELAZIONE1),
+    ATTRIBUTO2
+}
+entity ENTITA2 {
+    identifier(ATTRIBUTO3)
+}
+
+relationship RELAZIONE1 (
+    ENTITA1: one..one,
+    ENTITA2: one..many
+)`);
+
+  const entity1 = findEntity(diagram, "ENTITA1");
+  const entity2 = findEntity(diagram, "ENTITA2");
+  const localAttribute = findDirectAttribute(diagram, "ENTITA1", "ATTRIBUTO1");
+  const relationship = diagram.nodes.find((node) => node.type === "relationship" && node.label === "RELAZIONE1");
+
+  assert.ok(entity1);
+  assert.ok(entity2);
+  assert.ok(localAttribute);
+  assert.equal(entity1.externalIdentifiers && entity1.externalIdentifiers.length > 0, true);
+  assert.equal(entity1.externalIdentifiers?.[0]?.localAttributeIds.includes(localAttribute.id), true);
+  assert.equal(entity1.externalIdentifiers?.[0]?.importedParts.some((part) => part.relationshipId === relationship?.id), true);
+  assert.equal(entity2.internalIdentifiers?.length, 1);
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /identifier\(ATTRIBUTO1, RELAZIONE1\)/);
+  assert.doesNotMatch(serialized, /ATTRIBUTO1 \(external\)/);
+  assert.doesNotMatch(serialized, /ENTITA1: one\.\.one external/);
+});
+
+test("ERS migra il vecchio formato external al formato identifier", () => {
+  const diagram = parseErsDiagram(`entity ENTITA1 {
+    ATTRIBUTO1 (external),
+    ATTRIBUTO2
+}
+entity ENTITA2 {
+    ATTRIBUTO3 (id)
+}
+
+relationship RELAZIONE1 (
+    ENTITA1: one..one external,
+    ENTITA2: one..many
+)`);
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /identifier\(ATTRIBUTO1, RELAZIONE1\)/);
+  assert.match(serialized, /identifier\(ATTRIBUTO3\)/);
+  assert.doesNotMatch(serialized, /\(external\)/);
+  assert.doesNotMatch(serialized, / external\b/);
+});
+
+test("ERS supporta piu identificatori interni alternativi", () => {
+  const diagram = parseErsDiagram(`entity PERSONA {
+    identifier(codFiscale),
+    identifier(numeroDocumento),
+    nome,
+    cognome
+}`);
+
+  const persona = findEntity(diagram, "PERSONA");
+  const codFiscale = findDirectAttribute(diagram, "PERSONA", "codFiscale");
+  const numeroDocumento = findDirectAttribute(diagram, "PERSONA", "numeroDocumento");
+
+  assert.equal(persona?.internalIdentifiers?.length, 2);
+  assert.equal(
+    persona?.internalIdentifiers?.some((identifier) => codFiscale && identifier.attributeIds.includes(codFiscale.id)),
+    true,
+  );
+  assert.equal(
+    persona?.internalIdentifiers?.some((identifier) => numeroDocumento && identifier.attributeIds.includes(numeroDocumento.id)),
+    true,
+  );
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /identifier\(codFiscale\)/);
+  assert.match(serialized, /identifier\(numeroDocumento\)/);
 });
 
 test("removeExternalIdentifierFromEntity rimuove solo l'identificatore esterno e preserva nodi, attributi e relazioni", () => {
