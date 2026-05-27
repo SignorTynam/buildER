@@ -73,6 +73,18 @@ export interface TranslationOverview {
   choicesByKey: Map<string, TranslationChoiceRecord>;
 }
 
+export interface LogicalBulkChoiceOverride {
+  targetType: LogicalTranslationDecision["targetType"];
+  targetId: string;
+  choiceId: string;
+}
+
+export interface LogicalEntityKeySelectionRequest {
+  targetKey: string;
+  item: LogicalTranslationItem;
+  choices: LogicalTranslationChoice[];
+}
+
 interface MappingContext {
   diagram: DiagramDocument;
   tables: LogicalTable[];
@@ -3349,14 +3361,63 @@ function chooseBulkLogicalChoice(choices: LogicalTranslationChoice[]): LogicalTr
   })[0] ?? null;
 }
 
+export function getEntityCandidateKeyChoices(
+  overview: TranslationOverview,
+  item: LogicalTranslationItem,
+): LogicalTranslationChoice[] {
+  return getLogicalTranslationChoicesForItem(overview, item).filter(
+    (choice) => choice.rule === "entity-table-internal" || choice.rule === "entity-table-external",
+  );
+}
+
+export function findEntityKeySelectionRequests(
+  diagram: DiagramDocument,
+  workspace: LogicalWorkspaceDocument,
+): LogicalEntityKeySelectionRequest[] {
+  const overview = buildLogicalTranslationOverview(diagram, workspace);
+
+  return (overview.itemsByStep.entities ?? [])
+    .filter((item) => item.status === "pending" || item.status === "invalid")
+    .map((item) => ({
+      targetKey: `${item.targetType}:${item.id}`,
+      item,
+      choices: getEntityCandidateKeyChoices(overview, item),
+    }))
+    .filter((request) => request.choices.length > 1);
+}
+
 export function applyBulkLogicalFix(
   diagram: DiagramDocument,
   workspace: LogicalWorkspaceDocument,
   step: Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">,
-): { workspace: LogicalWorkspaceDocument; appliedCount: number; skippedCount: number } {
+  options?: {
+    choiceIdsByTargetKey?: Record<string, string>;
+    stopOnAmbiguousEntityKeys?: boolean;
+  },
+): {
+  workspace: LogicalWorkspaceDocument;
+  appliedCount: number;
+  skippedCount: number;
+  pendingEntityKeySelections?: LogicalEntityKeySelectionRequest[];
+} {
   let nextWorkspace = workspace;
   let appliedCount = 0;
   let skippedCount = 0;
+  const shouldStopOnAmbiguousEntityKeys = options?.stopOnAmbiguousEntityKeys !== false;
+
+  if (step === "entities" && shouldStopOnAmbiguousEntityKeys) {
+    const missingSelections = findEntityKeySelectionRequests(diagram, nextWorkspace).filter(
+      (request) => !options?.choiceIdsByTargetKey?.[request.targetKey],
+    );
+    if (missingSelections.length > 0) {
+      return {
+        workspace: nextWorkspace,
+        appliedCount: 0,
+        skippedCount: 0,
+        pendingEntityKeySelections: missingSelections,
+      };
+    }
+  }
 
   for (;;) {
     const overview = buildLogicalTranslationOverview(diagram, nextWorkspace);
@@ -3365,7 +3426,16 @@ export function applyBulkLogicalFix(
       break;
     }
 
-    const choice = chooseBulkLogicalChoice(getLogicalTranslationChoicesForItem(overview, item));
+    const choices = getLogicalTranslationChoicesForItem(overview, item);
+    const candidateKeyChoices = step === "entities" ? getEntityCandidateKeyChoices(overview, item) : [];
+    const targetKey = `${item.targetType}:${item.id}`;
+    const selectedChoiceId = options?.choiceIdsByTargetKey?.[targetKey];
+    const choice =
+      selectedChoiceId && candidateKeyChoices.length > 1
+        ? candidateKeyChoices.find((candidate) => candidate.id === selectedChoiceId) ?? null
+        : candidateKeyChoices.length === 1
+          ? candidateKeyChoices[0]
+          : chooseBulkLogicalChoice(choices);
     if (!choice) {
       skippedCount += 1;
       break;

@@ -3038,9 +3038,19 @@ export default function App() {
     setStatus("Traduzione logica resettata.");
   }
 
-  function handleApplyBulkLogicalFix(step: "entities" | "weak-entities" | "relationships" | "multivalued-attributes") {
+  function handleApplyBulkLogicalFix(
+    step: "entities" | "weak-entities" | "relationships" | "multivalued-attributes",
+    options?: { choiceIdsByTargetKey?: Record<string, string> },
+  ) {
     const previousWorkspace = logicalHistory.present;
-    const result = applyBulkLogicalFix(translationHistory.present.translatedDiagram, previousWorkspace, step);
+    const result = applyBulkLogicalFix(translationHistory.present.translatedDiagram, previousWorkspace, step, {
+      choiceIdsByTargetKey: options?.choiceIdsByTargetKey,
+    });
+    if (result.pendingEntityKeySelections && result.pendingEntityKeySelections.length > 0) {
+      setStatusWarning("Scegli una chiave primaria per continuare.");
+      return;
+    }
+
     if (result.appliedCount === 0) {
       setStatusWarning("Nessun elemento logico applicabile per questo step.");
       return;

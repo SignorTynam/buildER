@@ -95,6 +95,7 @@ const DESIGNER_QUALIFIER_BADGE_PADDING_X = 6;
 const DESIGNER_QUALIFIER_BADGE_GAP = 6;
 const DESIGNER_QUALIFIER_BADGE_TEXT_GAP = 8;
 const DESIGNER_QUALIFIER_CHAR_WIDTH = 7.2;
+const DESIGNER_COLUMN_NAME_UNDERLINE_Y = 11;
 
 function clampDesignerDimension(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -168,6 +169,23 @@ function getDesignerLogicalColumnNameOffset(qualifiers: string[]): number {
 function getDesignerLogicalColumnLabelWidth(column: LogicalColumn): number {
   const qualifiers = getDesignerLogicalColumnQualifierLabels(column);
   return getDesignerLogicalColumnNameOffset(qualifiers) + estimateDesignerTextWidth(column.name, "column");
+}
+
+export function getDesignerLogicalColumnNameUnderlineLayout(column: LogicalColumn): {
+  visible: boolean;
+  x1: number;
+  x2: number;
+  y: number;
+} {
+  const qualifiers = getDesignerLogicalColumnQualifierLabels(column);
+  const layout = getDesignerLogicalColumnQualifierLayout(qualifiers);
+
+  return {
+    visible: column.isPrimaryKey === true,
+    x1: layout.textOffset,
+    x2: layout.textOffset + estimateDesignerTextWidth(column.name, "column"),
+    y: DESIGNER_COLUMN_NAME_UNDERLINE_Y,
+  };
 }
 
 export function getDesignerLogicalTableDimensions(label: string, columns: LogicalColumn[]): {
@@ -255,6 +273,7 @@ function getDesignerLogicalColumnQualifierLayout(qualifiers: string[]): {
 function renderDesignerLogicalColumnLabel(column: LogicalColumn, x: number, y: number) {
   const qualifiers = getDesignerLogicalColumnQualifierLabels(column);
   const layout = getDesignerLogicalColumnQualifierLayout(qualifiers);
+  const underline = getDesignerLogicalColumnNameUnderlineLayout(column);
 
   return (
     <g transform={`translate(${x}, ${y})`} className="logical-column-label" pointerEvents="none">
@@ -283,6 +302,16 @@ function renderDesignerLogicalColumnLabel(column: LogicalColumn, x: number, y: n
       <text x={layout.textOffset} y={0} dominantBaseline="middle" className={getDesignerLogicalColumnTextClassName()}>
         {column.name}
       </text>
+      {underline.visible ? (
+        <line
+          x1={underline.x1}
+          y1={underline.y}
+          x2={underline.x2}
+          y2={underline.y}
+          className="logical-column-name-underline"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
     </g>
   );
 }

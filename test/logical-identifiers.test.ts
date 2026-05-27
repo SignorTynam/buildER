@@ -3,12 +3,15 @@ import test from "node:test";
 
 import type { DiagramDocument, DiagramEdge, DiagramNode, InternalIdentifier } from "../src/types/diagram.ts";
 import type { LogicalModel, LogicalTable } from "../src/types/logical.ts";
+import { getDesignerLogicalColumnNameUnderlineLayout } from "../src/logical/LogicalTransformationCanvas.tsx";
 import { generateLogicalModel } from "../src/utils/logicalMapping.ts";
 import { generateLogicalSql } from "../src/utils/logicalSql.ts";
 import {
+  applyBulkLogicalFix,
   applyLogicalTranslationChoice,
   buildLogicalTranslationOverview,
   createEmptyLogicalWorkspace,
+  findEntityKeySelectionRequests,
   getLogicalTranslationChoicesForItem,
 } from "../src/utils/logicalTranslation.ts";
 
@@ -206,6 +209,119 @@ test("logical translation: three internal identifiers produce one PK and two alt
   assert.match(sql, /UNIQUE \("dataOraArrivo"\)/);
   assert.match(sql, /UNIQUE \("dataOraPartenza", "codiceEsterno"\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
+});
+
+test("logical translation: individua entita con piu chiavi candidate per Fix Entities", () => {
+  const diagram = createViaggioDiagram([
+    { id: "id-cod", attributeIds: [ATTRIBUTE_IDS.codViaggio] },
+    { id: "id-arrivo", attributeIds: [ATTRIBUTE_IDS.dataOraArrivo] },
+    { id: "id-esterno", attributeIds: [ATTRIBUTE_IDS.codiceEsterno] },
+  ]);
+  const workspace = createEmptyLogicalWorkspace(diagram);
+
+  const requests = findEntityKeySelectionRequests(diagram, workspace);
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].item.id, "entity-viaggio");
+  assert.deepEqual(
+    requests[0].choices.map((choice) => choice.configuration?.keySourceId).sort(),
+    ["id-arrivo", "id-cod", "id-esterno"],
+  );
+});
+
+test("logical translation: bulk Fix Entities non sceglie automaticamente tra chiavi candidate", () => {
+  const diagram = createViaggioDiagram([
+    { id: "id-cod", attributeIds: [ATTRIBUTE_IDS.codViaggio] },
+    { id: "id-arrivo", attributeIds: [ATTRIBUTE_IDS.dataOraArrivo] },
+    { id: "id-esterno", attributeIds: [ATTRIBUTE_IDS.codiceEsterno] },
+  ]);
+  const workspace = createEmptyLogicalWorkspace(diagram);
+
+  const result = applyBulkLogicalFix(diagram, workspace, "entities");
+
+  assert.equal(result.appliedCount, 0);
+  assert.equal(result.workspace.model.tables.some((table) => table.name === "VIAGGIO"), false);
+  assert.equal(result.pendingEntityKeySelections?.length, 1);
+  assert.equal(result.pendingEntityKeySelections?.[0]?.item.id, "entity-viaggio");
+});
+
+test("logical translation: bulk Fix Entities usa la chiave candidata scelta esplicitamente", () => {
+  const diagram = createViaggioDiagram([
+    { id: "id-cod", attributeIds: [ATTRIBUTE_IDS.codViaggio] },
+    { id: "id-arrivo", attributeIds: [ATTRIBUTE_IDS.dataOraArrivo] },
+    { id: "id-esterno", attributeIds: [ATTRIBUTE_IDS.codiceEsterno] },
+  ]);
+  const workspace = createEmptyLogicalWorkspace(diagram);
+  const request = findEntityKeySelectionRequests(diagram, workspace)[0];
+  assert.ok(request);
+  const selectedChoice = request.choices.find((choice) => choice.configuration?.keySourceId === "id-esterno");
+  assert.ok(selectedChoice);
+
+  const result = applyBulkLogicalFix(diagram, workspace, "entities", {
+    choiceIdsByTargetKey: {
+      [request.targetKey]: selectedChoice.id,
+    },
+  });
+  const table = getViaggioTable(result.workspace.model);
+  const sql = generateLogicalSql(result.workspace.model);
+
+  assert.equal(result.appliedCount, 1);
+  assert.equal(getColumn(table, "codiceEsterno").isPrimaryKey, true);
+  assert.equal(getColumn(table, "codViaggio").isPrimaryKey, false);
+  assert.equal(getColumn(table, "dataOraArrivo").isPrimaryKey, false);
+  assert.equal(getColumn(table, "codViaggio").isNullable, false);
+  assert.equal(getColumn(table, "dataOraArrivo").isNullable, false);
+  assert.deepEqual(
+    uniqueConstraintColumnNames(result.workspace.model, table).map((names) => names[0]).sort(),
+    ["codViaggio", "dataOraArrivo"],
+  );
+  assert.match(sql, /PRIMARY KEY \("codiceEsterno"\)/);
+  assert.equal(countSqlPrimaryKeys(sql), 1);
+});
+
+test("logical translation: bulk Fix Entities procede automaticamente con una sola chiave candidata", () => {
+  const diagram = createViaggioDiagram([
+    { id: "id-cod", attributeIds: [ATTRIBUTE_IDS.codViaggio] },
+  ]);
+  const workspace = createEmptyLogicalWorkspace(diagram);
+
+  const result = applyBulkLogicalFix(diagram, workspace, "entities");
+  const table = getViaggioTable(result.workspace.model);
+
+  assert.equal(result.pendingEntityKeySelections, undefined);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(getColumn(table, "codViaggio").isPrimaryKey, true);
+});
+
+test("logical canvas: sottolineatura del nome solo per colonne PK", () => {
+  const baseColumn = {
+    id: "column-1",
+    name: "ATTRIBUTO4",
+    sourceAttributeId: "attr-4",
+    isPrimaryKey: false,
+    isForeignKey: false,
+    isUnique: false,
+    isNullable: true,
+    references: [],
+  };
+  const pk = getDesignerLogicalColumnNameUnderlineLayout({ ...baseColumn, isPrimaryKey: true });
+  const regular = getDesignerLogicalColumnNameUnderlineLayout(baseColumn);
+  const fk = getDesignerLogicalColumnNameUnderlineLayout({ ...baseColumn, isForeignKey: true });
+  const pkFk = getDesignerLogicalColumnNameUnderlineLayout({ ...baseColumn, isPrimaryKey: true, isForeignKey: true });
+  const pkWithSqlType = getDesignerLogicalColumnNameUnderlineLayout({
+    ...baseColumn,
+    isPrimaryKey: true,
+    dataType: "VARCHAR",
+    length: 100,
+  });
+
+  assert.equal(pk.visible, true);
+  assert.equal(regular.visible, false);
+  assert.equal(fk.visible, false);
+  assert.equal(pkFk.visible, true);
+  assert.ok(pk.x1 > 0);
+  assert.ok(Math.abs((pk.x2 - pk.x1) - (pkFk.x2 - pkFk.x1)) < 0.0001);
+  assert.ok(Math.abs((pk.x2 - pk.x1) - (pkWithSqlType.x2 - pkWithSqlType.x1)) < 0.0001);
 });
 
 test("logical translation: changing selected PK demotes the previous PK to UNIQUE without stale flags", () => {
