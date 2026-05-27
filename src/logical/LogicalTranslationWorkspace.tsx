@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { DiagramDocument, Viewport } from "../types/diagram";
 import type {
@@ -85,6 +85,14 @@ const CHOICE_PRIORITY: Record<LogicalTranslationRuleKind, number> = {
 
 function buildTargetKey(item: Pick<LogicalTranslationItem, "targetType" | "id">): string {
   return `${item.targetType}:${item.id}`;
+}
+
+function toDomId(value: string): string {
+  return value.replace(/[^A-Za-z0-9_-]+/g, "-");
+}
+
+function formatEntityKeyChoiceTitle(choice: LogicalTranslationChoice): string {
+  return choice.label.replace(/^Tabella con PK\s+/i, "PK ").replace(/^Tabella con\s+/i, "");
 }
 
 function isOpenTranslationItem(item: LogicalTranslationItem): boolean {
@@ -329,6 +337,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     requests: LogicalEntityKeySelectionRequest[];
     selectedChoiceIdsByTargetKey: Record<string, string>;
   } | null>(null);
+  const entityKeyModalRef = useRef<HTMLElement | null>(null);
 
   const nextBulkStep = ORDERED_BULK_STEPS.find((step) => {
     const totals = completion[step] ?? { pending: 0, invalid: 0 };
@@ -351,6 +360,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const selectedTargetKey = selectedTranslationItem ? buildTargetKey(selectedTranslationItem) : null;
   const activeTargetKeys = props.logicalStage === "translation" ? openItemsForStep.map(buildTargetKey) : [];
   const highlightedTargetKeys = selectedTargetKey ? [...new Set([...activeTargetKeys, selectedTargetKey])] : activeTargetKeys;
+  const entityKeyModalOpen = entityKeySelectionModal != null;
+  const entityKeySelectionTotalCount = entityKeySelectionModal?.requests.length ?? 0;
+  const entityKeySelectionCompletedCount =
+    entityKeySelectionModal?.requests.filter((request) => entityKeySelectionModal.selectedChoiceIdsByTargetKey[request.targetKey]).length ?? 0;
+  const entityKeySelectionComplete = entityKeySelectionTotalCount > 0 && entityKeySelectionCompletedCount === entityKeySelectionTotalCount;
+  const entityKeyModalTitleId = "entity-key-modal-title";
+  const entityKeyModalDescriptionId = "entity-key-modal-description";
 
   const bulkLabel =
     nextBulkStep === "entities"
@@ -362,6 +378,32 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           : nextBulkStep === "multivalued-attributes"
             ? t("logical.designer.fixMultivalued")
             : t("logical.designer.fix");
+
+  useEffect(() => {
+    if (!entityKeyModalOpen || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setEntityKeySelectionModal(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [entityKeyModalOpen]);
+
+  useEffect(() => {
+    if (!entityKeyModalOpen || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      entityKeyModalRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [entityKeyModalOpen]);
 
   function applySingleFix(): void {
     if (!selectedTranslationItem || !preferredChoice) {
@@ -642,36 +684,100 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ) : null}
 
         {entityKeySelectionModal ? (
-          <div className="help-modal-backdrop" role="dialog" aria-modal="true" aria-label="Scegli la chiave primaria">
-            <div className="help-modal action-modal logical-key-selection-modal">
-              <div className="help-modal-head">
-                <h2>Scegli la chiave primaria</h2>
-                <button type="button" className="help-close" onClick={() => setEntityKeySelectionModal(null)}>
-                  Annulla
+          <div
+            className="entity-key-modal-backdrop"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setEntityKeySelectionModal(null);
+              }
+            }}
+          >
+            <section
+              ref={entityKeyModalRef}
+              className="entity-key-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={entityKeyModalTitleId}
+              aria-describedby={entityKeyModalDescriptionId}
+              tabIndex={-1}
+            >
+              <header className="entity-key-modal-header">
+                <div>
+                  <h2 id={entityKeyModalTitleId} className="entity-key-modal-title">
+                    Scegli la chiave primaria
+                  </h2>
+                  <p id={entityKeyModalDescriptionId} className="entity-key-modal-description">
+                    Alcune entita hanno piu identificatori candidati. Seleziona quale identificatore diventera la PK.
+                  </p>
+                  <span className="entity-key-modal-progress">
+                    {entityKeySelectionCompletedCount}/{entityKeySelectionTotalCount} scelte completate
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="entity-key-modal-close"
+                  aria-label="Annulla scelta chiave primaria"
+                  onClick={() => setEntityKeySelectionModal(null)}
+                >
+                  X
                 </button>
-              </div>
-              <div className="action-modal-content">
-                <p className="action-hint">
-                  Una o piu entita hanno piu identificatori candidati. Scegli quale identificatore deve diventare la chiave primaria. Gli altri identificatori saranno tradotti come UNIQUE NOT NULL.
-                </p>
+              </header>
+              <div className="entity-key-modal-body">
+                {entityKeySelectionModal.requests.length > 1 ? (
+                  <div className="entity-key-modal-summary" aria-label="Entita da configurare">
+                    {entityKeySelectionModal.requests.map((request) => {
+                      const selected = Boolean(entityKeySelectionModal.selectedChoiceIdsByTargetKey[request.targetKey]);
+                      return (
+                        <span key={request.targetKey} className={["entity-key-summary-chip", selected ? "complete" : ""].filter(Boolean).join(" ")}>
+                          {request.item.label} {selected ? "completata" : "da scegliere"}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 {entityKeySelectionModal.requests.map((request) => (
-                  <section key={request.targetKey} className="logical-key-selection-group">
-                    <div className="context-card-title">{request.item.label}</div>
-                    <div className="modal-attribute-list">
+                  <section key={request.targetKey} className="entity-key-entity-section">
+                    <div className="entity-key-entity-header">
+                      <div>
+                        <h3 className="entity-key-entity-title">{request.item.label}</h3>
+                        <p>{request.choices.length} alternative</p>
+                      </div>
+                      <span
+                        className={[
+                          "entity-key-entity-status",
+                          entityKeySelectionModal.selectedChoiceIdsByTargetKey[request.targetKey] ? "complete" : "",
+                        ].filter(Boolean).join(" ")}
+                      >
+                        {entityKeySelectionModal.selectedChoiceIdsByTargetKey[request.targetKey] ? "Scelta completata" : "Da scegliere"}
+                      </span>
+                    </div>
+                    <div className="entity-key-option-list">
                       {request.choices.map((choice) => (
-                        <label key={choice.id} className="field checkbox-field logical-key-selection-option">
-                          <span>
-                            <strong>{choice.label}</strong>
-                            <small>{choice.description}</small>
+                        <label
+                          key={choice.id}
+                          htmlFor={`entity-key-${toDomId(request.targetKey)}-${toDomId(choice.id)}`}
+                          className={[
+                            "entity-key-option",
+                            entityKeySelectionModal.selectedChoiceIdsByTargetKey[request.targetKey] === choice.id
+                              ? "entity-key-option-selected"
+                              : "",
+                          ].filter(Boolean).join(" ")}
+                        >
+                          <span className="entity-key-option-content">
+                            <strong className="entity-key-option-title">{formatEntityKeyChoiceTitle(choice)}</strong>
+                            <small className="entity-key-option-description">{choice.description}</small>
                             {choice.previewLines && choice.previewLines.length > 0 ? (
-                              <span className="logical-key-selection-preview">
-                                {choice.previewLines.join(" · ")}
+                              <span className="entity-key-option-preview">
+                                <span>Preview</span>
+                                {choice.previewLines.join(" - ")}
                               </span>
                             ) : null}
                           </span>
                           <input
+                            id={`entity-key-${toDomId(request.targetKey)}-${toDomId(choice.id)}`}
+                            className="entity-key-option-radio"
                             type="radio"
-                            name={`logical-key-${request.targetKey}`}
+                            name={`primary-key-${request.targetKey}`}
                             checked={entityKeySelectionModal.selectedChoiceIdsByTargetKey[request.targetKey] === choice.id}
                             onChange={() =>
                               setEntityKeySelectionModal((current) =>
@@ -692,22 +798,29 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                     </div>
                   </section>
                 ))}
-                <div className="action-modal-actions">
+              </div>
+
+              <footer className="entity-key-modal-footer">
+                <span className="entity-key-modal-footer-status">
+                  {entityKeySelectionComplete
+                    ? "Tutte le scelte sono complete."
+                    : "Seleziona una chiave primaria per ogni entita."}
+                </span>
+                <div className="entity-key-modal-footer-actions">
                   <button type="button" onClick={() => setEntityKeySelectionModal(null)}>
                     Annulla
                   </button>
                   <button
                     type="button"
-                    disabled={entityKeySelectionModal.requests.some(
-                      (request) => !entityKeySelectionModal.selectedChoiceIdsByTargetKey[request.targetKey],
-                    )}
+                    disabled={!entityKeySelectionComplete}
+                    title={!entityKeySelectionComplete ? "Completa una scelta per ogni entita." : undefined}
                     onClick={confirmEntityKeySelection}
                   >
                     Applica Fix Entities
                   </button>
                 </div>
-              </div>
-            </div>
+              </footer>
+            </section>
           </div>
         ) : null}
 
