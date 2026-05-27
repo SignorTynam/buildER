@@ -13,8 +13,10 @@ import {
   removeSelection,
   removeSubtypeFromGeneralizationGroup,
   renameNodeAsNameIdentity,
+  synchronizeExternalIdentifiers,
   updateGeneralizationGroupConstraint,
   validateDiagram,
+  validateExternalIdentifier,
 } from "../src/utils/diagram.ts";
 import { computeClassicIsaGroupLayout } from "../src/utils/geometry.ts";
 import { buildInheritanceGroups, getInheritanceGroupLayout } from "../src/utils/inheritanceLayout.ts";
@@ -1002,6 +1004,157 @@ test("ERS supporta piu identificatori interni alternativi", () => {
   const serialized = serializeDiagramToErs(diagram);
   assert.match(serialized, /identifier\(codFiscale\)/);
   assert.match(serialized, /identifier\(numeroDocumento\)/);
+});
+
+test("ERS supporta due identificatori esterni misti alternativi sulla stessa relazione", () => {
+  const source = `entity ENTITA1 {
+    identifier(ATTRIBUTO1, RELAZIONE1),
+    identifier(ATTRIBUTO2, RELAZIONE1)
+}
+entity ENTITA2 {
+    identifier(ATTRIBUTO3)
+}
+
+relationship RELAZIONE1 (
+    ENTITA1: one..one,
+    ENTITA2: one..many
+)`;
+
+  const diagram = parseErsDiagram(source);
+  const entity1 = findEntity(diagram, "ENTITA1");
+  const entity2 = findEntity(diagram, "ENTITA2");
+  const relationship = diagram.nodes.find((node) => node.type === "relationship" && node.label === "RELAZIONE1");
+  const attribute1 = findDirectAttribute(diagram, "ENTITA1", "ATTRIBUTO1");
+  const attribute2 = findDirectAttribute(diagram, "ENTITA1", "ATTRIBUTO2");
+  const attribute3 = findDirectAttribute(diagram, "ENTITA2", "ATTRIBUTO3");
+
+  assert.ok(entity1);
+  assert.ok(entity2);
+  assert.ok(relationship);
+  assert.ok(attribute1);
+  assert.ok(attribute2);
+  assert.ok(attribute3);
+  assert.equal(entity1.externalIdentifiers?.length, 2);
+
+  const identifierByLocalAttribute = new Map(
+    entity1.externalIdentifiers?.map((identifier) => [identifier.localAttributeIds[0], identifier]) ?? [],
+  );
+  const firstIdentifier = identifierByLocalAttribute.get(attribute1.id);
+  const secondIdentifier = identifierByLocalAttribute.get(attribute2.id);
+  const importedIdentifierId = entity2.internalIdentifiers?.[0]?.id;
+
+  assert.ok(firstIdentifier);
+  assert.ok(secondIdentifier);
+  [firstIdentifier, secondIdentifier].forEach((identifier) => {
+    assert.equal(identifier.importedParts.length, 1);
+    assert.equal(identifier.importedParts[0]?.relationshipId, relationship.id);
+    assert.equal(identifier.importedParts[0]?.sourceEntityId, entity2.id);
+    assert.equal(identifier.importedParts[0]?.importedIdentifierId, importedIdentifierId);
+  });
+
+  const externalIdentifierIssues = validateDiagram(diagram).filter((issue) => issue.id.includes("external-identifier"));
+  assert.deepEqual(externalIdentifierIssues, []);
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /identifier\(ATTRIBUTO1, RELAZIONE1\)/);
+  assert.match(serialized, /identifier\(ATTRIBUTO2, RELAZIONE1\)/);
+  assert.equal((serialized.match(/identifier\(ATTRIBUTO[12], RELAZIONE1\)/g) ?? []).length, 2);
+});
+
+test("synchronizeExternalIdentifiers non rimuove identificatori misti con stessa parte importata e locali diversi", () => {
+  const diagram: DiagramDocument = {
+    meta: { name: "External alternativi", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "ENTITA1",
+        type: "entity",
+        label: "ENTITA1",
+        x: 100,
+        y: 100,
+        width: 140,
+        height: 64,
+        relationshipParticipations: [{ id: "p-entita1-relazione1", relationshipId: "RELAZIONE1", cardinality: "(1,1)" }],
+        externalIdentifiers: [
+          {
+            id: "ext-1",
+            importedParts: [
+              {
+                id: "ext-part-1",
+                relationshipId: "RELAZIONE1",
+                sourceEntityId: "ENTITA2",
+                importedIdentifierId: "id-ENTITA2",
+              },
+            ],
+            localAttributeIds: ["ATTRIBUTO1"],
+          },
+          {
+            id: "ext-2",
+            importedParts: [
+              {
+                id: "ext-part-2",
+                relationshipId: "RELAZIONE1",
+                sourceEntityId: "ENTITA2",
+                importedIdentifierId: "id-ENTITA2",
+              },
+            ],
+            localAttributeIds: ["ATTRIBUTO2"],
+          },
+        ],
+      },
+      {
+        id: "ENTITA2",
+        type: "entity",
+        label: "ENTITA2",
+        x: 420,
+        y: 100,
+        width: 140,
+        height: 64,
+        internalIdentifiers: [{ id: "id-ENTITA2", attributeIds: ["ATTRIBUTO3"] }],
+        relationshipParticipations: [{ id: "p-entita2-relazione1", relationshipId: "RELAZIONE1", cardinality: "(1,N)" }],
+      },
+      { id: "RELAZIONE1", type: "relationship", label: "RELAZIONE1", x: 260, y: 100, width: 130, height: 78 },
+      { id: "ATTRIBUTO1", type: "attribute", label: "ATTRIBUTO1", x: 80, y: 20, width: 150, height: 28 },
+      { id: "ATTRIBUTO2", type: "attribute", label: "ATTRIBUTO2", x: 120, y: 210, width: 150, height: 28 },
+      { id: "ATTRIBUTO3", type: "attribute", label: "ATTRIBUTO3", x: 430, y: 20, width: 150, height: 28 },
+    ],
+    edges: [
+      { id: "attr-1", type: "attribute", sourceId: "ENTITA1", targetId: "ATTRIBUTO1", label: "", lineStyle: "solid" },
+      { id: "attr-2", type: "attribute", sourceId: "ENTITA1", targetId: "ATTRIBUTO2", label: "", lineStyle: "solid" },
+      { id: "attr-3", type: "attribute", sourceId: "ENTITA2", targetId: "ATTRIBUTO3", label: "", lineStyle: "solid" },
+      {
+        id: "connector-1",
+        type: "connector",
+        sourceId: "ENTITA1",
+        targetId: "RELAZIONE1",
+        label: "",
+        lineStyle: "solid",
+        participationId: "p-entita1-relazione1",
+      },
+      {
+        id: "connector-2",
+        type: "connector",
+        sourceId: "RELAZIONE1",
+        targetId: "ENTITA2",
+        label: "",
+        lineStyle: "solid",
+        participationId: "p-entita2-relazione1",
+      },
+    ],
+  };
+
+  const synchronized = synchronizeExternalIdentifiers(diagram);
+  const entity1 = synchronized.nodes.find((node) => node.id === "ENTITA1" && node.type === "entity");
+
+  assert.ok(entity1);
+  assert.equal(entity1?.externalIdentifiers?.length, 2);
+  assert.deepEqual(
+    entity1.externalIdentifiers?.map((identifier) => identifier.localAttributeIds[0]).sort(),
+    ["ATTRIBUTO1", "ATTRIBUTO2"],
+  );
+  entity1.externalIdentifiers?.forEach((identifier) => {
+    assert.equal(validateExternalIdentifier(synchronized, entity1, identifier).valid, true);
+  });
 });
 
 test("removeExternalIdentifierFromEntity rimuove solo l'identificatore esterno e preserva nodi, attributi e relazioni", () => {

@@ -108,6 +108,40 @@ test("mixed external identifier: frame layout exposes a terminal marker on the e
   assert.ok(layout.terminalMarker);
 });
 
+test("mixed external identifier: frame layout separa corsie multiple sulla stessa entita", () => {
+  const host = {
+    id: "ENTITA1",
+    type: "entity" as const,
+    label: "ENTITA1",
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 80,
+  };
+  const markers1 = [
+    { kind: "importedRelationship" as const, marker: point(316, 140) },
+    { kind: "localAttribute" as const, marker: point(200, 84) },
+  ];
+  const markers2 = [
+    { kind: "importedRelationship" as const, marker: point(316, 140) },
+    { kind: "localAttribute" as const, marker: point(200, 196) },
+  ];
+
+  const layout1 = buildExternalIdentifierGroupingFrameLayout(host, markers1, 0);
+  const layout2 = buildExternalIdentifierGroupingFrameLayout(host, markers2, 1);
+  const route1 = buildExternalIdentifierGroupingRoutePoints(host, markers1, 0);
+  const route2 = buildExternalIdentifierGroupingRoutePoints(host, markers2, 1);
+
+  assert.ok(layout1.pathData.length > 0);
+  assert.ok(layout2.pathData.length > 0);
+  assert.ok(layout1.terminalMarker);
+  assert.ok(layout2.terminalMarker);
+  assert.notEqual(layout1.pathData, layout2.pathData);
+  assert.equal(route1.some((routePoint) => routePoint.x === 316 || routePoint.y === 84), true);
+  assert.equal(route2.some((routePoint) => routePoint.x === 332 || routePoint.y === 212), true);
+  assert.equal(route2.some((routePoint) => routePoint.x > 316 || routePoint.y > 196), true);
+});
+
 test("mixed external identifier: local marker stays anchored near the host when attribute moves farther", () => {
   const host = {
     id: "CARTA_CREDITO",

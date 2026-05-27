@@ -1689,8 +1689,9 @@ function normalizeExternalIdentifierSet(
     normalizedLocalAttributeIds.forEach((attributeId) => usedLocalAttributeIds.add(attributeId));
     const importedSignature = normalizedImportedParts
       .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join(":"))
+      .sort()
       .join(",");
-    const signature = [importedSignature, normalizedLocalAttributeIds.join(",")].join("|");
+    const signature = [importedSignature, [...normalizedLocalAttributeIds].sort().join(",")].join("|");
     if (usedIdentifierSignatures.has(signature)) {
       return;
     }
@@ -3737,11 +3738,6 @@ export function parseDiagram(rawJson: string): DiagramDocument {
 }
 
 export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
-  const originalExternalIdentifierCounts = new Map(
-    diagram.nodes
-      .filter((node): node is EntityNode => node.type === "entity")
-      .map((entity) => [entity.id, (entity.externalIdentifiers ?? []).length]),
-  );
   diagram = synchronizeExternalIdentifiers(
     synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(diagram)),
   );
@@ -4115,16 +4111,6 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       });
 
       const externalIdentifiers = node.externalIdentifiers ?? [];
-      if ((originalExternalIdentifierCounts.get(node.id) ?? externalIdentifiers.length) > 1) {
-        issues.push({
-          id: `external-identifier-too-many-${node.id}`,
-          level: "error",
-          message: `L'entita "${node.label}" contiene piu identificatori esterni o misti; mantienine uno solo.`,
-          targetId: node.id,
-          targetType: "node",
-        });
-      }
-
       const attributeOwnerByExternalIdentifier = new Map<string, string>();
       externalIdentifiers.forEach((identifier, index) => {
         const identifierLabel = identifier.id || `external-identifier-${index + 1}`;

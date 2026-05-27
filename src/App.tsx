@@ -4127,22 +4127,16 @@ export default function App() {
       ],
       localAttributeIds,
     };
+    const buildIdentifierSignature = (identifier: ExternalIdentifier) =>
+      [
+        identifier.importedParts
+          .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join(":"))
+          .sort()
+          .join("|"),
+        [...identifier.localAttributeIds].sort().join("|"),
+      ].join("||");
     const duplicateExists = (targetEntity.externalIdentifiers ?? []).some(
-      (identifier) =>
-        identifier.importedParts.length === nextExternalIdentifier.importedParts.length &&
-        identifier.importedParts.every((part, index) => {
-          const nextPart = nextExternalIdentifier.importedParts[index];
-          return (
-            nextPart !== undefined &&
-            part.relationshipId === nextPart.relationshipId &&
-            part.sourceEntityId === nextPart.sourceEntityId &&
-            part.importedIdentifierId === nextPart.importedIdentifierId
-          );
-        }) &&
-        identifier.localAttributeIds.length === nextExternalIdentifier.localAttributeIds.length &&
-        identifier.localAttributeIds.every(
-          (attributeId, index) => nextExternalIdentifier.localAttributeIds[index] === attributeId,
-        ),
+      (identifier) => buildIdentifierSignature(identifier) === buildIdentifierSignature(nextExternalIdentifier),
     );
     if (duplicateExists) {
       return {

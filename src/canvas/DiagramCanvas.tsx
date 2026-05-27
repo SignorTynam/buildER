@@ -45,6 +45,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EditorMode,
+  ExternalIdentifier,
   Point,
   SelectionState,
   ToolKind,
@@ -266,6 +267,7 @@ const EXTERNAL_IDENTIFIER_CARDINALITY_AVOIDANCE = 12;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_OFFSET = 28;
 const EXTERNAL_IDENTIFIER_LOCAL_MARKER_CURVE = 18;
 const EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET = 16;
+const EXTERNAL_IDENTIFIER_FRAME_LANE_GAP = 16;
 const EXTERNAL_IDENTIFIER_ROUTE_TERMINAL_EXTENSION = 16;
 const EXTERNAL_IDENTIFIER_TERMINAL_MARKER_RADIUS = 6.5;
 
@@ -1326,21 +1328,31 @@ function pointFromEndpointAlongPolyline(
   };
 }
 
-function getExternalIdentifierFrameNode(entity: Extract<DiagramNode, { type: "entity" }>): Extract<DiagramNode, { type: "entity" }> {
+function getExternalIdentifierFramePadding(laneIndex = 0): number {
+  return EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET + Math.max(0, laneIndex) * EXTERNAL_IDENTIFIER_FRAME_LANE_GAP;
+}
+
+function getExternalIdentifierFrameNode(
+  entity: Extract<DiagramNode, { type: "entity" }>,
+  laneIndex = 0,
+): Extract<DiagramNode, { type: "entity" }> {
+  const padding = getExternalIdentifierFramePadding(laneIndex);
+
   return {
     ...entity,
-    x: entity.x - EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET,
-    y: entity.y - EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET,
-    width: entity.width + EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET * 2,
-    height: entity.height + EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET * 2,
+    x: entity.x - padding,
+    y: entity.y - padding,
+    width: entity.width + padding * 2,
+    height: entity.height + padding * 2,
   };
 }
 
 function getExternalIdentifierFramePoint(
   entity: Extract<DiagramNode, { type: "entity" }>,
   toward: Point,
+  laneIndex = 0,
 ): Point {
-  return clipPointToNodePerimeter(getExternalIdentifierFrameNode(entity), toward);
+  return clipPointToNodePerimeter(getExternalIdentifierFrameNode(entity, laneIndex), toward);
 }
 
 function renderExternalIdentifierFrame(layout: ExternalIdentifierFrameLayout) {
@@ -1545,9 +1557,12 @@ function buildExternalIdentifierMarkerConnectorPath(projection: ExternalIdentifi
   ].join(" ");
 }
 
-function getExternalIdentifierGroupingFrame(hostEntity: Extract<DiagramNode, { type: "entity" }>): RouteFrame {
+function getExternalIdentifierGroupingFrame(
+  hostEntity: Extract<DiagramNode, { type: "entity" }>,
+  laneIndex = 0,
+): RouteFrame {
   const hostBounds = getNodeBounds(hostEntity);
-  const padding = EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET;
+  const padding = getExternalIdentifierFramePadding(laneIndex);
 
   return {
     left: hostBounds.x - padding,
@@ -1642,8 +1657,9 @@ function buildExternalIdentifierGroupingRoutePointsFromProjections(
 export function buildExternalIdentifierGroupingRoutePoints(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
   markers: ExternalIdentifierGroupingMarker[],
+  laneIndex = 0,
 ): Point[] {
-  const frame = getExternalIdentifierGroupingFrame(hostEntity);
+  const frame = getExternalIdentifierGroupingFrame(hostEntity, laneIndex);
   const projections = markers.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker));
 
   return buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
@@ -1686,12 +1702,13 @@ export function extendOpenRouteEndpoints(
 export function buildExternalIdentifierGroupingFrameLayout(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
   markers: ExternalIdentifierGroupingMarker[],
+  laneIndex = 0,
 ): { pathData: string; terminalMarker?: Point } {
   if (markers.length === 0) {
     return { pathData: "" };
   }
 
-  const frame = getExternalIdentifierGroupingFrame(hostEntity);
+  const frame = getExternalIdentifierGroupingFrame(hostEntity, laneIndex);
   const projections = markers.map((marker) => projectExternalIdentifierMarkerToFrame(frame, marker));
   const perimeterPoints = buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
   const extendedPerimeterPoints = extendOpenRouteEndpoints(perimeterPoints);
@@ -1712,8 +1729,19 @@ export function buildExternalIdentifierGroupingFrameLayout(
 export function buildExternalIdentifierGroupingPath(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
   markers: ExternalIdentifierGroupingMarker[],
+  laneIndex = 0,
 ): string {
-  return buildExternalIdentifierGroupingFrameLayout(hostEntity, markers).pathData;
+  return buildExternalIdentifierGroupingFrameLayout(hostEntity, markers, laneIndex).pathData;
+}
+
+function buildExternalIdentifierSortKey(identifier: ExternalIdentifier): string {
+  const importedPartKey = identifier.importedParts
+    .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join(":"))
+    .sort()
+    .join("|");
+  const localAttributeKey = [...identifier.localAttributeIds].sort().join("|");
+
+  return [importedPartKey, localAttributeKey, identifier.id].join("||");
 }
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
@@ -1923,7 +1951,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const importedRelationshipIds = getExternalIdentifierImportedRelationshipIds(node);
     const localAttributeIds = getExternalIdentifierLocalAttributeIds(node);
 
-    (node.externalIdentifiers ?? []).forEach((identifier) => {
+    const sortedExternalIdentifiers = [...(node.externalIdentifiers ?? [])].sort((left, right) =>
+      buildExternalIdentifierSortKey(left).localeCompare(buildExternalIdentifierSortKey(right), "it", {
+        sensitivity: "base",
+      }),
+    );
+
+    sortedExternalIdentifiers.forEach((identifier, laneIndex) => {
       const identifierMarkerLayouts: ExternalIdentifierMarkerLayout[] = [];
       // externalIdentifiers is a model-level key definition: render importedParts as dots where
       // relationship connectors hit the outer frame, and localAttributeIds as dots where local
@@ -1964,7 +1998,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         const entityIsSource = connectorEdge.sourceId === node.id;
         const entityEndpoint = entityIsSource ? geometry.points[0] : geometry.points[geometry.points.length - 1];
         const adjacentPoint = entityIsSource ? geometry.points[1] : geometry.points[geometry.points.length - 2];
-        const marker = getExternalIdentifierFramePoint(node, adjacentPoint);
+        const marker = getExternalIdentifierFramePoint(node, adjacentPoint, laneIndex);
         const tooltip =
           sourceEntity?.type === "entity" && sourceAttributeLabel.length > 0
             ? `Importa ${sourceAttributeLabel} da ${sourceEntity.label}`
@@ -2013,7 +2047,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         const entityIsSource = attributeEdge.sourceId === node.id;
         const entityEndpoint = entityIsSource ? geometry.points[0] : geometry.points[geometry.points.length - 1];
         const adjacentPoint = entityIsSource ? geometry.points[1] : geometry.points[geometry.points.length - 2];
-        const marker = getExternalIdentifierFramePoint(node, adjacentPoint);
+        const marker = getExternalIdentifierFramePoint(node, adjacentPoint, laneIndex);
 
         identifierMarkerLayouts.push({
           key: `${identifier.id}-attribute-${attributeId}`,
@@ -2025,7 +2059,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         });
       });
 
-      const frameLayout = buildExternalIdentifierGroupingFrameLayout(node, identifierMarkerLayouts);
+      const frameLayout = buildExternalIdentifierGroupingFrameLayout(node, identifierMarkerLayouts, laneIndex);
       if (frameLayout.pathData.length > 0) {
         externalIdentifierFrameLayouts.push({
           key: `${node.id}-${identifier.id}`,
