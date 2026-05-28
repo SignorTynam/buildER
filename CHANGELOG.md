@@ -15,6 +15,26 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.5] - 2026-05-28
+
+### Added
+- Sintassi ERS canonica `identifier(...)` per identificatori interni semplici, composti, alternativi ed esterni/misti.
+- Compatibilita in lettura con la sintassi ERS legacy `(id)`, `(external)` ed `external` sulle relazioni.
+- Modal paginato per scegliere manualmente la PK quando `FIX ENTITIES` trova entita con piu candidate key.
+- Preview logica della scelta PK con tabelle, badge PK/FK/NN/U, FK risultanti e alternative UNIQUE NOT NULL.
+- Collision avoidance per le label delle cardinalita nel canvas ER.
+- Test di regressione per sintassi ERS, identificatori esterni, label edge, candidate key logiche e preview PK.
+
+### Changed
+- Versione applicativa aggiornata alla release 4.5 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.5 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.5 con riepilogo delle modifiche dalla 4.4.
+- Identificatori esterni/misti serializzati in ERS come `identifier(attrLocale, RELAZIONE)`, con inferenza automatica delle parti importate.
+- Validazione degli identificatori esterni aggiornata per permettere piu identificatori misti alternativi sulla stessa entita anche quando riusano la stessa relazione importata con attributi locali diversi.
+- Layout degli identificatori esterni/misti migliorato con corsie progressive per frame, marker e percorsi.
+- Attributi composti ridisegnati nel canvas ER come capsule/ovali con testo centrato e sotto-attributi esterni.
+- Vista Logica aggiornata per sottolineare solo il nome delle colonne PK, senza coinvolgere badge, tipo SQL o intera riga.
+
 ## [4.4] - 2026-05-26
 
 ### Added

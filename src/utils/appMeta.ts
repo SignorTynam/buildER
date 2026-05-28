@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.4";
+export const APP_VERSION = "4.5";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,25 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.5",
+    date: "2026-05-28",
+    updates: [
+      "Versione applicativa aggiornata alla release 4.5.",
+      "Sintassi ERS aggiornata: gli identificatori vengono serializzati nel formato canonico identifier(...), con compatibilita in lettura per la vecchia sintassi (id), (external) ed external sulle relazioni.",
+      "Supportati identificatori interni semplici, composti e alternativi nella nuova sintassi ERS, evitando duplicazioni degli attributi usati solo come chiave.",
+      "Identificatori esterni/misti espressi in ERS come identifier(attrLocale, RELAZIONE), con inferenza automatica delle parti importate dalla relazione identificante.",
+      "Validazione degli identificatori esterni aggiornata per permettere piu identificatori misti alternativi sulla stessa entita anche quando riusano la stessa relazione importata con attributi locali diversi.",
+      "Layout degli identificatori esterni/misti migliorato con corsie progressive per frame, marker e percorsi, riducendo sovrapposizioni quando piu identificatori convivono sulla stessa entita.",
+      "Posizionamento delle cardinalita nel canvas ER reso collision-aware: le label evitano attributi, nodi, marker e altre cardinalita mantenendo il layout semplice invariato quando non ci sono collisioni.",
+      "Attributi composti ridisegnati nel canvas ER: il composto principale appare come capsula/ovale con testo centrato, mentre i sotto-attributi restano label esterne con cerchio terminale collegato.",
+      "Vista Logica aggiornata: i nomi delle colonne PK sono sottolineati senza sottolineare badge, tipo SQL o intera riga.",
+      "FIX ENTITIES non sceglie piu automaticamente tra piu chiavi candidate: apre un modal paginato per selezionare la PK per ogni entita ambigua.",
+      "Modal di scelta PK migliorato con navigazione Precedente/Prossima, layout a due colonne, opzioni compatte e preview logica coerente con la Vista Logica.",
+      "Preview della scelta PK aggiornata per mostrare tabelle logiche, badge PK/FK/NN/U, FK risultanti e chiavi alternative tradotte come UNIQUE NOT NULL.",
+      "Copertura test estesa su ERS, identificatori esterni, layout delle label edge, scelta manuale delle candidate key e preview logica.",
+    ],
+  },
   {
     version: "4.4",
     date: "2026-05-26",
