@@ -7691,11 +7691,12 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .entity-key-modal-description {
-  max-width: 58ch;
+  max-width: none;
   margin: 5px 0 0;
   color: var(--muted-text, rgba(39, 48, 43, 0.72));
   font-size: 0.82rem;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
 .entity-key-modal-progress {
