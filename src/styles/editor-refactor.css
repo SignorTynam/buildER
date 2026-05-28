@@ -5230,6 +5230,7 @@ textarea:disabled {
 .entity-key-preview-diagram {
   min-height: 0;
   overflow: hidden;
+  height: 100%;
   border: 1px solid rgba(35, 47, 42, 0.16);
   border-radius: 8px;
   background: rgba(237, 241, 235, 0.7);
@@ -5238,7 +5239,7 @@ textarea:disabled {
 .entity-key-preview-svg {
   width: 100%;
   height: 100%;
-  min-height: 280px;
+  min-height: 0;
   display: block;
 }
 
@@ -5470,12 +5471,17 @@ textarea:disabled {
 }
 
 .entity-key-preview-canvas {
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
 }
 
 .entity-key-preview {
-  grid-template-rows: auto auto minmax(250px, 1fr) auto auto;
-  align-content: start;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
 }
 
 .entity-key-preview-summary,

@@ -31,18 +31,6 @@ function getPreviewColumnQualifiers(column: EntityKeyPreviewColumn): string[] {
   return qualifiers;
 }
 
-function renderTextBadges(column: EntityKeyPreviewColumn) {
-  return (
-    <span className="entity-key-preview-table-badges">
-      {getPreviewColumnQualifiers(column).map((qualifier) => (
-        <span key={qualifier} className={`logical-column-qualifier-badge-${qualifier.toLowerCase()}`}>
-          {qualifier}
-        </span>
-      ))}
-    </span>
-  );
-}
-
 function renderSvgBadges(column: EntityKeyPreviewColumn, x: number, y: number) {
   return (
     <g className="logical-column-label" pointerEvents="none">
@@ -136,37 +124,16 @@ export function EntityKeyChoicePreview(props: EntityKeyChoicePreviewProps) {
   );
   const hostTable = preview.tables.find((table) => table.role === "host");
   const referencedTables = preview.tables.filter((table) => table.role === "referenced");
-  const hostX = referencedTables.length > 0 ? 42 : 184;
-  const hostY = referencedTables.length > 0 ? 84 : 74;
-  const sourceX = 378;
+  const hasReferences = referencedTables.length > 0;
+  const hostWidth = hasReferences ? 240 : 300;
+  const sourceWidth = 200;
+  const hostX = hasReferences ? 24 : 170;
+  const hostY = hasReferences ? 84 : 74;
+  const sourceX = 420;
+  const edgeMidX = (hostX + hostWidth + sourceX) / 2;
 
   return (
     <div className="entity-key-preview" aria-label={`Preview della chiave primaria per ${preview.hostEntityLabel}`}>
-      <div className="entity-key-preview-summary">
-        <div className="entity-key-preview-status">
-          <strong>{props.confirmed ? "Scelta confermata" : "Anteprima non confermata"}</strong>
-          <span>
-            {props.confirmed
-              ? "Questa configurazione verra usata quando applichi Fix Entities."
-              : "Seleziona questa alternativa a sinistra per usarla come PK."}
-          </span>
-        </div>
-        <div className="entity-key-preview-current-choice">
-          <span>Scelta corrente</span>
-          <strong>{preview.title}</strong>
-          <small>{preview.kindLabel}</small>
-        </div>
-      </div>
-
-      <div className="entity-key-preview-effect">
-        <strong>Effetto sulla tabella {preview.hostEntityLabel}</strong>
-        <ul>
-          {preview.effectLines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      </div>
-
       <div className="entity-key-preview-diagram entity-key-preview-logical-stage">
         <svg className="entity-key-preview-svg" viewBox="0 0 640 360" role="img" aria-label={preview.summary}>
           <defs>
@@ -180,7 +147,7 @@ export function EntityKeyChoicePreview(props: EntityKeyChoicePreviewProps) {
             id: hostTable.id,
             x: hostX,
             y: hostY,
-            width: 276,
+            width: hostWidth,
             title: hostTable.name,
             columns: hostTable.columns,
             role: "host",
@@ -193,20 +160,25 @@ export function EntityKeyChoicePreview(props: EntityKeyChoicePreviewProps) {
               <g key={table.id}>
                 <path
                   className="logical-edge entity-key-preview-logical-edge"
-                  d={`M${hostX + 276},${hostY + 62 + index * 24} H350 V${sourceY + 62} H${sourceX}`}
+                  d={`M${hostX + hostWidth},${hostY + 62 + index * 24} H${edgeMidX} V${sourceY + 62} H${sourceX}`}
                 />
-                <text className="logical-edge-label entity-key-preview-logical-edge-label" x="354" y={sourceY + 52}>
-                  {foreignKey?.relationshipName ?? "FK"}
-                </text>
                 {renderLogicalTableSvg({
                   id: table.id,
                   x: sourceX,
                   y: sourceY,
-                  width: 220,
+                  width: sourceWidth,
                   title: table.name,
                   columns: table.columns,
                   role: "referenced",
                 })}
+                <text
+                  className="logical-edge-label entity-key-preview-logical-edge-label"
+                  x={edgeMidX}
+                  y={sourceY + 52}
+                  textAnchor="middle"
+                >
+                  {foreignKey?.relationshipName ?? "FK"}
+                </text>
               </g>
             );
           })}
@@ -217,42 +189,6 @@ export function EntityKeyChoicePreview(props: EntityKeyChoicePreviewProps) {
             </text>
           ) : null}
         </svg>
-      </div>
-
-      {preview.alternativeKeys.length > 0 ? (
-        <div className="entity-key-preview-alternatives">
-          <strong>Chiavi candidate non scelte</strong>
-          <ul>
-            {preview.alternativeKeys.map((key) => (
-              <li key={key.label}>{key.label}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="entity-key-preview-table">
-        <div className="entity-key-preview-table-head">
-          <span>Colonne risultanti</span>
-          <strong>{preview.logicalTable.name}</strong>
-        </div>
-        {preview.logicalTable.columns.length > 0 ? (
-          <div className="entity-key-preview-table-rows">
-            {preview.logicalTable.columns.map((column) => (
-              <div
-                key={column.id}
-                className={[
-                  "entity-key-preview-table-row",
-                  column.isPrimaryKey ? "entity-key-preview-table-row-primary" : "",
-                ].filter(Boolean).join(" ")}
-              >
-                {renderTextBadges(column)}
-                <span>{column.name}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="entity-key-preview-empty-text">{preview.summary}</p>
-        )}
       </div>
     </div>
   );
