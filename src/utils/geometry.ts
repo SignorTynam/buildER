@@ -37,8 +37,8 @@ const ISA_BUS_MIN_HALF = 28;
 const ISA_GROUP_SIBLING_OFFSET_X = 70;
 const ISA_GROUP_SIBLING_OFFSET_Y = 26;
 
-function usesCompositeAttributeShape(node: DiagramNode): boolean {
-  return node.type === "attribute" && node.isMultivalued === true;
+function usesCompositeAttributeShape(node: DiagramNode, compositeAttributeIds?: ReadonlySet<string>): boolean {
+  return node.type === "attribute" && (node.isMultivalued === true || compositeAttributeIds?.has(node.id) === true);
 }
 
 function getSimpleAttributeIndicatorCenter(node: Extract<DiagramNode, { type: "attribute" }>): Point {
@@ -85,8 +85,8 @@ export function clientPointFromWorld(
   };
 }
 
-export function getNodeLogicalAnchor(node: DiagramNode): Point {
-  if (node.type === "attribute" && !usesCompositeAttributeShape(node)) {
+export function getNodeLogicalAnchor(node: DiagramNode, compositeAttributeIds?: ReadonlySet<string>): Point {
+  if (node.type === "attribute" && !usesCompositeAttributeShape(node, compositeAttributeIds)) {
     // Simple attributes are marker-based; use the indicator center as their logical center.
     return getSimpleAttributeIndicatorCenter(node);
   }
@@ -257,8 +257,8 @@ export function getNodeConnectionSide(node: DiagramNode, toward: Point): Connect
   return getDominantConnectionSide(getNodeLogicalAnchor(node), toward);
 }
 
-function intersectRectBounds(node: DiagramNode, toward: Point): Point {
-  const logicalAnchor = getNodeLogicalAnchor(node);
+function intersectRectBounds(node: DiagramNode, toward: Point, compositeAttributeIds?: ReadonlySet<string>): Point {
+  const logicalAnchor = getNodeLogicalAnchor(node, compositeAttributeIds);
   const deltaX = toward.x - logicalAnchor.x;
   const deltaY = toward.y - logicalAnchor.y;
   const halfWidth = node.width / 2;
@@ -279,8 +279,8 @@ function intersectRectBounds(node: DiagramNode, toward: Point): Point {
   };
 }
 
-function intersectEllipseBounds(node: DiagramNode, toward: Point): Point {
-  const logicalAnchor = getNodeLogicalAnchor(node);
+function intersectEllipseBounds(node: DiagramNode, toward: Point, compositeAttributeIds?: ReadonlySet<string>): Point {
+  const logicalAnchor = getNodeLogicalAnchor(node, compositeAttributeIds);
   const radiusX = node.width / 2;
   const radiusY = node.height / 2;
   const deltaX = toward.x - logicalAnchor.x;
@@ -318,8 +318,8 @@ function intersectSimpleAttributeIndicator(node: Extract<DiagramNode, { type: "a
   };
 }
 
-function intersectDiamondBounds(node: DiagramNode, toward: Point): Point {
-  const logicalAnchor = getNodeLogicalAnchor(node);
+function intersectDiamondBounds(node: DiagramNode, toward: Point, compositeAttributeIds?: ReadonlySet<string>): Point {
+  const logicalAnchor = getNodeLogicalAnchor(node, compositeAttributeIds);
   const halfWidth = node.width / 2;
   const halfHeight = node.height / 2;
   const deltaX = toward.x - logicalAnchor.x;
@@ -340,32 +340,40 @@ function intersectDiamondBounds(node: DiagramNode, toward: Point): Point {
 }
 
 // Routing decisions use the logical center; the shape perimeter is only used here for final clipping.
-export function clipPointToNodePerimeter(node: DiagramNode, toward: Point): Point {
+export function clipPointToNodePerimeter(
+  node: DiagramNode,
+  toward: Point,
+  compositeAttributeIds?: ReadonlySet<string>,
+): Point {
   if (node.type === "relationship") {
-    return intersectDiamondBounds(node, toward);
+    return intersectDiamondBounds(node, toward, compositeAttributeIds);
   }
 
   if (node.type === "attribute") {
-    if (usesCompositeAttributeShape(node)) {
-      return intersectEllipseBounds(node, toward);
+    if (usesCompositeAttributeShape(node, compositeAttributeIds)) {
+      return intersectEllipseBounds(node, toward, compositeAttributeIds);
     }
 
     return intersectSimpleAttributeIndicator(node, toward);
   }
 
-  return intersectRectBounds(node, toward);
+  return intersectRectBounds(node, toward, compositeAttributeIds);
 }
 
 export function getConnectionPoint(node: DiagramNode, toward: Point): Point {
   return clipPointToNodePerimeter(node, toward);
 }
 
-function buildEdgeEndpointGeometry(node: DiagramNode, toward: Point): EdgeEndpointGeometry {
-  const logicalAnchor = getNodeLogicalAnchor(node);
+function buildEdgeEndpointGeometry(
+  node: DiagramNode,
+  toward: Point,
+  compositeAttributeIds?: ReadonlySet<string>,
+): EdgeEndpointGeometry {
+  const logicalAnchor = getNodeLogicalAnchor(node, compositeAttributeIds);
 
   return {
     logicalAnchor,
-    visualAttachmentPoint: clipPointToNodePerimeter(node, toward),
+    visualAttachmentPoint: clipPointToNodePerimeter(node, toward, compositeAttributeIds),
     side: getDominantConnectionSide(logicalAnchor, toward),
   };
 }
@@ -689,14 +697,15 @@ function attachPolylineToNodeBounds(
   logicalPoints: Point[],
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
+  compositeAttributeIds?: ReadonlySet<string>,
 ): Point[] {
   if (logicalPoints.length < 2) {
     return logicalPoints;
   }
 
   const points = [...logicalPoints];
-  const sourceEndpoint = buildEdgeEndpointGeometry(sourceNode, points[1]);
-  const targetEndpoint = buildEdgeEndpointGeometry(targetNode, points[points.length - 2]);
+  const sourceEndpoint = buildEdgeEndpointGeometry(sourceNode, points[1], compositeAttributeIds);
+  const targetEndpoint = buildEdgeEndpointGeometry(targetNode, points[points.length - 2], compositeAttributeIds);
 
   points[0] = sourceEndpoint.visualAttachmentPoint;
   points[points.length - 1] = targetEndpoint.visualAttachmentPoint;
@@ -709,11 +718,12 @@ function buildNonAttributeLogicalPoints(
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
   laneInfo?: EdgeLaneInfo,
+  compositeAttributeIds?: ReadonlySet<string>,
 ): Point[] {
   const laneCount = laneInfo?.laneCount ?? 1;
   const connectorLaneOffset = getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
-  const sourceAnchor = getNodeLogicalAnchor(sourceNode);
-  const targetAnchor = getNodeLogicalAnchor(targetNode);
+  const sourceAnchor = getNodeLogicalAnchor(sourceNode, compositeAttributeIds);
+  const targetAnchor = getNodeLogicalAnchor(targetNode, compositeAttributeIds);
 
   const shouldUseStraightRoute =
     edge.type === "inheritance" ||
@@ -734,18 +744,29 @@ export function getEdgeGeometry(
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
   laneInfo?: EdgeLaneInfo,
+  compositeAttributeIds?: ReadonlySet<string>,
 ): EdgeGeometry {
   let points: Point[];
 
   if (edge.type === "attribute") {
-    const sourceIsAttribute = sourceNode.type === "attribute";
-    const attributeNode = sourceIsAttribute ? sourceNode : targetNode;
-    const hostNode = sourceIsAttribute ? targetNode : sourceNode;
+    let attributeNode: DiagramNode;
+    let hostNode: DiagramNode;
+
+    if (sourceNode.type === "attribute" && targetNode.type === "attribute") {
+      const sourceIsComposite = compositeAttributeIds?.has(sourceNode.id) === true || sourceNode.isMultivalued === true;
+      const targetIsComposite = compositeAttributeIds?.has(targetNode.id) === true || targetNode.isMultivalued === true;
+      hostNode = sourceIsComposite && !targetIsComposite ? sourceNode : targetNode;
+      attributeNode = hostNode.id === sourceNode.id ? targetNode : sourceNode;
+    } else {
+      const sourceIsAttribute = sourceNode.type === "attribute";
+      attributeNode = sourceIsAttribute ? sourceNode : targetNode;
+      hostNode = sourceIsAttribute ? targetNode : sourceNode;
+    }
 
     points = attachPolylineToNodeBounds([
-      getNodeLogicalAnchor(attributeNode),
-      getNodeLogicalAnchor(hostNode),
-    ], attributeNode, hostNode);
+      getNodeLogicalAnchor(attributeNode, compositeAttributeIds),
+      getNodeLogicalAnchor(hostNode, compositeAttributeIds),
+    ], attributeNode, hostNode, compositeAttributeIds);
   } else if (
     edge.type === "connector" &&
     ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(edge.manualOffset ?? 0) > 0.001)
@@ -757,8 +778,8 @@ export function getEdgeGeometry(
       (laneInfo?.laneCount ?? 1) > 1 ? 0 : edge.manualOffset ?? 0,
     );
   } else {
-    const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
-    points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
+    const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo, compositeAttributeIds);
+    points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode, compositeAttributeIds);
   }
 
   return {
@@ -772,6 +793,7 @@ export function getRenderedEdgeGeometry(
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
   laneInfo?: EdgeLaneInfo,
+  compositeAttributeIds?: ReadonlySet<string>,
 ): EdgeGeometry {
   if (edge.type === "connector") {
     if ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(edge.manualOffset ?? 0) > 0.001) {
@@ -788,8 +810,8 @@ export function getRenderedEdgeGeometry(
       };
     }
 
-    const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
-    const points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
+    const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo, compositeAttributeIds);
+    const points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode, compositeAttributeIds);
 
     return {
       points,
@@ -798,10 +820,10 @@ export function getRenderedEdgeGeometry(
   }
 
   if (edge.type === "attribute") {
-    return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
+    return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo, compositeAttributeIds);
   }
 
-  return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
+  return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo, compositeAttributeIds);
 }
 
 export function pathFromPoints(points: Point[]): string {

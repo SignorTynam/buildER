@@ -3980,6 +3980,15 @@ textarea:disabled {
   letter-spacing: 0;
 }
 
+.composite-attribute-capsule {
+  vector-effect: non-scaling-stroke;
+}
+
+.composite-attribute-label {
+  font-weight: 600;
+  pointer-events: none;
+}
+
 .canvas-viewport-hud {
   right: 16px;
   bottom: 16px;

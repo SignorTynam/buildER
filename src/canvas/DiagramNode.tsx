@@ -122,6 +122,7 @@ interface DiagramNodeProps {
   validationCount?: number;
   translationHighlight?: DiagramHighlightKind;
   attributeDirection?: Point;
+  isCompositeAttribute?: boolean;
   onFocus: (node: DiagramNode) => void;
   onBlur: (event: FocusEvent<SVGGElement>) => void;
   onPointerDown: (event: PointerEvent<SVGGElement>, node: DiagramNode) => void;
@@ -297,6 +298,9 @@ export function DiagramNodeView(props: DiagramNodeProps) {
     const cy = node.y + node.height / 2;
     const isIdentifier = node.isIdentifier === true;
     const isMultivalued = node.isMultivalued === true;
+    const isCompositeAttribute = props.isCompositeAttribute === true;
+    const compositeLabelMaxWidth = Math.max(20, node.width - 28);
+    const shouldCompressCompositeLabel = node.label.length * 7.5 > compositeLabelMaxWidth;
 
     return (
       <g
@@ -322,7 +326,37 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeWidth={7}
           />
         ) : null}
-        {isMultivalued ? (
+        {isCompositeAttribute ? (
+          <>
+            <rect
+              x={node.x}
+              y={node.y}
+              width={node.width}
+              height={node.height}
+              rx={Math.max(12, node.height / 2)}
+              ry={Math.max(12, node.height / 2)}
+              fill={baseFill}
+              stroke={selectedStrokeColor}
+              strokeWidth={isShapeHighlighted ? 2.8 : shapeStrokeWidth + 0.2}
+              strokeDasharray={baseDash}
+              opacity={baseOpacity}
+              className="composite-attribute-capsule"
+            />
+            <text
+              x={node.x + node.width / 2}
+              y={cy}
+              className="shape-label composite-attribute-label"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={selectedStrokeColor}
+              opacity={labelOpacity}
+              textLength={shouldCompressCompositeLabel ? compositeLabelMaxWidth : undefined}
+              lengthAdjust={shouldCompressCompositeLabel ? "spacingAndGlyphs" : undefined}
+            >
+              {node.label}
+            </text>
+          </>
+        ) : isMultivalued ? (
           <>
             <ellipse
               cx={node.x + node.width / 2}

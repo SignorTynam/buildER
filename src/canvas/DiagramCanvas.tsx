@@ -1772,6 +1772,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
   const attributeDirectionMap = new Map<string, Point>();
+  const compositeAttributeIds = new Set<string>();
   const compositeGroups = new Map<string, { host: Extract<DiagramNode, { type: "entity" }>; members: CompositeIdentifierMember[] }>();
   const compositeGroupKeyByAttributeId = new Map<string, string>();
   const compositeGroupMemberIdsByGroupKey = new Map<string, string[]>();
@@ -1834,6 +1835,26 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   });
 
   props.diagram.edges.forEach((edge) => {
+    if (edge.type !== "attribute") {
+      return;
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    if (sourceNode?.type !== "attribute" || targetNode?.type !== "attribute") {
+      return;
+    }
+
+    const hostNode =
+      sourceNode.isMultivalued === true && targetNode.isMultivalued !== true
+        ? sourceNode
+        : targetNode.isMultivalued === true && sourceNode.isMultivalued !== true
+          ? targetNode
+          : targetNode;
+    compositeAttributeIds.add(hostNode.id);
+  });
+
+  props.diagram.edges.forEach((edge) => {
     if (edge.type !== "connector") {
       return;
     }
@@ -1858,7 +1879,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    const geometry = getEdgeGeometry(edge, sourceNode, targetNode, connectorLaneMap.get(edge.id));
+    const geometry = getEdgeGeometry(edge, sourceNode, targetNode, connectorLaneMap.get(edge.id), compositeAttributeIds);
     edgeGeometryMap.set(edge.id, geometry.points);
   });
 
@@ -1873,7 +1894,16 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    const attributeNode = sourceNode.type === "attribute" ? sourceNode : targetNode.type === "attribute" ? targetNode : null;
+    const attributeNode =
+      sourceNode.type === "attribute" && targetNode.type === "attribute"
+        ? compositeAttributeIds.has(sourceNode.id) && !compositeAttributeIds.has(targetNode.id)
+          ? targetNode
+          : sourceNode
+        : sourceNode.type === "attribute"
+          ? sourceNode
+          : targetNode.type === "attribute"
+            ? targetNode
+            : null;
     if (!attributeNode || attributeDirectionMap.has(attributeNode.id)) {
       return;
     }
@@ -2000,6 +2030,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           nodeMap.get(connectorEdge.sourceId) as DiagramNode,
           nodeMap.get(connectorEdge.targetId) as DiagramNode,
           connectorLaneMap.get(connectorEdge.id),
+          compositeAttributeIds,
         );
         if (geometry.points.length < 2) {
           return;
@@ -2049,6 +2080,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           nodeMap.get(attributeEdge.sourceId) as DiagramNode,
           nodeMap.get(attributeEdge.targetId) as DiagramNode,
           undefined,
+          compositeAttributeIds,
         );
         if (geometry.points.length < 2) {
           return;
@@ -2152,7 +2184,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       const entityIsSource = edge.type === "connector" && sourceNode.type === "entity";
       const usesSplitConnectorLabels =
         edge.type === "connector" && ((connectorLaneMap.get(edge.id)?.laneCount ?? 1) > 1 || roleLabel.length > 0);
-      const geometryLabelPoint = getEdgeGeometry(edge, sourceNode, targetNode, connectorLaneMap.get(edge.id)).labelPoint;
+      const geometryLabelPoint = getEdgeGeometry(edge, sourceNode, targetNode, connectorLaneMap.get(edge.id), compositeAttributeIds).labelPoint;
       const defaultDisplayLabelPoint = usesSplitConnectorLabels
         ? getPointAlongPolyline(points, entityIsSource ? 0.38 : 0.62)
         : {
@@ -3331,7 +3363,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     const laneInfo = connectorLaneMap.get(edge.id);
-    const geometry = getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
+    const geometry = getEdgeGeometry(edge, sourceNode, targetNode, laneInfo, compositeAttributeIds);
     const screenPoint = clientPointFromWorld(geometry.labelPoint, props.viewport, rect);
 
     return {
@@ -3617,6 +3649,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 sourceNode={sourceNode}
                 targetNode={targetNode}
                 laneInfo={connectorLaneMap.get(edge.id)}
+                compositeAttributeIds={compositeAttributeIds}
                 selected={false}
                 dragging={false}
                 ghost
@@ -3649,6 +3682,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     onFocus={() => undefined}
                     onBlur={() => undefined}
                     attributeDirection={originalAttributeDirectionMap.get(node.id)}
+                    isCompositeAttribute={node.type === "attribute" && compositeAttributeIds.has(node.id)}
                     onPointerDown={() => undefined}
                     onDoubleClick={() => undefined}
                   />
@@ -3799,6 +3833,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 sourceNode={sourceNode}
                 targetNode={targetNode}
                 laneInfo={connectorLaneMap.get(edge.id)}
+                compositeAttributeIds={compositeAttributeIds}
                 labelLayoutOverride={edgeLabelLayoutOverrides.get(edge.id)}
                 selected={props.selection.edgeIds.includes(edge.id)}
                 dragging={interaction.kind === "edge-drag" && interaction.edgeId === edge.id}
@@ -3843,6 +3878,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 }
               }}
               attributeDirection={attributeDirectionMap.get(node.id)}
+              isCompositeAttribute={node.type === "attribute" && compositeAttributeIds.has(node.id)}
               onPointerDown={handleNodePointerDown}
               onDoubleClick={startInlineNodeEdit}
             />

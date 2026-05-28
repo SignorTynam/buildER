@@ -1060,6 +1060,15 @@ button:disabled {
   font-size: 14px;
 }
 
+.composite-attribute-capsule {
+  vector-effect: non-scaling-stroke;
+}
+
+.composite-attribute-label {
+  font-weight: 600;
+  pointer-events: none;
+}
+
 .edge-label {
   paint-order: stroke;
   stroke: #f0f0eb;

@@ -8,6 +8,7 @@ import {
   chooseCollisionFreeEdgeLabelPlacement,
   type ReservedLabelBox,
 } from "../src/utils/edgeLabelLayout.ts";
+import { getEdgeGeometry as getDiagramEdgeGeometry } from "../src/utils/geometry.ts";
 
 function entity(id: string, x: number, y: number): DiagramNode {
   return { id, type: "entity", label: id, x, y, width: 140, height: 64 };
@@ -19,6 +20,10 @@ function relationship(id: string, x: number, y: number): DiagramNode {
 
 function connector(id: string, sourceId: string, targetId: string): DiagramEdge {
   return { id, type: "connector", sourceId, targetId, label: "", lineStyle: "solid" };
+}
+
+function attribute(id: string, x: number, y: number, width = 120, height = 36): DiagramNode {
+  return { id, type: "attribute", label: id, x, y, width, height };
 }
 
 function reservedBox(id: string, x: number, y: number, width: number, height: number): ReservedLabelBox {
@@ -162,4 +167,52 @@ test("edge label layout mantiene il default quando non ci sono collisioni", () =
 
   assert.deepEqual(placement.point, defaultPoint);
   assert.equal(placement.y, defaultPoint.y);
+});
+
+test("geometria attributo composto collega i sotto-attributi al bordo della capsula", () => {
+  const composite = attribute("ATTRIBUTO9", 200, 100, 140, 44);
+  const subAttribute = attribute("ATTRIBUTO10", 400, 110);
+  const edge: DiagramEdge = {
+    id: "edge-composite-sub",
+    type: "attribute",
+    sourceId: subAttribute.id,
+    targetId: composite.id,
+    label: "",
+    lineStyle: "solid",
+  };
+
+  const geometry = getDiagramEdgeGeometry(edge, subAttribute, composite, undefined, new Set([composite.id]));
+  const compositeEndpoint = geometry.points[geometry.points.length - 1];
+
+  assert.ok(compositeEndpoint);
+  assert.ok(
+    compositeEndpoint.x > composite.x + composite.width - 12,
+    `expected endpoint on capsule right edge, got x=${compositeEndpoint.x}`,
+  );
+  assert.ok(
+    Math.abs(compositeEndpoint.y - (composite.y + composite.height / 2)) < composite.height / 2,
+    `expected endpoint near capsule vertical span, got y=${compositeEndpoint.y}`,
+  );
+});
+
+test("geometria attributo composto resta corretta anche con edge invertito", () => {
+  const composite = attribute("ATTRIBUTO9", 200, 100, 140, 44);
+  const subAttribute = attribute("ATTRIBUTO10", 400, 110);
+  const edge: DiagramEdge = {
+    id: "edge-composite-sub-reversed",
+    type: "attribute",
+    sourceId: composite.id,
+    targetId: subAttribute.id,
+    label: "",
+    lineStyle: "solid",
+  };
+
+  const geometry = getDiagramEdgeGeometry(edge, composite, subAttribute, undefined, new Set([composite.id]));
+  const compositeEndpoint = geometry.points[geometry.points.length - 1];
+
+  assert.ok(compositeEndpoint);
+  assert.ok(
+    compositeEndpoint.x > composite.x + composite.width - 12,
+    `expected endpoint on capsule right edge, got x=${compositeEndpoint.x}`,
+  );
 });

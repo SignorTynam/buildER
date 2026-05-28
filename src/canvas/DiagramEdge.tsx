@@ -34,6 +34,7 @@ interface DiagramEdgeProps {
   sourceNode: DiagramNode;
   targetNode: DiagramNode;
   laneInfo?: EdgeLaneInfo;
+  compositeAttributeIds?: ReadonlySet<string>;
   displayLabelOverride?: string;
   labelLayoutOverride?: EdgeLabelLayoutOverride;
   selected: boolean;
@@ -110,7 +111,13 @@ function formatIsaConstraint(completeness?: IsaCompleteness, disjointness?: IsaD
 export function DiagramEdgeView(props: DiagramEdgeProps) {
   const { t } = useI18n();
   const isGhost = props.ghost === true;
-  const geometry = getRenderedEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
+  const geometry = getRenderedEdgeGeometry(
+    props.edge,
+    props.sourceNode,
+    props.targetNode,
+    props.laneInfo,
+    props.compositeAttributeIds,
+  );
   const pathData = pathFromPoints(geometry.points);
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
   const inheritanceConstraintLabel =

@@ -138,24 +138,6 @@ function describeExternalIdentifier(diagram: DiagramDocument, identifier: Extern
   return [...importedLabels, ...attributeLabels(diagram, identifier.localAttributeIds)];
 }
 
-function describeExternalIdentifierWithEntities(
-  diagram: DiagramDocument,
-  hostEntity: EntityNode,
-  identifier: ExternalIdentifier,
-): string[] {
-  const importedLabels = identifier.importedParts.flatMap((part) => {
-    const sourceEntity = findEntity(diagram, part.sourceEntityId);
-    const importedIdentifier = sourceEntity?.internalIdentifiers?.find((candidate) => candidate.id === part.importedIdentifierId);
-    const sourceLabel = sourceEntity?.label ?? "Entita";
-    return importedIdentifier
-      ? attributeLabels(diagram, importedIdentifier.attributeIds).map((attribute) => `${sourceLabel}.${attribute}`)
-      : [`${sourceLabel}.identificatore importato`];
-  });
-  const localLabels = attributeLabels(diagram, identifier.localAttributeIds)
-    .map((attribute) => `${hostEntity.label}.${attribute}`);
-  return [...importedLabels, ...localLabels];
-}
-
 function alternativeKeysForChoices(
   diagram: DiagramDocument,
   entity: EntityNode,
@@ -270,14 +252,14 @@ function buildInternalPreview(
     columns,
   };
   const kindLabel = pkNames.length > 1 ? "Chiave interna composta" : "Chiave interna";
-  const title = `Chiave primaria di ${entity.label}: ${joinNames(pkNames)}`;
+  const title = `Usa ${joinNames(pkNames)} come PK`;
 
   return {
     kind: "internal",
     hostEntityId: entity.id,
     hostEntityLabel: entity.label,
     title,
-    kindLabel: pkNames.length > 1 ? "Chiave primaria interna composta" : "Chiave primaria interna",
+    kindLabel,
     explanation: pkNames.length > 1
       ? "Gli attributi selezionati formano insieme la chiave primaria."
       : `${pkNames[0] ?? "L'attributo selezionato"} e un identificatore interno di ${entity.label}.`,
@@ -405,24 +387,23 @@ function buildExternalPreview(
   });
 
   const pkNames = describeExternalIdentifier(diagram, identifier);
-  const pkNamesWithEntities = describeExternalIdentifierWithEntities(diagram, entity, identifier);
   const logicalTable = {
     name: entity.label,
     columns,
   };
   const kindLabel =
     hostAttributes.length > 0 && identifier.importedParts.length > 0
-      ? "Chiave primaria esterna/mista"
-      : "Chiave primaria esterna";
+      ? "Chiave esterna/mista"
+      : "Chiave esterna";
 
   return {
     kind: "external",
     hostEntityId: entity.id,
     hostEntityLabel: entity.label,
-    title: `Chiave primaria: ${joinNames(pkNamesWithEntities)}`,
+    title: `Usa ${joinNames(pkNames)} come PK`,
     kindLabel,
     explanation:
-      kindLabel === "Chiave primaria esterna/mista"
+      kindLabel === "Chiave esterna/mista"
         ? "Combina attributi locali e colonne importate tramite relazioni identificanti."
         : "Usa una chiave primaria importata tramite una relazione identificante.",
     summary: `${entity.label} chiave primaria = ${joinNames(pkNames)}`,
