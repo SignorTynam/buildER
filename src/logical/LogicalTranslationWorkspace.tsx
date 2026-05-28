@@ -832,11 +832,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                               <span className="entity-key-option-content">
                                 <span className="entity-key-option-kind">{choicePreview.kindLabel}</span>
                                 <strong className="entity-key-option-title">{choicePreview.title}</strong>
-                                <small className="entity-key-option-description">{choicePreview.explanation}</small>
-                                <span className="entity-key-option-preview">
-                                  <span>Risultato</span>
-                                  {choicePreview.summary}
-                                </span>
                               </span>
                             </label>
                           );
