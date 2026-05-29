@@ -2467,6 +2467,13 @@ summary:focus-visible,
   background: #dfe3dc;
   --diagram-canvas-fill: #dfe3dc;
   --diagram-node-fill: #dfe3dc;
+  --diagram-stroke: #111111;
+  --diagram-text: #111111;
+  --diagram-selection-stroke: #111111;
+  --diagram-selection-fill: rgba(17, 17, 17, 0.08);
+  --diagram-focus: #111111;
+  --diagram-drag: #111111;
+  --diagram-pending: #111111;
   --logical-edge-stroke: var(--diagram-stroke);
 }
 
