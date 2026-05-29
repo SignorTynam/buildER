@@ -92,7 +92,6 @@ const ER_TRANSLATION_STEP_DEFS: Array<{
 ];
 
 const STEP_ORDER: ErTranslationStep[] = ["generalizations", "composite-attributes", "review"];
-const COLLAPSE_UP_DISCRIMINATOR_LABEL = "Type";
 const COLLAPSE_UP_IMPORTED_ATTRIBUTE_CARDINALITY = "(0,1)";
 const SUBSTITUTION_SUPERTYPE_CARDINALITY = "(0,1)";
 const SUBSTITUTION_SUBTYPE_CARDINALITY = "(1,1)";
@@ -505,6 +504,39 @@ function buildGeneralizationHierarchyLookup(diagram: DiagramDocument): Map<strin
     }
   });
   return lookup;
+}
+
+function getCompatibleHierarchiesForBatch(
+  hierarchies: GeneralizationHierarchy[],
+  target: GeneralizationHierarchy,
+): GeneralizationHierarchy[] {
+  if (!target.completeness || !target.disjointness) {
+    return [target];
+  }
+
+  return hierarchies.filter(
+    (hierarchy) =>
+      hierarchy.supertype.id === target.supertype.id &&
+      hierarchy.completeness === target.completeness &&
+      hierarchy.disjointness === target.disjointness,
+  );
+}
+
+function isGenericIsaLabel(value: string | undefined): boolean {
+  return typeof value === "string" && /^ISA\s*\(\s*[tp]\s*,\s*[eo]\s*\)$/i.test(value.trim());
+}
+
+function getCollapseUpDiscriminatorBaseLabel(hierarchy: GeneralizationHierarchy): string {
+  const label = hierarchy.group?.label?.trim();
+  if (label && !isGenericIsaLabel(label)) {
+    return label;
+  }
+
+  if (hierarchy.id.trim()) {
+    return hierarchy.id;
+  }
+
+  return "TipoGerarchia";
 }
 
 function buildChoiceKey(
@@ -1121,28 +1153,33 @@ function moveSubtypeAttributesIntoSupertype(
 function ensureCollapseUpDiscriminatorAttribute(
   diagram: DiagramDocument,
   supertype: EntityNode,
+  hierarchy: GeneralizationHierarchy,
 ): TranslationApplyResult {
   const ownership = buildAttributeOwnershipContext(diagram);
   const directAttributeIds = ownership.directAttributeIdsByOwnerId.get(supertype.id) ?? [];
   const directAttributes = directAttributeIds
     .map((attributeId) => ownership.nodeById.get(attributeId))
     .filter((node): node is AttributeNode => node?.type === "attribute");
-  const existingTypeAttribute = directAttributes.find(
-    (attribute) => canonicalKey(attribute.label) === canonicalKey(COLLAPSE_UP_DISCRIMINATOR_LABEL),
+  const preferredLabel = getCollapseUpDiscriminatorBaseLabel(hierarchy);
+  const existingDiscriminatorAttribute = directAttributes.find(
+    (attribute) => canonicalKey(attribute.label) === canonicalKey(preferredLabel),
   );
 
-  if (existingTypeAttribute) {
+  if (existingDiscriminatorAttribute) {
     return {
       diagram,
-      artifacts: [{ kind: "node", id: existingTypeAttribute.id, label: existingTypeAttribute.label }],
+      artifacts: [{ kind: "node", id: existingDiscriminatorAttribute.id, label: existingDiscriminatorAttribute.label }],
     };
   }
+
+  const usedNames = new Set(directAttributes.map((attribute) => canonicalKey(attribute.label)));
+  const discriminatorLabel = allocateUniqueLabel(usedNames, preferredLabel);
 
   const usedNodeIds = new Set(diagram.nodes.map((node) => node.id));
   const usedEdgeIds = new Set(diagram.edges.map((edge) => edge.id));
   const typeAttributeId = allocateUniqueId(
     usedNodeIds,
-    `${supertype.id}-collapse-up-type`,
+    `${supertype.id}-collapse-up-${hierarchy.id}`,
     "attribute",
   );
   const typeEdgeId = allocateUniqueId(
@@ -1162,7 +1199,7 @@ function ensureCollapseUpDiscriminatorAttribute(
   const typeAttribute: AttributeNode = {
     id: typeAttributeId,
     type: "attribute",
-    label: COLLAPSE_UP_DISCRIMINATOR_LABEL,
+    label: discriminatorLabel,
     x: placeOnLeft ? supertype.x - 130 : supertype.x + supertype.width + 90,
     y: nextY,
     width: 150,
@@ -1316,17 +1353,33 @@ function applyGeneralizationTranslationDetailed(
   if (supertype?.type !== "entity") {
     throw new Error(`Il supertipo "${supertypeId}" non e piu valido nel diagramma tradotto corrente.`);
   }
+  const hierarchiesToResolve =
+    rule === "generalization-substitution" ? [hierarchy] : getCompatibleHierarchiesForBatch(hierarchies, hierarchy);
+  const resolvedGroupIds = new Set(hierarchiesToResolve.map((item) => item.id));
+  const subtypesToResolve = Array.from(
+    new Map(
+      hierarchiesToResolve
+        .flatMap((item) => item.subtypes)
+        .map((subtype) => [subtype.id, subtype] as const),
+    ).values(),
+  );
 
   if (rule === "generalization-collapse-up") {
-    if (hierarchy.disjointness === "overlap") {
+    if (hierarchiesToResolve.some((item) => item.disjointness === "overlap")) {
       throw new Error("Collasso verso l'alto non disponibile per generalizzazioni sovrapposte.");
     }
 
-    const discriminator = ensureCollapseUpDiscriminatorAttribute(working, supertype);
-    working = discriminator.diagram;
-    artifacts.push(...discriminator.artifacts);
+    hierarchiesToResolve.forEach((item) => {
+      const currentSupertype = working.nodes.find((node): node is EntityNode => node.id === supertype.id && node.type === "entity");
+      if (!currentSupertype) {
+        return;
+      }
+      const discriminator = ensureCollapseUpDiscriminatorAttribute(working, currentSupertype, item);
+      working = discriminator.diagram;
+      artifacts.push(...discriminator.artifacts);
+    });
 
-    hierarchy.subtypes.forEach((subtype) => {
+    subtypesToResolve.forEach((subtype) => {
       const subtypeNode = currentNodeMap.get(subtype.id);
       if (subtypeNode?.type !== "entity") {
         return;
@@ -1398,7 +1451,13 @@ function applyGeneralizationTranslationDetailed(
           .filter((node) => node.id !== subtypeCurrent.id),
         edges: [
           ...working.edges.filter((edge) => {
-            if (edge.type === "inheritance" && edge.sourceId === subtypeCurrent.id && edge.targetId === supertypeCurrent.id) {
+            if (
+              edge.type === "inheritance" &&
+              edge.sourceId === subtypeCurrent.id &&
+              edge.targetId === supertypeCurrent.id &&
+              edge.generalizationGroupId &&
+              resolvedGroupIds.has(edge.generalizationGroupId)
+            ) {
               return false;
             }
 
@@ -1468,7 +1527,7 @@ function applyGeneralizationTranslationDetailed(
       ...hierarchy.subtypes.map((subtype): ErTranslationArtifactRef => ({ kind: "node", id: subtype.id, label: subtype.label })),
     );
   } else {
-    if (hierarchy.completeness !== "total") {
+    if (hierarchiesToResolve.some((item) => item.completeness !== "total")) {
       throw new Error("Collasso verso il basso non disponibile per generalizzazioni parziali.");
     }
     const initialOwnership = buildAttributeOwnershipContext(working);
@@ -1483,7 +1542,7 @@ function applyGeneralizationTranslationDetailed(
     }
     collectAttributes(supertypeId);
 
-    hierarchy.subtypes.forEach((subtype) => {
+    subtypesToResolve.forEach((subtype) => {
       const currentSupertype = working.nodes.find((node): node is EntityNode => node.id === supertypeId && node.type === "entity");
       const currentSubtype = working.nodes.find((node): node is EntityNode => node.id === subtype.id && node.type === "entity");
       if (!currentSupertype || !currentSubtype) {
@@ -1596,7 +1655,12 @@ function applyGeneralizationTranslationDetailed(
             return false;
           }
 
-          if (edge.type === "inheritance" && edge.targetId === supertypeId && edge.generalizationGroupId === hierarchy.id) {
+          if (
+            edge.type === "inheritance" &&
+            edge.targetId === supertypeId &&
+            edge.generalizationGroupId &&
+            resolvedGroupIds.has(edge.generalizationGroupId)
+          ) {
             return false;
           }
 
@@ -1607,7 +1671,7 @@ function applyGeneralizationTranslationDetailed(
           return true;
         }),
         ...parentInheritanceEdges.flatMap((edge) =>
-          hierarchy.subtypes.map((subtype) => ({
+          subtypesToResolve.map((subtype) => ({
             ...edge,
             id: allocateUniqueId(currentEdgeIds, `${subtype.id}-${edge.id}`, "inheritance"),
             sourceId: subtype.id,
@@ -1617,7 +1681,7 @@ function applyGeneralizationTranslationDetailed(
     };
 
     artifacts.push(
-      ...hierarchy.subtypes.map(
+      ...subtypesToResolve.map(
         (subtype): ErTranslationArtifactRef => ({ kind: "node", id: subtype.id, label: subtype.label }),
       ),
     );
@@ -1626,9 +1690,9 @@ function applyGeneralizationTranslationDetailed(
   return {
     diagram: normalizeTranslatedDiagram({
       ...working,
-      generalizationGroups: (working.generalizationGroups ?? []).filter((group) => group.id !== hierarchy.id),
+      generalizationGroups: (working.generalizationGroups ?? []).filter((group) => !resolvedGroupIds.has(group.id)),
       edges: working.edges.map((edge) =>
-        edge.type === "inheritance" && edge.generalizationGroupId === hierarchy.id
+        edge.type === "inheritance" && edge.generalizationGroupId && resolvedGroupIds.has(edge.generalizationGroupId)
           ? { ...edge, generalizationGroupId: undefined }
           : edge,
       ),

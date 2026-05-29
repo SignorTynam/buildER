@@ -169,7 +169,7 @@ function createCollapseUpDiagram(options: { childAttributes?: boolean; existingT
   ];
 
   if (options.existingType) {
-    nodes.push(createAttribute("AttributeType", "Type"));
+    nodes.push(createAttribute("AttributeType", "G_ENTITY"));
     edges.push(createAttributeEdge("edge-AttributeType", "AttributeType", "ENTITY1"));
   }
 
@@ -199,6 +199,27 @@ function createCollapseUpDiagram(options: { childAttributes?: boolean; existingT
       },
     ],
   };
+}
+
+function createSameConstraintMultiHierarchyDiagram(): DiagramDocument {
+  return parseErsDiagram(`entity PERSONA {
+  identifier CF
+  attribute ATTRIBUTO1
+}
+entity UOMO
+entity DONNA
+entity PROFESSORE
+entity STUDENTE
+
+generalization G_SESSO (t, e) PERSONA {
+  UOMO,
+  DONNA
+}
+
+generalization G_RUOLO (t, e) PERSONA {
+  PROFESSORE,
+  STUDENTE
+}`);
 }
 
 function createOrderedWorkflowDiagram(): DiagramDocument {
@@ -412,6 +433,59 @@ generalization G_RUOLO PERSONA (p,o) {
   assert.equal(generalizations.some((item) => item.id === "G_RUOLO"), true);
 });
 
+test("GeneralizationGroup con stesso padre e stessi vincoli restano item distinti nella overview", () => {
+  const diagram = createSameConstraintMultiHierarchyDiagram();
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const overview = buildErTranslationOverview(workspace);
+  const generalizations = overview.itemsByStep.generalizations;
+
+  assert.equal(generalizations.length, 2);
+  assert.equal(generalizations.some((item) => item.id === "G_SESSO"), true);
+  assert.equal(generalizations.some((item) => item.id === "G_RUOLO"), true);
+});
+
+test("collapse up risolve gerarchie compatibili e crea un discriminatore per gruppo", () => {
+  const translated = applyGeneralizationTranslation(createSameConstraintMultiHierarchyDiagram(), {
+    supertypeId: "G_SESSO",
+    rule: "generalization-collapse-up",
+  });
+
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "PERSONA"), true);
+  ["UOMO", "DONNA", "PROFESSORE", "STUDENTE"].forEach((entityId) => {
+    assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === entityId), false, `${entityId} should be removed`);
+  });
+
+  const labels = getDirectEntityAttributes(translated, "PERSONA").map((attribute) => attribute.label);
+  assert.equal(labels.includes("CF"), true);
+  assert.equal(labels.includes("ATTRIBUTO1"), true);
+  assert.equal(labels.includes("G_SESSO"), true);
+  assert.equal(labels.includes("G_RUOLO"), true);
+  assert.equal(labels.includes("Type"), false);
+  assert.equal(translated.edges.some((edge) => edge.type === "inheritance"), false);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_SESSO" || group.id === "G_RUOLO"), false);
+  assert.deepEqual(validateDiagram(translated).filter((issue) => issue.level === "error"), []);
+});
+
+test("collapse down copia attributi del padre in tutte le figlie delle gerarchie compatibili", () => {
+  const translated = applyGeneralizationTranslation(createSameConstraintMultiHierarchyDiagram(), {
+    supertypeId: "G_SESSO",
+    rule: "generalization-collapse-down",
+  });
+
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "PERSONA"), false);
+  ["UOMO", "DONNA", "PROFESSORE", "STUDENTE"].forEach((entityId) => {
+    const entity = getEntity(translated, entityId);
+    const labels = getDirectEntityAttributes(translated, entityId).map((attribute) => attribute.label);
+    assert.equal(labels.includes("CF"), true, `${entityId} missing CF`);
+    assert.equal(labels.includes("ATTRIBUTO1"), true, `${entityId} missing ATTRIBUTO1`);
+    assert.equal(labels.includes("Type"), false);
+    assert.ok(entity.internalIdentifiers?.some((identifier) => identifier.attributeIds.length > 0), `${entityId} missing inherited identifier`);
+  });
+  assert.equal(translated.edges.some((edge) => edge.type === "inheritance"), false);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_SESSO" || group.id === "G_RUOLO"), false);
+  assert.deepEqual(validateDiagram(translated).filter((issue) => issue.level === "error"), []);
+});
+
 test("collapse up si applica solo al gruppo selezionato anche con stesso parent", () => {
   const diagram = parseErsDiagram(`entity PERSONA {
   identifier CF
@@ -448,7 +522,7 @@ generalization G_RUOLO PERSONA (p,o) {
   assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_SESSO"), false);
 });
 
-test("collapse up con figlie senza attributi aggiunge Type e rimuove la gerarchia", () => {
+test("collapse up con figlie senza attributi aggiunge il discriminatore del gruppo e rimuove la gerarchia", () => {
   const translated = applyGeneralizationTranslation(createCollapseUpDiagram(), {
     supertypeId: "G_ENTITY",
     rule: "generalization-collapse-up",
@@ -463,17 +537,18 @@ test("collapse up con figlie senza attributi aggiunge Type e rimuove la gerarchi
   assert.ok(entity1);
   const attributes = getDirectEntityAttributes(translated, "ENTITY1");
   const labels = attributes.map((attribute) => attribute.label);
-  assert.deepEqual(new Set(labels), new Set(["Attribute9", "Attribute8", "Attribute10", "Type"]));
+  assert.deepEqual(new Set(labels), new Set(["Attribute9", "Attribute8", "Attribute10", "G_ENTITY"]));
 
-  const typeAttribute = attributes.find((attribute) => attribute.label === "Type");
+  const typeAttribute = attributes.find((attribute) => attribute.label === "G_ENTITY");
   assert.ok(typeAttribute);
   assert.equal(typeAttribute.isIdentifier, false);
   assert.equal(typeAttribute.cardinality, undefined);
+  assert.equal(attributes.some((attribute) => attribute.label === "Type"), false);
   assert.deepEqual(entity1.internalIdentifiers?.[0]?.attributeIds, ["Attribute9"]);
   assertNoDanglingReferences(translated);
 });
 
-test("collapse up con figlie con attributi importa gli attributi come opzionali e aggiunge Type", () => {
+test("collapse up con figlie con attributi importa gli attributi come opzionali e aggiunge il discriminatore del gruppo", () => {
   const translated = applyGeneralizationTranslation(createCollapseUpDiagram({ childAttributes: true }), {
     supertypeId: "G_ENTITY",
     rule: "generalization-collapse-up",
@@ -487,12 +562,13 @@ test("collapse up con figlie con attributi importa gli attributi come opzionali 
   const labels = attributes.map((attribute) => attribute.label);
   assert.deepEqual(
     new Set(labels),
-    new Set(["Attribute9", "Attribute8", "Attribute10", "Type", "Attribute13", "Attribute14"]),
+    new Set(["Attribute9", "Attribute8", "Attribute10", "G_ENTITY", "Attribute13", "Attribute14"]),
   );
 
-  const typeAttribute = attributes.find((attribute) => attribute.label === "Type");
+  const typeAttribute = attributes.find((attribute) => attribute.label === "G_ENTITY");
   assert.ok(typeAttribute);
   assert.equal(typeAttribute.isIdentifier, false);
+  assert.equal(attributes.some((attribute) => attribute.label === "Type"), false);
 
   ["Attribute13", "Attribute14"].forEach((label) => {
     const attribute = attributes.find((candidate) => candidate.label === label);
@@ -507,14 +583,14 @@ test("collapse up con figlie con attributi importa gli attributi come opzionali 
   assertNoDanglingReferences(translated);
 });
 
-test("collapse up riusa Type se esiste gia sul padre", () => {
+test("collapse up riusa il discriminatore del gruppo se esiste gia sul padre", () => {
   const translated = applyGeneralizationTranslation(createCollapseUpDiagram({ existingType: true }), {
     supertypeId: "G_ENTITY",
     rule: "generalization-collapse-up",
   });
 
   const typeAttributes = getDirectEntityAttributes(translated, "ENTITY1").filter(
-    (attribute) => attribute.label === "Type",
+    (attribute) => attribute.label === "G_ENTITY",
   );
   assert.equal(typeAttributes.length, 1);
   assert.equal(typeAttributes[0]?.id, "AttributeType");
