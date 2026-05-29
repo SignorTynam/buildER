@@ -183,6 +183,19 @@ function quoteValue(value: string): string {
   return JSON.stringify(value);
 }
 
+function isErsIdentifier(value: string): boolean {
+  return /^[A-Za-z_][\w.-]*$/.test(value);
+}
+
+function normalizeGeneralizationExportName(groupId: string, label?: string): string {
+  const preferred = label?.trim();
+  if (preferred && isErsIdentifier(preferred)) {
+    return preferred;
+  }
+
+  return isErsIdentifier(groupId) ? groupId : groupId.replace(/[^\w.-]+/g, "_").replace(/^[^A-Za-z_]+/, "G_");
+}
+
 function createGeneratedId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -1475,16 +1488,17 @@ function expandNamedGeneralization(
 ): { nextIndex: number; emitted: Array<{ line: number; text: string }> } | undefined {
   const line = startIndex + 1;
   const normalized = normalizeCommentFreeLine(rawLines[startIndex]);
-  const headerMatch = normalized.match(/^generalization\s+([A-Za-z_][\w.-]*)\s+([A-Za-z_][\w.-]*)\s*(\([^)]*\))?\s*(?:label\s+(?:"([^"]*)"|([A-Za-z_][\w.-]*)))?\s*\{\s*$/);
+  const nextSyntaxMatch = normalized.match(/^generalization\s+([A-Za-z_][\w.-]*)\s*(\([^)]*\))\s+([A-Za-z_][\w.-]*)\s*\{\s*$/);
+  const legacySyntaxMatch = normalized.match(/^generalization\s+([A-Za-z_][\w.-]*)\s+([A-Za-z_][\w.-]*)\s*(\([^)]*\))?\s*(?:label\s+(?:"([^"]*)"|([A-Za-z_][\w.-]*)))?\s*\{\s*$/);
 
-  if (!headerMatch) {
+  if (!nextSyntaxMatch && !legacySyntaxMatch) {
     return undefined;
   }
 
-  const alias = headerMatch[1];
-  const parentAlias = headerMatch[2];
-  const constraints = parseDesignerIsaConstraint(headerMatch[3]);
-  const label = headerMatch[4] ?? headerMatch[5];
+  const alias = nextSyntaxMatch?.[1] ?? legacySyntaxMatch?.[1] ?? "";
+  const parentAlias = nextSyntaxMatch?.[3] ?? legacySyntaxMatch?.[2] ?? "";
+  const constraints = parseDesignerIsaConstraint(nextSyntaxMatch?.[2] ?? legacySyntaxMatch?.[3]);
+  const label = nextSyntaxMatch ? alias : (legacySyntaxMatch?.[4] ?? legacySyntaxMatch?.[5]);
   const subtypes: string[] = [];
 
   for (let index = startIndex + 1; index < rawLines.length; index += 1) {
@@ -2757,8 +2771,10 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     });
   });
   const inheritanceLines = Array.from(inheritanceGroups.entries()).flatMap(([groupId, group]) => {
+    const groupName = normalizeGeneralizationExportName(groupId, group.label);
+    const constraintLabel = `(${group.isaCompleteness === "total" ? "t" : "p"}, ${group.isaDisjointness === "disjoint" ? "e" : "o"})`;
     return [
-      `generalization ${groupId} ${group.parentAlias} (${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "disjoint" ? "e" : "o"})${group.label ? ` label ${quoteValue(group.label)}` : ""} {`,
+      `generalization ${groupName} ${constraintLabel} ${group.parentAlias} {`,
       ...group.children.map((childAlias, index) => `    ${childAlias}${index < group.children.length - 1 ? "," : ""}`),
       `}`,
     ];

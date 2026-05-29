@@ -306,6 +306,31 @@ function createIsaMergeDiagram(): DiagramDocument {
   };
 }
 
+function createTwoIsaGroupsSameConstraintsDiagram(): DiagramDocument {
+  const nodes: DiagramNode[] = [
+    { id: "PERSONA", type: "entity", label: "PERSONA", x: 450, y: 40, width: 180, height: 70, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+    { id: "UOMO", type: "entity", label: "UOMO", x: 300, y: 360, width: 150, height: 64, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+    { id: "DONNA", type: "entity", label: "DONNA", x: 480, y: 360, width: 150, height: 64, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+    { id: "STUDENTE", type: "entity", label: "STUDENTE", x: 660, y: 360, width: 150, height: 64, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+    { id: "PROFESSORE", type: "entity", label: "PROFESSORE", x: 840, y: 360, width: 170, height: 64, internalIdentifiers: [], externalIdentifiers: [], relationshipParticipations: [] },
+  ];
+  return {
+    meta: { name: "ISA same constraints", version: 1 },
+    notes: "",
+    nodes,
+    edges: [
+      { id: "isa-uomo", type: "inheritance", sourceId: "UOMO", targetId: "PERSONA", label: "", lineStyle: "solid", generalizationGroupId: "GENERE", isaCompleteness: "total", isaDisjointness: "disjoint" },
+      { id: "isa-donna", type: "inheritance", sourceId: "DONNA", targetId: "PERSONA", label: "", lineStyle: "solid", generalizationGroupId: "GENERE", isaCompleteness: "total", isaDisjointness: "disjoint" },
+      { id: "isa-studente", type: "inheritance", sourceId: "STUDENTE", targetId: "PERSONA", label: "", lineStyle: "solid", generalizationGroupId: "LAVORO", isaCompleteness: "total", isaDisjointness: "disjoint" },
+      { id: "isa-professore", type: "inheritance", sourceId: "PROFESSORE", targetId: "PERSONA", label: "", lineStyle: "solid", generalizationGroupId: "LAVORO", isaCompleteness: "total", isaDisjointness: "disjoint" },
+    ],
+    generalizationGroups: [
+      { id: "GENERE", label: "GENERE", supertypeId: "PERSONA", subtypeIds: ["UOMO", "DONNA"], isaCompleteness: "total", isaDisjointness: "disjoint" },
+      { id: "LAVORO", label: "LAVORO", supertypeId: "PERSONA", subtypeIds: ["STUDENTE", "PROFESSORE"], isaCompleteness: "total", isaDisjointness: "disjoint" },
+    ],
+  };
+}
+
 function generalizationBlock(source: string, groupId: string): string {
   const match = source.match(new RegExp(`generalization ${groupId}[^]*?\\n\\}`));
   return match?.[0] ?? "";
@@ -369,8 +394,8 @@ test("ERS conserva gruppi ISA distinti e non serializza etichette legacy", () =>
   diagram = assignInheritanceEdgeToGeneralizationGroup(diagram, "isa-studente", roleGroup.id);
 
   const serialized = serializeDiagramToErs(diagram);
-  assert.match(serialized, /generalization .* PERSONA \(t,e\) label "Genere" \{/);
-  assert.match(serialized, /generalization .* PERSONA \(p,o\) label "Ruolo" \{/);
+  assert.match(serialized, /generalization Genere \(t, e\) PERSONA \{/);
+  assert.match(serialized, /generalization Ruolo \(p, o\) PERSONA \{/);
   assert.doesNotMatch(serialized, /\b(?:D\/T|D\/P|O\/T|O\/P|T\/D|P\/D)\b/);
 
   const reparsed = parseErsDiagram(serialized);
@@ -488,7 +513,7 @@ test("serializzazione ERS preserva gruppi ISA compatibili distinti", () => {
   let diagram = createIsaMergeDiagram();
   diagram = updateGeneralizationGroupConstraint(diagram, "g2", "partial", "overlap");
   const serialized = serializeDiagramToErs(diagram);
-  const blocks = serialized.match(/generalization .* ENTITA1 \(p,o\) \{/g) ?? [];
+  const blocks = serialized.match(/generalization .* \(p, o\) ENTITA1 \{/g) ?? [];
   assert.equal(blocks.length, 2);
   assert.match(serialized, /\bENTITA5\b/);
 });
@@ -498,10 +523,10 @@ test("parser ERS preserva generalization con stesso vincolo", () => {
 entity ENTITA2 {}
 entity ENTITA5 {}
 
-generalization g1 ENTITA1 (p,o) {
+generalization g1 (p, o) ENTITA1 {
   ENTITA2
 }
-generalization g2 ENTITA1 (p,o) {
+generalization g2 (p, o) ENTITA1 {
   ENTITA5
 }`);
   const groups = diagram.generalizationGroups?.filter(
@@ -510,6 +535,32 @@ generalization g2 ENTITA1 (p,o) {
   assert.equal(groups.length, 2);
   assert.deepEqual(groups.map((group) => group.id).sort(), ["g1", "g2"]);
   assert.deepEqual(groups.map((group) => group.subtypeIds[0]).sort(), ["ENTITA2", "ENTITA5"]);
+});
+
+test("layout ISA mantiene due flussi separati per stesso supertipo e stessi vincoli", () => {
+  const diagram = normalizeGeneralizationGroups(createTwoIsaGroupsSameConstraintsDiagram());
+  const visualGroups = buildInheritanceGroups(diagram);
+  const groupsForPersona = visualGroups.filter(
+    (group) =>
+      group.supertypeId === "PERSONA" &&
+      group.isaCompleteness === "total" &&
+      group.isaDisjointness === "disjoint",
+  );
+  assert.equal(groupsForPersona.length, 2);
+  assert.deepEqual(groupsForPersona.map((group) => group.subtypeIds.join(",")).sort(), ["STUDENTE,PROFESSORE", "UOMO,DONNA"]);
+
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const layouts = groupsForPersona.map((group) => getInheritanceGroupLayout(group, nodeMap, visualGroups));
+  assert.equal(layouts.every(Boolean), true);
+  const [firstLayout, secondLayout] = layouts;
+  assert.ok(firstLayout);
+  assert.ok(secondLayout);
+  assert.notDeepEqual(firstLayout.triangleCenter, secondLayout.triangleCenter);
+  assert.notDeepEqual(
+    firstLayout.lineSegments.find((segment) => segment.id === "bus"),
+    secondLayout.lineSegments.find((segment) => segment.id === "bus"),
+  );
+  assert.notDeepEqual(firstLayout.labelPoint, secondLayout.labelPoint);
 });
 
 test("validateDiagram segnala sottotipi senza attributi e supertipi ISA senza relazioni", () => {
@@ -854,7 +905,7 @@ TRENO <= {
   const serialized = serializeDiagramToErs(parsed);
   assert.match(serialized, /^\/\* Entities \*\//m);
   assert.match(serialized, /^relationship RELATIONSHIP18 \($/m);
-  assert.match(serialized, /generalization TRENO_generalization_\d+ TRENO \(p,e\) \{/);
+  assert.match(serialized, /generalization TRENO_generalization_\d+ \(p, e\) TRENO \{/);
   assert.match(serialized, /identifier\(Nome, Cognome\)/);
 });
 
@@ -1219,7 +1270,7 @@ test("ERS parse e serializza gruppi generalization espliciti", () => {
 entity UOMO
 entity DONNA
 
-generalization G1 PERSONA (t,e) {
+generalization G1 (t, e) PERSONA {
   UOMO
   DONNA
 }`);
@@ -1229,7 +1280,7 @@ generalization G1 PERSONA (t,e) {
   assert.equal(parsed.generalizationGroups?.[0]?.subtypeIds.length, 2);
 
   const serialized = serializeDiagramToErs(parsed);
-  assert.match(serialized, /generalization G1 PERSONA \(t,e\) \{/);
+  assert.match(serialized, /generalization G1 \(t, e\) PERSONA \{/);
   assert.match(serialized, /UOMO,/);
   assert.match(serialized, /DONNA/);
 });
