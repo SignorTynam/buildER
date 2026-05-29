@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
 import type { LogicalTranslationChoice } from "../src/types/logical.ts";
 import type { LogicalEntityKeySelectionRequest } from "../src/utils/logicalTranslation.ts";
+import { EntityKeyChoicePreview } from "../src/logical/EntityKeyChoicePreview.tsx";
 import {
   buildEntityKeyChoicePreviewData,
   getNextEntityKeyModalIndex,
@@ -150,28 +153,41 @@ test("logical key preview: chiave esterna mista", () => {
     edges,
   };
   const choice = externalChoice("external-1");
+  const request = baseRequest("entity-1", [choice]);
   const preview = buildEntityKeyChoicePreviewData({
     diagram,
-    request: baseRequest("entity-1", [choice]),
+    request,
     choice,
   });
 
   assert.equal(preview.kind, "external");
   assert.equal(preview.kindLabel, "Chiave esterna/mista");
-  assert.equal(preview.title, "Usa ATTRIBUTO3 + ATTRIBUTO7 come PK");
+  assert.equal(preview.title, "Usa ENTITA2_ATTRIBUTO3 + ATTRIBUTO7 come PK");
   assert.match(preview.explanation, /relazioni identificanti/);
   assert.match(preview.effectLines.join(" "), /ENTITA4/);
   assert.match(preview.effectLines.join(" "), /ENTITA2/);
   assert.match(preview.effectLines.join(" "), /RELAZIONE1/);
-  assert.match(preview.effectLines.join(" "), /ATTRIBUTO3/);
+  assert.match(preview.effectLines.join(" "), /ENTITA2_ATTRIBUTO3/);
   assert.match(preview.effectLines.join(" "), /ATTRIBUTO7/);
   assert.deepEqual(preview.entities.map((entity) => [entity.label, entity.role]), [["ENTITA4", "host"], ["ENTITA2", "source"]]);
   assert.deepEqual(preview.relationships.map((relationship) => relationship.label), ["RELAZIONE1"]);
   assert.deepEqual(
     preview.logicalTable.columns.map((column) => [column.label, column.isPrimaryKey, column.isForeignKey]),
-    [["ATTRIBUTO7", true, false], ["ATTRIBUTO3", true, true]],
+    [["ATTRIBUTO7", true, false], ["ENTITA2_ATTRIBUTO3", true, true]],
   );
   assert.deepEqual(preview.foreignKeys.map((foreignKey) => [foreignKey.fromTableName, foreignKey.toTableName]), [["ENTITA4", "ENTITA2"]]);
+  assert.deepEqual(preview.foreignKeys[0]?.fromColumnNames, ["ENTITA2_ATTRIBUTO3"]);
+  assert.deepEqual(preview.foreignKeys[0]?.toColumnNames, ["ATTRIBUTO3"]);
+  assert.deepEqual(
+    preview.tables.find((table) => table.role === "referenced")?.columns.map((column) => column.name),
+    ["ATTRIBUTO3"],
+  );
+
+  const markup = renderToStaticMarkup(
+    createElement(EntityKeyChoicePreview, { diagram, request, choice, confirmed: false }),
+  );
+  assert.match(markup, /logical-column-name-underline/);
+  assert.doesNotMatch(markup, /logical-column-qualifier-pk[^"]*underlined/);
 });
 
 test("logical key preview: chiave interna composta", () => {

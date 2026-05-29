@@ -33,7 +33,7 @@ interface LogicalTransformationCanvasProps {
   fitRequestToken: number;
   activeTargetKeys: string[];
   focusedTargetKey: string | null;
-  schemaOnly?: boolean;
+  viewMode?: LogicalTransformationCanvasMode;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
@@ -44,6 +44,7 @@ interface LogicalTransformationCanvasProps {
 }
 
 type ConnectionSide = "left" | "right" | "top" | "bottom";
+export type LogicalTransformationCanvasMode = "transformation" | "schema";
 
 interface EdgeRoute {
   points: Point[];
@@ -253,7 +254,7 @@ function getDesignerLogicalColumnTextClassName(): string {
   return "logical-column-name";
 }
 
-function getDesignerLogicalColumnQualifierLayout(qualifiers: string[]): {
+export function getDesignerLogicalColumnQualifierLayout(qualifiers: string[]): {
   items: { label: string; x: number; width: number }[];
   textOffset: number;
 } {
@@ -268,6 +269,29 @@ function getDesignerLogicalColumnQualifierLayout(qualifiers: string[]): {
   const textOffset = qualifiers.length > 0 ? offset + DESIGNER_QUALIFIER_BADGE_TEXT_GAP : 0;
 
   return { items, textOffset };
+}
+
+export function getLogicalTransformationCanvasVisibility(
+  nodes: LogicalTransformationNode[],
+  edges: LogicalTransformationEdge[],
+  viewMode: LogicalTransformationCanvasMode,
+): {
+  erNodes: LogicalTransformationNode[];
+  tableNodes: LogicalTransformationNode[];
+  visibleNodes: LogicalTransformationNode[];
+  erEdges: LogicalTransformationEdge[];
+  fkEdges: LogicalTransformationEdge[];
+} {
+  const showTransformationContext = viewMode === "transformation";
+  const tableNodes = nodes.filter((node) => node.kind === "logical-table");
+
+  return {
+    erNodes: showTransformationContext ? nodes.filter((node) => node.kind === "er-node") : [],
+    tableNodes,
+    visibleNodes: showTransformationContext ? nodes : tableNodes,
+    erEdges: showTransformationContext ? edges.filter((edge) => edge.kind === "er-edge") : [],
+    fkEdges: edges.filter((edge) => edge.kind === "foreign-key"),
+  };
 }
 
 function renderDesignerLogicalColumnLabel(column: LogicalColumn, x: number, y: number) {
@@ -674,6 +698,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   const [hoverTableId, setHoverTableId] = useState<string | null>(null);
 
   const graph = props.workspace.transformation;
+  const viewMode = props.viewMode ?? "transformation";
   const tableColumnsById = useMemo(() => {
     const result = new Map<string, LogicalColumn[]>();
     props.workspace.model.tables.forEach((table) => {
@@ -691,23 +716,11 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     [graph.nodes, tableColumnsById],
   );
   const nodeById = useMemo(() => new Map(renderedNodes.map((node) => [node.id, node])), [renderedNodes]);
-  const erNodes = useMemo(
-    () => (props.schemaOnly ? [] : renderedNodes.filter((node) => node.kind === "er-node")),
-    [props.schemaOnly, renderedNodes],
+  const visibleElements = useMemo(
+    () => getLogicalTransformationCanvasVisibility(renderedNodes, graph.edges, viewMode),
+    [graph.edges, renderedNodes, viewMode],
   );
-  const tableNodes = useMemo(
-    () => renderedNodes.filter((node) => node.kind === "logical-table"),
-    [renderedNodes],
-  );
-  const visibleRenderedNodes = useMemo(
-    () => (props.schemaOnly ? tableNodes : renderedNodes),
-    [props.schemaOnly, renderedNodes, tableNodes],
-  );
-  const erEdges = useMemo(
-    () => (props.schemaOnly ? [] : graph.edges.filter((edge) => edge.kind === "er-edge")),
-    [graph.edges, props.schemaOnly],
-  );
-  const fkEdges = useMemo(() => graph.edges.filter((edge) => edge.kind === "foreign-key"), [graph.edges]);
+  const { erNodes, tableNodes, visibleNodes: visibleRenderedNodes, erEdges, fkEdges } = visibleElements;
   const syntheticNodeById = useMemo(
     () => new Map(renderedNodes.map((node) => [node.id, toSyntheticDiagramNode(node)])),
     [renderedNodes],

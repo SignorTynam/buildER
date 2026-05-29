@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import type { DiagramDocument } from "../types/diagram";
 import type { LogicalTranslationChoice } from "../types/logical";
 import type { LogicalEntityKeySelectionRequest } from "../utils/logicalTranslation";
@@ -6,6 +6,11 @@ import {
   buildEntityKeyChoicePreviewData,
   type EntityKeyPreviewColumn,
 } from "../utils/logicalKeyPreview";
+import {
+  getDesignerLogicalColumnNameUnderlineLayout,
+  getDesignerLogicalColumnQualifierLabels,
+  getDesignerLogicalColumnQualifierLayout,
+} from "./LogicalTransformationCanvas";
 
 interface EntityKeyChoicePreviewProps {
   diagram: DiagramDocument;
@@ -14,42 +19,41 @@ interface EntityKeyChoicePreviewProps {
   confirmed: boolean;
 }
 
-function getPreviewColumnQualifiers(column: EntityKeyPreviewColumn): string[] {
-  const qualifiers: string[] = [];
-  if (column.isPrimaryKey) {
-    qualifiers.push("PK");
-  }
-  if (column.isForeignKey) {
-    qualifiers.push("FK");
-  }
-  if (!column.isNullable && !column.isPrimaryKey) {
-    qualifiers.push("NN");
-  }
-  if (column.isUniqueAlternative && !column.isPrimaryKey) {
-    qualifiers.push("U");
-  }
-  return qualifiers;
+function toDesignerPreviewColumn(column: EntityKeyPreviewColumn) {
+  return {
+    id: column.id,
+    name: column.name,
+    isPrimaryKey: column.isPrimaryKey,
+    isForeignKey: column.isForeignKey,
+    isUnique: column.isUniqueAlternative,
+    isNullable: column.isNullable,
+    references: [],
+  };
 }
 
-function renderSvgBadges(column: EntityKeyPreviewColumn, x: number, y: number) {
+function renderSvgColumnLabel(column: EntityKeyPreviewColumn, x: number, y: number) {
+  const designerColumn = toDesignerPreviewColumn(column);
+  const qualifiers = getDesignerLogicalColumnQualifierLabels(designerColumn);
+  const layout = getDesignerLogicalColumnQualifierLayout(qualifiers);
+  const underline = getDesignerLogicalColumnNameUnderlineLayout(designerColumn);
+
   return (
-    <g className="logical-column-label" pointerEvents="none">
-      {getPreviewColumnQualifiers(column).map((qualifier, index) => {
-        const width = qualifier.length > 2 ? 26 : 22;
-        const offset = index * 28;
+    <g className="logical-column-label" transform={`translate(${x}, ${y})`} pointerEvents="none">
+      {layout.items.map((item) => {
+        const qualifier = item.label;
         return (
-          <g key={qualifier} transform={`translate(${x + offset}, ${y})`}>
+          <g key={qualifier} transform={`translate(${item.x}, 0)`}>
             <rect
               x={0}
               y={-9}
-              width={width}
+              width={item.width}
               height={18}
               rx={8}
               ry={8}
               className={`logical-column-qualifier-badge logical-column-qualifier-badge-${qualifier.toLowerCase()}`}
             />
             <text
-              x={width / 2}
+              x={item.width / 2}
               y={0}
               dominantBaseline="middle"
               textAnchor="middle"
@@ -60,6 +64,19 @@ function renderSvgBadges(column: EntityKeyPreviewColumn, x: number, y: number) {
           </g>
         );
       })}
+      <text className="logical-column-name" x={layout.textOffset} y={0} dominantBaseline="middle">
+        {column.name}
+      </text>
+      {underline.visible ? (
+        <line
+          x1={underline.x1}
+          y1={underline.y}
+          x2={underline.x2}
+          y2={underline.y}
+          className="logical-column-name-underline"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
     </g>
   );
 }
@@ -96,16 +113,11 @@ function renderLogicalTableSvg(options: {
 
       {options.columns.length > 0 ? options.columns.map((column, index) => {
         const rowY = options.y + headerHeight + index * rowHeight;
-        const qualifiers = getPreviewColumnQualifiers(column);
-        const textX = options.x + (qualifiers.length > 0 ? 74 : 18);
         return (
           <g key={column.id} className="logical-column-row">
             <rect className="logical-column-hit" x={options.x} y={rowY} width={options.width} height={rowHeight} />
             <line className="logical-column-divider" x1={options.x} y1={rowY} x2={options.x + options.width} y2={rowY} />
-            {renderSvgBadges(column, options.x + 12, rowY + 17)}
-            <text className="logical-column-name" x={textX} y={rowY + 18} dominantBaseline="middle">
-              {column.name}
-            </text>
+            {renderSvgColumnLabel(column, options.x + 12, rowY + 17)}
           </g>
         );
       }) : (

@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
-import type { LogicalModel } from "../src/types/logical.ts";
+import type { LogicalModel, LogicalTransformationEdge, LogicalTransformationNode } from "../src/types/logical.ts";
 import {
   getDesignerLogicalColumnNameLabel,
   getDesignerLogicalColumnTypeLabel,
   getDesignerLogicalTableDimensions,
+  getLogicalTransformationCanvasVisibility,
 } from "../src/logical/LogicalTransformationCanvas.tsx";
 import {
   LOGICAL_TRANSLATION_STEPS,
@@ -44,6 +45,73 @@ test("logical table dimensions include long foreign key type labels", () => {
   assert.equal(getDesignerLogicalColumnNameLabel(fkColumn), "FK NN U PASSEGGERO_codPasseggero");
   assert.equal(getDesignerLogicalColumnTypeLabel(fkColumn), "VARCHAR(100)");
   assert.ok(compact.width > 390);
+});
+
+test("logical canvas transformation mode keeps ER context while schema mode shows only tables", () => {
+  const nodes = [
+    {
+      id: "er-entity",
+      kind: "er-node",
+      renderType: "entity",
+      label: "ENTITA1",
+      x: 0,
+      y: 0,
+      width: 160,
+      height: 80,
+      status: "transformed",
+      generatedByDecisionIds: [],
+      relatedTargetKeys: [],
+    },
+    {
+      id: "table-entity",
+      kind: "logical-table",
+      renderType: "table",
+      label: "ENTITA1",
+      x: 260,
+      y: 0,
+      width: 180,
+      height: 80,
+      status: "transformed",
+      tableId: "table-entity",
+      generatedByDecisionIds: [],
+      relatedTargetKeys: [],
+    },
+  ] satisfies LogicalTransformationNode[];
+  const edges = [
+    {
+      id: "er-edge",
+      kind: "er-edge",
+      renderType: "connector",
+      sourceId: "er-entity",
+      targetId: "er-rel",
+      label: "",
+      status: "transformed",
+      generatedByDecisionIds: [],
+      relatedTargetKeys: [],
+    },
+    {
+      id: "fk-edge",
+      kind: "foreign-key",
+      renderType: "foreign-key",
+      sourceId: "table-entity",
+      targetId: "table-other",
+      label: "",
+      status: "transformed",
+      generatedByDecisionIds: [],
+      relatedTargetKeys: [],
+    },
+  ] satisfies LogicalTransformationEdge[];
+
+  const transformation = getLogicalTransformationCanvasVisibility(nodes, edges, "transformation");
+  assert.deepEqual(transformation.visibleNodes.map((node) => node.id), ["er-entity", "table-entity"]);
+  assert.deepEqual(transformation.erEdges.map((edge) => edge.id), ["er-edge"]);
+  assert.deepEqual(transformation.fkEdges.map((edge) => edge.id), ["fk-edge"]);
+
+  const schema = getLogicalTransformationCanvasVisibility(nodes, edges, "schema");
+  assert.deepEqual(schema.visibleNodes.map((node) => node.id), ["table-entity"]);
+  assert.deepEqual(schema.erNodes, []);
+  assert.deepEqual(schema.erEdges, []);
+  assert.deepEqual(schema.fkEdges.map((edge) => edge.id), ["fk-edge"]);
 });
 
 function createEntity(

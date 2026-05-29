@@ -430,7 +430,7 @@ export const sq: DeepPartialMessages = {
       reset: "Reset",
       fix: "Fix",
       design: "Design",
-      translate: "Translate",
+      translate: "Logic",
       export: "Export",
       save: "Save",
       recommended: "e rekomanduar",

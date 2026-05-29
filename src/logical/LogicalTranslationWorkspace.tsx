@@ -337,6 +337,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     [overview, props.selection, props.workspace],
   );
   const sqlPreview = useMemo(() => generateLogicalSql(props.workspace.model), [props.workspace.model]);
+  const canvasViewMode = props.logicalStage === "schema" && props.panelMode === "sql" ? "schema" : "transformation";
   const [fixMenuOpen, setFixMenuOpen] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [entityKeySelectionModal, setEntityKeySelectionModal] = useState<{
@@ -942,7 +943,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               fitRequestToken={props.fitRequestToken}
               activeTargetKeys={highlightedTargetKeys}
               focusedTargetKey={selectedTargetKey}
-              schemaOnly={props.logicalStage === "schema"}
+              viewMode={canvasViewMode}
               onViewportChange={props.onViewportChange}
               onSelectionChange={props.onSelectionChange}
               onPreviewModel={props.onPreviewModel}

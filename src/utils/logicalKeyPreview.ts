@@ -133,7 +133,12 @@ function describeExternalIdentifier(diagram: DiagramDocument, identifier: Extern
   const importedLabels = identifier.importedParts.flatMap((part) => {
     const sourceEntity = findEntity(diagram, part.sourceEntityId);
     const importedIdentifier = sourceEntity?.internalIdentifiers?.find((candidate) => candidate.id === part.importedIdentifierId);
-    return importedIdentifier ? attributeLabels(diagram, importedIdentifier.attributeIds) : ["identificatore importato"];
+    return importedIdentifier && sourceEntity
+      ? importedIdentifier.attributeIds.map((attributeId) => {
+          const attribute = findAttribute(diagram, attributeId);
+          return `${sourceEntity.label}_${attribute?.label ?? attributeId}`;
+        })
+      : ["identificatore importato"];
   });
   return [...importedLabels, ...attributeLabels(diagram, identifier.localAttributeIds)];
 }
@@ -315,6 +320,7 @@ function buildExternalPreview(
     const relationship = findRelationship(diagram, part.relationshipId);
     const importedIdentifier = sourceEntity?.internalIdentifiers?.find((candidate) => candidate.id === part.importedIdentifierId);
     const importedColumnNames: string[] = [];
+    const referencedColumnNames: string[] = [];
 
     if (relationship && sourceEntity) {
       relationships.push({
@@ -338,14 +344,16 @@ function buildExternalPreview(
 
     importedIdentifier.attributeIds.forEach((attributeId) => {
       const attribute = attributePreview(diagram, attributeId, "selected-imported");
-      importedColumnNames.push(attribute.label);
+      const importedColumnName = `${sourceEntity.label}_${attribute.label}`;
+      importedColumnNames.push(importedColumnName);
+      referencedColumnNames.push(attribute.label);
       if (!sourcePreview.attributes.some((candidate) => candidate.id === attribute.id)) {
         sourcePreview.attributes.push(attribute);
       }
       addColumn(columns, {
         id: `imported-${sourceEntity.id}-${attribute.id}`,
-        name: attribute.label,
-        label: attribute.label,
+        name: importedColumnName,
+        label: importedColumnName,
         isPrimaryKey: true,
         isForeignKey: true,
         isNullable: false,
@@ -364,14 +372,14 @@ function buildExternalPreview(
         fromTableName: entity.label,
         fromColumnNames: importedColumnNames,
         toTableName: sourceEntity.label,
-        toColumnNames: importedColumnNames,
+        toColumnNames: referencedColumnNames,
         relationshipName,
       });
       referencedTables.set(sourceEntity.id, {
         id: sourceEntity.id,
         name: sourceEntity.label,
         role: "referenced",
-        columns: importedColumnNames.map((name, index) => ({
+        columns: referencedColumnNames.map((name, index) => ({
           id: `${sourceEntity.id}-${importedIdentifier.attributeIds[index] ?? name}`,
           name,
           label: name,

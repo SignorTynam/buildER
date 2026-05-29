@@ -431,7 +431,7 @@ export const it = {
       reset: "Reset",
       fix: "Fix",
       design: "Design",
-      translate: "Translate",
+      translate: "Logic",
       export: "Export",
       save: "Save",
       recommended: "consigliata",
