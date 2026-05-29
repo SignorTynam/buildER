@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.5";
+export const APP_VERSION = "4.5.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,16 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.5.1",
+    date: "2026-05-29",
+    updates: [
+      "Vista Logica corretta per mostrare l'intero diagramma di trasformazione quando si entra nel workflow Logic.",
+      "Comando toolbar rinominato da Translate a Logic.",
+      "Preview scelta PK aggiornata con sottolineatura dei nomi colonna che diventano chiave primaria.",
+      "Nomi delle colonne importate nella preview PK resi non ambigui con prefisso dell'entita sorgente.",
+    ],
+  },
   {
     version: "4.5",
     date: "2026-05-28",
