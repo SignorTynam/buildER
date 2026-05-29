@@ -936,11 +936,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
           <section className="designer-logical-stage">
             <LogicalTransformationCanvas
+              sourceDiagram={props.sourceDiagram}
               workspace={props.workspace}
               selection={props.selection}
               viewport={props.viewport}
               typeMode={props.logicalStage === "schema" ? props.typeMode : false}
               fitRequestToken={props.fitRequestToken}
+              autoFitOnMount={props.logicalStage === "schema"}
               activeTargetKeys={highlightedTargetKeys}
               focusedTargetKey={selectedTargetKey}
               viewMode={canvasViewMode}

@@ -4,10 +4,13 @@ import test from "node:test";
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
 import type { LogicalModel, LogicalTransformationEdge, LogicalTransformationNode } from "../src/types/logical.ts";
 import {
+  clampLogicalTransformationZoom,
   getDesignerLogicalColumnNameLabel,
   getDesignerLogicalColumnTypeLabel,
   getDesignerLogicalTableDimensions,
+  getLogicalTransformationFitFrame,
   getLogicalTransformationCanvasVisibility,
+  toSyntheticDiagramNode,
 } from "../src/logical/LogicalTransformationCanvas.tsx";
 import {
   LOGICAL_TRANSLATION_STEPS,
@@ -112,6 +115,57 @@ test("logical canvas transformation mode keeps ER context while schema mode show
   assert.deepEqual(schema.erNodes, []);
   assert.deepEqual(schema.erEdges, []);
   assert.deepEqual(schema.fkEdges.map((edge) => edge.id), ["fk-edge"]);
+});
+
+test("logical canvas supports zoom below the ER canvas minimum for wide transformation graphs", () => {
+  assert.equal(clampLogicalTransformationZoom(0.12), 0.18);
+  assert.equal(clampLogicalTransformationZoom(0.28), 0.28);
+});
+
+test("logical canvas fit reserves space for floating controls", () => {
+  const frame = getLogicalTransformationFitFrame({ width: 746, height: 817 });
+
+  assert.equal(frame.x, 150);
+  assert.equal(frame.y, 72);
+  assert.ok(frame.width < 746);
+  assert.ok(frame.height < 817);
+});
+
+test("logical canvas preserves ER identifier metadata from source nodes", () => {
+  const sourceAttribute: Extract<DiagramNode, { type: "attribute" }> = {
+    id: "attr-id",
+    type: "attribute",
+    label: "codice",
+    x: 10,
+    y: 20,
+    width: 100,
+    height: 32,
+    isIdentifier: true,
+    isCompositeInternal: true,
+  };
+  const transformationNode: LogicalTransformationNode = {
+    id: "attr-id",
+    kind: "er-node",
+    renderType: "attribute",
+    label: "codice",
+    x: 30,
+    y: 40,
+    width: 120,
+    height: 36,
+    status: "unresolved",
+    sourceNodeId: "attr-id",
+    sourceNodeType: "attribute",
+    generatedByDecisionIds: [],
+    relatedTargetKeys: [],
+  };
+
+  const synthetic = toSyntheticDiagramNode(transformationNode, sourceAttribute);
+
+  assert.equal(synthetic.type, "attribute");
+  assert.equal(synthetic.isIdentifier, true);
+  assert.equal(synthetic.isCompositeInternal, true);
+  assert.equal(synthetic.x, 30);
+  assert.equal(synthetic.width, 120);
 });
 
 function createEntity(
@@ -472,7 +526,7 @@ function createSqlMetadataModelFixture(): LogicalModel {
   };
 }
 
-test("la traduzione guidata 1:N assegna la FK al carrier corretto e nasconde le relazioni risolte", () => {
+test("la traduzione guidata 1:N assegna la FK al carrier corretto e conserva il contesto ER tradotto", () => {
   const diagram = createRelationshipRegressionDiagram();
   let { workspace, overview } = applyEntityChoices(diagram);
 
@@ -534,17 +588,16 @@ test("la traduzione guidata 1:N assegna la FK al carrier corretto e nasconde le 
     "EDIZIONE CORSO deve contenere la FK verso DOCENTE",
   );
 
-  assert.equal(
-    workspace.transformation.nodes.some((node) => node.id === "rel-orario" || node.id === "rel-docenza"),
-    false,
-    "Le relazioni assorbite non devono restare come nodi attivi sul canvas logico",
+  assert.ok(
+    diagram.nodes.every((node) => workspace.transformation.nodes.some((candidate) => candidate.id === node.id)),
+    "Il graph logico deve ereditare tutti i nodi del diagramma tradotto",
   );
 
-  const hiddenConnectorIds = new Set(["edge-lezione-orario", "edge-edizione-orario", "edge-docente-docenza", "edge-edizione-docenza"]);
-  assert.equal(
-    workspace.transformation.edges.some((edge) => typeof edge.sourceEdgeId === "string" && hiddenConnectorIds.has(edge.sourceEdgeId)),
-    false,
-    "I connector delle relazioni risolte non devono restare nel graph logico",
+  assert.ok(
+    diagram.edges.every((edge) =>
+      workspace.transformation.edges.some((candidate) => candidate.kind === "er-edge" && candidate.sourceEdgeId === edge.id),
+    ),
+    "Il graph logico deve ereditare tutti gli archi ER del diagramma tradotto",
   );
 
   assert.ok(

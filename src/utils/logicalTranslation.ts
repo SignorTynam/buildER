@@ -2694,26 +2694,12 @@ function buildTransformationGraph(
   const ownership = buildAttributeOwnershipContext(diagram);
   const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
   const decisionTargetKeyById = getDecisionTargetKeyMap(translation);
-  const absorbedExternalRelationshipIds = getAbsorbedExternalIdentifierRelationshipIds(diagram, translation);
   const tableBySourceEntityId = new Map(
     model.tables
       .filter((table) => typeof table.sourceEntityId === "string")
       .map((table) => [table.sourceEntityId as string, table]),
   );
-  const tableBySourceRelationshipId = new Map(
-    model.tables
-      .filter((table) => typeof table.sourceRelationshipId === "string")
-      .map((table) => [table.sourceRelationshipId as string, table]),
-  );
-  const transformedRelationshipIds = new Set<string>();
-  const tableBySourceAttributeId = new Map(
-    model.tables
-      .filter((table) => typeof table.sourceAttributeId === "string")
-      .map((table) => [table.sourceAttributeId as string, table]),
-  );
   const extraTableTargetKeys = new Map<string, Set<string>>();
-  const hiddenSourceNodeIds = new Set<string>();
-  const representativeNodeIdBySourceId = new Map<string, string>();
   const tableNodes: LogicalTransformationNode[] = [];
 
   model.tables.forEach((table) => {
@@ -2748,67 +2734,6 @@ function buildTransformationGraph(
       columns,
     });
 
-    if (table.sourceEntityId) {
-      hiddenSourceNodeIds.add(table.sourceEntityId);
-      representativeNodeIdBySourceId.set(table.sourceEntityId, table.id);
-    }
-
-    if (table.sourceRelationshipId) {
-      hiddenSourceNodeIds.add(table.sourceRelationshipId);
-      representativeNodeIdBySourceId.set(table.sourceRelationshipId, table.id);
-      transformedRelationshipIds.add(table.sourceRelationshipId);
-    }
-
-    if (table.sourceAttributeId) {
-      collectAttributeSubtreeIds(table.sourceAttributeId, ownership).forEach((attributeId) => {
-        hiddenSourceNodeIds.add(attributeId);
-      });
-      representativeNodeIdBySourceId.set(table.sourceAttributeId, table.id);
-    }
-  });
-
-  model.tables.forEach((table) => {
-    if (!table.sourceEntityId) {
-      return;
-    }
-
-    getDirectOwnedAttributes(table.sourceEntityId, ownership).forEach((attribute) => {
-      if (isAttributeUnderMultivaluedRoot(attribute.id, ownership)) {
-        return;
-      }
-
-      collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => {
-        hiddenSourceNodeIds.add(attributeId);
-      });
-    });
-  });
-
-  model.edges.forEach((edge) => {
-    const foreignKey = model.foreignKeys.find((candidate) => candidate.id === edge.foreignKeyId);
-    if (!foreignKey?.sourceRelationshipId) {
-      return;
-    }
-
-    getDirectOwnedAttributes(foreignKey.sourceRelationshipId, ownership).forEach((attribute) => {
-      collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
-    });
-  });
-
-  model.foreignKeys.forEach((foreignKey) => {
-    if (!foreignKey.sourceRelationshipId) {
-      return;
-    }
-
-    hiddenSourceNodeIds.add(foreignKey.sourceRelationshipId);
-    representativeNodeIdBySourceId.set(foreignKey.sourceRelationshipId, foreignKey.fromTableId);
-    transformedRelationshipIds.add(foreignKey.sourceRelationshipId);
-  });
-
-  absorbedExternalRelationshipIds.forEach((relationshipId) => {
-    hiddenSourceNodeIds.add(relationshipId);
-    getDirectOwnedAttributes(relationshipId, ownership).forEach((attribute) => {
-      collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
-    });
   });
 
   const hierarchyByTargetId = buildHierarchyDecisionLookup(diagram);
@@ -2840,23 +2765,10 @@ function buildTransformationGraph(
         if (supertypeTable) {
           addTargetKeyEntry(extraTableTargetKeys, supertypeTable.id, targetKey);
         }
-        hierarchy.subtypes.forEach((subtype) => {
-          hiddenSourceNodeIds.add(subtype.id);
-          getDirectOwnedAttributes(subtype.id, ownership).forEach((attribute) => {
-            collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
-          });
-          if (supertypeTable) {
-            representativeNodeIdBySourceId.set(subtype.id, supertypeTable.id);
-          }
-        });
         return;
       }
 
       if (decision.rule === "generalization-subtypes-only") {
-        hiddenSourceNodeIds.add(hierarchy.supertype.id);
-        getDirectOwnedAttributes(hierarchy.supertype.id, ownership).forEach((attribute) => {
-          collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
-        });
         hierarchy.subtypes.forEach((subtype) => {
           const subtypeTable = tableBySourceEntityId.get(subtype.id);
           if (subtypeTable) {
@@ -2880,10 +2792,6 @@ function buildTransformationGraph(
   });
 
   diagram.nodes.forEach((node) => {
-    if (hiddenSourceNodeIds.has(node.id)) {
-      return;
-    }
-
     let renderType: LogicalTransformationNode["renderType"];
     let relatedTargetKeys: string[] = [];
     let status: LogicalTransformationElementStatus = "unresolved";
@@ -2934,11 +2842,7 @@ function buildTransformationGraph(
   });
 
   function resolveRenderedNodeId(sourceNodeId: string): string | null {
-    if (!hiddenSourceNodeIds.has(sourceNodeId)) {
-      return sourceNodeId;
-    }
-
-    return representativeNodeIdBySourceId.get(sourceNodeId) ?? null;
+    return sourceNodeId;
   }
 
   const transformationEdges: LogicalTransformationEdge[] = [];
@@ -2967,9 +2871,6 @@ function buildTransformationGraph(
   diagram.edges.forEach((edge) => {
     if (edge.type === "inheritance") {
       const status = getTransformationStatus(translation, "generalization", edge.targetId);
-      if (status === "transformed") {
-        return;
-      }
 
       const sourceId = resolveRenderedNodeId(edge.sourceId);
       const targetId = resolveRenderedNodeId(edge.targetId);
@@ -3004,11 +2905,7 @@ function buildTransformationGraph(
           : nodeById.get(edge.targetId)?.type === "relationship"
             ? edge.targetId
             : null;
-      if (!relationshipId || absorbedExternalRelationshipIds.has(relationshipId)) {
-        return;
-      }
-
-      if (transformedRelationshipIds.has(relationshipId)) {
+      if (!relationshipId) {
         return;
       }
 
@@ -3047,7 +2944,7 @@ function buildTransformationGraph(
         : targetNode?.type === "attribute"
           ? targetNode
           : undefined;
-    if (!attributeNode || hiddenSourceNodeIds.has(attributeNode.id)) {
+    if (!attributeNode) {
       return;
     }
 

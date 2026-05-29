@@ -1415,6 +1415,192 @@ function renderExternalIdentifierMarker(layout: ExternalIdentifierMarkerLayout) 
   );
 }
 
+export function DiagramIdentifierOverlay(props: { diagram: DiagramDocument }) {
+  const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
+  const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
+  const connectorGroups = new Map<string, string[]>();
+  const compositeAttributeIds = new Set<string>();
+  const externalIdentifierFrameLayouts: ExternalIdentifierFrameLayout[] = [];
+  const externalIdentifierMarkerLayouts: ExternalIdentifierMarkerLayout[] = [];
+
+  props.diagram.edges.forEach((edge) => {
+    if (edge.type !== "attribute") {
+      return;
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    if (sourceNode?.type !== "attribute" || targetNode?.type !== "attribute") {
+      return;
+    }
+
+    const hostNode =
+      sourceNode.isMultivalued === true && targetNode.isMultivalued !== true
+        ? sourceNode
+        : targetNode.isMultivalued === true && sourceNode.isMultivalued !== true
+          ? targetNode
+          : targetNode;
+    compositeAttributeIds.add(hostNode.id);
+  });
+
+  props.diagram.edges.forEach((edge) => {
+    if (edge.type !== "connector") {
+      return;
+    }
+
+    const groupKey = [edge.sourceId, edge.targetId].sort().join("::");
+    const group = connectorGroups.get(groupKey) ?? [];
+    group.push(edge.id);
+    connectorGroups.set(groupKey, group);
+  });
+
+  connectorGroups.forEach((edgeIds) => {
+    const laneCount = edgeIds.length;
+    edgeIds.forEach((edgeId, laneIndex) => {
+      connectorLaneMap.set(edgeId, { laneIndex, laneCount });
+    });
+  });
+
+  props.diagram.nodes.forEach((node) => {
+    if (node.type !== "entity" || (node.externalIdentifiers ?? []).length === 0) {
+      return;
+    }
+
+    const importedRelationshipIds = getExternalIdentifierImportedRelationshipIds(node);
+    const localAttributeIds = getExternalIdentifierLocalAttributeIds(node);
+    const sortedExternalIdentifiers = [...(node.externalIdentifiers ?? [])].sort((left, right) =>
+      buildExternalIdentifierSortKey(left).localeCompare(buildExternalIdentifierSortKey(right), "it", {
+        sensitivity: "base",
+      }),
+    );
+
+    sortedExternalIdentifiers.forEach((identifier, laneIndex) => {
+      const identifierMarkerLayouts: ExternalIdentifierMarkerLayout[] = [];
+
+      identifier.importedParts.forEach((part) => {
+        if (!importedRelationshipIds.has(part.relationshipId)) {
+          return;
+        }
+
+        const connectorEdge = props.diagram.edges.find(
+          (edge) =>
+            edge.type === "connector" &&
+            ((edge.sourceId === node.id && edge.targetId === part.relationshipId) ||
+              (edge.targetId === node.id && edge.sourceId === part.relationshipId)),
+        );
+        if (!connectorEdge) {
+          return;
+        }
+
+        const relationshipNode = nodeMap.get(part.relationshipId);
+        if (relationshipNode?.type !== "relationship") {
+          return;
+        }
+
+        const sourceEntity = nodeMap.get(part.sourceEntityId);
+        const sourceAttributeLabel = getExternalIdentifierImportedPartAttributes(props.diagram, part)
+          .map((attribute) => attribute.label)
+          .join(" + ");
+        const sourceNode = nodeMap.get(connectorEdge.sourceId);
+        const targetNode = nodeMap.get(connectorEdge.targetId);
+        if (!sourceNode || !targetNode) {
+          return;
+        }
+
+        const geometry = getEdgeGeometry(
+          connectorEdge,
+          sourceNode,
+          targetNode,
+          connectorLaneMap.get(connectorEdge.id),
+          compositeAttributeIds,
+        );
+        if (geometry.points.length < 2) {
+          return;
+        }
+
+        const entityIsSource = connectorEdge.sourceId === node.id;
+        const entityEndpoint = entityIsSource ? geometry.points[0] : geometry.points[geometry.points.length - 1];
+        const adjacentPoint = entityIsSource ? geometry.points[1] : geometry.points[geometry.points.length - 2];
+        const marker = getExternalIdentifierFramePoint(node, adjacentPoint, laneIndex);
+        const tooltip =
+          sourceEntity?.type === "entity" && sourceAttributeLabel.length > 0
+            ? `Importa ${sourceAttributeLabel} da ${sourceEntity.label}`
+            : undefined;
+
+        identifierMarkerLayouts.push({
+          key: `${identifier.id}-relationship-${part.relationshipId}`,
+          hostEntityId: node.id,
+          externalIdentifierId: identifier.id,
+          kind: "importedRelationship",
+          marker,
+          entityEndpoint,
+          tooltip,
+        });
+      });
+
+      identifier.localAttributeIds.forEach((attributeId) => {
+        if (!localAttributeIds.has(attributeId)) {
+          return;
+        }
+
+        const attributeEdge = props.diagram.edges.find(
+          (edge) =>
+            edge.type === "attribute" &&
+            ((edge.sourceId === node.id && edge.targetId === attributeId) ||
+              (edge.targetId === node.id && edge.sourceId === attributeId)),
+        );
+        if (!attributeEdge) {
+          return;
+        }
+
+        const sourceNode = nodeMap.get(attributeEdge.sourceId);
+        const targetNode = nodeMap.get(attributeEdge.targetId);
+        if (!sourceNode || !targetNode) {
+          return;
+        }
+
+        const geometry = getEdgeGeometry(attributeEdge, sourceNode, targetNode, undefined, compositeAttributeIds);
+        if (geometry.points.length < 2) {
+          return;
+        }
+
+        const entityIsSource = attributeEdge.sourceId === node.id;
+        const entityEndpoint = entityIsSource ? geometry.points[0] : geometry.points[geometry.points.length - 1];
+        const adjacentPoint = entityIsSource ? geometry.points[1] : geometry.points[geometry.points.length - 2];
+        const marker = getExternalIdentifierFramePoint(node, adjacentPoint, laneIndex);
+
+        identifierMarkerLayouts.push({
+          key: `${identifier.id}-attribute-${attributeId}`,
+          hostEntityId: node.id,
+          externalIdentifierId: identifier.id,
+          kind: "localAttribute",
+          marker,
+          entityEndpoint,
+        });
+      });
+
+      const frameLayout = buildExternalIdentifierGroupingFrameLayout(node, identifierMarkerLayouts, laneIndex);
+      if (frameLayout.pathData.length > 0) {
+        externalIdentifierFrameLayouts.push({
+          key: `${node.id}-${identifier.id}`,
+          hostEntityId: node.id,
+          externalIdentifierId: identifier.id,
+          pathData: frameLayout.pathData,
+          terminalMarker: frameLayout.terminalMarker,
+        });
+      }
+      externalIdentifierMarkerLayouts.push(...identifierMarkerLayouts);
+    });
+  });
+
+  return (
+    <g className="diagram-identifier-overlay" pointerEvents="none">
+      {externalIdentifierFrameLayouts.map(renderExternalIdentifierFrame)}
+      {externalIdentifierMarkerLayouts.map(renderExternalIdentifierMarker)}
+    </g>
+  );
+}
+
 export function getStableLocalIdentifierMarkerPoint(
   hostEntity: Extract<DiagramNode, { type: "entity" }>,
   attributeNode: Extract<DiagramNode, { type: "attribute" }>,

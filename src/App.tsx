@@ -2905,6 +2905,7 @@ export default function App() {
     switchToLogical?: boolean;
     preservePositions?: boolean;
     resetDecisions?: boolean;
+    initialViewport?: Viewport;
   }) {
     const translatedDiagram = translationHistory.present.translatedDiagram;
     const previousWorkspace = options?.preservePositions && logicalGenerated ? logicalHistory.present : undefined;
@@ -2920,7 +2921,7 @@ export default function App() {
     setLogicalGenerated(true);
     setLogicalStage("translation");
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
-    setLogicalViewport(DEFAULT_VIEWPORT);
+    setLogicalViewport(options?.initialViewport ? { ...options.initialViewport } : { ...DEFAULT_VIEWPORT });
     if (options?.switchToLogical) {
       setDiagramView("logical");
     }
@@ -2967,7 +2968,7 @@ export default function App() {
       }
 
       if (!logicalGenerated) {
-        regenerateLogicalWorkspace({ switchToLogical: true, preservePositions: true });
+        regenerateLogicalWorkspace({ switchToLogical: true, preservePositions: true, initialViewport: translationViewport });
         return;
       }
 
@@ -2980,6 +2981,9 @@ export default function App() {
         setStatus("Vista logica riallineata all'ER tradotto senza conversione automatica completa.");
       }
 
+      if (diagramView === "translation") {
+        setLogicalViewport({ ...translationViewport });
+      }
       setDiagramView("logical");
       setTranslationSelection({ nodeIds: [], edgeIds: [] });
       setTool("select");
@@ -3005,6 +3009,7 @@ export default function App() {
       switchToLogical: true,
       preservePositions: false,
       resetDecisions: true,
+      initialViewport: translationViewport,
     });
     setLogicalStage("translation");
   }

@@ -5,9 +5,10 @@ import type {
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from "react";
+import { DiagramIdentifierOverlay } from "../canvas/DiagramCanvas";
 import { DiagramEdgeView } from "../canvas/DiagramEdge";
 import { DiagramNodeView } from "../canvas/DiagramNode";
-import type { DiagramEdge, DiagramNode, Point, Viewport } from "../types/diagram";
+import type { DiagramDocument, DiagramEdge, DiagramNode, Point, Viewport } from "../types/diagram";
 import type {
   LogicalColumn,
   LogicalSelection,
@@ -16,7 +17,7 @@ import type {
   LogicalWorkspaceDocument,
 } from "../types/logical";
 import {
-  clampZoom,
+  MAX_ZOOM,
   clientPointFromWorld,
 } from "../utils/geometry";
 import {
@@ -26,11 +27,13 @@ import {
 } from "../utils/logicalSqlMetadata";
 
 interface LogicalTransformationCanvasProps {
+  sourceDiagram: DiagramDocument;
   workspace: LogicalWorkspaceDocument;
   selection: LogicalSelection;
   viewport: Viewport;
   typeMode: boolean;
   fitRequestToken: number;
+  autoFitOnMount?: boolean;
   activeTargetKeys: string[];
   focusedTargetKey: string | null;
   viewMode?: LogicalTransformationCanvasMode;
@@ -77,6 +80,10 @@ const WORLD_EXTENT = 9200;
 const ROUTE_EXIT_OFFSET = 18;
 const LANE_STEP = 14;
 const VIEWPORT_PADDING = 140;
+const LOGICAL_MIN_ZOOM = 0.18;
+const LOGICAL_FIT_LEFT_INSET = 150;
+const LOGICAL_FIT_RIGHT_INSET = 72;
+const LOGICAL_FIT_VERTICAL_INSET = 72;
 const EDGE_BOUNDS_PADDING = 24;
 const EDGE_LABEL_HALF_WIDTH = 56;
 const EDGE_LABEL_HALF_HEIGHT = 12;
@@ -100,6 +107,29 @@ const DESIGNER_COLUMN_NAME_UNDERLINE_Y = 11;
 
 function clampDesignerDimension(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+export function clampLogicalTransformationZoom(zoom: number): number {
+  return Math.min(MAX_ZOOM, Math.max(LOGICAL_MIN_ZOOM, zoom));
+}
+
+export function getLogicalTransformationFitFrame(rect: Pick<DOMRect, "width" | "height">): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const left = Math.min(LOGICAL_FIT_LEFT_INSET, rect.width * 0.25);
+  const right = Math.min(LOGICAL_FIT_RIGHT_INSET, rect.width * 0.12);
+  const top = Math.min(LOGICAL_FIT_VERTICAL_INSET, rect.height * 0.12);
+  const bottom = Math.min(LOGICAL_FIT_VERTICAL_INSET, rect.height * 0.12);
+
+  return {
+    x: left,
+    y: top,
+    width: Math.max(1, rect.width - left - right),
+    height: Math.max(1, rect.height - top - bottom),
+  };
 }
 
 function estimateDesignerTextWidth(value: string, variant: "title" | "column" | "type"): number {
@@ -597,7 +627,18 @@ function getRowWorldPoint(tableNode: LogicalTransformationNode, rowIndex: number
   };
 }
 
-function toSyntheticDiagramNode(node: LogicalTransformationNode): DiagramNode {
+export function toSyntheticDiagramNode(node: LogicalTransformationNode, sourceNode?: DiagramNode): DiagramNode {
+  if (node.kind === "er-node" && sourceNode) {
+    return {
+      ...sourceNode,
+      label: node.label,
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+    };
+  }
+
   if (node.renderType === "relationship") {
     return {
       id: node.id,
@@ -692,6 +733,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fitRetryFrameRef = useRef<number | null>(null);
   const fitRetryAttemptsRef = useRef(0);
+  const fitEffectMountedRef = useRef(false);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
@@ -699,6 +741,10 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
 
   const graph = props.workspace.transformation;
   const viewMode = props.viewMode ?? "transformation";
+  const sourceNodeById = useMemo(
+    () => new Map(props.sourceDiagram.nodes.map((node) => [node.id, node])),
+    [props.sourceDiagram.nodes],
+  );
   const tableColumnsById = useMemo(() => {
     const result = new Map<string, LogicalColumn[]>();
     props.workspace.model.tables.forEach((table) => {
@@ -722,8 +768,8 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   );
   const { erNodes, tableNodes, visibleNodes: visibleRenderedNodes, erEdges, fkEdges } = visibleElements;
   const syntheticNodeById = useMemo(
-    () => new Map(renderedNodes.map((node) => [node.id, toSyntheticDiagramNode(node)])),
-    [renderedNodes],
+    () => new Map(renderedNodes.map((node) => [node.id, toSyntheticDiagramNode(node, sourceNodeById.get(node.sourceNodeId ?? node.id))])),
+    [renderedNodes, sourceNodeById],
   );
 
   const laneByEdgeId = useMemo(() => {
@@ -810,16 +856,17 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return false;
     }
 
+    const frame = getLogicalTransformationFitFrame(rect);
     const paddedWidth = Math.max(1, bounds.width + VIEWPORT_PADDING * 2);
     const paddedHeight = Math.max(1, bounds.height + VIEWPORT_PADDING * 2);
-    const nextZoom = clampZoom(Math.min(rect.width / paddedWidth, rect.height / paddedHeight));
+    const nextZoom = clampLogicalTransformationZoom(Math.min(frame.width / paddedWidth, frame.height / paddedHeight));
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
 
     props.onViewportChange({
       zoom: nextZoom,
-      x: rect.width / 2 - centerX * nextZoom,
-      y: rect.height / 2 - centerY * nextZoom,
+      x: frame.x + frame.width / 2 - centerX * nextZoom,
+      y: frame.y + frame.height / 2 - centerY * nextZoom,
     });
 
     return true;
@@ -855,6 +902,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   }
 
   useEffect(() => {
+    if (!fitEffectMountedRef.current) {
+      fitEffectMountedRef.current = true;
+      if (props.autoFitOnMount === false) {
+        return;
+      }
+    }
+
     requestFitToContent();
     // Trigger only on token changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -872,7 +926,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
         return;
       }
 
-      if (fitRetryFrameRef.current != null || props.viewport.zoom <= 0.451) {
+      if (fitRetryFrameRef.current != null || props.viewport.zoom <= LOGICAL_MIN_ZOOM + 0.001) {
         requestFitToContent();
       }
     });
@@ -896,12 +950,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
+    const frame = getLogicalTransformationFitFrame(rect);
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
     props.onViewportChange({
       ...props.viewport,
-      x: rect.width / 2 - centerX * props.viewport.zoom,
-      y: rect.height / 2 - centerY * props.viewport.zoom,
+      x: frame.x + frame.width / 2 - centerX * props.viewport.zoom,
+      y: frame.y + frame.height / 2 - centerY * props.viewport.zoom,
     });
   }
 
@@ -914,19 +969,20 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()]);
     if (!bounds) {
       props.onViewportChange({
-        x: rect.width / 2,
-        y: rect.height / 2,
+        x: getLogicalTransformationFitFrame(rect).x + getLogicalTransformationFitFrame(rect).width / 2,
+        y: getLogicalTransformationFitFrame(rect).y + getLogicalTransformationFitFrame(rect).height / 2,
         zoom: 1,
       });
       return;
     }
 
+    const frame = getLogicalTransformationFitFrame(rect);
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
     props.onViewportChange({
       zoom: 1,
-      x: rect.width / 2 - centerX,
-      y: rect.height / 2 - centerY,
+      x: frame.x + frame.width / 2 - centerX,
+      y: frame.y + frame.height / 2 - centerY,
     });
   }
 
@@ -938,7 +994,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     const rect = containerRef.current.getBoundingClientRect();
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-    const nextZoom = clampZoom(props.viewport.zoom * factor);
+    const nextZoom = clampLogicalTransformationZoom(props.viewport.zoom * factor);
     if (Math.abs(nextZoom - props.viewport.zoom) < 0.001) {
       return;
     }
@@ -963,7 +1019,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     const localY = event.clientY - rect.top;
     const deltaScale = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? rect.height : 1;
     const zoomFactor = Math.exp((-event.deltaY * deltaScale) / 720);
-    const nextZoom = clampZoom(props.viewport.zoom * zoomFactor);
+    const nextZoom = clampLogicalTransformationZoom(props.viewport.zoom * zoomFactor);
     if (Math.abs(nextZoom - props.viewport.zoom) < 0.001) {
       return;
     }
@@ -1419,6 +1475,8 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
               </g>
             );
           })}
+
+          {viewMode === "transformation" ? <DiagramIdentifierOverlay diagram={props.sourceDiagram} /> : null}
 
           {tableNodes.map((tableNode) => {
             const selected = props.selection.nodeId === tableNode.id;
