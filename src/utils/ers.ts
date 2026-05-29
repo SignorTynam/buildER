@@ -24,7 +24,6 @@ import {
   canConnect,
   getMultivaluedAttributeSize,
   cleanupGeneralizationReferences,
-  mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
   validateDiagram,
 } from "./diagram";
@@ -121,6 +120,7 @@ interface ParsedGeneralizationGroupSpec {
   subtypeAliases: string[];
   isaCompleteness?: IsaCompleteness;
   isaDisjointness?: IsaDisjointness;
+  label?: string;
 }
 
 interface StructuredExpansion {
@@ -1411,9 +1411,14 @@ function parseGeneralizationGroupStatement(tokens: string[], line: number): Pars
   const supertypeAlias = readIdentifier(tokens, state, line, "Supertipo generalization mancante.");
   let isaDisjointness: IsaDisjointness | undefined;
   let isaCompleteness: IsaCompleteness | undefined;
+  let label: string | undefined;
 
   while (state.index < tokens.length) {
     const directive = readIdentifier(tokens, state, line, "Vincolo generalization non valido.");
+    if (directive === "label") {
+      label = readStringValue(tokens, state, line, "Label gruppo generalization mancante.");
+      continue;
+    }
     if (directive === "disjoint" || directive === "exclusive") {
       isaDisjointness = "disjoint";
       continue;
@@ -1440,6 +1445,7 @@ function parseGeneralizationGroupStatement(tokens: string[], line: number): Pars
     subtypeAliases: [],
     isaCompleteness,
     isaDisjointness,
+    label,
   };
 }
 
@@ -1469,7 +1475,7 @@ function expandNamedGeneralization(
 ): { nextIndex: number; emitted: Array<{ line: number; text: string }> } | undefined {
   const line = startIndex + 1;
   const normalized = normalizeCommentFreeLine(rawLines[startIndex]);
-  const headerMatch = normalized.match(/^generalization\s+([A-Za-z_][\w.-]*)\s+([A-Za-z_][\w.-]*)\s*(\([^)]*\))?\s*\{\s*$/);
+  const headerMatch = normalized.match(/^generalization\s+([A-Za-z_][\w.-]*)\s+([A-Za-z_][\w.-]*)\s*(\([^)]*\))?\s*(?:label\s+(?:"([^"]*)"|([A-Za-z_][\w.-]*)))?\s*\{\s*$/);
 
   if (!headerMatch) {
     return undefined;
@@ -1478,6 +1484,7 @@ function expandNamedGeneralization(
   const alias = headerMatch[1];
   const parentAlias = headerMatch[2];
   const constraints = parseDesignerIsaConstraint(headerMatch[3]);
+  const label = headerMatch[4] ?? headerMatch[5];
   const subtypes: string[] = [];
 
   for (let index = startIndex + 1; index < rawLines.length; index += 1) {
@@ -1497,7 +1504,7 @@ function expandNamedGeneralization(
         emitted: [
           {
             line,
-            text: `generalization-group ${alias} ${parentAlias}${constraintParts.length > 0 ? ` ${constraintParts.join(" ")}` : ""}`,
+            text: `generalization-group ${alias} ${parentAlias}${constraintParts.length > 0 ? ` ${constraintParts.join(" ")}` : ""}${label ? ` label ${quoteValue(label)}` : ""}`,
           },
           ...subtypes.map((subtypeAlias) => ({
             line: currentLine,
@@ -2700,7 +2707,6 @@ function resolveNodeAlias(
 
 export function serializeDiagramToErs(diagram: DiagramDocument): string {
   let normalizedDiagram = normalizeGeneralizationGroups(diagram);
-  normalizedDiagram = mergeCompatibleGeneralizationGroups(normalizedDiagram);
   normalizedDiagram = cleanupGeneralizationReferences(normalizedDiagram);
   const aliasByNodeId = assignNodeAliases(normalizedDiagram);
   const attributesByHostId = getAttributeHostNodes(normalizedDiagram);
@@ -2731,6 +2737,7 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
       children: string[];
       isaCompleteness: IsaCompleteness;
       isaDisjointness: IsaDisjointness;
+      label?: string;
     }
   >();
   explicitGeneralizationGroups.forEach((group) => {
@@ -2746,11 +2753,12 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
       children,
       isaCompleteness: group.isaCompleteness ?? "partial",
       isaDisjointness: group.isaDisjointness ?? "disjoint",
+      label: group.label,
     });
   });
   const inheritanceLines = Array.from(inheritanceGroups.entries()).flatMap(([groupId, group]) => {
     return [
-      `generalization ${groupId} ${group.parentAlias} (${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "disjoint" ? "e" : "o"}) {`,
+      `generalization ${groupId} ${group.parentAlias} (${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "disjoint" ? "e" : "o"})${group.label ? ` label ${quoteValue(group.label)}` : ""} {`,
       ...group.children.map((childAlias, index) => `    ${childAlias}${index < group.children.length - 1 ? "," : ""}`),
       `}`,
     ];
@@ -3668,6 +3676,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
         subtypeIds,
         isaCompleteness: spec.isaCompleteness,
         isaDisjointness: spec.isaDisjointness,
+        label: spec.label,
       };
     })
     .filter((group) => group.subtypeIds.length > 0);
@@ -3687,7 +3696,6 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
   };
 
   let normalizedDiagram = normalizeGeneralizationGroups(diagram);
-  normalizedDiagram = mergeCompatibleGeneralizationGroups(normalizedDiagram);
   normalizedDiagram = cleanupGeneralizationReferences(normalizedDiagram);
   const issues = validateDiagram(normalizedDiagram).filter((issue) => issue.level === "error");
   if (issues.length > 0) {

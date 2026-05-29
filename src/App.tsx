@@ -22,6 +22,9 @@ import type {
   EntityNode,
   EditorMode,
   ExternalIdentifier,
+  GeneralizationGroup,
+  IsaCompleteness,
+  IsaDisjointness,
   Point,
   SelectionState,
   ToolKind,
@@ -47,12 +50,14 @@ import type {
 } from "./types/translation";
 import {
   alignNodes,
+  assignInheritanceEdgeToGeneralizationGroup,
   assignInheritanceConstraintToGroup,
   canConnect,
   canAttributeHaveCardinality,
   canAttributeBecomeComposite,
   createEdge,
   createEmptyDiagram,
+  createGeneralizationGroupForInheritanceEdge,
   createNode,
   duplicateSelection,
   edgeAlreadyExists,
@@ -69,6 +74,7 @@ import {
   removeExternalIdentifierFromEntity,
   removeSelection,
   serializeDiagram,
+  updateGeneralizationGroupDetails,
   updateGeneralizationGroupConstraint,
   validateNodeNameInNamespace,
   synchronizeEntityRelationshipParticipations,
@@ -185,9 +191,19 @@ interface MixedIdentifierDialogState {
   error: string;
 }
 
-interface InheritanceTypeDialogState {
-  edgeId: string;
-  value: "t,e" | "t,o" | "p,e" | "p,o";
+interface GeneralizationGroupDialogState {
+  kind: "assign" | "edit";
+  edgeId?: string;
+  groupId?: string;
+  subtypeId: string;
+  supertypeId: string;
+  mode: "existing" | "new";
+  selectedGroupId?: string;
+  newGroupName: string;
+  isaCompleteness: IsaCompleteness;
+  isaDisjointness: IsaDisjointness;
+  error: string;
+  createdEdgeWasTemporary: boolean;
 }
 
 interface OnboardingSnapshot {
@@ -1200,7 +1216,7 @@ export default function App() {
   const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null);
   const [cardinalityDialog, setCardinalityDialog] = useState<CardinalityDialogState | null>(null);
   const [mixedIdentifierDialog, setMixedIdentifierDialog] = useState<MixedIdentifierDialogState | null>(null);
-  const [inheritanceTypeDialog, setInheritanceTypeDialog] = useState<InheritanceTypeDialogState | null>(null);
+  const [generalizationGroupDialog, setGeneralizationGroupDialog] = useState<GeneralizationGroupDialogState | null>(null);
   const [errorsPanelOpen, setErrorsPanelOpen] = useState(false);
   const [promptValue, setPromptValue] = useState("");
   const [promptError, setPromptError] = useState("");
@@ -2709,9 +2725,9 @@ export default function App() {
           return;
         }
 
-        if (inheritanceTypeDialog) {
+        if (generalizationGroupDialog) {
           event.preventDefault();
-          setInheritanceTypeDialog(null);
+          cancelGeneralizationGroupDialog();
           return;
         }
 
@@ -2770,7 +2786,7 @@ export default function App() {
     diagramView,
     errorsPanelOpen,
     history,
-    inheritanceTypeDialog,
+    generalizationGroupDialog,
     introOpen,
     keyboardShortcutsOpen,
     logicalHistory,
@@ -3357,7 +3373,8 @@ export default function App() {
     setSelection({ nodeIds: [], edgeIds: [nextEdge.id] });
     setTool("select");
     if (type === "inheritance") {
-      return { success: true, message: "Collegamento ISA creato. Assegna un vincolo alla gerarchia." };
+      openGeneralizationGroupDialog(nextEdge.id, nextDiagram, { createdEdgeWasTemporary: true });
+      return { success: true, message: "Configura il gruppo ISA per completare la gerarchia." };
     }
     return { success: true, message: "Collegamento creato." };
   }
@@ -3949,6 +3966,92 @@ export default function App() {
     setMixedIdentifierDialog(null);
   }
 
+  function formatIsaConstraintShort(isaCompleteness?: IsaCompleteness, isaDisjointness?: IsaDisjointness): string {
+    if (!isaCompleteness || !isaDisjointness) {
+      return "(?,?)";
+    }
+    return `(${isaCompleteness === "total" ? "t" : "p"},${isaDisjointness === "disjoint" ? "e" : "o"})`;
+  }
+
+  function getEntityLabel(diagram: DiagramDocument, nodeId: string): string {
+    const node = diagram.nodes.find((candidate) => candidate.id === nodeId);
+    return node?.label ?? nodeId;
+  }
+
+  function getCompatibleGeneralizationGroups(diagram: DiagramDocument, supertypeId: string): GeneralizationGroup[] {
+    return (diagram.generalizationGroups ?? []).filter((group) => group.supertypeId === supertypeId);
+  }
+
+  function getSubtypeGroupConflict(
+    diagram: DiagramDocument,
+    supertypeId: string,
+    subtypeId: string,
+    allowedGroupId?: string,
+  ): GeneralizationGroup | undefined {
+    return getCompatibleGeneralizationGroups(diagram, supertypeId).find(
+      (group) => group.id !== allowedGroupId && group.subtypeIds.includes(subtypeId),
+    );
+  }
+
+  function openGeneralizationGroupDialog(
+    edgeId: string,
+    diagram: DiagramDocument = history.present,
+    options: { createdEdgeWasTemporary?: boolean } = {},
+  ) {
+    const inheritanceEdge = edgeId
+      ? diagram.edges.find((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.id === edgeId && edge.type === "inheritance")
+      : undefined;
+    if (!inheritanceEdge) {
+      return;
+    }
+
+    if (inheritanceEdge.generalizationGroupId) {
+      openGeneralizationGroupEditDialog(inheritanceEdge.generalizationGroupId, inheritanceEdge.id, diagram);
+      return;
+    }
+
+    const compatibleGroups = getCompatibleGeneralizationGroups(diagram, inheritanceEdge.targetId);
+    setGeneralizationGroupDialog({
+      kind: "assign",
+      edgeId: inheritanceEdge.id,
+      subtypeId: inheritanceEdge.sourceId,
+      supertypeId: inheritanceEdge.targetId,
+      mode: compatibleGroups.length > 0 ? "existing" : "new",
+      selectedGroupId: compatibleGroups[0]?.id,
+      newGroupName: "",
+      isaCompleteness: "total",
+      isaDisjointness: "disjoint",
+      error: "",
+      createdEdgeWasTemporary: options.createdEdgeWasTemporary === true,
+    });
+  }
+
+  function openGeneralizationGroupEditDialog(groupId: string, edgeId?: string, diagram: DiagramDocument = history.present) {
+    const group = (diagram.generalizationGroups ?? []).find((candidate) => candidate.id === groupId);
+    if (!group) {
+      if (edgeId) {
+        openGeneralizationGroupDialog(edgeId, diagram);
+      }
+      return;
+    }
+
+    const firstSubtypeId = group.subtypeIds[0] ?? edgeId ?? group.supertypeId;
+    setGeneralizationGroupDialog({
+      kind: "edit",
+      edgeId,
+      groupId: group.id,
+      subtypeId: firstSubtypeId,
+      supertypeId: group.supertypeId,
+      mode: "new",
+      selectedGroupId: undefined,
+      newGroupName: group.label ?? group.id,
+      isaCompleteness: group.isaCompleteness ?? "partial",
+      isaDisjointness: group.isaDisjointness ?? "disjoint",
+      error: "",
+      createdEdgeWasTemporary: false,
+    });
+  }
+
   function handleOpenInheritanceTypeControl(edgeId?: string) {
     const inheritanceEdge = edgeId
       ? history.present.edges.find((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.id === edgeId && edge.type === "inheritance")
@@ -3959,26 +4062,108 @@ export default function App() {
       return;
     }
 
-    const currentCompleteness = inheritanceEdge.isaCompleteness === "total" ? "t" : "p";
-    const currentDisjointness = inheritanceEdge.isaDisjointness === "overlap" ? "o" : "e";
-    setInheritanceTypeDialog({
-      edgeId: inheritanceEdge.id,
-      value: `${currentCompleteness},${currentDisjointness}` as InheritanceTypeDialogState["value"],
-    });
+    openGeneralizationGroupDialog(inheritanceEdge.id);
   }
 
-  function submitInheritanceTypeDialog() {
-    if (!inheritanceTypeDialog) {
+  function cancelGeneralizationGroupDialog() {
+    const dialog = generalizationGroupDialog;
+    setGeneralizationGroupDialog(null);
+    if (dialog?.kind === "assign" && dialog.createdEdgeWasTemporary && dialog.edgeId) {
+      const nextDiagram = removeSelection(history.present, { nodeIds: [], edgeIds: [dialog.edgeId] });
+      commitDiagram(nextDiagram);
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setStatus("Creazione gerarchia ISA annullata.");
+    }
+  }
+
+  function submitGeneralizationGroupDialog() {
+    if (!generalizationGroupDialog) {
       return;
     }
 
-    const [completeness, disjointness] = inheritanceTypeDialog.value.split(",") as ["t" | "p", "e" | "o"];
-    handleEdgeChange(inheritanceTypeDialog.edgeId, {
-      isaCompleteness: completeness === "t" ? "total" : "partial",
-      isaDisjointness: disjointness === "o" ? "overlap" : "disjoint",
-      label: `(${completeness},${disjointness})`,
-    } as Partial<DiagramEdge>);
-    setInheritanceTypeDialog(null);
+    const dialog = generalizationGroupDialog;
+    const name = dialog.newGroupName.trim();
+    if (dialog.kind === "edit") {
+      if (!dialog.groupId) {
+        setGeneralizationGroupDialog({ ...dialog, error: "Gruppo ISA non disponibile." });
+        return;
+      }
+      if (!name) {
+        setGeneralizationGroupDialog({ ...dialog, error: "Il nome gruppo e obbligatorio." });
+        return;
+      }
+      const nextDiagram = updateGeneralizationGroupDetails(history.present, dialog.groupId, {
+        label: name,
+        isaCompleteness: dialog.isaCompleteness,
+        isaDisjointness: dialog.isaDisjointness,
+      });
+      commitDiagram(nextDiagram);
+      setGeneralizationGroupDialog(null);
+      if (dialog.edgeId) {
+        setSelection({ nodeIds: [], edgeIds: [dialog.edgeId] });
+      }
+      setStatus(`Gruppo ISA ${name} aggiornato.`);
+      return;
+    }
+
+    if (!dialog.edgeId) {
+      setGeneralizationGroupDialog({ ...dialog, error: "Ramo ISA non disponibile." });
+      return;
+    }
+
+    if (dialog.mode === "existing") {
+      if (!dialog.selectedGroupId) {
+        setGeneralizationGroupDialog({ ...dialog, error: "Seleziona un gruppo ISA." });
+        return;
+      }
+      const targetGroup = (history.present.generalizationGroups ?? []).find((group) => group.id === dialog.selectedGroupId);
+      if (!targetGroup || targetGroup.supertypeId !== dialog.supertypeId) {
+        setGeneralizationGroupDialog({ ...dialog, error: "Il gruppo selezionato non e compatibile con questa superentita." });
+        return;
+      }
+      if (targetGroup.subtypeIds.includes(dialog.subtypeId)) {
+        setGeneralizationGroupDialog({ ...dialog, error: "Questa sottoentita appartiene gia al gruppo selezionato." });
+        return;
+      }
+      const conflict = getSubtypeGroupConflict(history.present, dialog.supertypeId, dialog.subtypeId, targetGroup.id);
+      if (conflict) {
+        setGeneralizationGroupDialog({
+          ...dialog,
+          error: `Questa sottoentita appartiene gia al gruppo ${conflict.label ?? conflict.id}.`,
+        });
+        return;
+      }
+      const nextDiagram = assignInheritanceEdgeToGeneralizationGroup(history.present, dialog.edgeId, targetGroup.id);
+      commitDiagram(nextDiagram);
+      setGeneralizationGroupDialog(null);
+      setSelection({ nodeIds: [], edgeIds: [dialog.edgeId] });
+      setStatus(`Sottotipo ${getEntityLabel(history.present, dialog.subtypeId)} aggiunto al gruppo ${targetGroup.label ?? targetGroup.id}.`);
+      return;
+    }
+
+    if (!name) {
+      setGeneralizationGroupDialog({ ...dialog, error: "Il nome gruppo e obbligatorio." });
+      return;
+    }
+    const conflict = getSubtypeGroupConflict(history.present, dialog.supertypeId, dialog.subtypeId);
+    if (conflict) {
+      setGeneralizationGroupDialog({
+        ...dialog,
+        error: `Questa sottoentita appartiene gia al gruppo ${conflict.label ?? conflict.id}.`,
+      });
+      return;
+    }
+    const nextDiagram = createGeneralizationGroupForInheritanceEdge(
+      history.present,
+      dialog.edgeId,
+      name,
+      dialog.isaCompleteness,
+      dialog.isaDisjointness,
+    );
+    commitDiagram(nextDiagram);
+    setGeneralizationGroupDialog(null);
+    setSelection({ nodeIds: [], edgeIds: [dialog.edgeId] });
+    setStatus(`Nuovo gruppo ISA ${name} creato.`);
   }
 
   function handleCreateExternalIdentifierFromSelection(sourceAttributeId: string, targetId: string) {
@@ -4671,7 +4856,6 @@ export default function App() {
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
     const edge = history.present.edges.find((candidate) => candidate.id === edgeId);
     let nextDiagram: DiagramDocument;
-    let mergedIsaGroup = false;
 
     if (
       edge?.type === "inheritance" &&
@@ -4681,17 +4865,12 @@ export default function App() {
       patch.isaDisjointness
     ) {
       if (edge.generalizationGroupId) {
-        const beforeGroupCount = history.present.generalizationGroups?.length ?? 0;
-        const previousGroupId = edge.generalizationGroupId;
         nextDiagram = updateGeneralizationGroupConstraint(
           history.present,
-          previousGroupId,
+          edge.generalizationGroupId,
           patch.isaCompleteness,
           patch.isaDisjointness,
         );
-        const afterGroupCount = nextDiagram.generalizationGroups?.length ?? 0;
-        const stillExists = nextDiagram.generalizationGroups?.some((group) => group.id === previousGroupId) ?? false;
-        mergedIsaGroup = !stillExists && afterGroupCount < beforeGroupCount;
       } else {
         nextDiagram = assignInheritanceConstraintToGroup(
           history.present,
@@ -4705,9 +4884,6 @@ export default function App() {
     }
 
     commitDiagram(nextDiagram);
-    if (mergedIsaGroup) {
-      setStatus("Gerarchia ISA aggiornata e unificata con il gruppo esistente.");
-    }
   }
 
   function handleRenameNode(nodeId: string, label: string) {
@@ -5834,50 +6010,158 @@ export default function App() {
         </div>
       ) : null}
 
-      {inheritanceTypeDialog ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => setInheritanceTypeDialog(null)}>
-          <div
-            className="help-modal action-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="isa-dialog-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="help-modal-head">
-              <h2 id="isa-dialog-title">Type</h2>
-            </div>
-            <form
-              className="action-modal-content"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submitInheritanceTypeDialog();
-              }}
+      {generalizationGroupDialog ? (() => {
+        const dialog = generalizationGroupDialog;
+        const compatibleGroups = getCompatibleGeneralizationGroups(history.present, dialog.supertypeId);
+        const subtypeLabel = getEntityLabel(history.present, dialog.subtypeId);
+        const supertypeLabel = getEntityLabel(history.present, dialog.supertypeId);
+        return (
+          <div className="help-modal-backdrop" role="presentation" onClick={cancelGeneralizationGroupDialog}>
+            <div
+              className="help-modal action-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="isa-dialog-title"
+              onClick={(event) => event.stopPropagation()}
             >
-              <div className="choice-grid">
-                {(["t,e", "t,o", "p,e", "p,o"] as const).map((value) => (
-                  <label key={value} className="choice-tile">
-                    <input
-                      type="radio"
-                      name="isa-type"
-                      checked={inheritanceTypeDialog.value === value}
-                      onChange={() => setInheritanceTypeDialog({ ...inheritanceTypeDialog, value })}
-                    />
-                    <span>{value}</span>
-                  </label>
-                ))}
+              <div className="help-modal-head">
+                <h2 id="isa-dialog-title">Configura gruppo ISA</h2>
               </div>
-              <div className="action-modal-actions">
-                <button type="button" className="header-button" onClick={() => setInheritanceTypeDialog(null)}>
-                  Annulla
-                </button>
-                <button type="submit" className="mode-button active">
-                  Salva
-                </button>
-              </div>
-            </form>
+              <form
+                className="action-modal-content"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  submitGeneralizationGroupDialog();
+                }}
+              >
+                <p className="action-modal-hint">
+                  {dialog.kind === "edit"
+                    ? "Modifica nome e vincoli del gruppo di gerarchia selezionato."
+                    : "Scegli se aggiungere questa sottoentita a un gruppo esistente oppure creare un nuovo gruppo di gerarchia."}
+                </p>
+                <div className="action-modal-summary">
+                  <strong>Sottoentita:</strong> {subtypeLabel}
+                  <br />
+                  <strong>Superentita:</strong> {supertypeLabel}
+                </div>
+
+                {dialog.kind === "assign" ? (
+                  <div className="choice-stack">
+                    <label className="choice-tile">
+                      <input
+                        type="radio"
+                        name="isa-group-mode"
+                        checked={dialog.mode === "existing"}
+                        disabled={compatibleGroups.length === 0}
+                        onChange={() =>
+                          setGeneralizationGroupDialog({
+                            ...dialog,
+                            mode: "existing",
+                            selectedGroupId: dialog.selectedGroupId ?? compatibleGroups[0]?.id,
+                            error: "",
+                          })
+                        }
+                      />
+                      <span>Usa gruppo esistente</span>
+                    </label>
+                    {dialog.mode === "existing" && compatibleGroups.length > 0 ? (
+                      <div className="choice-grid">
+                        {compatibleGroups.map((group) => (
+                          <label key={group.id} className="choice-tile">
+                            <input
+                              type="radio"
+                              name="isa-existing-group"
+                              checked={dialog.selectedGroupId === group.id}
+                              onChange={() => setGeneralizationGroupDialog({ ...dialog, selectedGroupId: group.id, error: "" })}
+                            />
+                            <span>
+                              <strong>{group.label ?? group.id}</strong>
+                              <small>
+                                Vincoli: {formatIsaConstraintShort(group.isaCompleteness, group.isaDisjointness)}
+                                <br />
+                                Sottoentita: {group.subtypeIds.map((subtypeId) => getEntityLabel(history.present, subtypeId)).join(", ") || "-"}
+                              </small>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <label className="choice-tile">
+                      <input
+                        type="radio"
+                        name="isa-group-mode"
+                        checked={dialog.mode === "new"}
+                        onChange={() => setGeneralizationGroupDialog({ ...dialog, mode: "new", error: "" })}
+                      />
+                      <span>Crea nuovo gruppo</span>
+                    </label>
+                  </div>
+                ) : null}
+
+                {(dialog.kind === "edit" || dialog.mode === "new") ? (
+                  <>
+                    <label className="action-modal-field">
+                      <span>Nome gruppo</span>
+                      <input
+                        value={dialog.newGroupName}
+                        onChange={(event) => setGeneralizationGroupDialog({ ...dialog, newGroupName: event.target.value, error: "" })}
+                        placeholder="Genere"
+                        autoFocus
+                      />
+                    </label>
+                    <div className="choice-grid">
+                      {([
+                        ["total", "Totale"],
+                        ["partial", "Parziale"],
+                      ] as const).map(([value, label]) => (
+                        <label key={value} className="choice-tile">
+                          <input
+                            type="radio"
+                            name="isa-completeness"
+                            checked={dialog.isaCompleteness === value}
+                            onChange={() => setGeneralizationGroupDialog({ ...dialog, isaCompleteness: value, error: "" })}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="choice-grid">
+                      {([
+                        ["disjoint", "Disgiunta"],
+                        ["overlap", "Sovrapposta"],
+                      ] as const).map(([value, label]) => (
+                        <label key={value} className="choice-tile">
+                          <input
+                            type="radio"
+                            name="isa-disjointness"
+                            checked={dialog.isaDisjointness === value}
+                            onChange={() => setGeneralizationGroupDialog({ ...dialog, isaDisjointness: value, error: "" })}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="action-modal-hint">
+                      Vincolo: {formatIsaConstraintShort(dialog.isaCompleteness, dialog.isaDisjointness)}
+                    </p>
+                  </>
+                ) : null}
+
+                {dialog.error ? <p className="action-modal-error">{dialog.error}</p> : null}
+                <div className="action-modal-actions">
+                  <button type="button" className="header-button" onClick={cancelGeneralizationGroupDialog}>
+                    Annulla
+                  </button>
+                  <button type="submit" className="mode-button active">
+                    Conferma
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      ) : null}
+        );
+      })() : null}
 
       {introOpen ? (
         <div className="intro-modal-backdrop" role="presentation" onClick={() => setIntroOpen(false)}>

@@ -3,9 +3,11 @@ import test from "node:test";
 
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
 import {
+  assignInheritanceEdgeToGeneralizationGroup,
   assignInheritanceConstraintToGroup,
   canAttributeBecomeComposite,
   cleanupGeneralizationReferences,
+  createGeneralizationGroupForInheritanceEdge,
   mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
   removeEntityFromGeneralizationHierarchy,
@@ -14,6 +16,7 @@ import {
   removeSubtypeFromGeneralizationGroup,
   renameNodeAsNameIdentity,
   synchronizeExternalIdentifiers,
+  updateGeneralizationGroupDetails,
   updateGeneralizationGroupConstraint,
   validateDiagram,
   validateExternalIdentifier,
@@ -308,24 +311,28 @@ function generalizationBlock(source: string, groupId: string): string {
   return match?.[0] ?? "";
 }
 
-test("gli edge ISA nascono senza vincolo e vengono raggruppati per padre e vincolo", () => {
+test("gli edge ISA nascono senza vincolo e vengono assegnati a gruppi espliciti", () => {
   let diagram = createIsaTestDiagram();
   let issues = validateDiagram(diagram);
   assert.equal(issues.filter((issue) => issue.id.startsWith("inheritance-missing-group")).length, 4);
 
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-uomo", "total", "disjoint");
+  diagram = createGeneralizationGroupForInheritanceEdge(diagram, "isa-uomo", "Genere", "total", "disjoint");
   let groups = diagram.generalizationGroups ?? [];
   assert.equal(groups.length, 1);
   assert.deepEqual(groups[0].subtypeIds, ["UOMO"]);
+  assert.equal(groups[0].label, "Genere");
   assert.equal(diagram.edges.find((edge) => edge.id === "isa-donna" && edge.type === "inheritance")?.generalizationGroupId, undefined);
 
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-donna", "total", "disjoint");
+  diagram = assignInheritanceEdgeToGeneralizationGroup(diagram, "isa-donna", groups[0].id);
   groups = diagram.generalizationGroups ?? [];
   assert.equal(groups.length, 1);
   assert.deepEqual([...groups[0].subtypeIds].sort(), ["DONNA", "UOMO"]);
+  assert.equal(diagram.edges.find((edge) => edge.id === "isa-donna" && edge.type === "inheritance")?.isaCompleteness, "total");
 
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-impiegato", "partial", "overlap");
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-studente", "partial", "overlap");
+  diagram = createGeneralizationGroupForInheritanceEdge(diagram, "isa-impiegato", "Ruolo", "partial", "overlap");
+  const roleGroup = diagram.generalizationGroups?.find((group) => group.label === "Ruolo");
+  assert.ok(roleGroup);
+  diagram = assignInheritanceEdgeToGeneralizationGroup(diagram, "isa-studente", roleGroup.id);
   groups = diagram.generalizationGroups ?? [];
   assert.equal(groups.length, 2);
   assert.equal(groups.some((group) => group.supertypeId === "PERSONA" && group.isaCompleteness === "partial" && group.isaDisjointness === "overlap"), true);
@@ -352,21 +359,25 @@ test("gli edge ISA nascono senza vincolo e vengono raggruppati per padre e vinco
 
 test("ERS conserva gruppi ISA distinti e non serializza etichette legacy", () => {
   let diagram = createIsaTestDiagram();
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-uomo", "total", "disjoint");
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-donna", "total", "disjoint");
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-impiegato", "partial", "overlap");
-  diagram = assignInheritanceConstraintToGroup(diagram, "isa-studente", "partial", "overlap");
+  diagram = createGeneralizationGroupForInheritanceEdge(diagram, "isa-uomo", "Genere", "total", "disjoint");
+  const sexGroup = diagram.generalizationGroups?.find((group) => group.label === "Genere");
+  assert.ok(sexGroup);
+  diagram = assignInheritanceEdgeToGeneralizationGroup(diagram, "isa-donna", sexGroup.id);
+  diagram = createGeneralizationGroupForInheritanceEdge(diagram, "isa-impiegato", "Ruolo", "partial", "overlap");
+  const roleGroup = diagram.generalizationGroups?.find((group) => group.label === "Ruolo");
+  assert.ok(roleGroup);
+  diagram = assignInheritanceEdgeToGeneralizationGroup(diagram, "isa-studente", roleGroup.id);
 
   const serialized = serializeDiagramToErs(diagram);
-  assert.match(serialized, /generalization .* PERSONA \(t,e\) \{/);
-  assert.match(serialized, /generalization .* PERSONA \(p,o\) \{/);
+  assert.match(serialized, /generalization .* PERSONA \(t,e\) label "Genere" \{/);
+  assert.match(serialized, /generalization .* PERSONA \(p,o\) label "Ruolo" \{/);
   assert.doesNotMatch(serialized, /\b(?:D\/T|D\/P|O\/T|O\/P|T\/D|P\/D)\b/);
 
   const reparsed = parseErsDiagram(serialized);
   const groups = normalizeGeneralizationGroups(reparsed).generalizationGroups?.filter((group) => group.supertypeId === "PERSONA") ?? [];
   assert.equal(groups.length, 2);
-  assert.equal(groups.some((group) => group.isaCompleteness === "total" && group.isaDisjointness === "disjoint"), true);
-  assert.equal(groups.some((group) => group.isaCompleteness === "partial" && group.isaDisjointness === "overlap"), true);
+  assert.equal(groups.some((group) => group.label === "Genere" && group.isaCompleteness === "total" && group.isaDisjointness === "disjoint"), true);
+  assert.equal(groups.some((group) => group.label === "Ruolo" && group.isaCompleteness === "partial" && group.isaDisjointness === "overlap"), true);
 });
 
 test("rimozione sottotipo dal gruppo aggiorna subito il blocco generalization", () => {
@@ -460,30 +471,29 @@ test("rimozione subtype preserva i vincoli del gruppo ISA rimasto", () => {
   assert.equal(group.junctionOffsetY, -12);
 });
 
-test("cambio vincolo ISA unifica gruppi compatibili", () => {
+test("cambio vincolo ISA conserva gruppi distinti anche se compatibili", () => {
   let diagram = createIsaMergeDiagram();
   diagram = updateGeneralizationGroupConstraint(diagram, "g2", "partial", "overlap");
 
   const groups = diagram.generalizationGroups?.filter(
     (group) => group.supertypeId === "ENTITA1" && group.isaCompleteness === "partial" && group.isaDisjointness === "overlap",
   ) ?? [];
-  assert.equal(groups.length, 1);
-  assert.deepEqual(new Set(groups[0].subtypeIds), new Set(["ENTITA2", "ENTITA3", "ENTITA7", "ENTITA5"]));
-  assert.equal(diagram.generalizationGroups?.some((group) => group.id === "g2"), false);
+  assert.equal(groups.length, 2);
+  assert.equal(diagram.generalizationGroups?.some((group) => group.id === "g2"), true);
   const entita5Edge = diagram.edges.find((edge) => edge.id === "isa-entita5" && edge.type === "inheritance");
-  assert.equal(entita5Edge?.generalizationGroupId, groups[0].id);
+  assert.equal(entita5Edge?.generalizationGroupId, "g2");
 });
 
-test("serializzazione ERS unifica gruppi ISA compatibili", () => {
+test("serializzazione ERS preserva gruppi ISA compatibili distinti", () => {
   let diagram = createIsaMergeDiagram();
   diagram = updateGeneralizationGroupConstraint(diagram, "g2", "partial", "overlap");
   const serialized = serializeDiagramToErs(diagram);
   const blocks = serialized.match(/generalization .* ENTITA1 \(p,o\) \{/g) ?? [];
-  assert.equal(blocks.length, 1);
+  assert.equal(blocks.length, 2);
   assert.match(serialized, /\bENTITA5\b/);
 });
 
-test("parser ERS fonde generalization con stesso vincolo", () => {
+test("parser ERS preserva generalization con stesso vincolo", () => {
   const diagram = parseErsDiagram(`entity ENTITA1 {}
 entity ENTITA2 {}
 entity ENTITA5 {}
@@ -497,8 +507,9 @@ generalization g2 ENTITA1 (p,o) {
   const groups = diagram.generalizationGroups?.filter(
     (group) => group.supertypeId === "ENTITA1" && group.isaCompleteness === "partial" && group.isaDisjointness === "overlap",
   ) ?? [];
-  assert.equal(groups.length, 1);
-  assert.deepEqual(new Set(groups[0].subtypeIds), new Set(["ENTITA2", "ENTITA5"]));
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.map((group) => group.id).sort(), ["g1", "g2"]);
+  assert.deepEqual(groups.map((group) => group.subtypeIds[0]).sort(), ["ENTITA2", "ENTITA5"]);
 });
 
 test("validateDiagram segnala sottotipi senza attributi e supertipi ISA senza relazioni", () => {
@@ -579,7 +590,7 @@ relation R A "(1,1)" B "(0,1)" C "(1,N)"`);
   assert.equal(warnings[0].level, "warning");
 });
 
-test("merge ISA evita duplicati di sottotipo", () => {
+test("cleanup ISA evita duplicati dentro lo stesso gruppo senza fondere gruppi distinti", () => {
   const diagram = mergeCompatibleGeneralizationGroups({
     ...createIsaMergeDiagram(),
     generalizationGroups: [
@@ -588,8 +599,9 @@ test("merge ISA evita duplicati di sottotipo", () => {
     ],
   });
   const groups = diagram.generalizationGroups ?? [];
-  assert.equal(groups.length, 1);
-  assert.deepEqual(groups[0].subtypeIds, ["ENTITA2"]);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.find((group) => group.id === "g1")?.subtypeIds, ["ENTITA2"]);
+  assert.deepEqual(groups.find((group) => group.id === "g3")?.subtypeIds, ["ENTITA2"]);
 });
 
 test("layout ISA classico genera triangolo, trunk e bus", () => {
