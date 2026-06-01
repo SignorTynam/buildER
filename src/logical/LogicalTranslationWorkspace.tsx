@@ -34,10 +34,14 @@ import {
 } from "../utils/logicalSqlMetadata";
 import { generateLogicalSql } from "../utils/logicalSql";
 import { EntityKeyChoicePreview } from "./EntityKeyChoicePreview";
-import { LogicalTransformationCanvas } from "./LogicalTransformationCanvas";
+import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } from "./LogicalTransformationCanvas";
 
 type LogicalBulkStep = Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">;
 type ColumnMoveDirection = "up" | "down" | "top" | "bottom";
+
+export function getLogicalCanvasViewMode(logicalStage: LogicalStage): LogicalTransformationCanvasMode {
+  return logicalStage === "schema" ? "schema" : "transformation";
+}
 
 interface LogicalTranslationWorkspaceProps {
   sourceDiagram: DiagramDocument;
@@ -337,7 +341,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     [overview, props.selection, props.workspace],
   );
   const sqlPreview = useMemo(() => generateLogicalSql(props.workspace.model), [props.workspace.model]);
-  const canvasViewMode = props.logicalStage === "schema" && props.panelMode === "sql" ? "schema" : "transformation";
+  const canvasViewMode = getLogicalCanvasViewMode(props.logicalStage);
   const [fixMenuOpen, setFixMenuOpen] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [entityKeySelectionModal, setEntityKeySelectionModal] = useState<{

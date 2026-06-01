@@ -12,6 +12,7 @@ import {
   getLogicalTransformationCanvasVisibility,
   toSyntheticDiagramNode,
 } from "../src/logical/LogicalTransformationCanvas.tsx";
+import { getLogicalCanvasViewMode } from "../src/logical/LogicalTranslationWorkspace.tsx";
 import {
   LOGICAL_TRANSLATION_STEPS,
   applyLogicalTranslationChoice,
@@ -115,6 +116,11 @@ test("logical canvas transformation mode keeps ER context while schema mode show
   assert.deepEqual(schema.erNodes, []);
   assert.deepEqual(schema.erEdges, []);
   assert.deepEqual(schema.fkEdges.map((edge) => edge.id), ["fk-edge"]);
+});
+
+test("logical workspace schema stage usa la canvas solo schema anche senza pannello SQL", () => {
+  assert.equal(getLogicalCanvasViewMode("translation"), "transformation");
+  assert.equal(getLogicalCanvasViewMode("schema"), "schema");
 });
 
 test("logical canvas supports zoom below the ER canvas minimum for wide transformation graphs", () => {
