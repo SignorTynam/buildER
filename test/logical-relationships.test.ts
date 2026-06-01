@@ -51,7 +51,7 @@ test("logical table dimensions include long foreign key type labels", () => {
   assert.ok(compact.width > 390);
 });
 
-test("logical canvas transformation mode keeps ER context while schema mode shows only tables", () => {
+test("logical canvas transformation mode keeps only unresolved ER context while schema mode shows only tables", () => {
   const nodes = [
     {
       id: "er-entity",
@@ -63,6 +63,19 @@ test("logical canvas transformation mode keeps ER context while schema mode show
       width: 160,
       height: 80,
       status: "transformed",
+      generatedByDecisionIds: [],
+      relatedTargetKeys: [],
+    },
+    {
+      id: "er-rel",
+      kind: "er-node",
+      renderType: "relationship",
+      label: "REL",
+      x: 120,
+      y: 0,
+      width: 120,
+      height: 80,
+      status: "unresolved",
       generatedByDecisionIds: [],
       relatedTargetKeys: [],
     },
@@ -89,7 +102,18 @@ test("logical canvas transformation mode keeps ER context while schema mode show
       sourceId: "er-entity",
       targetId: "er-rel",
       label: "",
-      status: "transformed",
+      status: "unresolved",
+      generatedByDecisionIds: [],
+      relatedTargetKeys: [],
+    },
+    {
+      id: "er-rel-self-edge",
+      kind: "er-edge",
+      renderType: "connector",
+      sourceId: "er-rel",
+      targetId: "er-rel",
+      label: "",
+      status: "unresolved",
       generatedByDecisionIds: [],
       relatedTargetKeys: [],
     },
@@ -107,8 +131,8 @@ test("logical canvas transformation mode keeps ER context while schema mode show
   ] satisfies LogicalTransformationEdge[];
 
   const transformation = getLogicalTransformationCanvasVisibility(nodes, edges, "transformation");
-  assert.deepEqual(transformation.visibleNodes.map((node) => node.id), ["er-entity", "table-entity"]);
-  assert.deepEqual(transformation.erEdges.map((edge) => edge.id), ["er-edge"]);
+  assert.deepEqual(transformation.visibleNodes.map((node) => node.id), ["er-rel", "table-entity"]);
+  assert.deepEqual(transformation.erEdges.map((edge) => edge.id), ["er-rel-self-edge"]);
   assert.deepEqual(transformation.fkEdges.map((edge) => edge.id), ["fk-edge"]);
 
   const schema = getLogicalTransformationCanvasVisibility(nodes, edges, "schema");

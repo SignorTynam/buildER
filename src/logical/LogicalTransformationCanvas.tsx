@@ -314,12 +314,25 @@ export function getLogicalTransformationCanvasVisibility(
 } {
   const showTransformationContext = viewMode === "transformation";
   const tableNodes = nodes.filter((node) => node.kind === "logical-table");
+  const erNodes = showTransformationContext
+    ? nodes.filter((node) => node.kind === "er-node" && node.status !== "transformed")
+    : [];
+  const visibleErNodeIds = new Set(erNodes.map((node) => node.id));
+  const erEdges = showTransformationContext
+    ? edges.filter(
+        (edge) =>
+          edge.kind === "er-edge" &&
+          edge.status !== "transformed" &&
+          visibleErNodeIds.has(edge.sourceId) &&
+          visibleErNodeIds.has(edge.targetId),
+      )
+    : [];
 
   return {
-    erNodes: showTransformationContext ? nodes.filter((node) => node.kind === "er-node") : [],
+    erNodes,
     tableNodes,
-    visibleNodes: showTransformationContext ? nodes : tableNodes,
-    erEdges: showTransformationContext ? edges.filter((edge) => edge.kind === "er-edge") : [],
+    visibleNodes: showTransformationContext ? [...erNodes, ...tableNodes] : tableNodes,
+    erEdges,
     fkEdges: edges.filter((edge) => edge.kind === "foreign-key"),
   };
 }
@@ -771,6 +784,30 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     () => new Map(renderedNodes.map((node) => [node.id, toSyntheticDiagramNode(node, sourceNodeById.get(node.sourceNodeId ?? node.id))])),
     [renderedNodes, sourceNodeById],
   );
+  const visibleErDiagram = useMemo(() => {
+    const visibleSourceNodeIds = new Set(
+      erNodes
+        .map((node) => node.sourceNodeId ?? node.id)
+        .filter((nodeId): nodeId is string => typeof nodeId === "string"),
+    );
+    const visibleSourceEdgeIds = new Set(
+      erEdges
+        .map((edge) => edge.sourceEdgeId ?? edge.id)
+        .filter((edgeId): edgeId is string => typeof edgeId === "string"),
+    );
+
+    return {
+      ...props.sourceDiagram,
+      nodes: props.sourceDiagram.nodes.filter((node) => visibleSourceNodeIds.has(node.id)),
+      edges: props.sourceDiagram.edges.filter((edge) => visibleSourceEdgeIds.has(edge.id)),
+      generalizationGroups: (props.sourceDiagram.generalizationGroups ?? [])
+        .map((group) => ({
+          ...group,
+          subtypeIds: group.subtypeIds.filter((subtypeId) => visibleSourceNodeIds.has(subtypeId)),
+        }))
+        .filter((group) => visibleSourceNodeIds.has(group.supertypeId) && group.subtypeIds.length > 0),
+    };
+  }, [erEdges, erNodes, props.sourceDiagram]);
 
   const laneByEdgeId = useMemo(() => {
     const grouping = new Map<string, string[]>();
@@ -1476,7 +1513,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
             );
           })}
 
-          {viewMode === "transformation" ? <DiagramIdentifierOverlay diagram={props.sourceDiagram} /> : null}
+          {viewMode === "transformation" ? <DiagramIdentifierOverlay diagram={visibleErDiagram} /> : null}
 
           {tableNodes.map((tableNode) => {
             const selected = props.selection.nodeId === tableNode.id;
