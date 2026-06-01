@@ -191,7 +191,7 @@ body {
   border: 1px solid #cfd4d1;
   border-radius: 5px;
   background: #f8f9f7;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .designer-toolbar-button {
@@ -209,6 +209,45 @@ body {
 
 .designer-toolbar-button:last-child {
   border-bottom: 0;
+}
+
+.designer-export-popover {
+  position: absolute;
+  z-index: 24;
+  left: 74px;
+  bottom: 0;
+  display: grid;
+  min-width: 178px;
+  border: 1px solid #cfd4d1;
+  border-radius: 5px;
+  background: #f8f9f7;
+  box-shadow: 0 8px 22px rgba(17, 17, 17, 0.12);
+  overflow: hidden;
+}
+
+.designer-export-popover button {
+  min-height: 38px;
+  border: 0;
+  border-bottom: 1px solid #e0e4e1;
+  background: transparent;
+  color: #111111;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.designer-export-popover button:last-child {
+  border-bottom: 0;
+}
+
+.designer-export-popover button:hover:not(:disabled),
+.designer-export-popover button:focus-visible {
+  background: rgba(47, 57, 51, 0.07);
+}
+
+.designer-export-popover button:disabled {
+  color: #9da29f;
 }
 
 .designer-toolbar-button:disabled {
@@ -579,6 +618,11 @@ body {
 .designer-side-toggle-icon {
   font-size: 0.95rem;
   line-height: 1;
+}
+
+.designer-side-toggle-group .designer-side-toggle svg {
+  width: 18px;
+  height: 18px;
 }
 
 .designer-side-toggle-icon {

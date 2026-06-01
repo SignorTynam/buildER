@@ -5545,7 +5545,9 @@ export default function App() {
                   onRedo={handleRedoAction}
                   onCreateEntity={() => handleCreateNodeFromToolbar("entity")}
                   onCreateRelationship={() => handleCreateNodeFromToolbar("relationship")}
+                  onSaveProject={handleSaveProject}
                   onSaveErs={handleSaveErs}
+                  onExportPng={handleExportPng}
                   onOpenCardinality={handleOpenCardinalityControl}
                   onOpenRole={handleOpenConnectorRoleControl}
                   onToggleSimpleIdentifier={handleToggleSimpleIdentifierFromSelection}
@@ -5672,6 +5674,9 @@ export default function App() {
               onOpenDesign={handleOpenErStage}
               onExportProject={handleSaveProject}
               onSaveSql={handleSaveLogicalSql}
+              onExportPng={handleExportPng}
+              onExportSvg={handleExportSvg}
+              svgRef={svgRef}
               onPreviewModel={previewLogicalModel}
               onCommitModel={commitLogicalModel}
               onRenameTable={handleLogicalTableRename}

@@ -264,7 +264,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           />
           <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
           <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} onClick={props.onExportProject} />
-          <ToolbarButton label={t("translation.restructuring.save")} icon={<ToolbarIcon name="save" />} onClick={props.onSaveRestructuredErs} />
         </div>
 
         <button

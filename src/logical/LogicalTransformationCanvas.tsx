@@ -3,6 +3,7 @@ import type {
   FocusEvent as ReactFocusEvent,
   MouseEvent,
   PointerEvent as ReactPointerEvent,
+  RefObject,
   WheelEvent as ReactWheelEvent,
 } from "react";
 import { DiagramIdentifierOverlay } from "../canvas/DiagramCanvas";
@@ -31,6 +32,7 @@ interface LogicalTransformationCanvasProps {
   workspace: LogicalWorkspaceDocument;
   selection: LogicalSelection;
   viewport: Viewport;
+  svgRef?: RefObject<SVGSVGElement>;
   typeMode: boolean;
   fitRequestToken: number;
   autoFitOnMount?: boolean;
@@ -1321,7 +1323,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       onPointerLeave={handlePointerUp}
       onWheel={handleCanvasWheel}
     >
-      <svg className="logical-canvas" role="img" aria-label="Canvas Logico con trasformazione in-place">
+      <svg ref={props.svgRef} className="logical-canvas" role="img" aria-label="Canvas Logico con trasformazione in-place">
         <defs>
           <marker
             id="logical-arrow"

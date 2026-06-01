@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { DiagramDocument, Viewport } from "../types/diagram";
 import type {
   LogicalColumn,
@@ -70,6 +70,9 @@ interface LogicalTranslationWorkspaceProps {
   onOpenDesign: () => void;
   onExportProject: () => void;
   onSaveSql: () => void;
+  onExportPng: () => void;
+  onExportSvg: () => void;
+  svgRef?: RefObject<SVGSVGElement>;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
   onCommitModel: (nextModel: LogicalWorkspaceDocument["model"], previousModel: LogicalWorkspaceDocument["model"]) => void;
   onRenameTable: (tableId: string, nextName: string) => void;
@@ -344,6 +347,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const canvasViewMode = getLogicalCanvasViewMode(props.logicalStage);
   const [fixMenuOpen, setFixMenuOpen] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [entityKeySelectionModal, setEntityKeySelectionModal] = useState<{
     requests: LogicalEntityKeySelectionRequest[];
     selectedChoiceIdsByTargetKey: Record<string, string>;
@@ -387,6 +391,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const currentEntityKeyChoiceConfirmed = Boolean(
     currentEntityKeyRequest && currentEntityKeySelectedChoiceId === currentEntityKeyPreviewChoice?.id,
   );
+
+  function runExportAction(action: () => void): void {
+    setExportMenuOpen(false);
+    action();
+  }
   const currentEntityKeyPreviewData = currentEntityKeyRequest
     ? buildEntityKeyChoicePreviewData({
         diagram: props.sourceDiagram,
@@ -566,14 +575,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           title={doneDisabled ? t("logical.designer.completeBeforeSchema") : undefined}
           onClick={props.onDone}
         />
-        <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} onClick={props.onExportProject} />
-        <ToolbarButton
-          label={t("translation.restructuring.save")}
-          icon={<ToolbarIcon name="save" />}
-          disabled={!hasSql}
-          title={!hasSql ? t("logical.designer.noSql") : undefined}
-          onClick={props.onSaveSql}
-        />
+        <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
       </div>
     );
   }
@@ -651,13 +653,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             />
           </>
         ) : null}
-        <ToolbarButton
-          label={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
-          icon={<ToolbarIcon name="show" />}
-          active={sqlOpen}
-          disabled={props.logicalStage !== "schema"}
-          onClick={toggleSql}
-        />
         {!showEditTools ? (
           <>
             <ToolbarButton
@@ -667,17 +662,38 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               onClick={() => nextBulkStep && handleBulkFixClick(nextBulkStep)}
             />
             <ToolbarButton label={t("translation.restructuring.design")} icon={<ToolbarIcon name="design" />} onClick={props.onOpenDesign} />
-            <ToolbarButton
-              label={t("logical.designer.done")}
-              icon={<ToolbarIcon name="done" />}
-              disabled={doneDisabled}
-              title={doneDisabled ? t("logical.designer.completeBeforeSchema") : undefined}
-              onClick={props.onDone}
-            />
-            <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} onClick={props.onExportProject} />
-            <ToolbarButton label={t("translation.restructuring.save")} icon={<ToolbarIcon name="save" />} onClick={props.onSaveSql} />
+            <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
           </>
         ) : null}
+      </div>
+    );
+  }
+
+  function renderExportMenu() {
+    if (!exportMenuOpen) {
+      return null;
+    }
+
+    return (
+      <div className="designer-export-popover designer-logical-export-popover" role="menu" aria-label="Export logico">
+        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportProject)}>
+          ER Studio Project
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={!hasSql}
+          title={!hasSql ? t("logical.designer.noSql") : undefined}
+          onClick={() => runExportAction(props.onSaveSql)}
+        >
+          SQL
+        </button>
+        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportPng)}>
+          PNG
+        </button>
+        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportSvg)}>
+          SVG
+        </button>
       </div>
     );
   }
@@ -685,6 +701,22 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   return (
     <div className={["designer-workspace", "designer-logical-view", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
       <div className={["designer-canvas-region", "designer-logical-canvas", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
+        {props.logicalStage === "schema" ? (
+          <div className="designer-side-toggle-group designer-side-toggle-left designer-logical-schema-toggles" aria-label="Pannelli logici">
+            <button
+              type="button"
+              className={["designer-side-toggle", sqlOpen ? "active" : ""].filter(Boolean).join(" ")}
+              onClick={toggleSql}
+              title={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
+            >
+              <span aria-hidden="true">
+                <ToolbarIcon name="show" />
+              </span>
+              {sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
+            </button>
+          </div>
+        ) : null}
+
         {props.logicalStage === "schema" && props.onToggleNotesPanel ? (
           <button
             type="button"
@@ -698,6 +730,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ) : null}
 
         {props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()}
+        {renderExportMenu()}
 
         {fixMenuOpen && selectedTranslationItem ? (
           <div className="designer-fix-popover designer-logical-fix-popover">
@@ -944,6 +977,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               workspace={props.workspace}
               selection={props.selection}
               viewport={props.viewport}
+              svgRef={props.svgRef}
               typeMode={props.logicalStage === "schema" ? props.typeMode : false}
               fitRequestToken={props.fitRequestToken}
               autoFitOnMount={props.logicalStage === "schema"}

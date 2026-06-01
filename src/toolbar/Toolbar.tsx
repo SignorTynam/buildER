@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type {
   AttributeNode,
@@ -29,7 +30,9 @@ interface ToolbarProps {
   onRedo?: () => void;
   onCreateEntity?: () => void;
   onCreateRelationship?: () => void;
+  onSaveProject?: () => void;
   onSaveErs?: () => void;
+  onExportPng: () => void;
   onOpenCardinality?: () => void;
   onOpenRole?: () => void;
   onToggleSimpleIdentifier?: () => void;
@@ -300,6 +303,7 @@ function CommandButton({ command }: { command: ToolbarCommand }) {
 }
 
 export function Toolbar(props: ToolbarProps) {
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const canEdit = props.mode === "edit";
   const selectedAttribute = props.selectedNode?.type === "attribute" ? props.selectedNode : undefined;
   const selectedAttributeCanHaveCardinality =
@@ -334,8 +338,7 @@ export function Toolbar(props: ToolbarProps) {
       { key: "entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onCreateEntity?.(), disabled: !canEdit },
       { key: "relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onCreateRelationship?.(), disabled: !canEdit },
       { key: "translate", label: "Translate", icon: <ToolIcon name="translate" />, onClick: props.onOpenTranslation },
-      { key: "export", label: "Export", icon: <ToolIcon name="export" />, onClick: props.onExportSvg },
-      { key: "save", label: "Save", icon: <ToolIcon name="save" />, onClick: () => props.onSaveErs?.() },
+      { key: "export", label: "Export", icon: <ToolIcon name="export" />, onClick: () => setExportMenuOpen((current) => !current) },
     ];
   } else if (props.selection.nodeIds.length >= 2 && props.selection.edgeIds.length === 0) {
     contextCommands = [
@@ -480,6 +483,22 @@ export function Toolbar(props: ToolbarProps) {
       {[...baseCommands, ...contextCommands].map((command) => (
         <CommandButton key={command.key} command={command} />
       ))}
+      {exportMenuOpen ? (
+        <div className="designer-export-popover" role="menu" aria-label="Export ER">
+          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveProject?.(); }}>
+            ER Studio Project
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveErs?.(); }}>
+            Diagram Code
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onExportPng(); }}>
+            PNG
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onExportSvg(); }}>
+            SVG
+          </button>
+        </div>
+      ) : null}
     </nav>
   );
 }
