@@ -107,7 +107,7 @@ import {
   applyBulkLogicalFix,
   applyLogicalTranslationChoice,
   buildLogicalTranslationOverview,
-  getLogicalTranslationStepCompletion,
+  getLogicalTranslationOpenItemCount,
 } from "./utils/logicalTranslation";
 import {
   type LogicalColumnSqlPatch,
@@ -1310,13 +1310,7 @@ export default function App() {
     () => buildLogicalTranslationOverview(translationHistory.present.translatedDiagram, logicalHistory.present),
     [logicalHistory.present, translationHistory.present.translatedDiagram],
   );
-  const logicalStepCompletion = useMemo(
-    () => getLogicalTranslationStepCompletion(logicalTranslationOverview),
-    [logicalTranslationOverview],
-  );
-  const logicalPendingCount = Object.entries(logicalStepCompletion)
-    .filter(([stepId]) => stepId !== "review")
-    .reduce((total, [, value]) => total + value.pending + value.invalid, 0);
+  const logicalPendingCount = getLogicalTranslationOpenItemCount(logicalTranslationOverview);
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
@@ -3059,6 +3053,30 @@ export default function App() {
     setStatus("Traduzione logica resettata.");
   }
 
+  function showLogicalStageAfterFix(
+    nextWorkspace: LogicalWorkspaceDocument,
+    pendingStatus: string,
+    completeStatus: string,
+  ) {
+    const nextOverview = buildLogicalTranslationOverview(translationHistory.present.translatedDiagram, nextWorkspace);
+    const nextPendingCount = getLogicalTranslationOpenItemCount(nextOverview);
+    const hasBlockingConflicts = nextWorkspace.translation.conflicts.some((conflict) => conflict.level === "error");
+
+    if (nextPendingCount === 0 && !hasBlockingConflicts) {
+      setLogicalStage("schema");
+      setLogicalPanelMode("review");
+      setLogicalTypeMode(false);
+      setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+      setLogicalFitRequestToken((current) => current + 1);
+      setStatus(completeStatus);
+      return;
+    }
+
+    setLogicalStage("translation");
+    setLogicalTypeMode(false);
+    setStatus(pendingStatus);
+  }
+
   function handleApplyBulkLogicalFix(
     step: "entities" | "weak-entities" | "relationships" | "multivalued-attributes",
     options?: { choiceIdsByTargetKey?: Record<string, string> },
@@ -3079,9 +3097,11 @@ export default function App() {
 
     commitLogicalWorkspace(result.workspace, previousWorkspace);
     setDiagramView("logical");
-    setLogicalStage("translation");
-    setLogicalTypeMode(false);
-    setStatus(`Fix logico applicato a ${result.appliedCount} elementi.`);
+    showLogicalStageAfterFix(
+      result.workspace,
+      `Fix logico applicato a ${result.appliedCount} elementi.`,
+      `Fix logico applicato a ${result.appliedCount} elementi. Schema logico attivo.`,
+    );
   }
 
   function handleLogicalDone() {
@@ -3254,7 +3274,7 @@ export default function App() {
     );
     commitLogicalWorkspace(nextWorkspace, previousWorkspace);
     setDiagramView("logical");
-    setStatus(choice.summary);
+    showLogicalStageAfterFix(nextWorkspace, choice.summary, `${choice.summary} Schema logico attivo.`);
   }
 
   async function handleNewProject() {

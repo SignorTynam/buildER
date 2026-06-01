@@ -3373,6 +3373,12 @@ export function getLogicalTranslationStepCompletion(
   return result;
 }
 
+export function getLogicalTranslationOpenItemCount(overview: TranslationOverview): number {
+  return Object.entries(getLogicalTranslationStepCompletion(overview))
+    .filter(([stepId]) => stepId !== "review")
+    .reduce((total, [, value]) => total + value.pending + value.invalid, 0);
+}
+
 export function getLogicalTranslationChoicesForItem(
   overview: TranslationOverview,
   item: LogicalTranslationItem,

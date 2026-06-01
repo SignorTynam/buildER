@@ -8,6 +8,7 @@ import {
   applyLogicalTranslationChoice,
   buildLogicalTranslationOverview,
   createEmptyLogicalWorkspace,
+  getLogicalTranslationOpenItemCount,
   getLogicalTranslationStepCompletion,
   getLogicalTranslationChoicesForItem,
   refreshLogicalWorkspace,
@@ -162,6 +163,7 @@ test("Fix Entities bulk applica la scelta raccomandata a tutte le entita forti p
   assert.equal(result.workspace.model.tables.length, 2);
   assert.equal(completion.entities.pending, 0);
   assert.equal(completion.entities.applied, 2);
+  assert.equal(getLogicalTranslationOpenItemCount(overview), 0);
 });
 
 test("applicare una decisione rimuove l'oggetto dal conteggio pending", () => {
@@ -185,6 +187,7 @@ test("applicare una decisione rimuove l'oggetto dal conteggio pending", () => {
   const completion = getLogicalTranslationStepCompletion(overview);
   assert.equal(completion.entities.pending, 1);
   assert.equal(completion.entities.applied, 1);
+  assert.equal(getLogicalTranslationOpenItemCount(overview), 1);
   assert.equal(overview.itemsByStep.entities.find((item) => item.id === "entity-a")?.status, "applied");
 });
 
