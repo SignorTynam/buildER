@@ -89,6 +89,7 @@ test("logical canvas transformation mode keeps only unresolved ER context while 
       width: 180,
       height: 80,
       status: "transformed",
+      sourceNodeId: "er-entity",
       tableId: "table-entity",
       generatedByDecisionIds: [],
       relatedTargetKeys: [],
@@ -132,7 +133,15 @@ test("logical canvas transformation mode keeps only unresolved ER context while 
 
   const transformation = getLogicalTransformationCanvasVisibility(nodes, edges, "transformation");
   assert.deepEqual(transformation.visibleNodes.map((node) => node.id), ["er-rel", "table-entity"]);
-  assert.deepEqual(transformation.erEdges.map((edge) => edge.id), ["er-rel-self-edge"]);
+  assert.deepEqual(transformation.erEdges.map((edge) => edge.id), ["er-edge", "er-rel-self-edge"]);
+  assert.deepEqual(
+    transformation.erEdges.find((edge) => edge.id === "er-edge"),
+    {
+      ...edges[0],
+      sourceId: "table-entity",
+      targetId: "er-rel",
+    },
+  );
   assert.deepEqual(transformation.fkEdges.map((edge) => edge.id), ["fk-edge"]);
 
   const schema = getLogicalTransformationCanvasVisibility(nodes, edges, "schema");

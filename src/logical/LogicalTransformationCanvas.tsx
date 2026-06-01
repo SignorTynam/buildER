@@ -318,14 +318,34 @@ export function getLogicalTransformationCanvasVisibility(
     ? nodes.filter((node) => node.kind === "er-node" && node.status !== "transformed")
     : [];
   const visibleErNodeIds = new Set(erNodes.map((node) => node.id));
+  const tableNodeIdBySourceNodeId = new Map(
+    tableNodes
+      .filter((node) => typeof node.sourceNodeId === "string")
+      .map((node) => [node.sourceNodeId as string, node.id] as const),
+  );
   const erEdges = showTransformationContext
-    ? edges.filter(
-        (edge) =>
-          edge.kind === "er-edge" &&
-          edge.status !== "transformed" &&
-          visibleErNodeIds.has(edge.sourceId) &&
-          visibleErNodeIds.has(edge.targetId),
-      )
+    ? edges.flatMap((edge) => {
+        if (edge.kind !== "er-edge" || edge.status === "transformed") {
+          return [];
+        }
+
+        const sourceId = visibleErNodeIds.has(edge.sourceId)
+          ? edge.sourceId
+          : tableNodeIdBySourceNodeId.get(edge.sourceId);
+        const targetId = visibleErNodeIds.has(edge.targetId)
+          ? edge.targetId
+          : tableNodeIdBySourceNodeId.get(edge.targetId);
+
+        return sourceId && targetId
+          ? [
+              {
+                ...edge,
+                sourceId,
+                targetId,
+              },
+            ]
+          : [];
+      })
     : [];
 
   return {
