@@ -222,6 +222,27 @@ generalization G_RUOLO (t, e) PERSONA {
 }`);
 }
 
+function createDifferentConstraintMultiHierarchyDiagram(): DiagramDocument {
+  return parseErsDiagram(`entity PERSONA {
+  identifier CF
+  attribute ATTRIBUTO1
+}
+entity UOMO
+entity DONNA
+entity PROFESSORE
+entity STUDENTE
+
+generalization G_SESSO (t, e) PERSONA {
+  UOMO
+  DONNA
+}
+
+generalization G_RUOLO (p, o) PERSONA {
+  PROFESSORE
+  STUDENTE
+}`);
+}
+
 function createOrderedWorkflowDiagram(): DiagramDocument {
   const nodes: DiagramNode[] = [
     createEntity("entity-persona", "PERSONA", ["attr-codice"]),
@@ -484,6 +505,141 @@ test("collapse down copia attributi del padre in tutte le figlie delle gerarchie
   assert.equal(translated.edges.some((edge) => edge.type === "inheritance"), false);
   assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_SESSO" || group.id === "G_RUOLO"), false);
   assert.deepEqual(validateDiagram(translated).filter((issue) => issue.level === "error"), []);
+});
+
+test("collapse up su gerarchia disjoint lascia aperta quella con vincoli diversi", () => {
+  const translated = applyGeneralizationTranslation(createDifferentConstraintMultiHierarchyDiagram(), {
+    supertypeId: "G_SESSO",
+    rule: "generalization-collapse-up",
+  });
+
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "PERSONA"), true);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "UOMO"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "DONNA"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "PROFESSORE"), true);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "STUDENTE"), true);
+
+  const labels = getDirectEntityAttributes(translated, "PERSONA").map((attribute) => attribute.label);
+  assert.equal(labels.includes("G_SESSO"), true);
+  assert.equal(labels.includes("Type"), false);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_RUOLO"), true);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_SESSO"), false);
+  assert.equal(
+    translated.edges.some(
+      (edge) =>
+        edge.type === "inheritance" &&
+        edge.sourceId === "PROFESSORE" &&
+        edge.targetId === "PERSONA" &&
+        edge.generalizationGroupId === "G_RUOLO",
+    ),
+    true,
+  );
+  assert.equal(
+    translated.edges.some(
+      (edge) =>
+        edge.type === "inheritance" &&
+        edge.sourceId === "STUDENTE" &&
+        edge.targetId === "PERSONA" &&
+        edge.generalizationGroupId === "G_RUOLO",
+    ),
+    true,
+  );
+  assertNoDanglingReferences(translated);
+  assert.deepEqual(validateDiagram(translated).filter((issue) => issue.level === "error"), []);
+});
+
+test("collapse down e bloccato se esiste una gerarchia diversa ancora aperta", () => {
+  assert.throws(
+    () =>
+      applyGeneralizationTranslation(createDifferentConstraintMultiHierarchyDiagram(), {
+        supertypeId: "G_SESSO",
+        rule: "generalization-collapse-down",
+      }),
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Collasso verso il basso non disponibile/);
+      assert.match(error.message, /G_RUOLO/);
+      assert.match(error.message, /PERSONA/);
+      return true;
+    },
+  );
+});
+
+test("collapse up su gerarchia overlap crea flag per sottotipo", () => {
+  const translated = applyGeneralizationTranslation(createDifferentConstraintMultiHierarchyDiagram(), {
+    supertypeId: "G_RUOLO",
+    rule: "generalization-collapse-up",
+  });
+
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "PERSONA"), true);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "PROFESSORE"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "STUDENTE"), false);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "UOMO"), true);
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.id === "DONNA"), true);
+
+  const labels = getDirectEntityAttributes(translated, "PERSONA").map((attribute) => attribute.label);
+  ["CF", "ATTRIBUTO1", "is_PROFESSORE", "is_STUDENTE"].forEach((label) => {
+    assert.equal(labels.includes(label), true, `missing ${label}`);
+  });
+  assert.equal(labels.includes("Type"), false);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_SESSO"), true);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_RUOLO"), false);
+  assertNoDanglingReferences(translated);
+  assert.deepEqual(validateDiagram(translated).filter((issue) => issue.level === "error"), []);
+});
+
+test("sequenza overlap up e disjoint down elimina il padre senza riferimenti residui", () => {
+  const step1 = applyGeneralizationTranslation(createDifferentConstraintMultiHierarchyDiagram(), {
+    supertypeId: "G_RUOLO",
+    rule: "generalization-collapse-up",
+  });
+  const step2 = applyGeneralizationTranslation(step1, {
+    supertypeId: "G_SESSO",
+    rule: "generalization-collapse-down",
+  });
+
+  assert.equal(step2.nodes.some((node) => node.type === "entity" && node.id === "PERSONA"), false);
+  assert.equal(step2.nodes.some((node) => node.type === "entity" && node.id === "UOMO"), true);
+  assert.equal(step2.nodes.some((node) => node.type === "entity" && node.id === "DONNA"), true);
+  assert.equal(step2.nodes.some((node) => node.type === "entity" && node.id === "PROFESSORE"), false);
+  assert.equal(step2.nodes.some((node) => node.type === "entity" && node.id === "STUDENTE"), false);
+
+  ["UOMO", "DONNA"].forEach((entityId) => {
+    const entity = getEntity(step2, entityId);
+    const labels = getDirectEntityAttributes(step2, entityId).map((attribute) => attribute.label);
+    ["CF", "ATTRIBUTO1", "is_PROFESSORE", "is_STUDENTE"].forEach((label) => {
+      assert.equal(labels.includes(label), true, `${entityId} missing ${label}`);
+    });
+    assert.equal(labels.includes("Type"), false);
+
+    const attributeById = new Map(step2.nodes.map((node) => [node.id, node]));
+    const identifierLabels = (entity.internalIdentifiers ?? [])
+      .flatMap((identifier) => identifier.attributeIds)
+      .map((attributeId) => attributeById.get(attributeId))
+      .filter((node): node is AttributeNode => node?.type === "attribute")
+      .map((attribute) => attribute.label);
+    assert.equal(identifierLabels.includes("CF"), true, `${entityId} missing inherited CF identifier`);
+  });
+
+  assert.equal(step2.edges.some((edge) => edge.type === "inheritance"), false);
+  assert.equal((step2.generalizationGroups ?? []).length, 0);
+  assertNoDanglingReferences(step2);
+  assert.deepEqual(validateDiagram(step2).filter((issue) => issue.level === "error"), []);
+});
+
+test("overview disabilita collapse down se il padre ha gerarchie diverse ancora aperte", () => {
+  const workspace = createEmptyErTranslationWorkspace(createDifferentConstraintMultiHierarchyDiagram());
+  const overview = buildErTranslationOverview(workspace);
+  const sessoItem = overview.itemsByStep.generalizations.find((item) => item.id === "G_SESSO");
+  assert.ok(sessoItem);
+
+  const collapseDownChoice = getErTranslationChoicesForItem(workspace, sessoItem).find(
+    (choice) => choice.rule === "generalization-collapse-down",
+  );
+  assert.ok(collapseDownChoice);
+  assert.equal(collapseDownChoice.recommended, false);
+  assert.match(collapseDownChoice.disabledReason ?? "", /Collasso verso il basso non disponibile/);
+  assert.match(collapseDownChoice.disabledReason ?? "", /G_RUOLO/);
 });
 
 test("collapse up si applica solo al gruppo selezionato anche con stesso parent", () => {

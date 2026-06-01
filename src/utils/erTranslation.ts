@@ -522,6 +522,25 @@ function getCompatibleHierarchiesForBatch(
   );
 }
 
+function getBlockingHierarchiesForCollapseDown(
+  hierarchies: GeneralizationHierarchy[],
+  target: GeneralizationHierarchy,
+  hierarchiesToResolve: GeneralizationHierarchy[],
+): GeneralizationHierarchy[] {
+  const resolvedGroupIds = new Set(hierarchiesToResolve.map((hierarchy) => hierarchy.id));
+  return hierarchies.filter(
+    (hierarchy) => hierarchy.supertype.id === target.supertype.id && !resolvedGroupIds.has(hierarchy.id),
+  );
+}
+
+function formatCollapseDownBlockingMessage(
+  target: GeneralizationHierarchy,
+  blockingHierarchies: GeneralizationHierarchy[],
+): string {
+  const blockingNames = blockingHierarchies.map((hierarchy) => hierarchy.group?.label ?? hierarchy.id).join(", ");
+  return `Collasso verso il basso non disponibile: l'entita ${target.supertype.label} partecipa ad altre gerarchie ISA con vincoli diversi ancora aperte: ${blockingNames}. Risolvi prima queste gerarchie con collasso verso l'alto o sostituzione.`;
+}
+
 function isGenericIsaLabel(value: string | undefined): boolean {
   return typeof value === "string" && /^ISA\s*\(\s*[tp]\s*,\s*[eo]\s*\)$/i.test(value.trim());
 }
@@ -1228,6 +1247,89 @@ function ensureCollapseUpDiscriminatorAttribute(
   };
 }
 
+function ensureCollapseUpOverlapFlagAttributes(
+  diagram: DiagramDocument,
+  supertype: EntityNode,
+  hierarchy: GeneralizationHierarchy,
+): TranslationApplyResult {
+  let nextDiagram = diagram;
+  const artifacts: ErTranslationArtifactRef[] = [];
+
+  hierarchy.subtypes.forEach((subtype, index) => {
+    const ownership = buildAttributeOwnershipContext(nextDiagram);
+    const directAttributeIds = ownership.directAttributeIdsByOwnerId.get(supertype.id) ?? [];
+    const directAttributes = directAttributeIds
+      .map((attributeId) => ownership.nodeById.get(attributeId))
+      .filter((node): node is AttributeNode => node?.type === "attribute");
+    const preferredLabel = `is_${subtype.label}`;
+    const existingFlagAttribute = directAttributes.find(
+      (attribute) => canonicalKey(attribute.label) === canonicalKey(preferredLabel),
+    );
+
+    if (existingFlagAttribute) {
+      artifacts.push({ kind: "node", id: existingFlagAttribute.id, label: existingFlagAttribute.label });
+      return;
+    }
+
+    const usedNames = new Set(directAttributes.map((attribute) => canonicalKey(attribute.label)));
+    const flagLabel = allocateUniqueLabel(usedNames, preferredLabel);
+    const usedNodeIds = new Set(nextDiagram.nodes.map((node) => node.id));
+    const usedEdgeIds = new Set(nextDiagram.edges.map((edge) => edge.id));
+    const flagAttributeId = allocateUniqueId(
+      usedNodeIds,
+      `${supertype.id}-collapse-up-${hierarchy.id}-${subtype.id}`,
+      "attribute",
+    );
+    const flagEdgeId = allocateUniqueId(
+      usedEdgeIds,
+      `${supertype.id}-${flagAttributeId}-edge`,
+      "attribute-edge",
+    );
+    const supertypeCenterX = supertype.x + supertype.width / 2;
+    const attributeCenters = directAttributes.map((attribute) => attribute.x + attribute.width / 2);
+    const placeOnLeft =
+      attributeCenters.length === 0 ||
+      attributeCenters.reduce((sum, centerX) => sum + centerX, 0) / attributeCenters.length < supertypeCenterX;
+    const nextY =
+      directAttributes.length > 0
+        ? Math.max(...directAttributes.map((attribute) => attribute.y)) + 52
+        : supertype.y + supertype.height + 32 + index * 52;
+    const flagAttribute: AttributeNode = {
+      id: flagAttributeId,
+      type: "attribute",
+      label: flagLabel,
+      x: placeOnLeft ? supertype.x - 130 : supertype.x + supertype.width + 90,
+      y: nextY,
+      width: 150,
+      height: 28,
+      isIdentifier: false,
+      isCompositeInternal: false,
+      isMultivalued: false,
+      cardinality: undefined,
+    };
+    const flagEdge: DiagramEdge = {
+      id: flagEdgeId,
+      type: "attribute",
+      sourceId: flagAttribute.id,
+      targetId: supertype.id,
+      label: "",
+      lineStyle: "solid",
+    };
+
+    nextDiagram = {
+      ...nextDiagram,
+      nodes: [...nextDiagram.nodes, flagAttribute],
+      edges: [...nextDiagram.edges, flagEdge],
+    };
+    artifacts.push({ kind: "node", id: flagAttribute.id, label: flagAttribute.label });
+  });
+
+  return {
+    diagram: nextDiagram,
+    artifacts,
+  };
+}
+
 function cloneAttributeSubtreeToSubtype(
   diagram: DiagramDocument,
   sourceOwner: EntityNode,
@@ -1365,18 +1467,16 @@ function applyGeneralizationTranslationDetailed(
   );
 
   if (rule === "generalization-collapse-up") {
-    if (hierarchiesToResolve.some((item) => item.disjointness === "overlap")) {
-      throw new Error("Collasso verso l'alto non disponibile per generalizzazioni sovrapposte.");
-    }
-
     hierarchiesToResolve.forEach((item) => {
       const currentSupertype = working.nodes.find((node): node is EntityNode => node.id === supertype.id && node.type === "entity");
       if (!currentSupertype) {
         return;
       }
-      const discriminator = ensureCollapseUpDiscriminatorAttribute(working, currentSupertype, item);
-      working = discriminator.diagram;
-      artifacts.push(...discriminator.artifacts);
+      const collapseUpAttributes = item.disjointness === "overlap"
+        ? ensureCollapseUpOverlapFlagAttributes(working, currentSupertype, item)
+        : ensureCollapseUpDiscriminatorAttribute(working, currentSupertype, item);
+      working = collapseUpAttributes.diagram;
+      artifacts.push(...collapseUpAttributes.artifacts);
     });
 
     subtypesToResolve.forEach((subtype) => {
@@ -1529,6 +1629,10 @@ function applyGeneralizationTranslationDetailed(
   } else {
     if (hierarchiesToResolve.some((item) => item.completeness !== "total")) {
       throw new Error("Collasso verso il basso non disponibile per generalizzazioni parziali.");
+    }
+    const blockingHierarchies = getBlockingHierarchiesForCollapseDown(hierarchies, hierarchy, hierarchiesToResolve);
+    if (blockingHierarchies.length > 0) {
+      throw new Error(formatCollapseDownBlockingMessage(hierarchy, blockingHierarchies));
     }
     const initialOwnership = buildAttributeOwnershipContext(working);
     const supertypeAttributeSubtreeIds = new Set<string>();
@@ -1701,9 +1805,21 @@ function applyGeneralizationTranslationDetailed(
   };
 }
 
-function buildGeneralizationChoices(hierarchy: GeneralizationHierarchy): TranslationChoiceRecord[] {
+function buildGeneralizationChoices(
+  hierarchy: GeneralizationHierarchy,
+  allHierarchies: GeneralizationHierarchy[] = [hierarchy],
+): TranslationChoiceRecord[] {
   const constraintsLabel = `${hierarchy.completeness === "total" ? "t" : "p"},${hierarchy.disjointness === "overlap" ? "o" : "e"}`;
   const parentHasIdentifier = (hierarchy.supertype.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.length > 0);
+  const hierarchiesToResolve = getCompatibleHierarchiesForBatch(allHierarchies, hierarchy);
+  const blockingCollapseDownHierarchies = getBlockingHierarchiesForCollapseDown(
+    allHierarchies,
+    hierarchy,
+    hierarchiesToResolve,
+  );
+  const collapseDownBlockingReason = blockingCollapseDownHierarchies.length > 0
+    ? formatCollapseDownBlockingMessage(hierarchy, blockingCollapseDownHierarchies)
+    : undefined;
   return [
     {
       id: `generalization-collapse-up-${hierarchy.id}`,
@@ -1713,13 +1829,16 @@ function buildGeneralizationChoices(hierarchy: GeneralizationHierarchy): Transla
       rule: "generalization-collapse-up",
       label: "Collapse verso l'alto",
       description: hierarchy.disjointness === "overlap"
-        ? "Non disponibile per generalizzazioni sovrapposte: un solo discriminatore non basta."
-        : `Assorbe ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")} dentro ${hierarchy.supertype.label}. (${constraintsLabel})`,
+        ? `Assorbe ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")} dentro ${hierarchy.supertype.label} e crea un flag per ogni sottotipo nel padre. (${constraintsLabel})`
+        : `Assorbe ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")} dentro ${hierarchy.supertype.label} e crea un discriminatore nel padre. (${constraintsLabel})`,
       summary: `Gerarchia "${hierarchy.supertype.label}" collassata verso l'alto nel supertipo.`,
       previewLines: ["Output ER: resta il supertipo, i sottotipi vengono assorbiti."],
       recommended: hierarchy.completeness === "total" && hierarchy.disjointness !== "overlap",
-      disabledReason: hierarchy.disjointness === "overlap" ? "Collasso verso l'alto non disponibile per generalizzazioni sovrapposte." : undefined,
-      warning: hierarchy.completeness === "partial" && hierarchy.disjointness !== "overlap" ? "Possibile, ma il discriminatore puo essere NULL." : undefined,
+      warning: hierarchy.disjointness === "overlap"
+        ? "Crea piu flag booleani per rappresentare la sovrapposizione."
+        : hierarchy.completeness === "partial"
+          ? "Possibile, ma il discriminatore puo essere NULL."
+          : undefined,
     },
     {
       id: `generalization-collapse-down-${hierarchy.id}`,
@@ -1730,11 +1849,18 @@ function buildGeneralizationChoices(hierarchy: GeneralizationHierarchy): Transla
       label: "Collapse verso il basso",
       description: hierarchy.completeness !== "total"
         ? "Collasso verso il basso non disponibile: la generalizzazione e parziale."
+        : collapseDownBlockingReason
+          ? collapseDownBlockingReason
         : `Duplica attributi e collegamenti di ${hierarchy.supertype.label} su ogni sottotipo e rimuove il supertipo. (${constraintsLabel})`,
       summary: `Gerarchia "${hierarchy.supertype.label}" collassata verso il basso sui sottotipi.`,
       previewLines: ["Output ER: restano i sottotipi, il supertipo viene distribuito."],
-      recommended: hierarchy.completeness === "total" && hierarchy.disjointness === "disjoint",
-      disabledReason: hierarchy.completeness !== "total" ? "Collasso verso il basso non disponibile per generalizzazioni parziali." : undefined,
+      recommended:
+        hierarchy.completeness === "total" &&
+        hierarchy.disjointness === "disjoint" &&
+        blockingCollapseDownHierarchies.length === 0,
+      disabledReason: hierarchy.completeness !== "total"
+        ? "Collasso verso il basso non disponibile per generalizzazioni parziali."
+        : collapseDownBlockingReason,
       warning: hierarchy.completeness === "total" && hierarchy.disjointness === "overlap" ? "Possibile, ma duplica attributi comuni nelle figlie sovrapposte." : undefined,
     },
     {
@@ -1795,8 +1921,9 @@ function createTranslationItemsByStep(
   const translatedDiagram = workspace.translatedDiagram;
   const ownership = buildAttributeOwnershipContext(translatedDiagram);
 
-  buildGeneralizationHierarchies(translatedDiagram).forEach((hierarchy) => {
-    const choices = buildGeneralizationChoices(hierarchy);
+  const generalizationHierarchies = buildGeneralizationHierarchies(translatedDiagram);
+  generalizationHierarchies.forEach((hierarchy) => {
+    const choices = buildGeneralizationChoices(hierarchy, generalizationHierarchies);
     choices.forEach((choice) =>
       choicesByKey.set(
         buildChoiceKey(choice.targetType, choice.targetId, choice.rule, choice.configuration),
