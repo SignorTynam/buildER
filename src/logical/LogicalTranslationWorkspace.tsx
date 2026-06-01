@@ -32,7 +32,7 @@ import {
   isColumnTypeLockedByReference,
   type LogicalColumnSqlPatch,
 } from "../utils/logicalSqlMetadata";
-import { generateLogicalSql } from "../utils/logicalSql";
+import { LOGICAL_SQL_DIALECT_OPTIONS, generateLogicalSql, type LogicalSqlDialect } from "../utils/logicalSql";
 import { EntityKeyChoicePreview } from "./EntityKeyChoicePreview";
 import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } from "./LogicalTransformationCanvas";
 
@@ -175,37 +175,51 @@ function highlightSql(sql: string, model: LogicalWorkspaceDocument["model"]): st
 
   let placeholderIndex = 0;
   const placeholderMap = new Map<string, string>();
-  const makePlaceholder = (quotedName: string, kind: LogicalTableKind) => {
+  const makePlaceholder = (identifier: string, kind: LogicalTableKind) => {
     const placeholder = `__SQL_NAME_${placeholderIndex += 1}__`;
     const className = kind === "entity" ? "sql-token-entity" : "sql-token-relationship";
-    placeholderMap.set(placeholder, `<span class="${className}">${escapeHtml(quotedName)}</span>`);
+    placeholderMap.set(placeholder, `<span class="${className}">${escapeHtml(identifier)}</span>`);
     return placeholder;
   };
 
-  const tagTableName = (match: string, quotedName: string) => {
-    const unquoted = quotedName.slice(1, -1).replace(/""/g, '"');
+  const unquoteSqlIdentifier = (identifier: string): string => {
+    if (identifier.startsWith('"') && identifier.endsWith('"')) {
+      return identifier.slice(1, -1).replace(/""/g, '"');
+    }
+    if (identifier.startsWith("`") && identifier.endsWith("`")) {
+      return identifier.slice(1, -1).replace(/``/g, "`");
+    }
+    if (identifier.startsWith("[") && identifier.endsWith("]")) {
+      return identifier.slice(1, -1).replace(/]]/g, "]");
+    }
+    return identifier;
+  };
+
+  const tagTableName = (match: string, identifier: string) => {
+    const unquoted = unquoteSqlIdentifier(identifier);
     const kind = tableKindByName.get(unquoted);
     if (!kind) {
       return match;
     }
-    const placeholder = makePlaceholder(quotedName, kind);
-    return match.replace(quotedName, placeholder);
+    const placeholder = makePlaceholder(identifier, kind);
+    return match.replace(identifier, placeholder);
   };
 
-  let taggedSql = sql.replace(/\bCREATE\s+TABLE\s+("(?:""|[^"])+")/gi, tagTableName);
-  taggedSql = taggedSql.replace(/\bREFERENCES\s+("(?:""|[^"])+")/gi, tagTableName);
+  const identifierPattern = /("(?:""|[^"])+")|(`(?:``|[^`])+`)|(\[(?:\]\]|[^\]])+\])|([A-Za-z_][A-Za-z0-9_$#]*)/;
+  let taggedSql = sql.replace(new RegExp(`\\bCREATE\\s+TABLE\\s+(${identifierPattern.source})`, "gi"), tagTableName);
+  taggedSql = taggedSql.replace(new RegExp(`\\bREFERENCES\\s+(${identifierPattern.source})`, "gi"), tagTableName);
 
   const escaped = escapeHtml(taggedSql);
   let highlighted = escaped.replace(
-    /(--.*$|\/\*[\s\S]*?\*\/|\b(?:CREATE|TABLE|PRIMARY|KEY|FOREIGN|REFERENCES|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)\b|\b(?:INTEGER|TEXT|VARCHAR|REAL|NUMERIC|DATE|DATETIME|BLOB|JSON|BOOLEAN)\b)/gim,
+    /(--.*$|\/\*[\s\S]*?\*\/|\b(?:CREATE|TABLE|PRIMARY|KEY|FOREIGN|REFERENCES|DEFAULT|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)\b|\b(?:INT|INTEGER|TEXT|VARCHAR|NVARCHAR|REAL|NUMERIC|DATE|DATETIME|TIMESTAMP|BLOB|CLOB|JSON|BOOLEAN|BIT|NUMBER|VARBINARY)\b)/gim,
     (token) => {
       if (token.startsWith("--") || token.startsWith("/*")) {
         return `<span class="sql-token-comment">${token}</span>`;
       }
-      if (/^(INTEGER|TEXT|VARCHAR|REAL|NUMERIC|DATE|DATETIME|BLOB|JSON|BOOLEAN)$/i.test(token)) {
+      if (/^(INT|INTEGER|TEXT|VARCHAR|NVARCHAR|REAL|NUMERIC|DATE|DATETIME|TIMESTAMP|BLOB|CLOB|JSON|BOOLEAN|BIT|NUMBER|VARBINARY)$/i.test(token)) {
         return `<span class="sql-token-type">${token}</span>`;
       }
-      if (/^(NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)$/i.test(token)) {
+      if (/^(DEFAULT|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)$/i.test(token)) {
         return `<span class="sql-token-modifier">${token}</span>`;
       }
       return `<span class="sql-token-keyword">${token}</span>`;
@@ -343,7 +357,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     () => findItemForSelection(props.workspace, overview, props.selection),
     [overview, props.selection, props.workspace],
   );
-  const sqlPreview = useMemo(() => generateLogicalSql(props.workspace.model), [props.workspace.model]);
+  const [sqlDialect, setSqlDialect] = useState<LogicalSqlDialect>("generic");
+  const sqlPreview = useMemo(
+    () => generateLogicalSql(props.workspace.model, { dialect: sqlDialect }),
+    [props.workspace.model, sqlDialect],
+  );
   const canvasViewMode = getLogicalCanvasViewMode(props.logicalStage);
   const [fixMenuOpen, setFixMenuOpen] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
@@ -684,7 +702,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           role="menuitem"
           disabled={!hasSql}
           title={!hasSql ? t("logical.designer.noSql") : undefined}
-          onClick={() => runExportAction(props.onSaveSql)}
+          onClick={() => runExportAction(() => downloadSql(sqlPreview))}
         >
           SQL
         </button>
@@ -956,6 +974,17 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               <div className="designer-sql-dock-header">
                 <span>SQL</span>
                 <div className="designer-sql-actions">
+                  <select
+                    aria-label="Dialetto SQL"
+                    value={sqlDialect}
+                    onChange={(event) => setSqlDialect(event.target.value as LogicalSqlDialect)}
+                  >
+                    {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                   <button type="button" onClick={copySql}>
                     {t("logical.designer.copySql")}
                   </button>

@@ -4753,13 +4753,18 @@ textarea:disabled {
   gap: 6px;
 }
 
-.designer-sql-actions button {
+.designer-sql-actions button,
+.designer-sql-actions select {
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-strong);
   color: var(--editor-text);
   font: inherit;
   font-size: 0.72rem;
   padding: 4px 7px;
+}
+
+.designer-sql-actions select {
+  max-width: 150px;
 }
 
 .designer-sql-output {

@@ -401,7 +401,7 @@ function createRelationshipRegressionDiagram(): DiagramDocument {
 
 function extractCreateTable(sql: string, tableName: string): string {
   const escapedName = tableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = sql.match(new RegExp(`CREATE TABLE "${escapedName}" \\([\\s\\S]*?\\n\\);`, "i"));
+  const match = sql.match(new RegExp(`CREATE TABLE ${escapedName} \\([\\s\\S]*?\\n\\);`, "i"));
   assert.ok(match, `CREATE TABLE per ${tableName} non trovato`);
   return match[0];
 }
@@ -1183,11 +1183,11 @@ test.skip("un sottotipo con PK derivata e identificatore locale usa UNIQUE invec
   const partecipanteSql = extractCreateTable(sql, "PARTECIPANTE");
   const dipendenteSql = extractCreateTable(sql, "DIPENDENTE");
   const professionistaSql = extractCreateTable(sql, "PROFESSIONISTA");
-  assert.match(partecipanteSql, /PRIMARY KEY \("PERSONA_CF"\)/);
-  assert.match(partecipanteSql, /UNIQUE \("Codice"\)/);
-  assert.doesNotMatch(partecipanteSql, /PRIMARY KEY \("Codice", "PERSONA_CF"\)/);
-  assert.match(dipendenteSql, /PRIMARY KEY \("PARTECIPANTE_PERSONA_CF"\)/);
-  assert.match(professionistaSql, /PRIMARY KEY \("PARTECIPANTE_PERSONA_CF"\)/);
+  assert.match(partecipanteSql, /PRIMARY KEY \(PERSONA_CF\)/);
+  assert.match(partecipanteSql, /UNIQUE \(Codice\)/);
+  assert.doesNotMatch(partecipanteSql, /PRIMARY KEY \(Codice, PERSONA_CF\)/);
+  assert.match(dipendenteSql, /PRIMARY KEY \(PARTECIPANTE_PERSONA_CF\)/);
+  assert.match(professionistaSql, /PRIMARY KEY \(PARTECIPANTE_PERSONA_CF\)/);
   assert.doesNotMatch(dipendenteSql, /Partecipante_Codice/);
   assert.doesNotMatch(professionistaSql, /Partecipante_Codice/);
 });
@@ -1228,9 +1228,9 @@ test("una tabella con piu identificatori alternativi sceglie una sola PK e tradu
 
   const sql = generateLogicalSql(workspace.model);
   const clienteSql = extractCreateTable(sql, "CLIENTE");
-  assert.match(clienteSql, /PRIMARY KEY \("Codice"\)/);
-  assert.match(clienteSql, /UNIQUE \("Email"\)/);
-  assert.doesNotMatch(clienteSql, /PRIMARY KEY \("Codice", "Email"\)/);
+  assert.match(clienteSql, /PRIMARY KEY \(Codice\)/);
+  assert.match(clienteSql, /UNIQUE \(Email\)/);
+  assert.doesNotMatch(clienteSql, /PRIMARY KEY \(Codice, Email\)/);
 });
 
 test("l'aggiornamento SQL mantiene la sync stretta FK<-PK e blocca la nullable delle PK", () => {
@@ -1287,7 +1287,65 @@ test("il SQL generator usa tipo parametrico, default e unique da metadati SQL", 
   const userSql = extractCreateTable(sql, "USER");
   const orderSql = extractCreateTable(sql, "ORDERS");
 
-  assert.match(userSql, /"Email" VARCHAR\(180\) NOT NULL DEFAULT 'noreply@example.com'/);
-  assert.match(userSql, /UNIQUE \("Email"\)/);
-  assert.match(orderSql, /"Totale" NUMERIC\(12,4\) DEFAULT 0/);
+  assert.match(userSql, /Email VARCHAR\(180\) NOT NULL DEFAULT 'noreply@example.com'/);
+  assert.match(userSql, /UNIQUE \(Email\)/);
+  assert.match(orderSql, /Totale NUMERIC\(12,4\) DEFAULT 0/);
+});
+
+test("il SQL generator non quota gli identificatori e crea prima le tabelle referenziate", () => {
+  const model = createSqlMetadataModelFixture();
+  const reversedModel: LogicalModel = {
+    ...model,
+    tables: [...model.tables].reverse(),
+  };
+
+  const sql = generateLogicalSql(reversedModel);
+
+  assert.equal(sql.includes('"'), false, "Il SQL generico non deve usare doppi apici sugli identificatori");
+  assert.ok(
+    sql.indexOf("CREATE TABLE USER") < sql.indexOf("CREATE TABLE ORDERS"),
+    "USER deve essere creato prima di ORDERS per rispettare la FK",
+  );
+  assert.match(sql, /FOREIGN KEY \(User_ID\) REFERENCES USER \(ID\)/);
+});
+
+test("il SQL generator supporta dialetti con quoting e mapping tipi dedicati", () => {
+  const model = createSqlMetadataModelFixture();
+  const userTable = model.tables.find((table) => table.id === "table-user");
+  assert.ok(userTable);
+  const dialectModel: LogicalModel = {
+    ...model,
+    tables: model.tables.map((table) =>
+      table.id === "table-user"
+        ? {
+            ...table,
+            columns: [
+              ...table.columns,
+              {
+                id: "col-user-active",
+                name: "Attivo",
+                isPrimaryKey: false,
+                isForeignKey: false,
+                isNullable: true,
+                dataType: "BOOLEAN",
+                references: [],
+              },
+            ],
+          }
+        : table,
+    ),
+  };
+
+  const mysql = generateLogicalSql(dialectModel, { dialect: "mysql", quoteIdentifiers: true });
+  assert.match(mysql, /CREATE TABLE `USER`/);
+  assert.match(mysql, /`ID` INT NOT NULL/);
+
+  const sqlServer = generateLogicalSql(dialectModel, { dialect: "sqlserver", quoteIdentifiers: true });
+  assert.match(sqlServer, /CREATE TABLE \[USER\]/);
+  assert.match(sqlServer, /\[ID\] INT NOT NULL/);
+  assert.match(sqlServer, /\[Attivo\] BIT/);
+
+  const oracle = generateLogicalSql(dialectModel, { dialect: "oracle" });
+  const oracleUserSql = extractCreateTable(oracle, "USER");
+  assert.match(oracleUserSql, /Attivo NUMBER\(1\)/);
 });

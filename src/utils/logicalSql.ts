@@ -1,12 +1,60 @@
 import type { LogicalColumn, LogicalForeignKey, LogicalModel, LogicalTable, LogicalUniqueConstraint } from "../types/logical";
 import { formatSqlType } from "./logicalSqlMetadata";
 
-function quoteIdentifier(value: string): string {
+export type LogicalSqlDialect =
+  | "generic"
+  | "mysql"
+  | "mariadb"
+  | "sqlserver"
+  | "oracle"
+  | "postgresql"
+  | "sqlite";
+
+export interface LogicalSqlGenerationOptions {
+  dialect?: LogicalSqlDialect;
+  quoteIdentifiers?: boolean;
+}
+
+export const LOGICAL_SQL_DIALECT_OPTIONS: ReadonlyArray<{ value: LogicalSqlDialect; label: string }> = [
+  { value: "generic", label: "Generic SQL" },
+  { value: "mysql", label: "MySQL" },
+  { value: "mariadb", label: "MariaDB" },
+  { value: "sqlserver", label: "SQL Server / SSMS" },
+  { value: "oracle", label: "Oracle" },
+  { value: "postgresql", label: "PostgreSQL" },
+  { value: "sqlite", label: "SQLite" },
+];
+
+interface SqlRenderContext {
+  dialect: LogicalSqlDialect;
+  quoteIdentifiers: boolean;
+}
+
+function createSqlRenderContext(options: LogicalSqlGenerationOptions = {}): SqlRenderContext {
+  return {
+    dialect: options.dialect ?? "generic",
+    quoteIdentifiers: options.quoteIdentifiers === true,
+  };
+}
+
+function quoteIdentifier(value: string, context: SqlRenderContext): string {
+  if (!context.quoteIdentifiers) {
+    return value;
+  }
+
+  if (context.dialect === "mysql" || context.dialect === "mariadb") {
+    return `\`${value.replace(/`/g, "``")}\``;
+  }
+
+  if (context.dialect === "sqlserver") {
+    return `[${value.replace(/]/g, "]]")}]`;
+  }
+
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function joinIdentifierList(values: string[]): string {
-  return values.map(quoteIdentifier).join(", ");
+function joinIdentifierList(values: string[], context: SqlRenderContext): string {
+  return values.map((value) => quoteIdentifier(value, context)).join(", ");
 }
 
 function buildColumnLookup(table: LogicalTable): Map<string, LogicalColumn> {
@@ -20,18 +68,20 @@ function buildUniqueConstraintSignature(columnIds: string[]): string {
 function renderUniqueConstraint(
   constraint: LogicalUniqueConstraint,
   table: LogicalTable,
+  context: SqlRenderContext,
 ): string | null {
   const columnById = buildColumnLookup(table);
   const columnNames = constraint.columnIds
     .map((columnId) => columnById.get(columnId)?.name)
     .filter((name): name is string => typeof name === "string");
 
-  return columnNames.length > 0 ? `UNIQUE (${joinIdentifierList(columnNames)})` : null;
+  return columnNames.length > 0 ? `UNIQUE (${joinIdentifierList(columnNames, context)})` : null;
 }
 
 function renderForeignKey(
   foreignKey: LogicalForeignKey,
   tableById: Map<string, LogicalTable>,
+  context: SqlRenderContext,
 ): string | null {
   const fromTable = tableById.get(foreignKey.fromTableId);
   const toTable = tableById.get(foreignKey.toTableId);
@@ -52,10 +102,103 @@ function renderForeignKey(
     return null;
   }
 
-  return `FOREIGN KEY (${joinIdentifierList(fromColumnNames)}) REFERENCES ${quoteIdentifier(toTable.name)} (${joinIdentifierList(toColumnNames)})`;
+  return `FOREIGN KEY (${joinIdentifierList(fromColumnNames, context)}) REFERENCES ${quoteIdentifier(toTable.name, context)} (${joinIdentifierList(toColumnNames, context)})`;
 }
 
-export function generateLogicalSql(model: LogicalModel): string {
+function formatSqlTypeForDialect(column: LogicalColumn, dialect: LogicalSqlDialect): string {
+  const baseType = formatSqlType(column);
+  const upperBaseType = baseType.toUpperCase();
+
+  if (dialect === "oracle") {
+    if (upperBaseType === "BOOLEAN") {
+      return "NUMBER(1)";
+    }
+    if (upperBaseType === "DATETIME") {
+      return "TIMESTAMP";
+    }
+    if (upperBaseType === "TEXT") {
+      return "CLOB";
+    }
+    if (upperBaseType === "BLOB") {
+      return "BLOB";
+    }
+    if (upperBaseType === "JSON") {
+      return "CLOB";
+    }
+  }
+
+  if (dialect === "sqlserver") {
+    if (upperBaseType === "INTEGER") {
+      return "INT";
+    }
+    if (upperBaseType === "BOOLEAN") {
+      return "BIT";
+    }
+    if (upperBaseType === "TEXT") {
+      return "NVARCHAR(MAX)";
+    }
+    if (upperBaseType === "BLOB") {
+      return "VARBINARY(MAX)";
+    }
+    if (upperBaseType === "JSON") {
+      return "NVARCHAR(MAX)";
+    }
+  }
+
+  if (dialect === "mysql" || dialect === "mariadb") {
+    if (upperBaseType === "INTEGER") {
+      return "INT";
+    }
+  }
+
+  return baseType;
+}
+
+function sortTablesByForeignKeyDependencies(model: LogicalModel): LogicalTable[] {
+  const tableById = new Map(model.tables.map((table) => [table.id, table]));
+  const dependenciesByTableId = new Map<string, Set<string>>();
+  model.tables.forEach((table) => dependenciesByTableId.set(table.id, new Set()));
+
+  model.foreignKeys.forEach((foreignKey) => {
+    if (foreignKey.fromTableId === foreignKey.toTableId) {
+      return;
+    }
+    if (!tableById.has(foreignKey.fromTableId) || !tableById.has(foreignKey.toTableId)) {
+      return;
+    }
+    dependenciesByTableId.get(foreignKey.fromTableId)?.add(foreignKey.toTableId);
+  });
+
+  const ordered: LogicalTable[] = [];
+  const orderedIds = new Set<string>();
+  const temporaryIds = new Set<string>();
+
+  function visit(table: LogicalTable): void {
+    if (orderedIds.has(table.id)) {
+      return;
+    }
+    if (temporaryIds.has(table.id)) {
+      return;
+    }
+
+    temporaryIds.add(table.id);
+    (dependenciesByTableId.get(table.id) ?? new Set()).forEach((dependencyId) => {
+      const dependency = tableById.get(dependencyId);
+      if (dependency) {
+        visit(dependency);
+      }
+    });
+    temporaryIds.delete(table.id);
+    orderedIds.add(table.id);
+    ordered.push(table);
+  }
+
+  model.tables.forEach(visit);
+  return ordered;
+}
+
+export function generateLogicalSql(model: LogicalModel, options: LogicalSqlGenerationOptions = {}): string {
+  const context = createSqlRenderContext(options);
   const tableById = new Map(model.tables.map((table) => [table.id, table]));
   const foreignKeysByTableId = new Map<string, LogicalForeignKey[]>();
   model.foreignKeys.forEach((foreignKey) => {
@@ -71,25 +214,25 @@ export function generateLogicalSql(model: LogicalModel): string {
     uniqueConstraintsByTableId.set(constraint.tableId, bucket);
   });
 
-  return model.tables
+  return sortTablesByForeignKeyDependencies(model)
     .map((table) => {
       const primaryKeyColumns = table.columns.filter((column) => column.isPrimaryKey);
       const lines = table.columns.map((column) => {
-        const dataType = formatSqlType(column);
+        const dataType = formatSqlTypeForDialect(column, context.dialect);
         const notNull = column.isNullable ? "" : " NOT NULL";
         const defaultClause =
           typeof column.defaultValue === "string" && column.defaultValue.trim().length > 0
             ? ` DEFAULT ${column.defaultValue.trim()}`
             : "";
-        return `${quoteIdentifier(column.name)} ${dataType}${notNull}${defaultClause}`;
+        return `${quoteIdentifier(column.name, context)} ${dataType}${notNull}${defaultClause}`;
       });
 
       if (primaryKeyColumns.length > 0) {
-        lines.push(`PRIMARY KEY (${joinIdentifierList(primaryKeyColumns.map((column) => column.name))})`);
+        lines.push(`PRIMARY KEY (${joinIdentifierList(primaryKeyColumns.map((column) => column.name), context)})`);
       }
 
       const renderedUniqueConstraints = (uniqueConstraintsByTableId.get(table.id) ?? [])
-        .map((constraint) => renderUniqueConstraint(constraint, table))
+        .map((constraint) => renderUniqueConstraint(constraint, table, context))
         .filter((line): line is string => line !== null);
       const renderedUniqueSignatures = new Set(
         (uniqueConstraintsByTableId.get(table.id) ?? []).map((constraint) => buildUniqueConstraintSignature(constraint.columnIds)),
@@ -111,7 +254,7 @@ export function generateLogicalSql(model: LogicalModel): string {
             return;
           }
 
-          lines.push(`UNIQUE (${joinIdentifierList([column.name])})`);
+          lines.push(`UNIQUE (${joinIdentifierList([column.name], context)})`);
           renderedUniqueSignatures.add(signature);
         });
 
@@ -123,19 +266,19 @@ export function generateLogicalSql(model: LogicalModel): string {
               .map((mapping) => table.columns.find((column) => column.id === mapping.fromColumnId)?.name)
               .filter((name): name is string => typeof name === "string");
             if (columnNames.length > 0) {
-              lines.push(`UNIQUE (${joinIdentifierList(columnNames)})`);
+              lines.push(`UNIQUE (${joinIdentifierList(columnNames, context)})`);
               renderedUniqueSignatures.add(signature);
             }
           }
         }
 
-        const renderedForeignKey = renderForeignKey(foreignKey, tableById);
+        const renderedForeignKey = renderForeignKey(foreignKey, tableById, context);
         if (renderedForeignKey) {
           lines.push(renderedForeignKey);
         }
       });
 
-      return `CREATE TABLE ${quoteIdentifier(table.name)} (\n  ${lines.join(",\n  ")}\n);`;
+      return `CREATE TABLE ${quoteIdentifier(table.name, context)} (\n  ${lines.join(",\n  ")}\n);`;
     })
     .join("\n\n");
 }

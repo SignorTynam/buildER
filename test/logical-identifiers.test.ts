@@ -139,8 +139,8 @@ test("logical translation: two simple internal identifiers use the first selecte
   assert.equal(dataOraArrivo.isPrimaryKey, false);
   assert.equal(dataOraArrivo.isNullable, false);
   assert.deepEqual(uniqueConstraintColumnNames(model, table), [["dataOraArrivo"]]);
-  assert.match(sql, /PRIMARY KEY \("codViaggio"\)/);
-  assert.match(sql, /UNIQUE \("dataOraArrivo"\)/);
+  assert.match(sql, /PRIMARY KEY \(codViaggio\)/);
+  assert.match(sql, /UNIQUE \(dataOraArrivo\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
 
@@ -160,8 +160,8 @@ test("logical translation: two simple internal identifiers can choose the second
   assert.equal(codViaggio.isPrimaryKey, false);
   assert.equal(codViaggio.isNullable, false);
   assert.deepEqual(uniqueConstraintColumnNames(model, table), [["codViaggio"]]);
-  assert.match(sql, /PRIMARY KEY \("dataOraArrivo"\)/);
-  assert.match(sql, /UNIQUE \("codViaggio"\)/);
+  assert.match(sql, /PRIMARY KEY \(dataOraArrivo\)/);
+  assert.match(sql, /UNIQUE \(codViaggio\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
 
@@ -184,9 +184,9 @@ test("logical translation: composite alternative internal identifier becomes one
   assert.equal(dataOraArrivo.isNullable, false);
   assert.equal(uniqueNames.length, 1);
   assert.deepEqual(new Set(uniqueNames[0]), new Set(["dataOraPartenza", "dataOraArrivo"]));
-  assert.match(sql, /UNIQUE \("dataOraPartenza", "dataOraArrivo"\)/);
-  assert.doesNotMatch(sql, /UNIQUE \("dataOraPartenza"\)/);
-  assert.doesNotMatch(sql, /UNIQUE \("dataOraArrivo"\)/);
+  assert.match(sql, /UNIQUE \(dataOraPartenza, dataOraArrivo\)/);
+  assert.doesNotMatch(sql, /UNIQUE \(dataOraPartenza\)/);
+  assert.doesNotMatch(sql, /UNIQUE \(dataOraArrivo\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
 
@@ -205,9 +205,9 @@ test("logical translation: three internal identifiers produce one PK and two alt
   ["codViaggio", "dataOraArrivo", "dataOraPartenza", "codiceEsterno"].forEach((name) => {
     assert.equal(getColumn(table, name).isNullable, false);
   });
-  assert.match(sql, /PRIMARY KEY \("codViaggio"\)/);
-  assert.match(sql, /UNIQUE \("dataOraArrivo"\)/);
-  assert.match(sql, /UNIQUE \("dataOraPartenza", "codiceEsterno"\)/);
+  assert.match(sql, /PRIMARY KEY \(codViaggio\)/);
+  assert.match(sql, /UNIQUE \(dataOraArrivo\)/);
+  assert.match(sql, /UNIQUE \(dataOraPartenza, codiceEsterno\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
 
@@ -275,7 +275,7 @@ test("logical translation: bulk Fix Entities usa la chiave candidata scelta espl
     uniqueConstraintColumnNames(result.workspace.model, table).map((names) => names[0]).sort(),
     ["codViaggio", "dataOraArrivo"],
   );
-  assert.match(sql, /PRIMARY KEY \("codiceEsterno"\)/);
+  assert.match(sql, /PRIMARY KEY \(codiceEsterno\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
 
@@ -341,8 +341,8 @@ test("logical translation: changing selected PK demotes the previous PK to UNIQU
   assert.deepEqual(uniqueConstraintColumnNames(model, table), [["codViaggio"]]);
   assert.equal(model.uniqueConstraints.filter((constraint) => constraint.tableId === table.id).length, 1);
   assert.equal(table.columns.filter((column) => column.isPrimaryKey).length, 1);
-  assert.match(sql, /PRIMARY KEY \("dataOraArrivo"\)/);
-  assert.match(sql, /UNIQUE \("codViaggio"\)/);
+  assert.match(sql, /PRIMARY KEY \(dataOraArrivo\)/);
+  assert.match(sql, /UNIQUE \(codViaggio\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
 
@@ -362,7 +362,7 @@ test("direct logical mapping: alternative internal identifiers become UNIQUE NOT
     uniqueConstraintColumnNames(model, table).map((names) => new Set(names)),
     [new Set(["dataOraPartenza", "dataOraArrivo"])],
   );
-  assert.match(sql, /PRIMARY KEY \("codViaggio"\)/);
-  assert.match(sql, /UNIQUE \("dataOraPartenza", "dataOraArrivo"\)/);
+  assert.match(sql, /PRIMARY KEY \(codViaggio\)/);
+  assert.match(sql, /UNIQUE \(dataOraPartenza, dataOraArrivo\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
