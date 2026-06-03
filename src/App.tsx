@@ -12,7 +12,7 @@ import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
 import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
 import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
 import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
-import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
+import type { TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
@@ -634,10 +634,7 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
             : storedCodePanelOpen
               ? "code"
               : "review";
-    const storedTechnicalPanelOpen =
-      typeof parsed.technicalPanelOpen === "boolean"
-        ? parsed.technicalPanelOpen
-        : storedNotesPanelOpen || storedCodePanelOpen;
+    const storedTechnicalPanelOpen = false;
 
     const storedTranslationWorkspace =
       parsed.version >= 3
@@ -1389,9 +1386,8 @@ export default function App() {
     technicalPanelResizeBounds.min,
     technicalPanelResizeBounds.max,
   );
-  const technicalPanelAvailableInView = diagramView === "er";
-  const technicalPanelVisible = technicalPanelOpen && technicalPanelAvailableInView && !focusMode;
-  const structuredSidePanelHidden = diagramView !== "er" && technicalPanelVisible;
+  const technicalPanelVisible = false;
+  const structuredSidePanelHidden = false;
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -2382,7 +2378,7 @@ export default function App() {
 
   function openTechnicalPanelTab(nextTab: TechnicalPanelTab) {
     setTechnicalPanelTab(nextTab);
-    setTechnicalPanelOpen(true);
+    setTechnicalPanelOpen(false);
     setCodePanelOpen(nextTab === "code");
     setNotesPanelOpen(nextTab === "notes");
   }
@@ -2393,17 +2389,8 @@ export default function App() {
     setNotesPanelOpen(false);
   }
 
-  function handleToggleReviewPanel() {
-    if (technicalPanelOpen) {
-      closeTechnicalPanel();
-      return;
-    }
-
-    openTechnicalPanelTab("review");
-  }
-
   function handleToggleCodePanel() {
-    if (technicalPanelOpen && technicalPanelTab === "code") {
+    if (codePanelOpen) {
       closeTechnicalPanel();
       return;
     }
@@ -2416,7 +2403,7 @@ export default function App() {
   }
 
   function handleToggleNotesPanel() {
-    if (technicalPanelOpen && technicalPanelTab === "notes") {
+    if (notesPanelOpen) {
       closeTechnicalPanel();
       return;
     }
@@ -2915,7 +2902,7 @@ export default function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "i") {
         event.preventDefault();
         if (diagramView === "er") {
-          handleToggleReviewPanel();
+          setErrorsPanelOpen(true);
           return;
         }
 
@@ -5623,37 +5610,6 @@ export default function App() {
       </PanelSection>
     </div>
   ) : null;
-  const technicalDockAvailableTabs: TechnicalPanelTab[] =
-    diagramView === "er" ? ["review", "code", "notes"] : ["code", "notes"];
-  const technicalDockCode =
-    diagramView === "er" ? codeDraft : serializeDiagramToErs(translationHistory.present.translatedDiagram);
-  const technicalDockCodeDescription =
-    diagramView === "er"
-      ? "Inserisci il codice ERS"
-      : diagramView === "translation"
-        ? "Preview del codice ERS tradotto"
-        : "Preview del codice ERS sorgente dello schema logico";
-  const technicalDockPanel = technicalPanelVisible ? (
-    <TechnicalDockPanel
-      activeTab={technicalPanelTab}
-      availableTabs={technicalDockAvailableTabs}
-      code={{
-        code: technicalDockCode,
-        editable: diagramView === "er" && mode === "edit",
-        parseError: diagramView === "er" ? codeError : undefined,
-        onCodeChange: diagramView === "er" ? updateCodeDraft : undefined,
-        placeholder: technicalDockCodeDescription,
-      }}
-      notes={{
-        notes: history.present.notes,
-        editable: mode === "edit",
-        onChange: handleNotesChange,
-      }}
-      review={diagramView === "er" ? modelReviewPanel : undefined}
-      onTabChange={openTechnicalPanelTab}
-      onClose={closeTechnicalPanel}
-    />
-  ) : null;
   const sqlReversePreviewSourceDiagram = useMemo(
     () => createEmptyDiagram("Preview logica SQL"),
     [sqlReverseWorkflow.result],
@@ -6021,19 +5977,6 @@ export default function App() {
               onMoveColumn={handleLogicalColumnMove}
             />
           )}
-            {technicalPanelVisible ? (
-              <button
-                type="button"
-                className="workspace-resizer workspace-resizer-active"
-                onPointerDown={(event) =>
-                  handlePanelResizeStart(technicalPanelTab === "notes" ? "notes" : "code", event)
-                }
-                onDoubleClick={() => resetPanelWidth(technicalPanelTab === "notes" ? "notes" : "code")}
-                aria-label="Ridimensiona dock tecnico"
-                title="Trascina per ridimensionare il pannello tecnico"
-              />
-            ) : null}
-            {technicalDockPanel}
           </div>
         )}
       </div>
@@ -6077,7 +6020,6 @@ export default function App() {
           diagramName={history.present.meta.name}
           diagramView={diagramView}
           logicalSqlOpen={logicalPanelMode === "sql"}
-          technicalPanelOpen={technicalPanelVisible}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
           canUndo={activeCanUndo}
@@ -6101,7 +6043,6 @@ export default function App() {
           onResetTranslation={handleResetTranslation}
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
-          onToggleReviewPanel={handleToggleReviewPanel}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}

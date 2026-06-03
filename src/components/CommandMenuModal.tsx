@@ -8,7 +8,6 @@ interface CommandMenuModalProps {
   diagramName: string;
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
-  technicalPanelOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
   canUndo: boolean;
@@ -32,7 +31,6 @@ interface CommandMenuModalProps {
   onResetTranslation: () => void;
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
-  onToggleReviewPanel: () => void;
   onOpenSqlReverseWorkflow: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
@@ -174,13 +172,6 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             <div className="studio-modal__section-title command-menu-section-title">Workspace</div>
             <div className="studio-modal__list command-menu-list">
               <CommandButton
-                label={props.technicalPanelOpen ? "Nascondi dock tecnico" : "Mostra Review"}
-                detail={props.technicalPanelOpen ? "Chiude Review, Code o Notes" : "Warning ed errori del modello"}
-                shortcut="Ctrl/Cmd I"
-                disabled={!isErView}
-                onClick={() => runCommand(props.onToggleReviewPanel)}
-              />
-              <CommandButton
                 label="Reverse Engineering SQL"
                 detail="Importa CREATE TABLE con workflow guidato"
                 disabled={!isErView}
@@ -188,7 +179,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
               />
                 <CommandButton
                  label={props.codePanelOpen ? "Nascondi Code" : "Mostra Code"}
-                  detail="Tab ERS nel dock tecnico"
+                  detail="Editor ERS nel workspace"
                   disabled={false}
                   onClick={() => runCommand(props.onToggleCodePanel)}
                 />
