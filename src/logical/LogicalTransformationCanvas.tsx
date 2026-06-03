@@ -46,6 +46,7 @@ interface LogicalTransformationCanvasProps {
   onRenameTable: (tableId: string, nextName: string) => void;
   onRenameColumn: (tableId: string, columnId: string, nextName: string) => void;
   onUpdateColumnSql: (tableId: string, columnId: string, patch: LogicalColumnSqlPatch) => void;
+  readOnly?: boolean;
 }
 
 type ConnectionSide = "left" | "right" | "top" | "bottom";
@@ -773,6 +774,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [hoverTableId, setHoverTableId] = useState<string | null>(null);
+  const readOnly = props.readOnly === true;
 
   const graph = props.workspace.transformation;
   const viewMode = props.viewMode ?? "transformation";
@@ -1130,6 +1132,11 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     }
 
     event.stopPropagation();
+    if (readOnly) {
+      props.onSelectionChange({ nodeId: tableNode.id, columnId: null, edgeId: null });
+      return;
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
     props.onSelectionChange({ nodeId: tableNode.id, columnId: null, edgeId: null });
     setInteraction({
@@ -1197,6 +1204,10 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
+    if (readOnly) {
+      return;
+    }
+
     const deltaX = (event.clientX - interaction.startClient.x) / props.viewport.zoom;
     const deltaY = (event.clientY - interaction.startClient.y) / props.viewport.zoom;
     const nextX = Math.round(interaction.startTablePosition.x + deltaX);
@@ -1223,7 +1234,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
-    if (interaction.kind === "drag") {
+    if (!readOnly && interaction.kind === "drag") {
       props.onCommitModel(props.workspace.model, interaction.originalModel);
     }
 
@@ -1232,6 +1243,9 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
 
   function startTableInlineEdit(event: MouseEvent<SVGGElement>, tableNode: LogicalTransformationNode) {
     event.stopPropagation();
+    if (readOnly) {
+      return;
+    }
     setInlineEdit({ kind: "table", tableId: tableNode.id, value: tableNode.label });
   }
 
@@ -1241,6 +1255,9 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     column: LogicalColumn,
   ) {
     event.stopPropagation();
+    if (readOnly) {
+      return;
+    }
     setInlineEdit({ kind: "column", tableId: tableNode.id, columnId: column.id, value: column.name });
   }
 

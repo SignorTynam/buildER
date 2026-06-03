@@ -3,7 +3,7 @@ import { CodePanel } from "./CodePanel";
 import { NotesPanel } from "./NotesPanel";
 import { PanelHeader, PanelShell, PanelTabs } from "./panels";
 
-export type TechnicalPanelTab = "review" | "code" | "notes" | "sql";
+export type TechnicalPanelTab = "review" | "code" | "notes";
 
 interface CodePanelConfig {
   code: string;
@@ -25,7 +25,6 @@ interface TechnicalDockPanelProps {
   code?: CodePanelConfig;
   notes?: NotesPanelConfig;
   review?: ReactNode;
-  sql?: ReactNode;
   onTabChange: (tab: TechnicalPanelTab) => void;
   onClose: () => void;
 }
@@ -34,14 +33,12 @@ const TAB_LABELS: Record<TechnicalPanelTab, string> = {
   review: "Review",
   code: "ER Code",
   notes: "Notes",
-  sql: "SQL",
 };
 
 const EMPTY_TAB_LABELS: Record<TechnicalPanelTab, string> = {
   review: "Nessun elemento da mostrare.",
   code: "Nessun codice disponibile.",
   notes: "Nessuna nota.",
-  sql: "Nessuna anteprima SQL.",
 };
 
 export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
@@ -90,7 +87,6 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
         {activeTab === "notes" && !props.notes ? emptyTabState : null}
 
         {activeTab === "review" ? props.review ?? emptyTabState : null}
-        {activeTab === "sql" ? props.sql ?? emptyTabState : null}
       </div>
     </PanelShell>
   );

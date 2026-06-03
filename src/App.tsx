@@ -2,13 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { ChangelogModal } from "./components/ChangelogModal";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
-import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
+import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
+import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
+import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
+import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
+import type { TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
@@ -33,6 +38,7 @@ import type {
 } from "./types/diagram";
 import { EMPTY_LOGICAL_SELECTION } from "./types/logical";
 import type {
+  LogicalIssue,
   LogicalModel,
   LogicalSelection,
   LogicalStage,
@@ -114,6 +120,8 @@ import {
   updateLogicalColumnSqlMetadata,
 } from "./utils/logicalSqlMetadata";
 import { generateLogicalSql } from "./utils/logicalSql";
+import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
+import { validateSqlReverseBetaSource } from "./utils/sqlReverseBetaValidation";
 import {
   parseProjectFile,
   ProjectFileError,
@@ -122,6 +130,7 @@ import {
   PROJECT_FILE_MIME_TYPE,
   serializeProjectFile,
 } from "./utils/projectFile";
+import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
   getAttributeCardinalityOwner,
@@ -131,13 +140,66 @@ import {
   normalizeSupportedCardinality,
 } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, getToolLabel } from "./utils/toolConfig";
-import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
+import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION, type AppChangelogEntry } from "./utils/appMeta";
+import { VersionAnnouncement } from "./components/VersionAnnouncement";
+import { classifyAppUpdate } from "./utils/versioning";
+import type { AppUpdateKind } from "./utils/versioning";
+import {
+  getLastSeenAppVersion,
+  hasSeenVersionAnnouncement,
+  rememberLastSeenAppVersion,
+  rememberVersionAnnouncementSeen,
+} from "./utils/versionAnnouncementStorage";
 
 const DEFAULT_VIEWPORT: Viewport = {
   x: 180,
   y: 110,
   zoom: 1,
 };
+
+type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
+
+interface VersionAnnouncementState {
+  previousVersion: string | null;
+  updateKind: VisibleVersionUpdateKind;
+  changelogEntry: AppChangelogEntry;
+}
+
+function createFallbackChangelogEntry(version: string, updateKind: VisibleVersionUpdateKind): AppChangelogEntry {
+  const importantUpdate = updateKind === "minor" || updateKind === "major";
+
+  return {
+    version,
+    date: new Date().toISOString().slice(0, 10),
+    impact: updateKind,
+    headline: importantUpdate ? "Nuova versione disponibile" : "Aggiornamento di stabilita",
+    summary: importantUpdate
+      ? "Questa release introduce miglioramenti importanti all'esperienza di lavoro."
+      : "Questa release include correzioni e miglioramenti mirati.",
+    updates: importantUpdate
+      ? ["Nuova release pronta per l'uso.", "Miglioramenti all'esperienza dell'editor."]
+      : ["Correzioni e miglioramenti di stabilita."],
+  };
+}
+
+function createInitialSqlReverseWorkflowState(sourceSql = ""): SqlReverseWorkflowState {
+  return {
+    step: "idle",
+    sourceSql,
+    result: null,
+    issues: [],
+    logicalIssues: [],
+    tableCount: 0,
+    unsupportedStatementCount: 0,
+    errorMessage: "",
+    logicalViewport: { ...DEFAULT_VIEWPORT },
+    erViewport: { ...DEFAULT_VIEWPORT },
+    logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+    erSelection: { nodeIds: [], edgeIds: [] },
+    previewToken: 0,
+    isPreviewReady: false,
+  };
+}
 
 interface WorkspaceNotice {
   id: number;
@@ -232,6 +294,25 @@ interface OnboardingProgress {
 }
 
 type AppSurface = "studio" | "code-tutorial";
+type SqlReverseWorkflowStep = "idle" | "input" | "logical-preview" | "er-preview";
+
+interface SqlReverseWorkflowState {
+  step: SqlReverseWorkflowStep;
+  sourceSql: string;
+  result: SqlReverseDiagramResult | null;
+  issues: SqlReverseIssue[];
+  logicalIssues: LogicalIssue[];
+  tableCount: number;
+  unsupportedStatementCount: number;
+  errorMessage: string;
+  logicalViewport: Viewport;
+  erViewport: Viewport;
+  logicalSelection: LogicalSelection;
+  erSelection: SelectionState;
+  previewToken: number;
+  isPreviewReady: boolean;
+}
+
 interface WorkspaceSessionSnapshot {
   version: 4;
   savedAt: string;
@@ -583,17 +664,12 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
         ? "notes"
         : parsed.technicalPanelTab === "code"
           ? "code"
-          : parsed.technicalPanelTab === "sql"
-            ? "sql"
-            : storedNotesPanelOpen
-              ? "notes"
-              : storedCodePanelOpen
-                ? "code"
-                : "review";
-    const storedTechnicalPanelOpen =
-      typeof parsed.technicalPanelOpen === "boolean"
-        ? parsed.technicalPanelOpen
-        : storedNotesPanelOpen || storedCodePanelOpen;
+          : storedNotesPanelOpen
+            ? "notes"
+            : storedCodePanelOpen
+              ? "code"
+              : "review";
+    const storedTechnicalPanelOpen = false;
 
     const storedTranslationWorkspace =
       parsed.version >= 3
@@ -1211,6 +1287,7 @@ export default function App() {
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [versionAnnouncement, setVersionAnnouncement] = useState<VersionAnnouncementState | null>(null);
   const [introOpen, setIntroOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null);
@@ -1232,6 +1309,9 @@ export default function App() {
   const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
   const [notesPanelOpen, setNotesPanelOpen] = useState(
     sessionBootstrap.notesPanelOpen && restoredTechnicalPanelTab === "notes",
+  );
+  const [sqlReverseWorkflow, setSqlReverseWorkflow] = useState<SqlReverseWorkflowState>(() =>
+    createInitialSqlReverseWorkflowState(),
   );
   const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
@@ -1342,9 +1422,8 @@ export default function App() {
     technicalPanelResizeBounds.min,
     technicalPanelResizeBounds.max,
   );
-  const technicalPanelAvailableInView = diagramView === "er";
-  const technicalPanelVisible = technicalPanelOpen && technicalPanelAvailableInView && !focusMode;
-  const structuredSidePanelHidden = diagramView !== "er" && technicalPanelVisible;
+  const technicalPanelVisible = false;
+  const structuredSidePanelHidden = false;
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -1393,6 +1472,20 @@ export default function App() {
     "--technical-panel-resizer-width": technicalPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
+  const versionAnnouncementBlocked =
+    surface !== "studio" ||
+    commandMenuOpen ||
+    keyboardShortcutsOpen ||
+    aboutOpen ||
+    whatsNewOpen ||
+    introOpen ||
+    confirmDialog !== null ||
+    promptDialog !== null ||
+    cardinalityDialog !== null ||
+    mixedIdentifierDialog !== null ||
+    generalizationGroupDialog !== null ||
+    errorsPanelOpen ||
+    sqlReverseWorkflow.step !== "idle";
 
   function persistWorkspaceSessionNow() {
     if (typeof window === "undefined") {
@@ -1410,6 +1503,54 @@ export default function App() {
       // Ignore storage errors and keep the app usable.
     }
   }
+
+  useEffect(() => {
+    const previousVersion = getLastSeenAppVersion();
+    const classification = classifyAppUpdate(previousVersion, APP_VERSION);
+
+    if (classification.kind === "first-run") {
+      rememberLastSeenAppVersion(APP_VERSION);
+      return;
+    }
+
+    if (!classification.shouldShow) {
+      return;
+    }
+
+    if (
+      classification.kind !== "patch" &&
+      classification.kind !== "minor" &&
+      classification.kind !== "major"
+    ) {
+      return;
+    }
+
+    const updateKind: VisibleVersionUpdateKind = classification.kind;
+
+    if (hasSeenVersionAnnouncement(APP_VERSION)) {
+      rememberLastSeenAppVersion(APP_VERSION);
+      return;
+    }
+
+    if (versionAnnouncement || versionAnnouncementBlocked) {
+      return;
+    }
+
+    const changelogEntry =
+      APP_CHANGELOG.find((entry) => entry.version === APP_VERSION) ??
+      createFallbackChangelogEntry(APP_VERSION, updateKind);
+    const openDelay = window.setTimeout(() => {
+      setVersionAnnouncement((current) =>
+        current ?? {
+          previousVersion,
+          updateKind,
+          changelogEntry,
+        },
+      );
+    }, 550);
+
+    return () => window.clearTimeout(openDelay);
+  }, [versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
     if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {
@@ -2131,6 +2272,21 @@ export default function App() {
     setKeyboardShortcutsOpen(true);
   }
 
+  function closeVersionAnnouncement() {
+    rememberVersionAnnouncementSeen(APP_VERSION);
+    setVersionAnnouncement(null);
+  }
+
+  function openFullChangelogFromVersionAnnouncement() {
+    rememberVersionAnnouncementSeen(APP_VERSION);
+    setVersionAnnouncement(null);
+    setAboutOpen(false);
+    setCommandMenuOpen(false);
+    setKeyboardShortcutsOpen(false);
+    setIntroOpen(false);
+    setWhatsNewOpen(true);
+  }
+
   function setStatus(message: string) {
     setStatusMessage(message);
     if (!message.trim()) {
@@ -2335,7 +2491,7 @@ export default function App() {
 
   function openTechnicalPanelTab(nextTab: TechnicalPanelTab) {
     setTechnicalPanelTab(nextTab);
-    setTechnicalPanelOpen(true);
+    setTechnicalPanelOpen(false);
     setCodePanelOpen(nextTab === "code");
     setNotesPanelOpen(nextTab === "notes");
   }
@@ -2346,17 +2502,8 @@ export default function App() {
     setNotesPanelOpen(false);
   }
 
-  function handleToggleReviewPanel() {
-    if (technicalPanelOpen) {
-      closeTechnicalPanel();
-      return;
-    }
-
-    openTechnicalPanelTab("review");
-  }
-
   function handleToggleCodePanel() {
-    if (technicalPanelOpen && technicalPanelTab === "code") {
+    if (codePanelOpen) {
       closeTechnicalPanel();
       return;
     }
@@ -2369,12 +2516,230 @@ export default function App() {
   }
 
   function handleToggleNotesPanel() {
-    if (technicalPanelOpen && technicalPanelTab === "notes") {
+    if (notesPanelOpen) {
       closeTechnicalPanel();
       return;
     }
 
     openTechnicalPanelTab("notes");
+  }
+
+  function handleSqlReverseSourceChange(value: string) {
+    setSqlReverseWorkflow((current) => ({
+      ...current,
+      sourceSql: value,
+      result: null,
+      issues: [],
+      logicalIssues: [],
+      tableCount: 0,
+      unsupportedStatementCount: 0,
+      errorMessage: "",
+      isPreviewReady: false,
+    }));
+  }
+
+  function handleOpenSqlReverseWorkflow() {
+    if (diagramView !== "er") {
+      setStatusWarning("Reverse Engineering SQL è disponibile solo nella vista ER.");
+      return;
+    }
+
+    setFocusMode(false);
+    closeTechnicalPanel();
+    setSqlReverseWorkflow((current) => ({
+      ...createInitialSqlReverseWorkflowState(current.sourceSql),
+      step: "input",
+    }));
+  }
+
+  function handleCancelSqlReverseWorkflow() {
+    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
+    setStatusWarning("Import SQL annullato.");
+  }
+
+  function handleAnalyzeSqlReverseWorkflow() {
+    const validation = validateSqlReverseBetaSource(sqlReverseWorkflow.sourceSql);
+    if (!validation.ok) {
+      setSqlReverseWorkflow((current) => ({
+        ...current,
+        sourceSql: validation.normalizedSql || current.sourceSql,
+        result: null,
+        issues: validation.issues,
+        logicalIssues: [],
+        tableCount: 0,
+        unsupportedStatementCount: validation.unsupportedStatementCount,
+        errorMessage: validation.errorMessage,
+        isPreviewReady: false,
+      }));
+      setStatusWarning(validation.errorMessage);
+      return;
+    }
+
+    try {
+      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: "Reverse Engineering SQL" });
+      const hasSqlErrors = result.issues.some((issue) => issue.level === "error");
+      const hasValidDiagram = result.diagram.nodes.length > 0;
+
+      if (result.sqlModel.unsupportedStatements.length > 0) {
+        const message = "La beta accetta solo CREATE TABLE. Rimuovi gli statement non supportati e riprova.";
+        setSqlReverseWorkflow((current) => ({
+          ...current,
+          sourceSql: validation.normalizedSql,
+          result: null,
+          issues: result.issues,
+          logicalIssues: result.logicalIssues,
+          tableCount: result.sqlModel.tables.length,
+          unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          errorMessage: message,
+          isPreviewReady: false,
+        }));
+        setStatusWarning(message);
+        return;
+      }
+
+      if (hasSqlErrors || !hasValidDiagram) {
+        setSqlReverseWorkflow((current) => ({
+          ...current,
+          sourceSql: validation.normalizedSql,
+          result: null,
+          issues: result.issues,
+          logicalIssues: result.logicalIssues,
+          tableCount: result.sqlModel.tables.length,
+          unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          errorMessage: "SQL non importabile: correggi gli errori indicati.",
+          isPreviewReady: true,
+        }));
+        setStatusError("SQL non importabile: correggi gli errori indicati.");
+        return;
+      }
+
+      setSqlReverseWorkflow((current) => ({
+        ...current,
+        step: "logical-preview",
+        sourceSql: validation.normalizedSql,
+        result,
+        issues: result.issues,
+        logicalIssues: result.logicalIssues,
+        tableCount: result.sqlModel.tables.length,
+        unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+        errorMessage: "",
+        logicalViewport: { ...DEFAULT_VIEWPORT },
+        erViewport: { ...DEFAULT_VIEWPORT },
+        logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+        erSelection: { nodeIds: [], edgeIds: [] },
+        previewToken: current.previewToken + 1,
+        isPreviewReady: true,
+      }));
+      if (result.issues.length > 0 || result.logicalIssues.some((issue) => issue.level === "warning")) {
+        setStatusWarning("SQL analizzato con warning. Preview logica pronta.");
+      } else {
+        setStatus(`SQL analizzato: ${result.sqlModel.tables.length} tabelle riconosciute.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Errore durante l'analisi SQL.";
+      const parseIssue: SqlReverseIssue = {
+        id: "sql-reverse-preview-error",
+        level: "error",
+        code: "PARSER_RECOVERY",
+        message,
+      };
+      setSqlReverseWorkflow((current) => ({
+        ...current,
+        result: null,
+        issues: [parseIssue],
+        logicalIssues: [],
+        tableCount: 0,
+        unsupportedStatementCount: 0,
+        errorMessage: message,
+        isPreviewReady: true,
+      }));
+      setStatusError("SQL non importabile: correggi gli errori indicati.");
+    }
+  }
+
+  function handleSqlReverseLogicalDone() {
+    setSqlReverseWorkflow((current) =>
+      current.result
+        ? {
+            ...current,
+            step: "er-preview",
+            erViewport: { ...DEFAULT_VIEWPORT },
+            erSelection: { nodeIds: [], edgeIds: [] },
+            previewToken: current.previewToken + 1,
+          }
+        : current,
+    );
+    setStatus("Preview ER pronta.");
+  }
+
+  function handleSqlReverseBackToLogicalPreview() {
+    setSqlReverseWorkflow((current) => current.result ? { ...current, step: "logical-preview" } : current);
+    setStatus("Preview logica pronta.");
+  }
+
+  async function handleSqlReverseFinalDone() {
+    const preview = sqlReverseWorkflow.result;
+    if (!preview) {
+      setStatusError("Preview SQL non disponibile.");
+      return;
+    }
+    const confirmed = await requestConfirmDialog({
+      title: "Importa diagramma da SQL",
+      message: "Il diagramma corrente verrà sostituito dal diagramma generato dallo schema SQL. Continuare?",
+      confirmLabel: "Importa",
+      cancelLabel: "Annulla",
+    });
+    if (!confirmed) {
+      setStatusWarning("Import SQL annullato.");
+      return;
+    }
+
+    const warningCount = preview.issues.filter((issue) => issue.level === "warning").length;
+    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
+    applyWorkspaceDocument(
+      preview.diagram,
+      warningCount > 0
+        ? `Diagramma ER importato da SQL con ${warningCount} warning.`
+        : `Diagramma ER importato da SQL: ${preview.sqlModel.tables.length} tabelle riconosciute.`,
+      {
+        diagramView: "er",
+        viewport: DEFAULT_VIEWPORT,
+      },
+    );
+  }
+
+  async function handleLoadSqlReverseFile(file: File) {
+    const fileName = file.name || "schema.sql";
+    const extensionOk = fileName.toLowerCase().endsWith(".sql");
+    try {
+      const text = await file.text();
+      setSqlReverseWorkflow((current) => ({
+        ...createInitialSqlReverseWorkflowState(text),
+        step: current.step === "idle" ? "input" : current.step,
+      }));
+
+      if (!text.trim()) {
+        setStatusWarning("Il file SQL caricato e vuoto.");
+        return;
+      }
+
+      if (!extensionOk && !/\bCREATE\s+TABLE\b/i.test(text)) {
+        setStatusWarning("File caricato: il contenuto non sembra uno schema SQL CREATE TABLE.");
+        return;
+      }
+
+      setStatus(`File SQL caricato: ${fileName}.`);
+    } catch (error) {
+      setStatusError(error instanceof Error ? error.message : "Impossibile leggere il file SQL.");
+    }
+  }
+
+  function handleClearSqlReverse() {
+    setSqlReverseWorkflow((current) => ({
+      ...createInitialSqlReverseWorkflowState(""),
+      step: current.step === "idle" ? "input" : current.step,
+    }));
+    setStatus("Import SQL pulito.");
   }
 
   function handleOpenErStage() {
@@ -2650,7 +3015,7 @@ export default function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "i") {
         event.preventDefault();
         if (diagramView === "er") {
-          handleToggleReviewPanel();
+          setErrorsPanelOpen(true);
           return;
         }
 
@@ -2731,6 +3096,12 @@ export default function App() {
           return;
         }
 
+        if (versionAnnouncement) {
+          event.preventDefault();
+          closeVersionAnnouncement();
+          return;
+        }
+
         if (commandMenuOpen) {
           setCommandMenuOpen(false);
           return;
@@ -2791,6 +3162,7 @@ export default function App() {
     technicalPanelOpen,
     technicalPanelTab,
     tool,
+    versionAnnouncement,
     whatsNewOpen,
   ]);
 
@@ -5358,37 +5730,64 @@ export default function App() {
       </PanelSection>
     </div>
   ) : null;
-  const technicalDockAvailableTabs: TechnicalPanelTab[] =
-    diagramView === "er" ? ["review", "code", "notes"] : ["code", "notes"];
-  const technicalDockCode =
-    diagramView === "er" ? codeDraft : serializeDiagramToErs(translationHistory.present.translatedDiagram);
-  const technicalDockCodeDescription =
-    diagramView === "er"
-      ? "Inserisci il codice ERS"
-      : diagramView === "translation"
-        ? "Preview del codice ERS tradotto"
-        : "Preview del codice ERS sorgente dello schema logico";
-  const technicalDockPanel = technicalPanelVisible ? (
-    <TechnicalDockPanel
-      activeTab={technicalPanelTab}
-      availableTabs={technicalDockAvailableTabs}
-      code={{
-        code: technicalDockCode,
-        editable: diagramView === "er" && mode === "edit",
-        parseError: diagramView === "er" ? codeError : undefined,
-        onCodeChange: diagramView === "er" ? updateCodeDraft : undefined,
-        placeholder: technicalDockCodeDescription,
-      }}
-      notes={{
-        notes: history.present.notes,
-        editable: mode === "edit",
-        onChange: handleNotesChange,
-      }}
-      review={diagramView === "er" ? modelReviewPanel : undefined}
-      onTabChange={openTechnicalPanelTab}
-      onClose={closeTechnicalPanel}
-    />
-  ) : null;
+  const sqlReversePreviewSourceDiagram = useMemo(
+    () => createEmptyDiagram("Preview logica SQL"),
+    [sqlReverseWorkflow.result],
+  );
+  const sqlReverseLogicalPreviewWorkspace = useMemo(
+    () =>
+      sqlReverseWorkflow.result
+        ? updateLogicalWorkspaceModel(
+            sqlReversePreviewSourceDiagram,
+            createEmptyLogicalWorkspace(sqlReversePreviewSourceDiagram),
+            sqlReverseWorkflow.result.logicalModel,
+          )
+        : null,
+    [sqlReversePreviewSourceDiagram, sqlReverseWorkflow.result],
+  );
+  const sqlReversePreviewContent =
+    sqlReverseWorkflow.step === "logical-preview" && sqlReverseWorkflow.result && sqlReverseLogicalPreviewWorkspace ? (
+      <SqlReversePreviewFrame
+        title="Preview logica"
+        subtitle="Step 2 di 3 — Tabelle, chiavi e vincoli ricavati dal CREATE TABLE."
+        onDone={handleSqlReverseLogicalDone}
+        onCancel={handleCancelSqlReverseWorkflow}
+      >
+        <SqlReverseLogicalPreview
+          sourceDiagram={sqlReversePreviewSourceDiagram}
+          workspace={sqlReverseLogicalPreviewWorkspace}
+          viewport={sqlReverseWorkflow.logicalViewport}
+          selection={sqlReverseWorkflow.logicalSelection}
+          fitRequestToken={sqlReverseWorkflow.previewToken}
+          onViewportChange={(nextViewport) =>
+            setSqlReverseWorkflow((current) => ({ ...current, logicalViewport: nextViewport }))
+          }
+          onSelectionChange={(nextSelection) =>
+            setSqlReverseWorkflow((current) => ({ ...current, logicalSelection: nextSelection }))
+          }
+        />
+      </SqlReversePreviewFrame>
+    ) : sqlReverseWorkflow.step === "er-preview" && sqlReverseWorkflow.result ? (
+      <SqlReversePreviewFrame
+        title="Preview concettuale ER"
+        subtitle="Step 3 di 3 — Diagramma ER generato dallo schema SQL."
+        onDone={handleSqlReverseFinalDone}
+        onCancel={handleCancelSqlReverseWorkflow}
+        onBack={handleSqlReverseBackToLogicalPreview}
+      >
+        <SqlReverseErPreview
+          diagram={sqlReverseWorkflow.result.diagram}
+          viewport={sqlReverseWorkflow.erViewport}
+          selection={sqlReverseWorkflow.erSelection}
+          onViewportChange={(nextViewport) =>
+            setSqlReverseWorkflow((current) => ({ ...current, erViewport: nextViewport }))
+          }
+          onSelectionChange={(nextSelection) =>
+            setSqlReverseWorkflow((current) => ({ ...current, erSelection: nextSelection }))
+          }
+        />
+      </SqlReversePreviewFrame>
+    ) : null;
 
   if (surface === "code-tutorial") {
     return (
@@ -5437,22 +5836,25 @@ export default function App() {
           ) : null}
         </div>
 
-        <div
-          className={
-            diagramView === "er"
-              ? erWorkspaceShellClassName
-              : diagramView === "translation"
-                ? translationWorkspaceShellClassName
-                : structuredWorkspaceShellClassName
-          }
-          style={
-            diagramView === "er"
-              ? erWorkspaceShellStyle
-              : diagramView === "translation"
-                ? undefined
-                : structuredWorkspaceShellStyle
-          }
-        >
+        {sqlReversePreviewContent ? (
+          sqlReversePreviewContent
+        ) : (
+          <div
+            className={
+              diagramView === "er"
+                ? erWorkspaceShellClassName
+                : diagramView === "translation"
+                  ? translationWorkspaceShellClassName
+                  : structuredWorkspaceShellClassName
+            }
+            style={
+              diagramView === "er"
+                ? erWorkspaceShellStyle
+                : diagramView === "translation"
+                  ? undefined
+                  : structuredWorkspaceShellStyle
+            }
+          >
           {diagramView === "er" ? (
             <div className={codePanelOpen ? "designer-workspace code-open" : "designer-workspace"}>
               {codePanelOpen ? (
@@ -5476,6 +5878,16 @@ export default function App() {
                   >
                     <span aria-hidden="true">{"<>"}</span>
                     Code
+                  </button>
+                  <button
+                    type="button"
+                    className="designer-side-toggle"
+                    onClick={handleOpenSqlReverseWorkflow}
+                    title="Importa schema SQL"
+                    aria-label="Apri Reverse Engineering SQL"
+                  >
+                    <span aria-hidden="true">DB</span>
+                    SQL
                   </button>
                   <button
                     type="button"
@@ -5685,20 +6097,8 @@ export default function App() {
               onMoveColumn={handleLogicalColumnMove}
             />
           )}
-          {diagramView !== "er" && technicalPanelVisible ? (
-            <button
-              type="button"
-              className="workspace-resizer workspace-resizer-active"
-              onPointerDown={(event) =>
-                handlePanelResizeStart(technicalPanelTab === "notes" ? "notes" : "code", event)
-              }
-              onDoubleClick={() => resetPanelWidth(technicalPanelTab === "notes" ? "notes" : "code")}
-              aria-label="Ridimensiona dock tecnico"
-              title="Trascina per ridimensionare il pannello tecnico"
-            />
-          ) : null}
-          {diagramView !== "er" ? technicalDockPanel : null}
-        </div>
+          </div>
+        )}
       </div>
 
       <input
@@ -5716,6 +6116,23 @@ export default function App() {
         onChange={handleLoadErsFile}
       />
 
+      {sqlReverseWorkflow.step === "input" ? (
+        <SqlReverseInputModal
+          sql={sqlReverseWorkflow.sourceSql}
+          errorMessage={sqlReverseWorkflow.errorMessage}
+          issues={sqlReverseWorkflow.issues}
+          logicalIssues={sqlReverseWorkflow.logicalIssues}
+          tableCount={sqlReverseWorkflow.tableCount}
+          unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
+          isPreviewReady={sqlReverseWorkflow.isPreviewReady}
+          onSqlChange={handleSqlReverseSourceChange}
+          onAnalyze={handleAnalyzeSqlReverseWorkflow}
+          onLoadFile={handleLoadSqlReverseFile}
+          onClear={handleClearSqlReverse}
+          onCancel={handleCancelSqlReverseWorkflow}
+        />
+      ) : null}
+
       {commandMenuOpen ? (
         <CommandMenuModal
           appTitle={APP_TITLE}
@@ -5723,7 +6140,6 @@ export default function App() {
           diagramName={history.present.meta.name}
           diagramView={diagramView}
           logicalSqlOpen={logicalPanelMode === "sql"}
-          technicalPanelOpen={technicalPanelVisible}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
           canUndo={activeCanUndo}
@@ -5747,7 +6163,7 @@ export default function App() {
           onResetTranslation={handleResetTranslation}
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
-          onToggleReviewPanel={handleToggleReviewPanel}
+          onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}
@@ -6350,48 +6766,25 @@ export default function App() {
         </div>
       ) : null}
 
-      {whatsNewOpen ? (
-        <div className="studio-modal-backdrop" role="presentation" onClick={() => setWhatsNewOpen(false)}>
-          <div
-            className="studio-modal studio-modal--medium changelog-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="studio-modal__header">
-              <div>
-                <h2 id="new-modal-title" className="studio-modal__title">Novita</h2>
-                <p className="studio-modal__subtitle">Storico compatto delle release di {APP_NAME}.</p>
-              </div>
-              <button
-                type="button"
-                className="studio-modal__close"
-                onClick={() => setWhatsNewOpen(false)}
-                aria-label="Chiudi novita"
-                autoFocus
-              >
-                Chiudi
-              </button>
-            </div>
+      {versionAnnouncement ? (
+        <VersionAnnouncement
+          appName={APP_NAME}
+          currentVersion={APP_VERSION}
+          previousVersion={versionAnnouncement.previousVersion}
+          updateKind={versionAnnouncement.updateKind}
+          changelogEntry={versionAnnouncement.changelogEntry}
+          onClose={closeVersionAnnouncement}
+          onOpenFullChangelog={openFullChangelogFromVersionAnnouncement}
+        />
+      ) : null}
 
-            <div className="studio-modal__body changelog-content">
-              {APP_CHANGELOG.map((entry) => (
-                <article key={`${entry.version}-${entry.date}`} className="studio-modal__release changelog-entry">
-                  <header>
-                    <strong>{APP_NAME} {entry.version}</strong>
-                    <span>{entry.date}</span>
-                  </header>
-                  <ul className="studio-modal__list-text help-list">
-                    {entry.updates.map((update) => (
-                      <li key={update}>{update}</li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
-          </div>
-        </div>
+      {whatsNewOpen ? (
+        <ChangelogModal
+          appName={APP_NAME}
+          currentVersion={APP_VERSION}
+          entries={APP_CHANGELOG}
+          onClose={() => setWhatsNewOpen(false)}
+        />
       ) : null}
 
     </div>

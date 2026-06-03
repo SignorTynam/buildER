@@ -177,6 +177,7 @@ interface DiagramCanvasProps {
   onRenameNode: (nodeId: string, label: string) => void;
   onRenameEdge: (edgeId: string, label: string) => void;
   onStatusMessageChange: (message: string) => void;
+  readOnly?: boolean;
 }
 
 function resolveTranslationHighlight(id: string, highlights?: DiagramHighlights): DiagramHighlightKind | undefined {
@@ -1951,6 +1952,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const [persistentMessage, setPersistentMessage] = useState<PersistentCanvasMessage | null>(null);
   const [dismissedMessageKey, setDismissedMessageKey] = useState<string | null>(null);
   const [placementPreviewPoint, setPlacementPreviewPoint] = useState<Point | null>(null);
+  const readOnly = props.readOnly === true;
 
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
   const nodeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
@@ -2702,6 +2704,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function openInlineEditorForSelection() {
+    if (readOnly) {
+      return;
+    }
+
     if (props.tool !== "select") {
       return;
     }
@@ -2724,6 +2730,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function moveSelectedNodes(deltaX: number, deltaY: number): boolean {
+    if (readOnly) {
+      return false;
+    }
+
     if (props.selection.nodeIds.length === 0) {
       return false;
     }
@@ -2770,6 +2780,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function moveSelectedEdgeOffset(delta: number): boolean {
+    if (readOnly) {
+      return false;
+    }
+
     if (props.selection.nodeIds.length > 0 || props.selection.edgeIds.length !== 1) {
       return false;
     }
@@ -2865,7 +2879,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (event.key === "Delete" || event.key === "Backspace") {
+    if (!readOnly && (event.key === "Delete" || event.key === "Backspace")) {
       event.preventDefault();
       event.stopPropagation();
       if (focusedTarget?.kind === "externalIdentifier") {
@@ -2967,6 +2981,26 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (readOnly) {
+      cancelPendingConnection();
+
+      if (props.tool === "select") {
+        setInteraction({
+          kind: "marquee",
+          pointerId: event.pointerId,
+          startWorld: worldPoint,
+          currentWorld: worldPoint,
+          additive: event.shiftKey,
+          baseSelection: props.selection,
+        });
+
+        if (!event.shiftKey) {
+          props.onSelectionChange({ nodeIds: [], edgeIds: [] });
+        }
+      }
+      return;
+    }
+
     if (props.tool === "attribute") {
       props.onStatusMessageChange("Seleziona prima un'entita o una relazione.");
       return;
@@ -3037,6 +3071,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   ) {
     event.stopPropagation();
 
+    if (readOnly) {
+      props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
+      return;
+    }
+
     if (props.tool !== "select") {
       return;
     }
@@ -3065,6 +3104,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   function handleNodePointerDown(event: ReactPointerEvent<SVGGElement>, node: DiagramNode) {
     event.stopPropagation();
     event.currentTarget.focus();
+
+    if (readOnly) {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        props.onSelectionChange(addToSelection(props.selection, node.id));
+        return;
+      }
+      props.onSelectionChange({ nodeIds: [node.id], edgeIds: [] });
+      return;
+    }
 
     if (props.tool === "delete") {
       props.onDeleteNode(node.id);
@@ -3130,6 +3178,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     event.stopPropagation();
     event.currentTarget.focus();
 
+    if (readOnly) {
+      props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+      return;
+    }
+
     if (props.tool === "delete") {
       props.onDeleteEdge(edge.id);
       return;
@@ -3149,6 +3202,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleEdgeLabelPointerDown(event: ReactPointerEvent<SVGTextElement>, edge: DiagramEdge) {
     event.stopPropagation();
+
+    if (readOnly) {
+      props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+      return;
+    }
 
     if (props.tool !== "select" || edge.type !== "connector") {
       props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
@@ -3194,6 +3252,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   ) {
     event.stopPropagation();
     event.currentTarget.focus();
+
+    if (readOnly) {
+      const hostEntity = nodeMap.get(hostEntityId);
+      if (hostEntity?.type === "entity") {
+        setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
+        props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
+      }
+      return;
+    }
 
     if (props.tool === "delete") {
       props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
@@ -3241,6 +3308,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   ) {
     event.stopPropagation();
     event.currentTarget.focus();
+
+    if (readOnly) {
+      const hostEntity = nodeMap.get(hostEntityId);
+      if (hostEntity?.type === "entity") {
+        setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
+        props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
+      }
+      return;
+    }
 
     if (props.tool === "delete") {
       props.onDeleteExternalIdentifier(hostEntityId, externalIdentifierId);
@@ -3461,11 +3537,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function startInlineNodeEdit(event: MouseEvent<SVGGElement>, node: DiagramNode) {
     event.stopPropagation();
+    if (readOnly) {
+      return;
+    }
     setInlineEdit({ kind: "node", id: node.id, value: node.label });
   }
 
   function startInlineEdgeEdit(event: MouseEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
+    if (readOnly) {
+      return;
+    }
     if (edge.type === "connector") {
       props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
       props.onOpenCardinality(edge.id);
