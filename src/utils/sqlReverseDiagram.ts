@@ -19,7 +19,9 @@ import {
   type SqlReverseOptions,
   type SqlSchemaModel,
 } from "../types/sqlReverse";
+import { autoLayoutLogicalModel } from "./logicalLayout";
 import { reverseSqlToLogicalModel } from "./sqlReverseLogical";
+import { layoutSqlReverseDiagram } from "./sqlReverseLayout";
 
 export interface SqlReverseDiagramResult {
   diagram: DiagramDocument;
@@ -77,7 +79,7 @@ export function convertLogicalModelToDiagram(
     .filter((foreignKey) => !associativeTableIds.has(foreignKey.fromTableId))
     .forEach((foreignKey) => addRelationshipForForeignKey(foreignKey, context));
 
-  const diagram: DiagramDocument = {
+  const rawDiagram: DiagramDocument = {
     meta: {
       name: `${logicalModel.meta.name ?? "Imported SQL schema"} (ER)`,
       version: 3,
@@ -87,6 +89,7 @@ export function convertLogicalModelToDiagram(
     edges: filterValidEdges(context),
     generalizationGroups: [],
   };
+  const diagram = layoutSqlReverseDiagram(rawDiagram);
 
   return {
     diagram,
@@ -99,11 +102,18 @@ export function reverseSqlToDiagram(
   options?: SqlReverseOptions,
 ): SqlReverseDiagramResult {
   const logicalResult = reverseSqlToLogicalModel(sourceSql, options);
-  const diagramResult = convertLogicalModelToDiagram(logicalResult.model, options);
+  const logicalModel = autoLayoutLogicalModel(logicalResult.model, {
+    direction: "left-right",
+    marginX: 220,
+    marginY: 180,
+    gapX: 460,
+    gapY: 280,
+  });
+  const diagramResult = convertLogicalModelToDiagram(logicalModel, options);
 
   return {
     diagram: diagramResult.diagram,
-    logicalModel: logicalResult.model,
+    logicalModel,
     sqlModel: logicalResult.sqlModel,
     issues: logicalResult.issues,
     logicalIssues: diagramResult.logicalIssues,
