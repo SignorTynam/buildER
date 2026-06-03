@@ -12789,6 +12789,124 @@ summary:focus-visible,
   background: var(--studio-surface);
 }
 
+.sql-reverse-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.sql-reverse-section {
+  padding: 10px;
+}
+
+.sql-reverse-editor-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--studio-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sql-reverse-editor {
+  width: 100%;
+  min-height: 240px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-md);
+  background: #fbfcfb;
+  color: var(--studio-ink);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.sql-reverse-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sql-reverse-file-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sql-reverse-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sql-reverse-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sql-reverse-summary-card {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+}
+
+.sql-reverse-summary-card strong {
+  font-size: 1.18rem;
+  line-height: 1;
+}
+
+.sql-reverse-summary-card span,
+.sql-reverse-muted {
+  color: var(--studio-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.sql-reverse-issue-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sql-reverse-issue-card.warning-card {
+  align-items: flex-start;
+}
+
+.sql-reverse-issue-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sql-reverse-issue-copy strong {
+  color: var(--studio-ink);
+  font-size: 0.72rem;
+}
+
+.sql-reverse-issue-copy code {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 6px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-sm);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--studio-muted);
+  font-size: 0.72rem;
+}
+
+.sql-reverse-empty {
+  padding: 10px;
+  color: var(--studio-muted);
+  font-size: 0.82rem;
+}
+
 .technical-dock-list-item.warning-card,
 .toolbar-issue-card.warning-card,
 .translation-warning-item.warning-card {

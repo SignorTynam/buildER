@@ -8,6 +8,7 @@ import { CommandMenuModal } from "./components/CommandMenuModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
+import { SqlReversePanel } from "./components/SqlReversePanel";
 import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
@@ -33,6 +34,7 @@ import type {
 } from "./types/diagram";
 import { EMPTY_LOGICAL_SELECTION } from "./types/logical";
 import type {
+  LogicalIssue,
   LogicalModel,
   LogicalSelection,
   LogicalStage,
@@ -114,6 +116,7 @@ import {
   updateLogicalColumnSqlMetadata,
 } from "./utils/logicalSqlMetadata";
 import { generateLogicalSql } from "./utils/logicalSql";
+import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
 import {
   parseProjectFile,
   ProjectFileError,
@@ -122,6 +125,7 @@ import {
   PROJECT_FILE_MIME_TYPE,
   serializeProjectFile,
 } from "./utils/projectFile";
+import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
   getAttributeCardinalityOwner,
@@ -1233,6 +1237,13 @@ export default function App() {
   const [notesPanelOpen, setNotesPanelOpen] = useState(
     sessionBootstrap.notesPanelOpen && restoredTechnicalPanelTab === "notes",
   );
+  const [sqlReverseSource, setSqlReverseSource] = useState("");
+  const [sqlReverseIssues, setSqlReverseIssues] = useState<SqlReverseIssue[]>([]);
+  const [sqlReverseLogicalIssues, setSqlReverseLogicalIssues] = useState<LogicalIssue[]>([]);
+  const [sqlReverseTableCount, setSqlReverseTableCount] = useState(0);
+  const [sqlReverseUnsupportedStatementCount, setSqlReverseUnsupportedStatementCount] = useState(0);
+  const [sqlReversePreviewResult, setSqlReversePreviewResult] = useState<SqlReverseDiagramResult | null>(null);
+  const [sqlReversePreviewReady, setSqlReversePreviewReady] = useState(false);
   const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
@@ -2375,6 +2386,165 @@ export default function App() {
     }
 
     openTechnicalPanelTab("notes");
+  }
+
+  function resetSqlReversePreview() {
+    setSqlReverseIssues([]);
+    setSqlReverseLogicalIssues([]);
+    setSqlReverseTableCount(0);
+    setSqlReverseUnsupportedStatementCount(0);
+    setSqlReversePreviewResult(null);
+    setSqlReversePreviewReady(false);
+  }
+
+  function handleSqlReverseSourceChange(value: string) {
+    setSqlReverseSource(value);
+    resetSqlReversePreview();
+  }
+
+  function handleToggleSqlReversePanel() {
+    if (diagramView !== "er") {
+      setStatusWarning("Reverse SQL e disponibile solo nella vista ER.");
+      return;
+    }
+
+    if (technicalPanelOpen && technicalPanelTab === "sql") {
+      closeTechnicalPanel();
+      return;
+    }
+
+    setFocusMode(false);
+    openTechnicalPanelTab("sql");
+  }
+
+  function runSqlReversePreview(sourceSql: string): SqlReverseDiagramResult | null {
+    const normalizedSql = sourceSql.trim();
+    if (!normalizedSql) {
+      const warningIssue: SqlReverseIssue = {
+        id: "sql-reverse-empty-source",
+        level: "warning",
+        code: "PARSER_RECOVERY",
+        message: "Incolla o carica uno schema SQL prima di analizzarlo.",
+      };
+      setSqlReverseIssues([warningIssue]);
+      setSqlReverseLogicalIssues([]);
+      setSqlReverseTableCount(0);
+      setSqlReverseUnsupportedStatementCount(0);
+      setSqlReversePreviewResult(null);
+      setSqlReversePreviewReady(false);
+      setStatusWarning(warningIssue.message);
+      return null;
+    }
+
+    try {
+      const result = reverseSqlToDiagram(normalizedSql, { sourceName: "Reverse Engineering SQL" });
+      const hasSqlErrors = result.issues.some((issue) => issue.level === "error");
+      const hasValidDiagram = result.diagram.nodes.length > 0;
+      setSqlReverseIssues(result.issues);
+      setSqlReverseLogicalIssues(result.logicalIssues);
+      setSqlReverseTableCount(result.sqlModel.tables.length);
+      setSqlReverseUnsupportedStatementCount(result.sqlModel.unsupportedStatements.length);
+      setSqlReversePreviewResult(hasSqlErrors || !hasValidDiagram ? null : result);
+      setSqlReversePreviewReady(true);
+
+      if (hasSqlErrors || !hasValidDiagram) {
+        setStatusError("SQL non importabile: correggi gli errori indicati.");
+      } else if (result.issues.length > 0 || result.logicalIssues.some((issue) => issue.level === "warning")) {
+        setStatusWarning("SQL analizzato con warning.");
+      } else {
+        setStatus(`SQL analizzato: ${result.sqlModel.tables.length} tabelle riconosciute.`);
+      }
+
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Errore durante l'analisi SQL.";
+      const parseIssue: SqlReverseIssue = {
+        id: "sql-reverse-preview-error",
+        level: "error",
+        code: "PARSER_RECOVERY",
+        message,
+      };
+      setSqlReverseIssues([parseIssue]);
+      setSqlReverseLogicalIssues([]);
+      setSqlReverseTableCount(0);
+      setSqlReverseUnsupportedStatementCount(0);
+      setSqlReversePreviewResult(null);
+      setSqlReversePreviewReady(true);
+      setStatusError("SQL non importabile: correggi gli errori indicati.");
+      return null;
+    }
+  }
+
+  function handlePreviewSqlReverse() {
+    runSqlReversePreview(sqlReverseSource);
+  }
+
+  async function handleApplySqlReverse() {
+    const preview = sqlReversePreviewResult ?? runSqlReversePreview(sqlReverseSource);
+    if (!preview) {
+      return;
+    }
+
+    const hasBlockingSqlErrors = preview.issues.some((issue) => issue.level === "error");
+    if (hasBlockingSqlErrors || preview.diagram.nodes.length === 0) {
+      setStatusError("SQL non importabile: correggi gli errori indicati.");
+      return;
+    }
+
+    const confirmed = await requestConfirmDialog({
+      title: "Genera diagramma da SQL",
+      message: "Generare un nuovo diagramma ER dallo schema SQL? Il diagramma corrente verra sostituito.",
+      confirmLabel: "Genera ER",
+      cancelLabel: "Annulla",
+    });
+    if (!confirmed) {
+      setStatusWarning("Import SQL annullato.");
+      return;
+    }
+
+    const warningCount = preview.issues.filter((issue) => issue.level === "warning").length;
+    applyWorkspaceDocument(
+      preview.diagram,
+      warningCount > 0
+        ? `Diagramma ER generato da SQL con ${warningCount} warning.`
+        : `Diagramma ER generato da SQL: ${preview.sqlModel.tables.length} tabelle importate.`,
+      {
+        diagramView: "er",
+        viewport: DEFAULT_VIEWPORT,
+      },
+    );
+  }
+
+  async function handleLoadSqlReverseFile(file: File) {
+    const fileName = file.name || "schema.sql";
+    const extensionOk = fileName.toLowerCase().endsWith(".sql");
+    try {
+      const text = await file.text();
+      setSqlReverseSource(text);
+      resetSqlReversePreview();
+      openTechnicalPanelTab("sql");
+
+      if (!text.trim()) {
+        setStatusWarning("Il file SQL caricato e vuoto.");
+        return;
+      }
+
+      if (!extensionOk && !/\bCREATE\s+TABLE\b/i.test(text)) {
+        setStatusWarning("File caricato: il contenuto non sembra uno schema SQL CREATE TABLE.");
+        return;
+      }
+
+      setStatus(`File SQL caricato: ${fileName}.`);
+    } catch (error) {
+      setStatusError(error instanceof Error ? error.message : "Impossibile leggere il file SQL.");
+    }
+  }
+
+  function handleClearSqlReverse() {
+    setSqlReverseSource("");
+    resetSqlReversePreview();
+    openTechnicalPanelTab("sql");
+    setStatus("Import SQL pulito.");
   }
 
   function handleOpenErStage() {
@@ -5358,8 +5528,11 @@ export default function App() {
       </PanelSection>
     </div>
   ) : null;
+  const sqlReverseHasBlockingErrors = sqlReverseIssues.some((issue) => issue.level === "error");
+  const sqlReverseCanApply =
+    sqlReversePreviewReady && sqlReversePreviewResult !== null && !sqlReverseHasBlockingErrors && sqlReversePreviewResult.diagram.nodes.length > 0;
   const technicalDockAvailableTabs: TechnicalPanelTab[] =
-    diagramView === "er" ? ["review", "code", "notes"] : ["code", "notes"];
+    diagramView === "er" ? ["review", "code", "sql", "notes"] : ["code", "notes"];
   const technicalDockCode =
     diagramView === "er" ? codeDraft : serializeDiagramToErs(translationHistory.present.translatedDiagram);
   const technicalDockCodeDescription =
@@ -5385,6 +5558,23 @@ export default function App() {
         onChange: handleNotesChange,
       }}
       review={diagramView === "er" ? modelReviewPanel : undefined}
+      sql={diagramView === "er" ? (
+        <SqlReversePanel
+          sql={sqlReverseSource}
+          issues={sqlReverseIssues}
+          logicalIssues={sqlReverseLogicalIssues}
+          logicalIssueCount={sqlReverseLogicalIssues.length}
+          tableCount={sqlReverseTableCount}
+          unsupportedStatementCount={sqlReverseUnsupportedStatementCount}
+          canApply={sqlReverseCanApply}
+          isPreviewReady={sqlReversePreviewReady}
+          onSqlChange={handleSqlReverseSourceChange}
+          onParsePreview={handlePreviewSqlReverse}
+          onApply={handleApplySqlReverse}
+          onLoadFile={handleLoadSqlReverseFile}
+          onClear={handleClearSqlReverse}
+        />
+      ) : undefined}
       onTabChange={openTechnicalPanelTab}
       onClose={closeTechnicalPanel}
     />
@@ -5476,6 +5666,18 @@ export default function App() {
                   >
                     <span aria-hidden="true">{"<>"}</span>
                     Code
+                  </button>
+                  <button
+                    type="button"
+                    className={`designer-side-toggle ${
+                      technicalPanelVisible && technicalPanelTab === "sql" ? "active" : ""
+                    }`}
+                    onClick={handleToggleSqlReversePanel}
+                    title="Importa schema SQL"
+                    aria-pressed={technicalPanelVisible && technicalPanelTab === "sql"}
+                  >
+                    <span aria-hidden="true">DB</span>
+                    SQL
                   </button>
                   <button
                     type="button"
@@ -5685,7 +5887,7 @@ export default function App() {
               onMoveColumn={handleLogicalColumnMove}
             />
           )}
-          {diagramView !== "er" && technicalPanelVisible ? (
+          {technicalPanelVisible ? (
             <button
               type="button"
               className="workspace-resizer workspace-resizer-active"
@@ -5697,7 +5899,7 @@ export default function App() {
               title="Trascina per ridimensionare il pannello tecnico"
             />
           ) : null}
-          {diagramView !== "er" ? technicalDockPanel : null}
+          {technicalDockPanel}
         </div>
       </div>
 
@@ -5723,6 +5925,7 @@ export default function App() {
           diagramName={history.present.meta.name}
           diagramView={diagramView}
           logicalSqlOpen={logicalPanelMode === "sql"}
+          sqlReversePanelOpen={technicalPanelVisible && technicalPanelTab === "sql"}
           technicalPanelOpen={technicalPanelVisible}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
@@ -5748,6 +5951,7 @@ export default function App() {
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
           onToggleReviewPanel={handleToggleReviewPanel}
+          onToggleSqlReversePanel={handleToggleSqlReversePanel}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}

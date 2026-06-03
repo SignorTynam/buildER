@@ -34,14 +34,14 @@ const TAB_LABELS: Record<TechnicalPanelTab, string> = {
   review: "Review",
   code: "ER Code",
   notes: "Notes",
-  sql: "SQL",
+  sql: "Reverse SQL",
 };
 
 const EMPTY_TAB_LABELS: Record<TechnicalPanelTab, string> = {
   review: "Nessun elemento da mostrare.",
   code: "Nessun codice disponibile.",
   notes: "Nessuna nota.",
-  sql: "Nessuna anteprima SQL.",
+  sql: "Nessun import SQL aperto.",
 };
 
 export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
