@@ -1,16 +1,14 @@
-# Chen ER Diagram Studio (v4.5)
+# Chen ER Diagram Studio (v4.5.2)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG e sincronizzazione ERS live.
 
-## Novita 4.5
+## Novita 4.5.2
 
-- Versione aggiornata a `4.5`.
-- Sintassi ERS canonica `identifier(...)` per identificatori interni, composti, alternativi ed esterni/misti, con compatibilita in lettura per la sintassi legacy.
-- Identificatori esterni/misti migliorati: supporto a piu chiavi alternative sulla stessa relazione e layout a corsie per evitare sovrapposizioni.
-- Cardinalita ER con collision avoidance automatica rispetto ad attributi, nodi, marker e altre label.
-- Attributi composti ridisegnati come capsule/ovali con sotto-attributi esterni collegati.
-- Vista Logica: nomi colonna PK sottolineati e scelta manuale della candidate key durante `FIX ENTITIES`.
-- Modal di scelta PK paginato con preview logica coerente, FK risultanti e alternative UNIQUE NOT NULL.
+- Versione aggiornata a `4.5.2`.
+- Export PNG e SVG dalla toolbar e dal workspace di traduzione logica.
+- Generazione SQL con supporto ai dialetti.
+- Generalizzazioni migliorate: gruppi rifattorizzati con styling coerente, gerarchie compatibili/bloccanti, label discriminator aggiornate, normalizzazione nomi export e validazione identificatori.
+- Canvas logico: view mode dedicato, completamento step basato su item aperti e trasformazione con contesto ER filtrato e visibilita migliorata.
 
 ## Requisiti
 

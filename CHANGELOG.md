@@ -15,6 +15,22 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.5.2] - 2026-06-03
+
+### Added
+- Export PNG e SVG dalla toolbar e dal Logical Translation workspace.
+- Generazione SQL con supporto ai dialetti.
+
+### Changed
+- Versione applicativa aggiornata alla release 4.5.2 in `src/utils/appMeta.ts`.
+- Versione del progetto allineata a 4.5.2 in `package.json` e `package-lock.json`.
+- README aggiornato alla nuova versione 4.5.2 con riepilogo delle modifiche dalla 4.5.1.
+- Gestione generalizzazioni rifattorizzata con gruppi/styling aggiornati, normalizzazione dei nomi export e validazione degli identificatori.
+- Traduzione generalizzazioni migliorata con risoluzione delle gerarchie compatibili, gestione delle gerarchie bloccanti e label discriminator aggiornate.
+- Canvas logico: determinazione del view mode dedicata e completamento step basato sul conteggio degli item aperti.
+- Modalita trasformazione logica aggiornata con filtro del contesto ER non risolto e migliore visibilita/gestione edge tramite mappatura degli ID sorgente.
+- Test di regressione aggiornati per generalizzazioni, canvas logico, export e SQL.
+
 ## [4.5] - 2026-05-28
 
 ### Added

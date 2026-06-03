@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.5.1";
+export const APP_VERSION = "4.5.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,19 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.5.2",
+    date: "2026-06-03",
+    updates: [
+      "Export PNG e SVG disponibile dalla toolbar e dal Logical Translation workspace.",
+      "Generazione SQL aggiornata con supporto ai dialetti.",
+      "Gestione generalizzazioni rifattorizzata: gruppi e styling rivisti, normalizzazione nomi export e validazione identificatori.",
+      "Traduzione generalizzazioni migliorata con risoluzione delle gerarchie compatibili, gestione delle gerarchie bloccanti e label discriminator aggiornate.",
+      "Canvas logico: view mode dedicato e completamento step basato sul conteggio degli item aperti.",
+      "Modalita trasformazione logica aggiornata con filtro del contesto ER non risolto e migliore visibilita/gestione edge tramite mappatura degli ID sorgente.",
+      "Test di regressione aggiornati per generalizzazioni, canvas logico, export e SQL.",
+    ],
+  },
   {
     version: "4.5.1",
     date: "2026-05-29",
