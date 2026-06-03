@@ -8,7 +8,6 @@ interface CommandMenuModalProps {
   diagramName: string;
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
-  sqlReversePanelOpen: boolean;
   technicalPanelOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
@@ -34,7 +33,7 @@ interface CommandMenuModalProps {
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
   onToggleReviewPanel: () => void;
-  onToggleSqlReversePanel: () => void;
+  onOpenSqlReverseWorkflow: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
   onSaveProject: () => void;
@@ -176,17 +175,16 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             <div className="studio-modal__list command-menu-list">
               <CommandButton
                 label={props.technicalPanelOpen ? "Nascondi dock tecnico" : "Mostra Review"}
-                detail={props.technicalPanelOpen ? "Chiude Review, Code, Reverse SQL o Notes" : "Warning ed errori del modello"}
+                detail={props.technicalPanelOpen ? "Chiude Review, Code o Notes" : "Warning ed errori del modello"}
                 shortcut="Ctrl/Cmd I"
                 disabled={!isErView}
                 onClick={() => runCommand(props.onToggleReviewPanel)}
               />
               <CommandButton
-                label={props.sqlReversePanelOpen ? "Nascondi Reverse SQL" : "Reverse Engineering SQL"}
-                detail="Genera un diagramma ER da CREATE TABLE"
-                active={props.sqlReversePanelOpen}
+                label="Reverse Engineering SQL"
+                detail="Importa CREATE TABLE con workflow guidato"
                 disabled={!isErView}
-                onClick={() => runCommand(props.onToggleSqlReversePanel)}
+                onClick={() => runCommand(props.onOpenSqlReverseWorkflow)}
               />
                 <CommandButton
                  label={props.codePanelOpen ? "Nascondi Code" : "Mostra Code"}

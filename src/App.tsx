@@ -8,7 +8,10 @@ import { CommandMenuModal } from "./components/CommandMenuModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
-import { SqlReversePanel } from "./components/SqlReversePanel";
+import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
+import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
+import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
+import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
 import { TechnicalDockPanel, type TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
@@ -117,6 +120,7 @@ import {
 } from "./utils/logicalSqlMetadata";
 import { generateLogicalSql } from "./utils/logicalSql";
 import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
+import { validateSqlReverseBetaSource } from "./utils/sqlReverseBetaValidation";
 import {
   parseProjectFile,
   ProjectFileError,
@@ -142,6 +146,25 @@ const DEFAULT_VIEWPORT: Viewport = {
   y: 110,
   zoom: 1,
 };
+
+function createInitialSqlReverseWorkflowState(sourceSql = ""): SqlReverseWorkflowState {
+  return {
+    step: "idle",
+    sourceSql,
+    result: null,
+    issues: [],
+    logicalIssues: [],
+    tableCount: 0,
+    unsupportedStatementCount: 0,
+    errorMessage: "",
+    logicalViewport: { ...DEFAULT_VIEWPORT },
+    erViewport: { ...DEFAULT_VIEWPORT },
+    logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+    erSelection: { nodeIds: [], edgeIds: [] },
+    previewToken: 0,
+    isPreviewReady: false,
+  };
+}
 
 interface WorkspaceNotice {
   id: number;
@@ -236,6 +259,25 @@ interface OnboardingProgress {
 }
 
 type AppSurface = "studio" | "code-tutorial";
+type SqlReverseWorkflowStep = "idle" | "input" | "logical-preview" | "er-preview";
+
+interface SqlReverseWorkflowState {
+  step: SqlReverseWorkflowStep;
+  sourceSql: string;
+  result: SqlReverseDiagramResult | null;
+  issues: SqlReverseIssue[];
+  logicalIssues: LogicalIssue[];
+  tableCount: number;
+  unsupportedStatementCount: number;
+  errorMessage: string;
+  logicalViewport: Viewport;
+  erViewport: Viewport;
+  logicalSelection: LogicalSelection;
+  erSelection: SelectionState;
+  previewToken: number;
+  isPreviewReady: boolean;
+}
+
 interface WorkspaceSessionSnapshot {
   version: 4;
   savedAt: string;
@@ -587,13 +629,11 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
         ? "notes"
         : parsed.technicalPanelTab === "code"
           ? "code"
-          : parsed.technicalPanelTab === "sql"
-            ? "sql"
-            : storedNotesPanelOpen
-              ? "notes"
-              : storedCodePanelOpen
-                ? "code"
-                : "review";
+          : storedNotesPanelOpen
+            ? "notes"
+            : storedCodePanelOpen
+              ? "code"
+              : "review";
     const storedTechnicalPanelOpen =
       typeof parsed.technicalPanelOpen === "boolean"
         ? parsed.technicalPanelOpen
@@ -1237,13 +1277,9 @@ export default function App() {
   const [notesPanelOpen, setNotesPanelOpen] = useState(
     sessionBootstrap.notesPanelOpen && restoredTechnicalPanelTab === "notes",
   );
-  const [sqlReverseSource, setSqlReverseSource] = useState("");
-  const [sqlReverseIssues, setSqlReverseIssues] = useState<SqlReverseIssue[]>([]);
-  const [sqlReverseLogicalIssues, setSqlReverseLogicalIssues] = useState<LogicalIssue[]>([]);
-  const [sqlReverseTableCount, setSqlReverseTableCount] = useState(0);
-  const [sqlReverseUnsupportedStatementCount, setSqlReverseUnsupportedStatementCount] = useState(0);
-  const [sqlReversePreviewResult, setSqlReversePreviewResult] = useState<SqlReverseDiagramResult | null>(null);
-  const [sqlReversePreviewReady, setSqlReversePreviewReady] = useState(false);
+  const [sqlReverseWorkflow, setSqlReverseWorkflow] = useState<SqlReverseWorkflowState>(() =>
+    createInitialSqlReverseWorkflowState(),
+  );
   const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
@@ -2388,74 +2424,117 @@ export default function App() {
     openTechnicalPanelTab("notes");
   }
 
-  function resetSqlReversePreview() {
-    setSqlReverseIssues([]);
-    setSqlReverseLogicalIssues([]);
-    setSqlReverseTableCount(0);
-    setSqlReverseUnsupportedStatementCount(0);
-    setSqlReversePreviewResult(null);
-    setSqlReversePreviewReady(false);
-  }
-
   function handleSqlReverseSourceChange(value: string) {
-    setSqlReverseSource(value);
-    resetSqlReversePreview();
+    setSqlReverseWorkflow((current) => ({
+      ...current,
+      sourceSql: value,
+      result: null,
+      issues: [],
+      logicalIssues: [],
+      tableCount: 0,
+      unsupportedStatementCount: 0,
+      errorMessage: "",
+      isPreviewReady: false,
+    }));
   }
 
-  function handleToggleSqlReversePanel() {
+  function handleOpenSqlReverseWorkflow() {
     if (diagramView !== "er") {
-      setStatusWarning("Reverse SQL e disponibile solo nella vista ER.");
-      return;
-    }
-
-    if (technicalPanelOpen && technicalPanelTab === "sql") {
-      closeTechnicalPanel();
+      setStatusWarning("Reverse Engineering SQL è disponibile solo nella vista ER.");
       return;
     }
 
     setFocusMode(false);
-    openTechnicalPanelTab("sql");
+    closeTechnicalPanel();
+    setSqlReverseWorkflow((current) => ({
+      ...createInitialSqlReverseWorkflowState(current.sourceSql),
+      step: "input",
+    }));
   }
 
-  function runSqlReversePreview(sourceSql: string): SqlReverseDiagramResult | null {
-    const normalizedSql = sourceSql.trim();
-    if (!normalizedSql) {
-      const warningIssue: SqlReverseIssue = {
-        id: "sql-reverse-empty-source",
-        level: "warning",
-        code: "PARSER_RECOVERY",
-        message: "Incolla o carica uno schema SQL prima di analizzarlo.",
-      };
-      setSqlReverseIssues([warningIssue]);
-      setSqlReverseLogicalIssues([]);
-      setSqlReverseTableCount(0);
-      setSqlReverseUnsupportedStatementCount(0);
-      setSqlReversePreviewResult(null);
-      setSqlReversePreviewReady(false);
-      setStatusWarning(warningIssue.message);
-      return null;
+  function handleCancelSqlReverseWorkflow() {
+    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
+    setStatusWarning("Import SQL annullato.");
+  }
+
+  function handleAnalyzeSqlReverseWorkflow() {
+    const validation = validateSqlReverseBetaSource(sqlReverseWorkflow.sourceSql);
+    if (!validation.ok) {
+      setSqlReverseWorkflow((current) => ({
+        ...current,
+        sourceSql: validation.normalizedSql || current.sourceSql,
+        result: null,
+        issues: validation.issues,
+        logicalIssues: [],
+        tableCount: 0,
+        unsupportedStatementCount: validation.unsupportedStatementCount,
+        errorMessage: validation.errorMessage,
+        isPreviewReady: false,
+      }));
+      setStatusWarning(validation.errorMessage);
+      return;
     }
 
     try {
-      const result = reverseSqlToDiagram(normalizedSql, { sourceName: "Reverse Engineering SQL" });
+      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: "Reverse Engineering SQL" });
       const hasSqlErrors = result.issues.some((issue) => issue.level === "error");
       const hasValidDiagram = result.diagram.nodes.length > 0;
-      setSqlReverseIssues(result.issues);
-      setSqlReverseLogicalIssues(result.logicalIssues);
-      setSqlReverseTableCount(result.sqlModel.tables.length);
-      setSqlReverseUnsupportedStatementCount(result.sqlModel.unsupportedStatements.length);
-      setSqlReversePreviewResult(hasSqlErrors || !hasValidDiagram ? null : result);
-      setSqlReversePreviewReady(true);
+
+      if (result.sqlModel.unsupportedStatements.length > 0) {
+        const message = "La beta accetta solo CREATE TABLE. Rimuovi gli statement non supportati e riprova.";
+        setSqlReverseWorkflow((current) => ({
+          ...current,
+          sourceSql: validation.normalizedSql,
+          result: null,
+          issues: result.issues,
+          logicalIssues: result.logicalIssues,
+          tableCount: result.sqlModel.tables.length,
+          unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          errorMessage: message,
+          isPreviewReady: false,
+        }));
+        setStatusWarning(message);
+        return;
+      }
 
       if (hasSqlErrors || !hasValidDiagram) {
+        setSqlReverseWorkflow((current) => ({
+          ...current,
+          sourceSql: validation.normalizedSql,
+          result: null,
+          issues: result.issues,
+          logicalIssues: result.logicalIssues,
+          tableCount: result.sqlModel.tables.length,
+          unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          errorMessage: "SQL non importabile: correggi gli errori indicati.",
+          isPreviewReady: true,
+        }));
         setStatusError("SQL non importabile: correggi gli errori indicati.");
-      } else if (result.issues.length > 0 || result.logicalIssues.some((issue) => issue.level === "warning")) {
-        setStatusWarning("SQL analizzato con warning.");
+        return;
+      }
+
+      setSqlReverseWorkflow((current) => ({
+        ...current,
+        step: "logical-preview",
+        sourceSql: validation.normalizedSql,
+        result,
+        issues: result.issues,
+        logicalIssues: result.logicalIssues,
+        tableCount: result.sqlModel.tables.length,
+        unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+        errorMessage: "",
+        logicalViewport: { ...DEFAULT_VIEWPORT },
+        erViewport: { ...DEFAULT_VIEWPORT },
+        logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+        erSelection: { nodeIds: [], edgeIds: [] },
+        previewToken: current.previewToken + 1,
+        isPreviewReady: true,
+      }));
+      if (result.issues.length > 0 || result.logicalIssues.some((issue) => issue.level === "warning")) {
+        setStatusWarning("SQL analizzato con warning. Preview logica pronta.");
       } else {
         setStatus(`SQL analizzato: ${result.sqlModel.tables.length} tabelle riconosciute.`);
       }
-
-      return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Errore durante l'analisi SQL.";
       const parseIssue: SqlReverseIssue = {
@@ -2464,37 +2543,50 @@ export default function App() {
         code: "PARSER_RECOVERY",
         message,
       };
-      setSqlReverseIssues([parseIssue]);
-      setSqlReverseLogicalIssues([]);
-      setSqlReverseTableCount(0);
-      setSqlReverseUnsupportedStatementCount(0);
-      setSqlReversePreviewResult(null);
-      setSqlReversePreviewReady(true);
+      setSqlReverseWorkflow((current) => ({
+        ...current,
+        result: null,
+        issues: [parseIssue],
+        logicalIssues: [],
+        tableCount: 0,
+        unsupportedStatementCount: 0,
+        errorMessage: message,
+        isPreviewReady: true,
+      }));
       setStatusError("SQL non importabile: correggi gli errori indicati.");
-      return null;
     }
   }
 
-  function handlePreviewSqlReverse() {
-    runSqlReversePreview(sqlReverseSource);
+  function handleSqlReverseLogicalDone() {
+    setSqlReverseWorkflow((current) =>
+      current.result
+        ? {
+            ...current,
+            step: "er-preview",
+            erViewport: { ...DEFAULT_VIEWPORT },
+            erSelection: { nodeIds: [], edgeIds: [] },
+            previewToken: current.previewToken + 1,
+          }
+        : current,
+    );
+    setStatus("Preview ER pronta.");
   }
 
-  async function handleApplySqlReverse() {
-    const preview = sqlReversePreviewResult ?? runSqlReversePreview(sqlReverseSource);
+  function handleSqlReverseBackToLogicalPreview() {
+    setSqlReverseWorkflow((current) => current.result ? { ...current, step: "logical-preview" } : current);
+    setStatus("Preview logica pronta.");
+  }
+
+  async function handleSqlReverseFinalDone() {
+    const preview = sqlReverseWorkflow.result;
     if (!preview) {
+      setStatusError("Preview SQL non disponibile.");
       return;
     }
-
-    const hasBlockingSqlErrors = preview.issues.some((issue) => issue.level === "error");
-    if (hasBlockingSqlErrors || preview.diagram.nodes.length === 0) {
-      setStatusError("SQL non importabile: correggi gli errori indicati.");
-      return;
-    }
-
     const confirmed = await requestConfirmDialog({
-      title: "Genera diagramma da SQL",
-      message: "Generare un nuovo diagramma ER dallo schema SQL? Il diagramma corrente verra sostituito.",
-      confirmLabel: "Genera ER",
+      title: "Importa diagramma da SQL",
+      message: "Il diagramma corrente verrà sostituito dal diagramma generato dallo schema SQL. Continuare?",
+      confirmLabel: "Importa",
       cancelLabel: "Annulla",
     });
     if (!confirmed) {
@@ -2503,11 +2595,12 @@ export default function App() {
     }
 
     const warningCount = preview.issues.filter((issue) => issue.level === "warning").length;
+    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
     applyWorkspaceDocument(
       preview.diagram,
       warningCount > 0
-        ? `Diagramma ER generato da SQL con ${warningCount} warning.`
-        : `Diagramma ER generato da SQL: ${preview.sqlModel.tables.length} tabelle importate.`,
+        ? `Diagramma ER importato da SQL con ${warningCount} warning.`
+        : `Diagramma ER importato da SQL: ${preview.sqlModel.tables.length} tabelle riconosciute.`,
       {
         diagramView: "er",
         viewport: DEFAULT_VIEWPORT,
@@ -2520,9 +2613,10 @@ export default function App() {
     const extensionOk = fileName.toLowerCase().endsWith(".sql");
     try {
       const text = await file.text();
-      setSqlReverseSource(text);
-      resetSqlReversePreview();
-      openTechnicalPanelTab("sql");
+      setSqlReverseWorkflow((current) => ({
+        ...createInitialSqlReverseWorkflowState(text),
+        step: current.step === "idle" ? "input" : current.step,
+      }));
 
       if (!text.trim()) {
         setStatusWarning("Il file SQL caricato e vuoto.");
@@ -2541,9 +2635,10 @@ export default function App() {
   }
 
   function handleClearSqlReverse() {
-    setSqlReverseSource("");
-    resetSqlReversePreview();
-    openTechnicalPanelTab("sql");
+    setSqlReverseWorkflow((current) => ({
+      ...createInitialSqlReverseWorkflowState(""),
+      step: current.step === "idle" ? "input" : current.step,
+    }));
     setStatus("Import SQL pulito.");
   }
 
@@ -5528,11 +5623,8 @@ export default function App() {
       </PanelSection>
     </div>
   ) : null;
-  const sqlReverseHasBlockingErrors = sqlReverseIssues.some((issue) => issue.level === "error");
-  const sqlReverseCanApply =
-    sqlReversePreviewReady && sqlReversePreviewResult !== null && !sqlReverseHasBlockingErrors && sqlReversePreviewResult.diagram.nodes.length > 0;
   const technicalDockAvailableTabs: TechnicalPanelTab[] =
-    diagramView === "er" ? ["review", "code", "sql", "notes"] : ["code", "notes"];
+    diagramView === "er" ? ["review", "code", "notes"] : ["code", "notes"];
   const technicalDockCode =
     diagramView === "er" ? codeDraft : serializeDiagramToErs(translationHistory.present.translatedDiagram);
   const technicalDockCodeDescription =
@@ -5558,27 +5650,68 @@ export default function App() {
         onChange: handleNotesChange,
       }}
       review={diagramView === "er" ? modelReviewPanel : undefined}
-      sql={diagramView === "er" ? (
-        <SqlReversePanel
-          sql={sqlReverseSource}
-          issues={sqlReverseIssues}
-          logicalIssues={sqlReverseLogicalIssues}
-          logicalIssueCount={sqlReverseLogicalIssues.length}
-          tableCount={sqlReverseTableCount}
-          unsupportedStatementCount={sqlReverseUnsupportedStatementCount}
-          canApply={sqlReverseCanApply}
-          isPreviewReady={sqlReversePreviewReady}
-          onSqlChange={handleSqlReverseSourceChange}
-          onParsePreview={handlePreviewSqlReverse}
-          onApply={handleApplySqlReverse}
-          onLoadFile={handleLoadSqlReverseFile}
-          onClear={handleClearSqlReverse}
-        />
-      ) : undefined}
       onTabChange={openTechnicalPanelTab}
       onClose={closeTechnicalPanel}
     />
   ) : null;
+  const sqlReversePreviewSourceDiagram = useMemo(
+    () => createEmptyDiagram("Preview logica SQL"),
+    [sqlReverseWorkflow.result],
+  );
+  const sqlReverseLogicalPreviewWorkspace = useMemo(
+    () =>
+      sqlReverseWorkflow.result
+        ? updateLogicalWorkspaceModel(
+            sqlReversePreviewSourceDiagram,
+            createEmptyLogicalWorkspace(sqlReversePreviewSourceDiagram),
+            sqlReverseWorkflow.result.logicalModel,
+          )
+        : null,
+    [sqlReversePreviewSourceDiagram, sqlReverseWorkflow.result],
+  );
+  const sqlReversePreviewContent =
+    sqlReverseWorkflow.step === "logical-preview" && sqlReverseWorkflow.result && sqlReverseLogicalPreviewWorkspace ? (
+      <SqlReversePreviewFrame
+        title="Preview logica"
+        subtitle="Step 2 di 3 — Tabelle, chiavi e vincoli ricavati dal CREATE TABLE."
+        onDone={handleSqlReverseLogicalDone}
+        onCancel={handleCancelSqlReverseWorkflow}
+      >
+        <SqlReverseLogicalPreview
+          sourceDiagram={sqlReversePreviewSourceDiagram}
+          workspace={sqlReverseLogicalPreviewWorkspace}
+          viewport={sqlReverseWorkflow.logicalViewport}
+          selection={sqlReverseWorkflow.logicalSelection}
+          fitRequestToken={sqlReverseWorkflow.previewToken}
+          onViewportChange={(nextViewport) =>
+            setSqlReverseWorkflow((current) => ({ ...current, logicalViewport: nextViewport }))
+          }
+          onSelectionChange={(nextSelection) =>
+            setSqlReverseWorkflow((current) => ({ ...current, logicalSelection: nextSelection }))
+          }
+        />
+      </SqlReversePreviewFrame>
+    ) : sqlReverseWorkflow.step === "er-preview" && sqlReverseWorkflow.result ? (
+      <SqlReversePreviewFrame
+        title="Preview concettuale ER"
+        subtitle="Step 3 di 3 — Diagramma ER generato dallo schema SQL."
+        onDone={handleSqlReverseFinalDone}
+        onCancel={handleCancelSqlReverseWorkflow}
+        onBack={handleSqlReverseBackToLogicalPreview}
+      >
+        <SqlReverseErPreview
+          diagram={sqlReverseWorkflow.result.diagram}
+          viewport={sqlReverseWorkflow.erViewport}
+          selection={sqlReverseWorkflow.erSelection}
+          onViewportChange={(nextViewport) =>
+            setSqlReverseWorkflow((current) => ({ ...current, erViewport: nextViewport }))
+          }
+          onSelectionChange={(nextSelection) =>
+            setSqlReverseWorkflow((current) => ({ ...current, erSelection: nextSelection }))
+          }
+        />
+      </SqlReversePreviewFrame>
+    ) : null;
 
   if (surface === "code-tutorial") {
     return (
@@ -5627,22 +5760,25 @@ export default function App() {
           ) : null}
         </div>
 
-        <div
-          className={
-            diagramView === "er"
-              ? erWorkspaceShellClassName
-              : diagramView === "translation"
-                ? translationWorkspaceShellClassName
-                : structuredWorkspaceShellClassName
-          }
-          style={
-            diagramView === "er"
-              ? erWorkspaceShellStyle
-              : diagramView === "translation"
-                ? undefined
-                : structuredWorkspaceShellStyle
-          }
-        >
+        {sqlReversePreviewContent ? (
+          sqlReversePreviewContent
+        ) : (
+          <div
+            className={
+              diagramView === "er"
+                ? erWorkspaceShellClassName
+                : diagramView === "translation"
+                  ? translationWorkspaceShellClassName
+                  : structuredWorkspaceShellClassName
+            }
+            style={
+              diagramView === "er"
+                ? erWorkspaceShellStyle
+                : diagramView === "translation"
+                  ? undefined
+                  : structuredWorkspaceShellStyle
+            }
+          >
           {diagramView === "er" ? (
             <div className={codePanelOpen ? "designer-workspace code-open" : "designer-workspace"}>
               {codePanelOpen ? (
@@ -5669,12 +5805,10 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    className={`designer-side-toggle ${
-                      technicalPanelVisible && technicalPanelTab === "sql" ? "active" : ""
-                    }`}
-                    onClick={handleToggleSqlReversePanel}
+                    className="designer-side-toggle"
+                    onClick={handleOpenSqlReverseWorkflow}
                     title="Importa schema SQL"
-                    aria-pressed={technicalPanelVisible && technicalPanelTab === "sql"}
+                    aria-label="Apri Reverse Engineering SQL"
                   >
                     <span aria-hidden="true">DB</span>
                     SQL
@@ -5887,20 +6021,21 @@ export default function App() {
               onMoveColumn={handleLogicalColumnMove}
             />
           )}
-          {technicalPanelVisible ? (
-            <button
-              type="button"
-              className="workspace-resizer workspace-resizer-active"
-              onPointerDown={(event) =>
-                handlePanelResizeStart(technicalPanelTab === "notes" ? "notes" : "code", event)
-              }
-              onDoubleClick={() => resetPanelWidth(technicalPanelTab === "notes" ? "notes" : "code")}
-              aria-label="Ridimensiona dock tecnico"
-              title="Trascina per ridimensionare il pannello tecnico"
-            />
-          ) : null}
-          {technicalDockPanel}
-        </div>
+            {technicalPanelVisible ? (
+              <button
+                type="button"
+                className="workspace-resizer workspace-resizer-active"
+                onPointerDown={(event) =>
+                  handlePanelResizeStart(technicalPanelTab === "notes" ? "notes" : "code", event)
+                }
+                onDoubleClick={() => resetPanelWidth(technicalPanelTab === "notes" ? "notes" : "code")}
+                aria-label="Ridimensiona dock tecnico"
+                title="Trascina per ridimensionare il pannello tecnico"
+              />
+            ) : null}
+            {technicalDockPanel}
+          </div>
+        )}
       </div>
 
       <input
@@ -5918,6 +6053,23 @@ export default function App() {
         onChange={handleLoadErsFile}
       />
 
+      {sqlReverseWorkflow.step === "input" ? (
+        <SqlReverseInputModal
+          sql={sqlReverseWorkflow.sourceSql}
+          errorMessage={sqlReverseWorkflow.errorMessage}
+          issues={sqlReverseWorkflow.issues}
+          logicalIssues={sqlReverseWorkflow.logicalIssues}
+          tableCount={sqlReverseWorkflow.tableCount}
+          unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
+          isPreviewReady={sqlReverseWorkflow.isPreviewReady}
+          onSqlChange={handleSqlReverseSourceChange}
+          onAnalyze={handleAnalyzeSqlReverseWorkflow}
+          onLoadFile={handleLoadSqlReverseFile}
+          onClear={handleClearSqlReverse}
+          onCancel={handleCancelSqlReverseWorkflow}
+        />
+      ) : null}
+
       {commandMenuOpen ? (
         <CommandMenuModal
           appTitle={APP_TITLE}
@@ -5925,7 +6077,6 @@ export default function App() {
           diagramName={history.present.meta.name}
           diagramView={diagramView}
           logicalSqlOpen={logicalPanelMode === "sql"}
-          sqlReversePanelOpen={technicalPanelVisible && technicalPanelTab === "sql"}
           technicalPanelOpen={technicalPanelVisible}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
@@ -5951,7 +6102,7 @@ export default function App() {
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
           onToggleReviewPanel={handleToggleReviewPanel}
-          onToggleSqlReversePanel={handleToggleSqlReversePanel}
+          onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}
