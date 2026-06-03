@@ -159,3 +159,70 @@ test("sql reverse logical: converts an already parsed SqlSchemaModel", () => {
   assert.equal(price?.precision, 10);
   assert.equal(price?.scale, 2);
 });
+
+test("sql reverse logical: optional foreign key remains nullable and not required", () => {
+  const result = reverseSqlToLogicalModel(`
+    CREATE TABLE Department (
+      id INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE Employee (
+      id INTEGER PRIMARY KEY,
+      department_id INTEGER,
+      FOREIGN KEY (department_id) REFERENCES Department(id)
+    );
+  `);
+
+  const employee = result.model.tables.find((table) => table.name === "Employee");
+  const departmentId = employee?.columns.find((column) => column.name === "department_id");
+  const foreignKey = result.model.foreignKeys[0];
+
+  assert.equal(departmentId?.isNullable, true);
+  assert.equal(foreignKey?.required, false);
+});
+
+test("sql reverse logical: unique foreign key is marked one-to-one", () => {
+  const result = reverseSqlToLogicalModel(`
+    CREATE TABLE UserAccount (
+      id INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE UserProfile (
+      id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL UNIQUE,
+      FOREIGN KEY (user_id) REFERENCES UserAccount(id)
+    );
+  `);
+
+  const foreignKey = result.model.foreignKeys[0];
+
+  assert.equal(foreignKey?.required, true);
+  assert.equal(foreignKey?.unique, true);
+});
+
+test("sql reverse logical: composite foreign key keeps two valid mappings", () => {
+  const result = reverseSqlToLogicalModel(`
+    CREATE TABLE Locale (
+      country_code TEXT NOT NULL,
+      language_code TEXT NOT NULL,
+      PRIMARY KEY (country_code, language_code)
+    );
+
+    CREATE TABLE Translation (
+      id INTEGER PRIMARY KEY,
+      country_code TEXT NOT NULL,
+      language_code TEXT NOT NULL,
+      label TEXT,
+      FOREIGN KEY (country_code, language_code) REFERENCES Locale(country_code, language_code)
+    );
+  `);
+
+  const tableColumnIds = new Set(result.model.tables.flatMap((table) => table.columns.map((column) => column.id)));
+  const foreignKey = result.model.foreignKeys[0];
+
+  assert.equal(foreignKey?.mappings.length, 2);
+  foreignKey?.mappings.forEach((mapping) => {
+    assert.equal(tableColumnIds.has(mapping.fromColumnId), true);
+    assert.equal(tableColumnIds.has(mapping.toColumnId), true);
+  });
+});

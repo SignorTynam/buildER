@@ -26,6 +26,13 @@ function connectorEdges(diagram: DiagramDocument): DiagramEdge[] {
   return diagram.edges.filter((edge) => edge.type === "connector");
 }
 
+function participationCardinality(
+  entity: EntityNode,
+  relationshipId: string,
+): string | undefined {
+  return entity.relationshipParticipations?.find((participation) => participation.relationshipId === relationshipId)?.cardinality;
+}
+
 test("sql reverse diagram: converts a single table into entity and attributes", () => {
   const result = reverseSqlToDiagram(`
     CREATE TABLE Student (
@@ -211,5 +218,81 @@ test("sql reverse diagram: connector participation ids are valid", () => {
     const entity = sourceEntity ?? targetEntity;
     assert.ok(entity);
     assert.equal(entity.relationshipParticipations?.some((participation) => participation.id === edge.participationId), true);
+  });
+});
+
+test("sql reverse diagram: unique foreign key creates one-to-one cardinalities", () => {
+  const result = reverseSqlToDiagram(`
+    CREATE TABLE UserAccount (
+      id INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE UserProfile (
+      id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL UNIQUE,
+      FOREIGN KEY (user_id) REFERENCES UserAccount(id)
+    );
+  `);
+
+  const userAccount = findNode(result.diagram, "entity", "UserAccount");
+  const userProfile = findNode(result.diagram, "entity", "UserProfile");
+  const relationship = result.diagram.nodes.find((node) => node.type === "relationship");
+
+  assert.ok(userAccount);
+  assert.ok(userProfile);
+  assert.ok(relationship);
+  assert.equal(participationCardinality(userProfile, relationship.id), "(1,1)");
+  assert.equal(participationCardinality(userAccount, relationship.id), "(0,1)");
+  assertValidEdges(result.diagram);
+});
+
+test("sql reverse diagram: optional foreign key creates optional cardinalities", () => {
+  const result = reverseSqlToDiagram(`
+    CREATE TABLE Department (
+      id INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE Employee (
+      id INTEGER PRIMARY KEY,
+      department_id INTEGER,
+      FOREIGN KEY (department_id) REFERENCES Department(id)
+    );
+  `);
+
+  const department = findNode(result.diagram, "entity", "Department");
+  const employee = findNode(result.diagram, "entity", "Employee");
+  const relationship = result.diagram.nodes.find((node) => node.type === "relationship");
+
+  assert.ok(department);
+  assert.ok(employee);
+  assert.ok(relationship);
+  assert.equal(participationCardinality(employee, relationship.id), "(0,1)");
+  assert.equal(participationCardinality(department, relationship.id), "(0,N)");
+  assertValidEdges(result.diagram);
+});
+
+test("sql reverse diagram: composite primary key marks all internal identifier attributes", () => {
+  const result = reverseSqlToDiagram(`
+    CREATE TABLE OrderLine (
+      order_id INTEGER NOT NULL,
+      line_number INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      quantity INTEGER,
+      PRIMARY KEY (order_id, line_number, product_id)
+    );
+  `);
+
+  const orderLine = findNode(result.diagram, "entity", "OrderLine");
+  assert.ok(orderLine);
+
+  const identifierAttributeIds = orderLine.internalIdentifiers?.[0]?.attributeIds ?? [];
+  const identifierAttributes = result.diagram.nodes.filter((node) => {
+    return node.type === "attribute" && identifierAttributeIds.includes(node.id);
+  });
+
+  assert.equal(identifierAttributeIds.length, 3);
+  assert.equal(identifierAttributes.length, 3);
+  identifierAttributes.forEach((attribute) => {
+    assert.equal(attribute.isCompositeInternal, true);
   });
 });

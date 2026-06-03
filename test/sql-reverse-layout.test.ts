@@ -54,6 +54,14 @@ function attributeOwnerId(diagram: DiagramDocument, attributeId: string): string
   })?.sourceId;
 }
 
+function assertValidEdges(diagram: DiagramDocument): void {
+  const nodeIds = new Set(diagram.nodes.map((node) => node.id));
+  diagram.edges.forEach((edge) => {
+    assert.equal(nodeIds.has(edge.sourceId), true, `${edge.id} has missing source ${edge.sourceId}`);
+    assert.equal(nodeIds.has(edge.targetId), true, `${edge.id} has missing target ${edge.targetId}`);
+  });
+}
+
 test("sql reverse layout: deterministic coordinates", () => {
   const sql = `
     CREATE TABLE Department (id INTEGER PRIMARY KEY);
@@ -221,4 +229,69 @@ test("sql reverse layout: self foreign key relationship is outside the entity", 
   assert.ok(relationship);
 
   assert.equal(overlaps(getBounds(relationship), getBounds(employee), 16), false);
+});
+
+test("sql reverse layout: large ten-table chain has finite deterministic coordinates and valid edges", () => {
+  const sql = Array.from({ length: 10 }, (_, index) => {
+    const tableNumber = index + 1;
+    if (tableNumber === 1) {
+      return "CREATE TABLE Chain01 (id INTEGER PRIMARY KEY);";
+    }
+    const previous = `Chain${String(tableNumber - 1).padStart(2, "0")}`;
+    const current = `Chain${String(tableNumber).padStart(2, "0")}`;
+    return `
+      CREATE TABLE ${current} (
+        id INTEGER PRIMARY KEY,
+        previous_id INTEGER NOT NULL,
+        FOREIGN KEY (previous_id) REFERENCES ${previous}(id)
+      );
+    `;
+  }).join("\n");
+
+  const first = reverseSqlToDiagram(sql).diagram;
+  const second = reverseSqlToDiagram(sql).diagram;
+  const firstCoordinates = first.nodes
+    .map((node) => ({ id: node.id, type: node.type, label: node.label, x: node.x, y: node.y }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const secondCoordinates = second.nodes
+    .map((node) => ({ id: node.id, type: node.type, label: node.label, x: node.x, y: node.y }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  assert.equal(nodesByType(first, "entity").length, 10);
+  assert.equal(nodesByType(first, "relationship").length, 9);
+  first.nodes.forEach((node) => {
+    assert.equal(Number.isFinite(node.x), true, `${node.id} x is not finite`);
+    assert.equal(Number.isFinite(node.y), true, `${node.id} y is not finite`);
+    assert.equal(node.x > 0, true, `${node.id} x is not positive`);
+    assert.equal(node.y > 0, true, `${node.id} y is not positive`);
+  });
+  assert.deepEqual(secondCoordinates, firstCoordinates);
+  assertValidEdges(first);
+});
+
+test("sql reverse layout: long labels resize nodes and keep direct attributes separated", () => {
+  const result = reverseSqlToDiagram(`
+    CREATE TABLE ExtremelyVerboseOperationalAuditTrailEntry (
+      extremely_verbose_operational_audit_trail_entry_id INTEGER PRIMARY KEY,
+      human_readable_description_for_the_audit_event TEXT,
+      regulatory_context_for_the_audit_event TEXT
+    );
+  `);
+
+  const entity = findNode(result.diagram, "entity", "ExtremelyVerboseOperationalAuditTrailEntry");
+  const idAttribute = findNode(result.diagram, "attribute", "extremely_verbose_operational_audit_trail_entry_id");
+  const directAttributes = nodesByType(result.diagram, "attribute").filter((attribute) => {
+    return entity && attributeOwnerId(result.diagram, attribute.id) === entity.id;
+  });
+
+  assert.ok(entity);
+  assert.ok(idAttribute);
+  assert.equal(entity.width > 140, true);
+  assert.equal(idAttribute.width > 112, true);
+  directAttributes.forEach((attribute, index) => {
+    assert.equal(overlaps(getBounds(attribute), getBounds(entity), 12), false, `${attribute.label} overlaps entity`);
+    directAttributes.slice(index + 1).forEach((other) => {
+      assert.equal(overlaps(getBounds(attribute), getBounds(other), 12), false, `${attribute.label} overlaps ${other.label}`);
+    });
+  });
 });

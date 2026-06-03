@@ -165,3 +165,77 @@ test("sql reverse parser: keeps commas inside types, defaults and checks", () =>
   assert.equal(invoice?.columns[1]?.defaultValue?.value, "ROUND(0, 2)");
   assert.equal(invoice?.columns[2]?.constraints.some((constraint) => constraint.kind === "check"), true);
 });
+
+test("sql reverse parser: keeps semicolons inside string defaults", () => {
+  const result = parseSqlSchema(`
+    CREATE TABLE MessageTemplate (
+      id INTEGER PRIMARY KEY,
+      body TEXT DEFAULT 'hello; goodbye'
+    );
+  `);
+
+  assert.equal(result.model.meta.statementCount, 1);
+  assert.equal(result.model.tables.length, 1);
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.model.tables[0]?.columns[1]?.defaultValue?.value, "'hello; goodbye'");
+});
+
+test("sql reverse parser: comments do not break foreign key parsing", () => {
+  const result = parseSqlSchema(`
+    -- Referenced table.
+    CREATE TABLE Department (
+      id INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE Employee (
+      id INTEGER PRIMARY KEY,
+      department_id INTEGER, -- nullable by design
+      /* table-level relationship */
+      FOREIGN KEY (department_id) REFERENCES Department(id)
+    );
+  `);
+
+  const employee = result.model.tables.find((table) => table.name === "Employee");
+  assert.equal(result.issues.length, 0);
+  assert.equal(employee?.foreignKeys.length, 1);
+  assert.deepEqual(employee?.foreignKeys[0]?.fromColumnNames, ["department_id"]);
+  assert.equal(employee?.foreignKeys[0]?.toTableName, "Department");
+});
+
+test("sql reverse parser: parses inline foreign keys", () => {
+  const result = parseSqlSchema(`
+    CREATE TABLE Department (
+      id INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE Employee (
+      id INTEGER PRIMARY KEY,
+      department_id INTEGER REFERENCES Department(id)
+    );
+  `);
+
+  const employee = result.model.tables.find((table) => table.name === "Employee");
+  const departmentId = employee?.columns.find((column) => column.name === "department_id");
+  assert.equal(result.issues.length, 0);
+  assert.equal(departmentId?.isForeignKey, true);
+  assert.equal(employee?.foreignKeys.length, 1);
+  assert.deepEqual(employee?.foreignKeys[0]?.fromColumnNames, ["department_id"]);
+  assert.deepEqual(employee?.foreignKeys[0]?.toColumnNames, ["id"]);
+});
+
+test("sql reverse parser: parses named table-level unique constraints", () => {
+  const result = parseSqlSchema(`
+    CREATE TABLE UserAccount (
+      id INTEGER PRIMARY KEY,
+      tenant_id INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      CONSTRAINT uq_user_tenant_email UNIQUE (tenant_id, email)
+    );
+  `);
+
+  const account = result.model.tables[0];
+  assert.equal(result.issues.length, 0);
+  assert.equal(account?.uniqueConstraints.length, 1);
+  assert.equal(account?.uniqueConstraints[0]?.name, "uq_user_tenant_email");
+  assert.deepEqual(account?.uniqueConstraints[0]?.columnNames, ["tenant_id", "email"]);
+});
