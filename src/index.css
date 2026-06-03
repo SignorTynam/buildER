@@ -6203,6 +6203,7 @@ summary:focus-visible {
 .workspace-shell {
   --toolbar-width: var(--tool-rail-expanded);
   --inspector-width: var(--inspector-expanded);
+  display: grid;
   flex: 1 1 auto;
   position: relative;
   grid-template-columns:
