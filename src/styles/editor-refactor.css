@@ -6208,6 +6208,543 @@ textarea:disabled {
   }
 }
 
+/* Version announcements */
+.version-announcement-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(13, 18, 15, 0.58), rgba(29, 35, 31, 0.46)),
+    rgba(13, 16, 14, 0.42);
+  backdrop-filter: blur(5px);
+  animation: version-announcement-fade 180ms ease-out;
+}
+
+.version-announcement {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--editor-radius-lg);
+  background: var(--editor-panel-strong);
+  color: var(--editor-text);
+  box-shadow: 0 28px 80px rgba(8, 14, 11, 0.32);
+  animation: version-announcement-enter 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.version-announcement--patch {
+  width: min(520px, calc(100vw - 48px));
+  gap: 14px;
+  padding: 22px;
+  border-color: var(--editor-border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 243, 0.96)),
+    var(--editor-panel-strong);
+}
+
+.version-announcement--wow {
+  width: min(980px, calc(100vw - 48px));
+  max-height: min(86vh, 820px);
+  grid-template-rows: auto auto minmax(0, auto) auto;
+  gap: 18px;
+  padding: 26px;
+  background:
+    linear-gradient(140deg, rgba(251, 252, 250, 0.98) 0%, rgba(241, 246, 242, 0.98) 52%, rgba(252, 247, 239, 0.98) 100%),
+    var(--editor-panel-strong);
+}
+
+.version-announcement__glow,
+.version-announcement__grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.version-announcement__glow {
+  background:
+    linear-gradient(115deg, rgba(44, 105, 85, 0.22), transparent 34%),
+    linear-gradient(245deg, rgba(181, 132, 74, 0.2), transparent 38%);
+  opacity: 0.88;
+}
+
+.version-announcement__grid {
+  background:
+    linear-gradient(rgba(39, 58, 50, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 58, 50, 0.06) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 78%);
+}
+
+.version-announcement__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.34fr);
+  align-items: stretch;
+  gap: 22px;
+}
+
+.version-announcement__hero-copy,
+.version-announcement__patch-head {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.version-announcement__eyebrow,
+.changelog-modal-modern__eyebrow {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(34, 99, 78, 0.22);
+  border-radius: 999px;
+  background: rgba(34, 99, 78, 0.1);
+  color: var(--studio-accent-strong, #315846);
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.version-announcement__title {
+  margin: 0;
+  max-width: 760px;
+  color: var(--editor-text-strong);
+  font-size: clamp(1.62rem, 3.2vw, 3.45rem);
+  font-weight: 850;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.version-announcement--patch .version-announcement__title {
+  font-size: 1.28rem;
+  line-height: 1.12;
+}
+
+.version-announcement__subtitle {
+  margin: 0;
+  max-width: 680px;
+  color: var(--editor-text-muted);
+  font-size: 0.94rem;
+  line-height: 1.52;
+}
+
+.version-announcement__route,
+.version-announcement__patch-route {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: fit-content;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius-md);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--editor-text);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.version-announcement__route strong {
+  color: var(--studio-accent, #315846);
+}
+
+.version-announcement__version-showcase {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  min-height: 220px;
+  padding: 20px;
+  border: 1px solid rgba(37, 79, 72, 0.18);
+  border-radius: var(--editor-radius-lg);
+  background:
+    linear-gradient(145deg, rgba(27, 38, 32, 0.96), rgba(43, 69, 59, 0.92)),
+    #1b261f;
+  color: #f9fbf8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.version-announcement__version-showcase span,
+.version-announcement__version-showcase small {
+  color: rgba(249, 251, 248, 0.72);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.version-announcement__version-showcase strong {
+  margin: 10px 0;
+  color: #ffffff;
+  font-size: clamp(2.65rem, 6vw, 5.2rem);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.version-announcement__highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.version-announcement__highlight-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 168px;
+  padding: 15px;
+  border: 1px solid rgba(43, 76, 66, 0.16);
+  border-radius: var(--editor-radius-lg);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 24px rgba(18, 30, 24, 0.08);
+  animation: version-highlight-enter 280ms ease-out both;
+  animation-delay: calc(var(--highlight-index, 0) * 70ms + 80ms);
+}
+
+.version-announcement__highlight-card span,
+.changelog-release-card__highlights span {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(47, 107, 79, 0.18);
+  border-radius: 999px;
+  background: rgba(47, 107, 79, 0.08);
+  color: var(--studio-accent-strong, #315846);
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.version-announcement__highlight-card h3 {
+  margin: 0;
+  color: var(--editor-text-strong);
+  font-size: 0.98rem;
+  line-height: 1.18;
+}
+
+.version-announcement__highlight-card p {
+  margin: 0;
+  color: var(--editor-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.version-announcement__updates {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius-lg);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.version-announcement__updates-title {
+  color: var(--editor-text-strong);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.version-announcement__updates ul,
+.version-announcement__patch-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--editor-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.version-announcement__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.version-announcement__primary,
+.version-announcement__secondary {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius-md);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 820;
+}
+
+.version-announcement__primary {
+  border-color: rgba(35, 78, 64, 0.42);
+  background: var(--studio-accent, #315846);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(29, 79, 60, 0.18);
+}
+
+.version-announcement__secondary {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--editor-text);
+}
+
+.version-announcement__primary:hover,
+.version-announcement__primary:focus-visible {
+  background: var(--studio-accent-strong, #254f48);
+  outline: none;
+}
+
+.version-announcement__secondary:hover,
+.version-announcement__secondary:focus-visible {
+  border-color: var(--editor-border-strong);
+  background: rgba(255, 255, 255, 0.94);
+  outline: none;
+}
+
+.version-announcement__patch-list {
+  padding: 12px 12px 12px 28px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius-lg);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+/* Modern manual changelog */
+.changelog-modal-modern {
+  width: min(900px, calc(100vw - 48px));
+}
+
+.changelog-modal-modern__header {
+  background:
+    linear-gradient(135deg, rgba(246, 250, 246, 0.98), rgba(252, 249, 244, 0.98)),
+    var(--editor-panel);
+}
+
+.changelog-modal-modern__body {
+  display: grid;
+  gap: 12px;
+  background: var(--studio-surface-muted, var(--editor-panel-muted));
+}
+
+.changelog-release-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius-lg);
+  background: var(--editor-panel-strong);
+  box-shadow: 0 8px 22px rgba(18, 30, 24, 0.05);
+}
+
+.changelog-release-card--current {
+  border-color: rgba(36, 94, 74, 0.36);
+  box-shadow:
+    inset 3px 0 0 var(--studio-accent, #315846),
+    0 10px 26px rgba(18, 64, 45, 0.08);
+}
+
+.changelog-release-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.changelog-release-card__title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.changelog-release-card h3,
+.changelog-release-card p {
+  margin: 0;
+}
+
+.changelog-release-card h3 {
+  color: var(--editor-text-strong);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.changelog-release-card p {
+  margin-top: 5px;
+  color: var(--editor-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.changelog-release-card__meta {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  flex: 0 0 auto;
+  color: var(--editor-text-muted);
+  font-size: 0.74rem;
+}
+
+.changelog-impact-badge,
+.changelog-current-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--editor-border);
+  border-radius: 999px;
+  background: var(--editor-panel-muted);
+  color: var(--editor-text);
+  font-size: 0.68rem;
+  font-weight: 830;
+}
+
+.changelog-impact-badge--fix {
+  border-color: rgba(79, 90, 84, 0.2);
+  color: var(--editor-text-muted);
+}
+
+.changelog-impact-badge--important {
+  border-color: rgba(36, 94, 74, 0.26);
+  background: rgba(36, 94, 74, 0.1);
+  color: var(--studio-accent-strong, #315846);
+}
+
+.changelog-impact-badge--major {
+  border-color: rgba(143, 86, 33, 0.28);
+  background: rgba(184, 123, 62, 0.12);
+  color: #704414;
+}
+
+.changelog-current-badge {
+  border-color: rgba(36, 94, 74, 0.26);
+  background: rgba(36, 94, 74, 0.1);
+  color: var(--studio-accent-strong, #315846);
+}
+
+.changelog-release-card__highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.changelog-release-card__highlights span {
+  gap: 5px;
+}
+
+.changelog-release-card__highlights strong {
+  color: currentColor;
+  font-weight: 900;
+}
+
+.changelog-release-card__updates {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  color: var(--editor-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+@keyframes version-announcement-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes version-announcement-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.982);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes version-highlight-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 860px) {
+  .version-announcement__hero,
+  .version-announcement__highlights {
+    grid-template-columns: 1fr;
+  }
+
+  .version-announcement__version-showcase {
+    min-height: 150px;
+  }
+}
+
+@media (max-width: 620px) {
+  .version-announcement-backdrop {
+    padding: 12px;
+  }
+
+  .version-announcement--patch,
+  .version-announcement--wow,
+  .changelog-modal-modern {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  .version-announcement--wow,
+  .version-announcement--patch {
+    padding: 16px;
+  }
+
+  .version-announcement__actions,
+  .changelog-release-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .version-announcement__primary,
+  .version-announcement__secondary {
+    width: 100%;
+  }
+
+  .changelog-release-card__meta {
+    justify-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .version-announcement-backdrop,
+  .version-announcement,
+  .version-announcement__highlight-card {
+    animation: none;
+  }
+}
+
 /* Cross-view workspace alignment */
 .studio-tabs,
 .technical-dock-tabs,

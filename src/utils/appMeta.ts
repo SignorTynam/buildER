@@ -1,14 +1,85 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.5.2";
+export const APP_VERSION = "4.6";
 export const APP_TITLE = `${APP_NAME}`;
+
+export type AppChangelogImpact = "patch" | "minor" | "major";
+
+export interface AppChangelogFeature {
+  title: string;
+  description: string;
+  icon?: string;
+  tag?: string;
+}
 
 export interface AppChangelogEntry {
   version: string;
   date: string;
+  impact?: AppChangelogImpact;
+  headline?: string;
+  summary?: string;
+  hero?: {
+    eyebrow?: string;
+    title: string;
+    subtitle: string;
+  };
+  highlights?: AppChangelogFeature[];
   updates: string[];
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.6",
+    date: "2026-06-03",
+    impact: "minor",
+    headline: "Una nuova esperienza per scoprire gli aggiornamenti",
+    summary:
+      "ER Studio 4.6 introduce un sistema completo per riconoscere, presentare e ricordare gli aggiornamenti dell'app: fix discreti, release importanti con effetto WOW e changelog manuale moderno.",
+    hero: {
+      eyebrow: "Important Update",
+      title: "Benvenuto in ER Studio 4.6",
+      subtitle:
+        "Tutte le novita introdotte dopo la 4.5.2 vengono ora presentate con un'esperienza visuale piu chiara, moderna e memorabile.",
+    },
+    highlights: [
+      {
+        title: "Versioning intelligente",
+        description: "L'app interpreta versioni semver, confronta la versione vista con quella corrente e riconosce patch, minor, major e downgrade.",
+        tag: "Smart",
+      },
+      {
+        title: "Annunci su misura",
+        description: "Le patch usano una comunicazione compatta, mentre minor e major aprono una presentazione premium con hero, highlights e CTA.",
+        tag: "WOW",
+      },
+      {
+        title: "Changelog moderno",
+        description: "Il comando Novita resta sempre disponibile e mostra release card moderne, badge impatto, highlights e versione corrente.",
+        tag: "Studio",
+      },
+    ],
+    updates: [
+      "Versione applicativa aggiornata a ER Studio 4.6 e metadata package allineati alla release 4.6.0.",
+      "Aggiunta utility di versioning pura con parseAppVersion, compareAppVersions e classifyAppUpdate.",
+      "Supportate versioni semplici come 5, 5.2 e 5.2.1, con normalizzazione automatica di major, minor e patch.",
+      "Aggiunta classificazione degli aggiornamenti in first-run, none, patch, minor, major e downgrade.",
+      "Il primo avvio assoluto non viene piu trattato come update: la versione corrente viene salvata come ultima versione vista senza mostrare annunci automatici.",
+      "Aggiunta persistenza localStorage protetta con chiavi dedicate per ultima versione vista e annunci gia mostrati.",
+      "L'app mostra automaticamente l'annuncio solo quando APP_VERSION cambia e la versione corrente non e gia stata vista.",
+      "Gli annunci automatici vengono segnati come visti solo dopo una chiusura volontaria o dopo l'apertura del changelog completo.",
+      "Aggiunto annuncio compatto per patch update, con messaggio discreto, versione precedente/corrente e massimo quattro note principali.",
+      "Aggiunto modal WOW per minor e major update, con backdrop moderno, hero visuale, numero versione, route di aggiornamento, cards highlight e call-to-action.",
+      "Aggiunto flusso Vedi changelog completo: chiude l'annuncio automatico, salva la versione come vista e apre il changelog manuale.",
+      "Gli annunci automatici evitano conflitti con modali, dialoghi, errori, command menu e workflow SQL Reverse, ritardando la comparsa quando l'editor e occupato.",
+      "Esteso il modello APP_CHANGELOG con impact, headline, summary, hero e highlights, mantenendo compatibili le vecchie release basate solo su updates.",
+      "Sostituito il vecchio blocco inline Novita con un nuovo ChangelogModal moderno basato su studio-modal.",
+      "Il changelog manuale ora evidenzia la release corrente, mostra badge Fix, Important e Major, e visualizza highlights quando disponibili.",
+      "Il comando Novita nel CommandMenuModal continua ad aprire sempre lo storico manuale, indipendentemente dagli annunci gia visti.",
+      "Aggiunti stili moderni per version-announcement e changelog-modal-modern con card, pill, gradienti leggeri, micro-interazioni e supporto prefers-reduced-motion.",
+      "Aggiunta gestione accessibile dei nuovi dialog con role dialog, aria-modal, focus iniziale sul CTA e chiusura da tastiera.",
+      "Aggiunti test automatici dedicati al versioning per first-run, none, patch, minor, major, downgrade e versioni con patch mancante.",
+      "Aggiornato lo script npm test per includere i nuovi test di versioning.",
+    ],
+  },
   {
     version: "4.5.2",
     date: "2026-06-03",

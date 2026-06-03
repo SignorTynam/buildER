@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { ChangelogModal } from "./components/ChangelogModal";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
@@ -139,13 +140,47 @@ import {
   normalizeSupportedCardinality,
 } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, getToolLabel } from "./utils/toolConfig";
-import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
+import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION, type AppChangelogEntry } from "./utils/appMeta";
+import { VersionAnnouncement } from "./components/VersionAnnouncement";
+import { classifyAppUpdate } from "./utils/versioning";
+import type { AppUpdateKind } from "./utils/versioning";
+import {
+  getLastSeenAppVersion,
+  hasSeenVersionAnnouncement,
+  rememberLastSeenAppVersion,
+  rememberVersionAnnouncementSeen,
+} from "./utils/versionAnnouncementStorage";
 
 const DEFAULT_VIEWPORT: Viewport = {
   x: 180,
   y: 110,
   zoom: 1,
 };
+
+type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
+
+interface VersionAnnouncementState {
+  previousVersion: string | null;
+  updateKind: VisibleVersionUpdateKind;
+  changelogEntry: AppChangelogEntry;
+}
+
+function createFallbackChangelogEntry(version: string, updateKind: VisibleVersionUpdateKind): AppChangelogEntry {
+  const importantUpdate = updateKind === "minor" || updateKind === "major";
+
+  return {
+    version,
+    date: new Date().toISOString().slice(0, 10),
+    impact: updateKind,
+    headline: importantUpdate ? "Nuova versione disponibile" : "Aggiornamento di stabilita",
+    summary: importantUpdate
+      ? "Questa release introduce miglioramenti importanti all'esperienza di lavoro."
+      : "Questa release include correzioni e miglioramenti mirati.",
+    updates: importantUpdate
+      ? ["Nuova release pronta per l'uso.", "Miglioramenti all'esperienza dell'editor."]
+      : ["Correzioni e miglioramenti di stabilita."],
+  };
+}
 
 function createInitialSqlReverseWorkflowState(sourceSql = ""): SqlReverseWorkflowState {
   return {
@@ -1252,6 +1287,7 @@ export default function App() {
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [versionAnnouncement, setVersionAnnouncement] = useState<VersionAnnouncementState | null>(null);
   const [introOpen, setIntroOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null);
@@ -1436,6 +1472,20 @@ export default function App() {
     "--technical-panel-resizer-width": technicalPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
+  const versionAnnouncementBlocked =
+    surface !== "studio" ||
+    commandMenuOpen ||
+    keyboardShortcutsOpen ||
+    aboutOpen ||
+    whatsNewOpen ||
+    introOpen ||
+    confirmDialog !== null ||
+    promptDialog !== null ||
+    cardinalityDialog !== null ||
+    mixedIdentifierDialog !== null ||
+    generalizationGroupDialog !== null ||
+    errorsPanelOpen ||
+    sqlReverseWorkflow.step !== "idle";
 
   function persistWorkspaceSessionNow() {
     if (typeof window === "undefined") {
@@ -1453,6 +1503,54 @@ export default function App() {
       // Ignore storage errors and keep the app usable.
     }
   }
+
+  useEffect(() => {
+    const previousVersion = getLastSeenAppVersion();
+    const classification = classifyAppUpdate(previousVersion, APP_VERSION);
+
+    if (classification.kind === "first-run") {
+      rememberLastSeenAppVersion(APP_VERSION);
+      return;
+    }
+
+    if (!classification.shouldShow) {
+      return;
+    }
+
+    if (
+      classification.kind !== "patch" &&
+      classification.kind !== "minor" &&
+      classification.kind !== "major"
+    ) {
+      return;
+    }
+
+    const updateKind: VisibleVersionUpdateKind = classification.kind;
+
+    if (hasSeenVersionAnnouncement(APP_VERSION)) {
+      rememberLastSeenAppVersion(APP_VERSION);
+      return;
+    }
+
+    if (versionAnnouncement || versionAnnouncementBlocked) {
+      return;
+    }
+
+    const changelogEntry =
+      APP_CHANGELOG.find((entry) => entry.version === APP_VERSION) ??
+      createFallbackChangelogEntry(APP_VERSION, updateKind);
+    const openDelay = window.setTimeout(() => {
+      setVersionAnnouncement((current) =>
+        current ?? {
+          previousVersion,
+          updateKind,
+          changelogEntry,
+        },
+      );
+    }, 550);
+
+    return () => window.clearTimeout(openDelay);
+  }, [versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
     if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {
@@ -2172,6 +2270,21 @@ export default function App() {
     setWhatsNewOpen(false);
     setIntroOpen(false);
     setKeyboardShortcutsOpen(true);
+  }
+
+  function closeVersionAnnouncement() {
+    rememberVersionAnnouncementSeen(APP_VERSION);
+    setVersionAnnouncement(null);
+  }
+
+  function openFullChangelogFromVersionAnnouncement() {
+    rememberVersionAnnouncementSeen(APP_VERSION);
+    setVersionAnnouncement(null);
+    setAboutOpen(false);
+    setCommandMenuOpen(false);
+    setKeyboardShortcutsOpen(false);
+    setIntroOpen(false);
+    setWhatsNewOpen(true);
   }
 
   function setStatus(message: string) {
@@ -2983,6 +3096,12 @@ export default function App() {
           return;
         }
 
+        if (versionAnnouncement) {
+          event.preventDefault();
+          closeVersionAnnouncement();
+          return;
+        }
+
         if (commandMenuOpen) {
           setCommandMenuOpen(false);
           return;
@@ -3043,6 +3162,7 @@ export default function App() {
     technicalPanelOpen,
     technicalPanelTab,
     tool,
+    versionAnnouncement,
     whatsNewOpen,
   ]);
 
@@ -6646,48 +6766,25 @@ export default function App() {
         </div>
       ) : null}
 
-      {whatsNewOpen ? (
-        <div className="studio-modal-backdrop" role="presentation" onClick={() => setWhatsNewOpen(false)}>
-          <div
-            className="studio-modal studio-modal--medium changelog-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="studio-modal__header">
-              <div>
-                <h2 id="new-modal-title" className="studio-modal__title">Novita</h2>
-                <p className="studio-modal__subtitle">Storico compatto delle release di {APP_NAME}.</p>
-              </div>
-              <button
-                type="button"
-                className="studio-modal__close"
-                onClick={() => setWhatsNewOpen(false)}
-                aria-label="Chiudi novita"
-                autoFocus
-              >
-                Chiudi
-              </button>
-            </div>
+      {versionAnnouncement ? (
+        <VersionAnnouncement
+          appName={APP_NAME}
+          currentVersion={APP_VERSION}
+          previousVersion={versionAnnouncement.previousVersion}
+          updateKind={versionAnnouncement.updateKind}
+          changelogEntry={versionAnnouncement.changelogEntry}
+          onClose={closeVersionAnnouncement}
+          onOpenFullChangelog={openFullChangelogFromVersionAnnouncement}
+        />
+      ) : null}
 
-            <div className="studio-modal__body changelog-content">
-              {APP_CHANGELOG.map((entry) => (
-                <article key={`${entry.version}-${entry.date}`} className="studio-modal__release changelog-entry">
-                  <header>
-                    <strong>{APP_NAME} {entry.version}</strong>
-                    <span>{entry.date}</span>
-                  </header>
-                  <ul className="studio-modal__list-text help-list">
-                    {entry.updates.map((update) => (
-                      <li key={update}>{update}</li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
-          </div>
-        </div>
+      {whatsNewOpen ? (
+        <ChangelogModal
+          appName={APP_NAME}
+          currentVersion={APP_VERSION}
+          entries={APP_CHANGELOG}
+          onClose={() => setWhatsNewOpen(false)}
+        />
       ) : null}
 
     </div>
