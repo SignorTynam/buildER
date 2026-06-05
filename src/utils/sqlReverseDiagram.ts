@@ -20,6 +20,7 @@ import {
   type SqlSchemaModel,
 } from "../types/sqlReverse";
 import { autoLayoutLogicalModel } from "./logicalLayout";
+import { distributeAttributesAroundHost } from "./attributeLayout";
 import { reverseSqlToLogicalModel } from "./sqlReverseLogical";
 import { layoutSqlReverseDiagram } from "./sqlReverseLayout";
 
@@ -461,17 +462,7 @@ function positionAttributesAroundOwner<T extends AttributeNode>(
   owner: EntityNode | RelationshipNode,
   attributes: T[],
 ): T[] {
-  const leftCount = Math.ceil(attributes.length / 2);
-  return attributes.map((attribute, index) => {
-    const side = index % 2 === 0 ? -1 : 1;
-    const sideIndex = Math.floor(index / 2);
-    const verticalOffset = (sideIndex - Math.max(0, leftCount - 1) / 2) * 54;
-    return {
-      ...attribute,
-      x: owner.x + owner.width / 2 + side * 180 - attribute.width / 2,
-      y: owner.y + owner.height / 2 + verticalOffset - attribute.height / 2,
-    };
-  });
+  return distributeAttributesAroundHost(owner, attributes);
 }
 
 function filterValidEdges(context: DiagramConversionContext): DiagramEdge[] {

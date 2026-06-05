@@ -93,6 +93,7 @@ import {
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
+import { distributeAttributesAroundHost } from "./utils/attributeLayout";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
 import {
   applyErTranslationChoice,
@@ -396,8 +397,6 @@ const NOTICE_DURATION_MS = {
   error: 6200,
 } as const;
 const STATUS_FOLLOWUP_NOTICE_MS = 2600;
-const ATTRIBUTE_CREATION_HORIZONTAL_OFFSET = 140;
-const ATTRIBUTE_CREATION_STACK_GAP = 28;
 const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
 const COMPOSITE_CHILD_VERTICAL_GAP = 80;
 const COMPOSITE_CHILD_VERTICAL_STEP = 44;
@@ -1147,33 +1146,16 @@ function getNextAttributePosition(
     };
   }
 
-  const regularAttributes = hostedAttributes.filter(
-    (attribute) => attribute.isIdentifier !== true && attribute.isCompositeInternal !== true,
-  );
-  const hostCenterX = hostNode.x + hostNode.width / 2;
-  const leftAttributes = regularAttributes.filter(
-    (attribute) => attribute.x + attribute.width / 2 < hostCenterX,
-  );
-  const rightAttributes = regularAttributes.filter(
-    (attribute) => attribute.x + attribute.width / 2 >= hostCenterX,
-  );
-  const useLeftSide = leftAttributes.length > 0 && rightAttributes.length === 0;
-  const sideAttributes = useLeftSide ? leftAttributes : rightAttributes;
-  const baseY = hostNode.y + hostNode.height / 2 - nextAttribute.height / 2;
-  const nextY =
-    sideAttributes.length === 0
-      ? baseY
-      : Math.max(...sideAttributes.map((attribute) => attribute.y + attribute.height)) +
-        ATTRIBUTE_CREATION_STACK_GAP;
+  const simulatedAttributes = distributeAttributesAroundHost(hostNode, [
+    ...hostedAttributes,
+    nextAttribute,
+  ]);
+  const positionedNextAttribute =
+    simulatedAttributes.find((attribute) => attribute.id === nextAttribute.id) ?? nextAttribute;
 
   return {
-    x: snapValue(
-      useLeftSide
-        ? hostNode.x - ATTRIBUTE_CREATION_HORIZONTAL_OFFSET - nextAttribute.width / 2
-        : hostNode.x + hostNode.width + ATTRIBUTE_CREATION_HORIZONTAL_OFFSET - nextAttribute.width / 2,
-      GRID_SIZE,
-    ),
-    y: snapValue(nextY, GRID_SIZE),
+    x: positionedNextAttribute.x,
+    y: positionedNextAttribute.y,
   };
 }
 
@@ -1190,48 +1172,13 @@ function layoutDirectAttributesAroundHost(
   const attributes = diagram.nodes
     .filter((node): node is AttributeNode => node.type === "attribute" && idSet.has(node.id))
     .sort((left, right) => attributeIds.indexOf(left.id) - attributeIds.indexOf(right.id));
-  const sideOrder: Array<"left" | "right" | "top" | "bottom"> = ["left", "right", "top", "bottom"];
-  const bySide = new Map<(typeof sideOrder)[number], AttributeNode[]>(
-    sideOrder.map((side) => [side, []]),
+  const positionedAttributes = distributeAttributesAroundHost(hostNode, attributes);
+  const positions = new Map<string, Point>(
+    positionedAttributes.map((attribute) => [
+      attribute.id,
+      { x: attribute.x, y: attribute.y },
+    ]),
   );
-
-  attributes.forEach((attribute, index) => {
-    bySide.get(sideOrder[index % sideOrder.length])?.push(attribute);
-  });
-
-  const hostCenterX = hostNode.x + hostNode.width / 2;
-  const hostCenterY = hostNode.y + hostNode.height / 2;
-  const horizontalGap = 74;
-  const verticalGap = 64;
-  const verticalSpacing = 44;
-  const horizontalSpacing = 64;
-  const positions = new Map<string, Point>();
-
-  (["left", "right"] as const).forEach((side) => {
-    const sideAttributes = bySide.get(side) ?? [];
-    const total = (sideAttributes.length - 1) * verticalSpacing;
-    sideAttributes.forEach((attribute, index) => {
-      const circleX = side === "left" ? hostNode.x - horizontalGap : hostNode.x + hostNode.width + horizontalGap;
-      const circleY = hostCenterY - total / 2 + index * verticalSpacing;
-      positions.set(attribute.id, {
-        x: snapValue(circleX - 10, GRID_SIZE),
-        y: snapValue(circleY - attribute.height / 2, GRID_SIZE),
-      });
-    });
-  });
-
-  (["top", "bottom"] as const).forEach((side) => {
-    const sideAttributes = bySide.get(side) ?? [];
-    const total = (sideAttributes.length - 1) * horizontalSpacing;
-    sideAttributes.forEach((attribute, index) => {
-      const circleX = hostCenterX - total / 2 + index * horizontalSpacing;
-      const circleY = side === "top" ? hostNode.y - verticalGap : hostNode.y + hostNode.height + verticalGap;
-      positions.set(attribute.id, {
-        x: snapValue(circleX - 10, GRID_SIZE),
-        y: snapValue(circleY - attribute.height / 2, GRID_SIZE),
-      });
-    });
-  });
 
   if (positions.size === 0) {
     return diagram;
@@ -3749,7 +3696,7 @@ export default function App() {
       ...history.present,
       edges: [...history.present.edges, nextEdge],
     };
-    const nextDiagram =
+    const nextDiagramWithEdge =
       type === "attribute" && sourceNode.type === "attribute" && targetNode.type === "attribute"
         ? (() => {
             const nextSize = getMultivaluedAttributeSize(targetNode.label);
@@ -3760,6 +3707,20 @@ export default function App() {
             } as Partial<DiagramNode>);
           })()
         : nextDiagramBase;
+    const directAttributeHost =
+      type === "attribute" && sourceNode.type !== "attribute" && targetNode.type === "attribute"
+        ? sourceNode
+        : type === "attribute" && targetNode.type !== "attribute" && sourceNode.type === "attribute"
+          ? targetNode
+          : undefined;
+    const nextDiagram =
+      directAttributeHost?.type === "entity" || directAttributeHost?.type === "relationship"
+        ? layoutDirectAttributesAroundHost(
+            nextDiagramWithEdge,
+            directAttributeHost,
+            findDirectHostedAttributes(nextDiagramWithEdge, directAttributeHost.id).map((attribute) => attribute.id),
+          )
+        : nextDiagramWithEdge;
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [nextEdge.id] });
@@ -4822,7 +4783,11 @@ export default function App() {
               height: nextSize.height,
             } as Partial<DiagramNode>);
           })()
-        : nextDiagramBase;
+        : layoutDirectAttributesAroundHost(
+            nextDiagramBase,
+            hostNode,
+            findDirectHostedAttributes(nextDiagramBase, hostNode.id).map((attribute) => attribute.id),
+          );
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
