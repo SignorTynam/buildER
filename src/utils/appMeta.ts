@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.6";
+export const APP_VERSION = "4.6.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,14 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.6.1",
+    date: "2026-06-05",
+    impact: "patch",
+    updates: [
+      "Corretto il layout degli identificatori interni composti nel canvas ER: il routing ora usa una cornice aperta coerente con gli identificatori esterni, riducendo linee dritte, sovrapposizioni e percorsi instabili quando gli attributi si trovano su lati diversi dell'entita.",
+    ],
+  },
   {
     version: "4.6",
     date: "2026-06-03",

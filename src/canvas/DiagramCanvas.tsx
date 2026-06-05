@@ -3596,12 +3596,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           connectionPreviewPoint,
         ])
       : null;
-  const compositeMemberHostByAttributeId = new Map<string, string>();
-  compositeIdentifierLayouts.forEach((layout) => {
-    layout.memberAttributeIds.forEach((attributeId) => {
-      compositeMemberHostByAttributeId.set(attributeId, layout.hostEntityId);
-    });
-  });
   const compositeIdentifierInteractive = props.mode === "edit" && props.tool === "select";
   const inheritanceGroups = buildInheritanceGroups(props.diagram);
   const groupedInheritanceLayouts = inheritanceGroups
@@ -4015,25 +4009,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
             if (!sourceNode || !targetNode) {
               return null;
-            }
-
-            if (edge.type === "attribute") {
-              const sourceHostId =
-                sourceNode.type === "attribute"
-                  ? compositeMemberHostByAttributeId.get(sourceNode.id)
-                  : undefined;
-              const targetHostId =
-                targetNode.type === "attribute"
-                  ? compositeMemberHostByAttributeId.get(targetNode.id)
-                  : undefined;
-
-              const isCompositeMemberDirectEdge =
-                (sourceHostId !== undefined && targetNode.type === "entity" && targetNode.id === sourceHostId) ||
-                (targetHostId !== undefined && sourceNode.type === "entity" && sourceNode.id === targetHostId);
-
-              if (isCompositeMemberDirectEdge) {
-                return null;
-              }
             }
 
             return (
