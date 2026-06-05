@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.6";
+export const APP_VERSION = "4.6.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,26 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.6.1",
+    date: "2026-06-05",
+    impact: "patch",
+    headline: "Layout attributi e identificatori piu stabile",
+    summary:
+      "ER Studio 4.6.1 corregge il placement degli attributi attorno a entita e relazioni, migliora l'allineamento dei marker degli identificatori composti e mantiene visibili i collegamenti degli attributi anche quando entrano in una chiave composta.",
+    updates: [
+      "Versione applicativa aggiornata a ER Studio 4.6.1 e metadata package allineati alla release 4.6.1.",
+      "Corretto il placement automatico degli attributi creati da un'entita o da una relazione: i nuovi attributi vengono distribuiti sui lati del nodo invece di accumularsi in una colonna o finire molto lontano.",
+      "Gli attributi gia collegati e posizionati troppo lontano vengono riallineati vicino al proprio host quando viene ricalcolato il layout degli attributi diretti.",
+      "Corretto il caso del terzo attributo: l'ordine dei lati usato dal bilanciamento e ora coerente, evitando che un attributo mantenga una vecchia posizione distante.",
+      "Il reverse SQL usa la stessa distribuzione bilanciata degli attributi, cosi le tabelle importate generano diagrammi ER piu compatti e leggibili.",
+      "I collegamenti diretti degli attributi restano visibili anche quando gli attributi partecipano a un identificatore interno composto.",
+      "Il frame degli identificatori interni composti usa un percorso aperto e non disegna piu lati vuoti inutili quando i marker sono presenti solo su alcuni lati dell'entita.",
+      "I marker neri degli identificatori composti vengono posizionati nel punto reale di incrocio tra il collegamento dell'attributo e la cornice dell'identificatore.",
+      "Migliorata la gestione di piu identificatori composti sulla stessa entita con corsie separate e marker ancorati in modo piu prevedibile.",
+      "Aggiunti test di regressione per layout attributi, attributi lontani, terzo attributo, reverse SQL e routing degli identificatori interni composti.",
+    ],
+  },
   {
     version: "4.6",
     date: "2026-06-03",
