@@ -257,15 +257,8 @@ function shouldPersistCanvasMessage(message: string): boolean {
 }
 
 const VIEWPORT_PADDING = 140;
-const COMPOSITE_INTERNAL_BACKBONE_MIN_OFFSET = 18;
-const COMPOSITE_INTERNAL_BACKBONE_MIN_SAFE_OFFSET = 8;
-const COMPOSITE_INTERNAL_BACKBONE_MAX_OFFSET = 70;
-const COMPOSITE_INTERNAL_BACKBONE_DEFAULT_OFFSET = 30;
-const COMPOSITE_INTERNAL_BACKBONE_DISTANCE_RATIO = 0.45;
-const COMPOSITE_INTERNAL_BACKBONE_PADDING = 10;
 const COMPOSITE_INTERNAL_BRANCH_MIN_SPACING = 22;
-const COMPOSITE_INTERNAL_MIN_BRANCH_LENGTH = 10;
-const COMPOSITE_INTERNAL_MARKER_OFFSET = 22;
+const COMPOSITE_INTERNAL_TERMINAL_MARKER_RADIUS = 8.5;
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
@@ -287,30 +280,25 @@ interface CompositeIdentifierMember {
   hostAnchor: Point;
 }
 
-interface CompositeIdentifierBranch {
+interface CompositeIdentifierMemberMarker {
   attributeId: string;
-  from: Point;
-  to: Point;
-}
-
-interface CompositeIdentifierStem {
-  attributeId: string;
-  from: Point;
-  to: Point;
+  marker: Point;
+  projection: Point;
+  side: FrameSide;
 }
 
 interface CompositeIdentifierLayout {
   groupKey: string;
   hostEntityId: string;
   memberAttributeIds: string[];
-  orientation: "vertical" | "horizontal";
-  backboneStart: Point;
-  backboneEnd: Point;
-  branches: CompositeIdentifierBranch[];
-  hostStems: CompositeIdentifierStem[];
+  laneIndex: number;
+  frame: RouteFrame;
+  pathData: string;
+  hitPathData: string;
+  pathPoints: Point[];
+  memberMarkers: CompositeIdentifierMemberMarker[];
   junctions: Point[];
-  markerStemFrom: Point;
-  marker: Point;
+  terminalMarker?: Point;
 }
 
 interface ExternalIdentifierLayout {
@@ -907,248 +895,193 @@ function resolveFrameSide(bounds: Bounds, anchor: Point, outwardHint: Point): Fr
   return best.side;
 }
 
-function chooseCompositeGroupSide(
+export function getCompositeInternalIdentifierFrame(
+  hostBounds: Bounds,
+  laneIndex = 0,
+): RouteFrame {
+  const padding = getExternalIdentifierFramePadding(laneIndex);
+
+  return {
+    left: hostBounds.x - padding,
+    top: hostBounds.y - padding,
+    right: hostBounds.x + hostBounds.width + padding,
+    bottom: hostBounds.y + hostBounds.height + padding,
+    centerX: hostBounds.x + hostBounds.width / 2,
+    centerY: hostBounds.y + hostBounds.height / 2,
+  };
+}
+
+export function getCompositeInternalIdentifierFramePoint(
+  frame: RouteFrame,
+  side: FrameSide,
+  reference: Point,
+): Point {
+  return getFrameSidePoint(frame, side, reference);
+}
+
+export function projectCompositeInternalMarkerToFrame(
+  frame: RouteFrame,
+  marker: CompositeIdentifierMemberMarker,
+): ExternalIdentifierFrameProjection {
+  return projectExternalIdentifierMarkerToFrame(frame, {
+    kind: "localAttribute",
+    marker: marker.marker,
+  });
+}
+
+function spreadCompositeInternalMarkersOnSide(
+  frame: RouteFrame,
+  markers: CompositeIdentifierMemberMarker[],
+): CompositeIdentifierMemberMarker[] {
+  const markersBySide = new Map<FrameSide, CompositeIdentifierMemberMarker[]>();
+  markers.forEach((marker) => {
+    const sideMarkers = markersBySide.get(marker.side) ?? [];
+    sideMarkers.push(marker);
+    markersBySide.set(marker.side, sideMarkers);
+  });
+
+  const result: CompositeIdentifierMemberMarker[] = [];
+  markersBySide.forEach((sideMarkers, side) => {
+    const values = sideMarkers.map((marker) => ({
+      id: marker.attributeId,
+      value: side === "left" || side === "right" ? marker.projection.y : marker.projection.x,
+    }));
+    const spreadValues = spreadValuesWithMinimumSpacing(values, COMPOSITE_INTERNAL_BRANCH_MIN_SPACING);
+
+    sideMarkers.forEach((marker) => {
+      const spreadValue = spreadValues.get(marker.attributeId);
+      if (spreadValue === undefined) {
+        result.push(marker);
+        return;
+      }
+
+      const projection =
+        side === "left" || side === "right"
+          ? { x: marker.projection.x, y: clampNumber(spreadValue, frame.top, frame.bottom) }
+          : { x: clampNumber(spreadValue, frame.left, frame.right), y: marker.projection.y };
+      result.push({
+        ...marker,
+        marker: projection,
+        projection,
+      });
+    });
+  });
+
+  return result.sort((left, right) => left.attributeId.localeCompare(right.attributeId));
+}
+
+export function buildCompositeInternalIdentifierRoutePoints(
   hostBounds: Bounds,
   hostCenter: Point,
   members: CompositeIdentifierMember[],
-): FrameSide {
-  const sideStats = new Map<FrameSide, { count: number; distance: number }>();
-  const preferredSideOrder: FrameSide[] = ["bottom", "top", "right", "left"];
-
-  members.forEach((member) => {
+  laneIndex = 0,
+): {
+  frame: RouteFrame;
+  memberMarkers: CompositeIdentifierMemberMarker[];
+  pathPoints: Point[];
+} {
+  const frame = getCompositeInternalIdentifierFrame(hostBounds, laneIndex);
+  const rawMemberMarkers = members.map((member) => {
     const outwardHint = {
       x: member.attributeCenter.x - hostCenter.x,
       y: member.attributeCenter.y - hostCenter.y,
     };
     const side = resolveFrameSide(hostBounds, member.hostAnchor, outwardHint);
-    const outwardDistance =
-      side === "left" || side === "right"
-        ? Math.abs(member.attributeCenter.x - hostCenter.x)
-        : Math.abs(member.attributeCenter.y - hostCenter.y);
-    const current = sideStats.get(side) ?? { count: 0, distance: 0 };
-    sideStats.set(side, {
-      count: current.count + 1,
-      distance: current.distance + outwardDistance,
-    });
+    const projection = getCompositeInternalIdentifierFramePoint(frame, side, member.hostAnchor);
+
+    return {
+      attributeId: member.attributeId,
+      marker: projection,
+      projection,
+      side,
+    };
   });
+  const memberMarkers = spreadCompositeInternalMarkersOnSide(frame, rawMemberMarkers);
+  const projections = memberMarkers.map((marker) => projectCompositeInternalMarkerToFrame(frame, marker));
+  const perimeterPoints = buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
 
-  let bestSide: FrameSide | null = null;
-  let bestCount = -1;
-  let bestDistance = -1;
-  preferredSideOrder.forEach((side) => {
-    const stats = sideStats.get(side) ?? { count: 0, distance: 0 };
-    const betterCount = stats.count > bestCount;
-    const sameCount = stats.count === bestCount;
-    const betterDistance = stats.distance > bestDistance + 0.001;
-    if (betterCount || (sameCount && betterDistance)) {
-      bestSide = side;
-      bestCount = stats.count;
-      bestDistance = stats.distance;
-    }
-  });
-
-  if (bestSide && bestCount > 0) {
-    return bestSide;
-  }
-
-  const centroid = members.reduce(
-    (sum, member) => ({
-      x: sum.x + member.attributeCenter.x,
-      y: sum.y + member.attributeCenter.y,
-    }),
-    { x: 0, y: 0 },
-  );
-  const centroidPoint = {
-    x: centroid.x / members.length,
-    y: centroid.y / members.length,
+  return {
+    frame,
+    memberMarkers,
+    pathPoints: extendOpenRouteEndpoints(perimeterPoints),
   };
-  const deltaX = centroidPoint.x - hostCenter.x;
-  const deltaY = centroidPoint.y - hostCenter.y;
-
-  if (Math.abs(deltaY) >= Math.abs(deltaX)) {
-    return deltaY >= 0 ? "bottom" : "top";
-  }
-
-  return deltaX >= 0 ? "right" : "left";
 }
 
-function computeCompositeBackboneOffset(
-  hostSideCoordinate: number,
-  memberCoordinates: number[],
-  outwardSign: number,
-): number {
-  const outwardDistances = memberCoordinates
-    .map((coordinate) => outwardSign * (coordinate - hostSideCoordinate))
-    .filter((distance) => Number.isFinite(distance));
-  if (outwardDistances.length === 0) {
-    return COMPOSITE_INTERNAL_BACKBONE_DEFAULT_OFFSET;
-  }
-
-  const positiveDistances = outwardDistances.map((distance) => Math.max(0, distance));
-  const averageDistance =
-    positiveDistances.reduce((sum, distance) => sum + distance, 0) / positiveDistances.length;
-  const nearestMemberDistance = Math.min(...positiveDistances.filter((distance) => distance > 0));
-
-  let offset = clampNumber(
-    averageDistance * COMPOSITE_INTERNAL_BACKBONE_DISTANCE_RATIO,
-    COMPOSITE_INTERNAL_BACKBONE_MIN_OFFSET,
-    COMPOSITE_INTERNAL_BACKBONE_MAX_OFFSET,
+export function buildCompositeInternalIdentifierFrameLayout(
+  hostBounds: Bounds,
+  hostCenter: Point,
+  members: CompositeIdentifierMember[],
+  laneIndex = 0,
+): {
+  frame: RouteFrame;
+  memberMarkers: CompositeIdentifierMemberMarker[];
+  pathPoints: Point[];
+  pathData: string;
+  terminalMarker?: Point;
+} {
+  const routeLayout = buildCompositeInternalIdentifierRoutePoints(
+    hostBounds,
+    hostCenter,
+    members,
+    laneIndex,
   );
+  const pathData = pathFromPoints(routeLayout.pathPoints);
 
-  if (Number.isFinite(nearestMemberDistance)) {
-    const maxReadableOffset = Math.max(
-      COMPOSITE_INTERNAL_BACKBONE_MIN_SAFE_OFFSET,
-      nearestMemberDistance - COMPOSITE_INTERNAL_MIN_BRANCH_LENGTH,
-    );
-    offset = Math.min(offset, maxReadableOffset);
-  }
-
-  if (!Number.isFinite(offset)) {
-    return COMPOSITE_INTERNAL_BACKBONE_DEFAULT_OFFSET;
-  }
-
-  return Math.max(COMPOSITE_INTERNAL_BACKBONE_MIN_SAFE_OFFSET, offset);
+  return {
+    ...routeLayout,
+    pathData,
+    terminalMarker: routeLayout.pathPoints.length >= 2 ? routeLayout.pathPoints[0] : undefined,
+  };
 }
 
-function buildCompositeIdentifierLayout(
+export function buildCompositeInternalIdentifierPath(
+  hostBounds: Bounds,
+  hostCenter: Point,
+  members: CompositeIdentifierMember[],
+  laneIndex = 0,
+): string {
+  return buildCompositeInternalIdentifierFrameLayout(
+    hostBounds,
+    hostCenter,
+    members,
+    laneIndex,
+  ).pathData;
+}
+
+export function buildCompositeIdentifierLayout(
   groupKey: string,
   hostEntityId: string,
   hostBounds: Bounds,
   hostCenter: Point,
   members: CompositeIdentifierMember[],
+  laneIndex = 0,
 ): CompositeIdentifierLayout | null {
   if (members.length < 2) {
     return null;
   }
 
-  const groupSide = chooseCompositeGroupSide(hostBounds, hostCenter, members);
-
-  if (groupSide === "top" || groupSide === "bottom") {
-    const outwardSign = groupSide === "bottom" ? 1 : -1;
-    const hostSideY = groupSide === "bottom" ? hostBounds.y + hostBounds.height : hostBounds.y;
-    const axisOffset = computeCompositeBackboneOffset(
-      hostSideY,
-      members.map((member) => member.attributeCenter.y),
-      outwardSign,
-    );
-    const backboneY = hostSideY + outwardSign * axisOffset;
-    const branchXByAttributeId = spreadValuesWithMinimumSpacing(
-      members.map((member) => ({
-        id: member.attributeId,
-        value: member.attributeCenter.x,
-      })),
-      COMPOSITE_INTERNAL_BRANCH_MIN_SPACING,
-    );
-
-    const branches = members
-      .map((member) => {
-        const branchX = branchXByAttributeId.get(member.attributeId) ?? member.attributeCenter.x;
-        return {
-          attributeId: member.attributeId,
-          from: { x: branchX, y: backboneY },
-          to: { x: branchX, y: member.attributeCenter.y },
-        };
-      })
-      .sort((left, right) => left.from.x - right.from.x || left.attributeId.localeCompare(right.attributeId));
-
-    if (branches.length < 2) {
-      return null;
-    }
-
-    const backboneStart = {
-      x: branches[0].from.x - COMPOSITE_INTERNAL_BACKBONE_PADDING,
-      y: backboneY,
-    };
-    const backboneEnd = {
-      x: branches[branches.length - 1].from.x + COMPOSITE_INTERNAL_BACKBONE_PADDING,
-      y: backboneY,
-    };
-    const hostStems = branches.map((branch) => ({
-      attributeId: branch.attributeId,
-      from: { x: branch.from.x, y: hostSideY },
-      to: { ...branch.from },
-    }));
-    const markerStemFrom = { ...backboneStart };
-
-    return {
-      groupKey,
-      hostEntityId,
-      memberAttributeIds: branches.map((branch) => branch.attributeId),
-      orientation: "horizontal",
-      backboneStart,
-      backboneEnd,
-      branches,
-      hostStems,
-      junctions: branches.map((branch) => branch.from),
-      markerStemFrom,
-      marker: {
-        x: markerStemFrom.x - COMPOSITE_INTERNAL_MARKER_OFFSET,
-        y: markerStemFrom.y,
-      },
-    };
-  }
-
-  const outwardSign = groupSide === "right" ? 1 : -1;
-  const hostSideX = groupSide === "right" ? hostBounds.x + hostBounds.width : hostBounds.x;
-  const axisOffset = computeCompositeBackboneOffset(
-    hostSideX,
-    members.map((member) => member.attributeCenter.x),
-    outwardSign,
+  const frameLayout = buildCompositeInternalIdentifierFrameLayout(
+    hostBounds,
+    hostCenter,
+    members,
+    laneIndex,
   );
-  const backboneX = hostSideX + outwardSign * axisOffset;
-  const branchYByAttributeId = spreadValuesWithMinimumSpacing(
-    members.map((member) => ({
-      id: member.attributeId,
-      value: member.attributeCenter.y,
-    })),
-    COMPOSITE_INTERNAL_BRANCH_MIN_SPACING,
-  );
-
-  const branches = members
-    .map((member) => {
-      const branchY = branchYByAttributeId.get(member.attributeId) ?? member.attributeCenter.y;
-      return {
-        attributeId: member.attributeId,
-        from: { x: backboneX, y: branchY },
-        to: { x: member.attributeCenter.x, y: branchY },
-      };
-    })
-    .sort((left, right) => left.from.y - right.from.y || left.attributeId.localeCompare(right.attributeId));
-
-  if (branches.length < 2) {
+  if (frameLayout.pathData.length === 0) {
     return null;
   }
-
-  const backboneStart = {
-    x: backboneX,
-    y: branches[0].from.y - COMPOSITE_INTERNAL_BACKBONE_PADDING,
-  };
-  const backboneEnd = {
-    x: backboneX,
-    y: branches[branches.length - 1].from.y + COMPOSITE_INTERNAL_BACKBONE_PADDING,
-  };
-  const hostStems = branches.map((branch) => ({
-    attributeId: branch.attributeId,
-    from: { x: hostSideX, y: branch.from.y },
-    to: { ...branch.from },
-  }));
-  const markerStemFrom = { ...backboneEnd };
 
   return {
     groupKey,
     hostEntityId,
-    memberAttributeIds: branches.map((branch) => branch.attributeId),
-    orientation: "vertical",
-    backboneStart,
-    backboneEnd,
-    branches,
-    hostStems,
-    junctions: branches.map((branch) => branch.from),
-    markerStemFrom,
-    marker: {
-      x: markerStemFrom.x,
-      y: markerStemFrom.y + COMPOSITE_INTERNAL_MARKER_OFFSET,
-    },
+    memberAttributeIds: members.map((member) => member.attributeId),
+    laneIndex,
+    frame: frameLayout.frame,
+    pathData: frameLayout.pathData,
+    hitPathData: frameLayout.pathData,
+    pathPoints: frameLayout.pathPoints,
+    memberMarkers: frameLayout.memberMarkers,
+    junctions: frameLayout.memberMarkers.map((marker) => marker.projection),
+    terminalMarker: frameLayout.terminalMarker,
   };
 }
 
@@ -2136,39 +2069,48 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
 
-  compositeGroups.forEach((group, groupKey) => {
-    if (group.members.length < 2) {
-      return;
-    }
-
-    const hostBounds = getNodeBounds(group.host);
-    const hostCenter = getNodeCenter(group.host);
-    const membershipOrder = compositeGroupMemberIdsByGroupKey.get(groupKey) ?? [];
-    const orderIndexByAttributeId = new Map(
-      membershipOrder.map((attributeId, index) => [attributeId, index]),
-    );
-    const orderedMembers = [...group.members].sort((left, right) => {
-      const leftIndex = orderIndexByAttributeId.get(left.attributeId) ?? Number.MAX_SAFE_INTEGER;
-      const rightIndex = orderIndexByAttributeId.get(right.attributeId) ?? Number.MAX_SAFE_INTEGER;
-      if (leftIndex !== rightIndex) {
-        return leftIndex - rightIndex;
+  const compositeLaneIndexByHostId = new Map<string, number>();
+  [...compositeGroups.entries()]
+    .sort((left, right) => {
+      const hostComparison = left[1].host.id.localeCompare(right[1].host.id);
+      return hostComparison !== 0 ? hostComparison : left[0].localeCompare(right[0]);
+    })
+    .forEach(([groupKey, group]) => {
+      if (group.members.length < 2) {
+        return;
       }
 
-      return left.attributeId.localeCompare(right.attributeId);
+      const hostBounds = getNodeBounds(group.host);
+      const hostCenter = getNodeCenter(group.host);
+      const laneIndex = compositeLaneIndexByHostId.get(group.host.id) ?? 0;
+      compositeLaneIndexByHostId.set(group.host.id, laneIndex + 1);
+      const membershipOrder = compositeGroupMemberIdsByGroupKey.get(groupKey) ?? [];
+      const orderIndexByAttributeId = new Map(
+        membershipOrder.map((attributeId, index) => [attributeId, index]),
+      );
+      const orderedMembers = [...group.members].sort((left, right) => {
+        const leftIndex = orderIndexByAttributeId.get(left.attributeId) ?? Number.MAX_SAFE_INTEGER;
+        const rightIndex = orderIndexByAttributeId.get(right.attributeId) ?? Number.MAX_SAFE_INTEGER;
+        if (leftIndex !== rightIndex) {
+          return leftIndex - rightIndex;
+        }
+
+        return left.attributeId.localeCompare(right.attributeId);
+      });
+
+      const layout = buildCompositeIdentifierLayout(
+        groupKey,
+        group.host.id,
+        hostBounds,
+        hostCenter,
+        orderedMembers,
+        laneIndex,
+      );
+
+      if (layout) {
+        compositeIdentifierLayouts.push(layout);
+      }
     });
-
-    const layout = buildCompositeIdentifierLayout(
-      groupKey,
-      group.host.id,
-      hostBounds,
-      hostCenter,
-      orderedMembers,
-    );
-
-    if (layout) {
-      compositeIdentifierLayouts.push(layout);
-    }
-  });
 
   props.diagram.nodes.forEach((node) => {
     if (node.type !== "entity" || (node.externalIdentifiers ?? []).length === 0) {
@@ -3097,7 +3039,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       memberAttributeIds,
     );
     props.onStatusMessageChange(
-      "Trascina il backbone dell'identificatore composto: gli attributi membri si muovono come gruppo.",
+      "Trascina l'identificatore composto: gli attributi membri si muovono come gruppo.",
     );
   }
 
@@ -3762,13 +3704,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         ? "Routing connector"
         : interaction.kind === "external-id-drag"
           ? "External identifier"
-          : "Backbone composite identifier";
+          : "Composite identifier";
     guidanceMessage =
       interaction.kind === "edge-drag"
         ? "Trascina la label del connector per spostare il routing senza cambiare gli estremi."
         : interaction.kind === "external-id-drag"
           ? "Regola il routing dell'identificatore esterno mantenendo leggibile la relazione di supporto."
-          : "Trascina il backbone per muovere insieme gli attributi membri dell'identificatore composto.";
+          : "Trascina l'identificatore composto per muovere insieme gli attributi membri.";
     guidanceShortcuts = ["Rilascia per salvare", "Shift + frecce per spostamenti piu ampi"];
   } else if (placementGhostNode) {
     guidanceState = "selecting-target";
@@ -3852,7 +3794,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             ? { key: "external-id-marker", label: "Marker ext. ID", hint: "Hover o focus sul marker per selezionarlo." }
             : null,
           compositeIdentifierLayouts.length > 0
-            ? { key: "composite-backbone", label: "Backbone composite", hint: "Trascina il backbone per muovere il gruppo." }
+            ? { key: "composite-identifier", label: "Composite ID", hint: "Trascina il percorso per muovere il gruppo." }
             : null,
         ].filter((item): item is { key: string; label: string; hint: string } => item !== null)
       : [];
@@ -4186,41 +4128,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   : undefined
               }
             >
-              {layout.hostStems.map((stem) => (
-                <line
-                  key={`composite-id-host-stem-${layout.groupKey}-${stem.attributeId}`}
-                  className="composite-identifier-path"
-                  x1={stem.from.x}
-                  y1={stem.from.y}
-                  x2={stem.to.x}
-                  y2={stem.to.y}
-                  stroke={DIAGRAM_STROKE}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-              ))}
-              {layout.branches.map((branch) => (
-                <line
-                  key={`composite-id-branch-${layout.groupKey}-${branch.attributeId}`}
-                  className="composite-identifier-path"
-                  x1={branch.from.x}
-                  y1={branch.from.y}
-                  x2={branch.to.x}
-                  y2={branch.to.y}
-                  stroke={DIAGRAM_STROKE}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-              ))}
-              <line
-                className="composite-identifier-path composite-identifier-backbone"
-                x1={layout.backboneStart.x}
-                y1={layout.backboneStart.y}
-                x2={layout.backboneEnd.x}
-                y2={layout.backboneEnd.y}
+              <path
+                className="composite-identifier-path"
+                d={layout.pathData}
+                fill="none"
                 stroke={DIAGRAM_STROKE}
                 strokeWidth={2}
                 strokeLinecap="round"
+                strokeLinejoin="round"
+                pointerEvents="none"
               />
               {layout.junctions.map((junction, index) => (
                 <circle
@@ -4232,64 +4148,55 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   fill={DIAGRAM_STROKE}
                   stroke={DIAGRAM_STROKE}
                   strokeWidth={1.2}
+                  pointerEvents="none"
                 />
               ))}
-              <line
-                className="composite-identifier-path"
-                x1={layout.markerStemFrom.x}
-                y1={layout.markerStemFrom.y}
-                x2={layout.marker.x}
-                y2={layout.marker.y}
-                stroke={DIAGRAM_STROKE}
-                strokeWidth={2}
-                strokeLinecap="round"
-              />
-              <circle
-                className="composite-identifier-marker"
-                cx={layout.marker.x}
-                cy={layout.marker.y}
-                r={8.5}
-                fill={DIAGRAM_STROKE}
-                stroke={DIAGRAM_STROKE}
-                strokeWidth={2}
-              />
+              {layout.terminalMarker ? (
+                <circle
+                  className="composite-identifier-marker"
+                  cx={layout.terminalMarker.x}
+                  cy={layout.terminalMarker.y}
+                  r={COMPOSITE_INTERNAL_TERMINAL_MARKER_RADIUS}
+                  fill={DIAGRAM_STROKE}
+                  stroke={DIAGRAM_STROKE}
+                  strokeWidth={2}
+                  pointerEvents="none"
+                />
+              ) : null}
 
               {compositeIdentifierInteractive ? (
                 <>
-                  {layout.hostStems.map((stem) => (
-                    <line
-                      key={`composite-id-host-stem-hit-${layout.groupKey}-${stem.attributeId}`}
-                      className="composite-identifier-hit"
-                      x1={stem.from.x}
-                      y1={stem.from.y}
-                      x2={stem.to.x}
-                      y2={stem.to.y}
-                      stroke="transparent"
-                      strokeWidth={12}
-                    />
-                  ))}
-                  <line
+                  <path
                     className="composite-identifier-hit"
-                    x1={layout.backboneStart.x}
-                    y1={layout.backboneStart.y}
-                    x2={layout.backboneEnd.x}
-                    y2={layout.backboneEnd.y}
+                    d={layout.hitPathData}
+                    fill="none"
                     stroke="transparent"
-                    strokeWidth={14}
+                    strokeWidth={18}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    pointerEvents="stroke"
                   />
-                  {layout.branches.map((branch) => (
-                    <line
-                      key={`composite-id-branch-hit-${layout.groupKey}-${branch.attributeId}`}
+                  {layout.memberMarkers.map((marker) => (
+                    <circle
+                      key={`composite-id-marker-hit-${layout.groupKey}-${marker.attributeId}`}
                       className="composite-identifier-hit"
-                      x1={branch.from.x}
-                      y1={branch.from.y}
-                      x2={branch.to.x}
-                      y2={branch.to.y}
-                      stroke="transparent"
-                      strokeWidth={12}
+                      cx={marker.projection.x}
+                      cy={marker.projection.y}
+                      r={10}
+                      fill="transparent"
+                      pointerEvents="fill"
                     />
                   ))}
-                  <circle className="composite-identifier-hit" cx={layout.marker.x} cy={layout.marker.y} r={11} fill="transparent" />
+                  {layout.terminalMarker ? (
+                    <circle
+                      className="composite-identifier-hit"
+                      cx={layout.terminalMarker.x}
+                      cy={layout.terminalMarker.y}
+                      r={12}
+                      fill="transparent"
+                      pointerEvents="fill"
+                    />
+                  ) : null}
                 </>
               ) : null}
             </g>
