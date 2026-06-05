@@ -257,7 +257,6 @@ function shouldPersistCanvasMessage(message: string): boolean {
 }
 
 const VIEWPORT_PADDING = 140;
-const COMPOSITE_INTERNAL_BRANCH_MIN_SPACING = 22;
 const COMPOSITE_INTERNAL_TERMINAL_MARKER_RADIUS = 8.5;
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
@@ -451,39 +450,6 @@ function placeableCanvasTool(tool: ToolKind): tool is Extract<ToolKind, "entity"
 
 function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function spreadValuesWithMinimumSpacing(
-  points: Array<{ id: string; value: number }>,
-  minimumSpacing: number,
-): Map<string, number> {
-  const result = new Map<string, number>();
-  if (points.length === 0) {
-    return result;
-  }
-
-  const sorted = [...points].sort((left, right) => {
-    const delta = left.value - right.value;
-    return Math.abs(delta) <= 0.001 ? left.id.localeCompare(right.id) : delta;
-  });
-  const spread = sorted.map((entry) => entry.value);
-
-  for (let index = 1; index < spread.length; index += 1) {
-    const minAllowed = spread[index - 1] + minimumSpacing;
-    if (spread[index] < minAllowed) {
-      spread[index] = minAllowed;
-    }
-  }
-
-  const originalCenter = (sorted[0].value + sorted[sorted.length - 1].value) / 2;
-  const spreadCenter = (spread[0] + spread[spread.length - 1]) / 2;
-  const correction = originalCenter - spreadCenter;
-
-  sorted.forEach((entry, index) => {
-    result.set(entry.id, spread[index] + correction);
-  });
-
-  return result;
 }
 
 function getFrameSidePoint(frame: RouteFrame, side: FrameSide, reference: Point): Point {
@@ -929,47 +895,6 @@ export function projectCompositeInternalMarkerToFrame(
   });
 }
 
-function spreadCompositeInternalMarkersOnSide(
-  frame: RouteFrame,
-  markers: CompositeIdentifierMemberMarker[],
-): CompositeIdentifierMemberMarker[] {
-  const markersBySide = new Map<FrameSide, CompositeIdentifierMemberMarker[]>();
-  markers.forEach((marker) => {
-    const sideMarkers = markersBySide.get(marker.side) ?? [];
-    sideMarkers.push(marker);
-    markersBySide.set(marker.side, sideMarkers);
-  });
-
-  const result: CompositeIdentifierMemberMarker[] = [];
-  markersBySide.forEach((sideMarkers, side) => {
-    const values = sideMarkers.map((marker) => ({
-      id: marker.attributeId,
-      value: side === "left" || side === "right" ? marker.projection.y : marker.projection.x,
-    }));
-    const spreadValues = spreadValuesWithMinimumSpacing(values, COMPOSITE_INTERNAL_BRANCH_MIN_SPACING);
-
-    sideMarkers.forEach((marker) => {
-      const spreadValue = spreadValues.get(marker.attributeId);
-      if (spreadValue === undefined) {
-        result.push(marker);
-        return;
-      }
-
-      const projection =
-        side === "left" || side === "right"
-          ? { x: marker.projection.x, y: clampNumber(spreadValue, frame.top, frame.bottom) }
-          : { x: clampNumber(spreadValue, frame.left, frame.right), y: marker.projection.y };
-      result.push({
-        ...marker,
-        marker: projection,
-        projection,
-      });
-    });
-  });
-
-  return result.sort((left, right) => left.attributeId.localeCompare(right.attributeId));
-}
-
 export function buildCompositeInternalIdentifierRoutePoints(
   hostBounds: Bounds,
   hostCenter: Point,
@@ -981,22 +906,28 @@ export function buildCompositeInternalIdentifierRoutePoints(
   pathPoints: Point[];
 } {
   const frame = getCompositeInternalIdentifierFrame(hostBounds, laneIndex);
-  const rawMemberMarkers = members.map((member) => {
-    const outwardHint = {
-      x: member.attributeCenter.x - hostCenter.x,
-      y: member.attributeCenter.y - hostCenter.y,
-    };
-    const side = resolveFrameSide(hostBounds, member.hostAnchor, outwardHint);
-    const projection = getCompositeInternalIdentifierFramePoint(frame, side, member.hostAnchor);
+  const memberMarkers = members
+    .map((member) => {
+      const outwardHint = {
+        x: member.attributeCenter.x - hostCenter.x,
+        y: member.attributeCenter.y - hostCenter.y,
+      };
+      const side = resolveFrameSide(hostBounds, member.hostAnchor, outwardHint);
+      const projection = computeVisibleJunctionPoint(
+        frame,
+        side,
+        member.hostAnchor,
+        member.attributeCenter,
+      );
 
-    return {
-      attributeId: member.attributeId,
-      marker: projection,
-      projection,
-      side,
-    };
-  });
-  const memberMarkers = spreadCompositeInternalMarkersOnSide(frame, rawMemberMarkers);
+      return {
+        attributeId: member.attributeId,
+        marker: projection,
+        projection,
+        side,
+      };
+    })
+    .sort((left, right) => left.attributeId.localeCompare(right.attributeId));
   const projections = memberMarkers.map((marker) => projectCompositeInternalMarkerToFrame(frame, marker));
   const perimeterPoints = buildExternalIdentifierGroupingRoutePointsFromProjections(frame, projections);
 

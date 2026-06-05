@@ -23,6 +23,18 @@ function member(attributeId: string, attributeCenter: Point, hostAnchor: Point) 
 const hostBounds: Bounds = { x: 100, y: 100, width: 200, height: 80 };
 const hostCenter = point(200, 140);
 
+function isPointOnSegment(pointToCheck: Point, start: Point, end: Point): boolean {
+  const cross =
+    (pointToCheck.x - start.x) * (end.y - start.y) -
+    (pointToCheck.y - start.y) * (end.x - start.x);
+  const dot =
+    (pointToCheck.x - start.x) * (end.x - start.x) +
+    (pointToCheck.y - start.y) * (end.y - start.y);
+  const squaredLength = (end.x - start.x) ** 2 + (end.y - start.y) ** 2;
+
+  return Math.abs(cross) <= 0.01 && dot >= -0.01 && dot <= squaredLength + 0.01;
+}
+
 test("internal composite identifier: top + right attributes use an open routed frame", () => {
   const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
     member("ATTRIBUTO1", point(200, 40), point(200, 100)),
@@ -36,6 +48,25 @@ test("internal composite identifier: top + right attributes use an open routed f
   assert.ok(layout.pathPoints.length >= 3);
   assert.equal(layout.junctions.some((junction) => junction.y === layout.frame.top), true);
   assert.equal(layout.junctions.some((junction) => junction.x === layout.frame.right), true);
+});
+
+test("internal composite identifier: diagonal attribute marker sits on the edge-frame intersection", () => {
+  const hostAnchor = point(300, 180);
+  const attributeCenter = point(390, 260);
+  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
+    member("ATTRIBUTO_DIAGONAL", attributeCenter, hostAnchor),
+    member("ATTRIBUTO_TOP", point(200, 40), point(200, 100)),
+  ]);
+
+  assert.ok(layout);
+  const markerLayout = layout.memberMarkers.find((marker) => marker.attributeId === "ATTRIBUTO_DIAGONAL");
+
+  assert.ok(markerLayout);
+  assert.equal(isPointOnSegment(markerLayout.projection, hostAnchor, attributeCenter), true);
+  assert.equal(
+    markerLayout.projection.x === layout.frame.right || markerLayout.projection.y === layout.frame.bottom,
+    true,
+  );
 });
 
 test("internal composite identifier: left + top + right attributes skip unnecessary empty sides", () => {
