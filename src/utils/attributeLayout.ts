@@ -15,6 +15,7 @@ const HORIZONTAL_MARKER_GAP = 104;
 const VERTICAL_MARKER_GAP = 88;
 const MIN_HORIZONTAL_SPACING = 96;
 const MIN_VERTICAL_SPACING = 56;
+const BALANCED_SIDE_ORDER: AttributeLayoutSide[] = ["top", "right", "left", "bottom"];
 
 export function getAttributeMarkerCenter(attribute: AttributeNode): Point {
   return {
@@ -53,10 +54,8 @@ function getBalancedSideCounts(count: number): Record<AttributeLayoutSide, numbe
     bottom: 0,
     left: 0,
   };
-  const sideOrder: AttributeLayoutSide[] = ["top", "right", "left", "bottom"];
-
   for (let index = 0; index < count; index += 1) {
-    counts[sideOrder[index % sideOrder.length]] += 1;
+    counts[BALANCED_SIDE_ORDER[index % BALANCED_SIDE_ORDER.length]] += 1;
   }
 
   return counts;
@@ -130,9 +129,8 @@ function buildSideSlots(
 
 function buildBalancedSlots(host: AttributeLayoutHost, attributes: AttributeNode[]): AttributeLayoutSlot[] {
   const counts = getBalancedSideCounts(attributes.length);
-  const sideOrder: AttributeLayoutSide[] = ["top", "right", "bottom", "left"];
 
-  return sideOrder.flatMap((side) => {
+  return BALANCED_SIDE_ORDER.flatMap((side) => {
     const sideAttributes = attributes.slice(0, counts[side]);
     return buildSideSlots(host, side, counts[side], sideAttributes);
   });
@@ -148,22 +146,21 @@ export function distributeAttributesAroundHost<T extends AttributeNode>(
 
   const orderedAttributes = [...attributes].sort((left, right) => left.id.localeCompare(right.id));
   const slots = buildBalancedSlots(host, orderedAttributes);
-  const sideOrder: AttributeLayoutSide[] = ["top", "right", "bottom", "left"];
   const slotsBySide = new Map<AttributeLayoutSide, AttributeLayoutSlot[]>(
-    sideOrder.map((side) => [side, []]),
+    BALANCED_SIDE_ORDER.map((side) => [side, []]),
   );
   slots.forEach((slot) => slotsBySide.get(slot.side)?.push(slot));
 
   const attributesBySide = new Map<AttributeLayoutSide, T[]>(
-    sideOrder.map((side) => [side, []]),
+    BALANCED_SIDE_ORDER.map((side) => [side, []]),
   );
   orderedAttributes.forEach((attribute, index) => {
-    const side = sideOrder[index % sideOrder.length];
+    const side = BALANCED_SIDE_ORDER[index % BALANCED_SIDE_ORDER.length];
     attributesBySide.get(side)?.push(attribute as T);
   });
 
   const positionedById = new Map<string, AttributeNode>();
-  sideOrder.forEach((side) => {
+  BALANCED_SIDE_ORDER.forEach((side) => {
     const sideAttributes = attributesBySide.get(side) ?? [];
     const sideSlots = slotsBySide.get(side) ?? [];
     sideAttributes.forEach((attribute, index) => {

@@ -101,6 +101,28 @@ test("attribute layout: existing far attributes are pulled back near the host", 
   assert.notEqual(positionedFar.x, farAttribute.x);
 });
 
+test("attribute layout: three attributes do not leave the third at its old far position", () => {
+  const host = hostEntity();
+  const farThird = {
+    ...attribute("attribute3", 2),
+    x: host.x - 900,
+    y: host.y - 120,
+  };
+  const positioned = distributeAttributesAroundHost(host, [
+    attribute("attribute1", 0),
+    attribute("attribute2", 1),
+    farThird,
+  ]);
+  const positionedThird = positioned.find((candidate) => candidate.id === farThird.id);
+  const hostCenter = { x: host.x + host.width / 2, y: host.y + host.height / 2 };
+  const marker = positionedThird ? getAttributeMarkerCenter(positionedThird) : { x: 0, y: 0 };
+  const distance = Math.hypot(marker.x - hostCenter.x, marker.y - hostCenter.y);
+
+  assert.ok(positionedThird);
+  assert.notEqual(positionedThird.x, farThird.x);
+  assert.ok(distance < 360);
+});
+
 test("attribute layout: simulated next attribute uses a balanced slot", () => {
   const host = hostEntity();
   const existing = Array.from({ length: 3 }, (_, index) => attribute(`attribute${index + 1}`, index));
@@ -109,7 +131,7 @@ test("attribute layout: simulated next attribute uses a balanced slot", () => {
   const positionedNext = positioned.find((candidate) => candidate.id === next.id);
 
   assert.ok(positionedNext);
-  assert.equal(getDirectAttributeLayoutSide(host, positionedNext), "left");
+  assert.equal(getDirectAttributeLayoutSide(host, positionedNext), "bottom");
   assert.notEqual(positionedNext.x, next.x);
   assert.notEqual(positionedNext.y, next.y);
 });
