@@ -91,6 +91,7 @@ import {
   withMinimumNodeSizeForLabel,
 } from "./utils/diagram";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
+import { shouldSyncCodeDraftFromDiagram } from "./utils/codeEditor";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
 import { distributeAttributesAroundHost, placeNewAttributeAroundHost } from "./utils/attributeLayout";
@@ -1275,6 +1276,9 @@ export default function App() {
   const lastSerializedCodeRef = useRef(codeDraft);
   const codeDraftRef = useRef(codeDraft);
   const codeDirtyRef = useRef(codeDirty);
+  const codeEditorFocusedRef = useRef(false);
+  const suppressNextCodeSyncRef = useRef(false);
+  const latestDiagramRef = useRef(history.present);
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
   const hasUnsavedChangesRef = useRef(false);
@@ -1291,6 +1295,7 @@ export default function App() {
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
   const restoredSessionNoticeShownRef = useRef(false);
+  latestDiagramRef.current = history.present;
 
   const issues = validateDiagram(history.present);
   const canvasIssues = showDiagnostics ? issues : [];
@@ -2864,6 +2869,14 @@ export default function App() {
     }
   }
 
+  function handleCodeEditorFocus() {
+    codeEditorFocusedRef.current = true;
+  }
+
+  function handleCodeEditorBlur() {
+    codeEditorFocusedRef.current = false;
+  }
+
   useEffect(() => {
     if (!codeDirtyRef.current) {
       return;
@@ -2871,48 +2884,62 @@ export default function App() {
 
     const timeout = window.setTimeout(() => {
       try {
-        const parsed = parseErsDiagram(codeDraftRef.current, history.present);
-        const parsedSerialized = serializeDiagramToErs(parsed);
+        const currentDiagram = latestDiagramRef.current;
+        const parsed = parseErsDiagram(codeDraftRef.current, currentDiagram);
+        const normalizedParsed = revalidateExternalIdentifiers(
+          synchronizeExternalIdentifiers(
+            synchronizeInternalIdentifiers(
+              synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(parsed).diagram),
+            ),
+          ),
+        ).diagram;
+        const normalizedCurrent = revalidateExternalIdentifiers(
+          synchronizeExternalIdentifiers(
+            synchronizeInternalIdentifiers(
+              synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(currentDiagram).diagram),
+            ),
+          ),
+        ).diagram;
+        const parsedSerialized = serializeDiagramToErs(normalizedParsed);
 
-        if (parsedSerialized !== lastSerializedCodeRef.current) {
-          const normalizedParsed = revalidateExternalIdentifiers(
-            synchronizeExternalIdentifiers(
-              synchronizeInternalIdentifiers(
-                synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(parsed).diagram),
-              ),
-            ),
-          ).diagram;
-          const normalizedCurrent = revalidateExternalIdentifiers(
-            synchronizeExternalIdentifiers(
-              synchronizeInternalIdentifiers(
-                synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(history.present).diagram),
-              ),
-            ),
-          ).diagram;
+        if (serializeDiagram(normalizedParsed) !== serializeDiagram(normalizedCurrent)) {
+          suppressNextCodeSyncRef.current = true;
           history.commit(normalizedParsed, normalizedCurrent);
         }
 
         if (codeError) {
           setCodeError("");
         }
-        lastSerializedCodeRef.current = codeDraftRef.current;
-        codeDirtyRef.current = false;
-        setCodeDirty(false);
+        lastSerializedCodeRef.current = parsedSerialized;
+        const nextDirty = codeDraftRef.current !== parsedSerialized;
+        codeDirtyRef.current = nextDirty;
+        setCodeDirty(nextDirty);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Codice ERS non valido.";
         setCodeError(formatErsErrorMessage(message));
       }
-    }, 300);
+    }, 850);
 
     return () => window.clearTimeout(timeout);
-  }, [codeDraft, history, codeError]);
+  }, [codeDraft]);
 
   useEffect(() => {
     const nextSerializedCode = serializeDiagramToErs(history.present);
-    const draftWasSynced = codeDraftRef.current === lastSerializedCodeRef.current;
+    const syncSource = suppressNextCodeSyncRef.current ? "code-parse" : "external";
+    suppressNextCodeSyncRef.current = false;
     lastSerializedCodeRef.current = nextSerializedCode;
 
-    if (!codeDirtyRef.current || draftWasSynced) {
+    // While the code editor owns the text, never replace the draft with the
+    // canonical serializer output; that rewrite moves the caret and can erase
+    // in-progress input. External canvas/project changes sync only when the
+    // draft is clean and the editor is not active.
+    if (
+      shouldSyncCodeDraftFromDiagram({
+        focused: codeEditorFocusedRef.current,
+        dirty: codeDirtyRef.current,
+        source: syncSource,
+      })
+    ) {
       codeDraftRef.current = nextSerializedCode;
       codeDirtyRef.current = false;
       setCodeDraft(nextSerializedCode);
@@ -5820,6 +5847,8 @@ export default function App() {
                   editable={mode === "edit"}
                   parseError={codeError}
                   onCodeChange={updateCodeDraft}
+                  onFocus={handleCodeEditorFocus}
+                  onBlur={handleCodeEditorBlur}
                   onClose={handleToggleCodePanel}
                 />
               ) : null}

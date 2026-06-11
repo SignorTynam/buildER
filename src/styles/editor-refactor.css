@@ -674,38 +674,95 @@ body {
 }
 
 .designer-code-editor {
+  --code-font-size: 13px;
+  --code-line-height: 21px;
+  --code-gutter-width: 58px;
+  --code-editor-padding-x: 16px;
+  --code-editor-padding-y: 0px;
   position: relative;
+  display: grid;
+  grid-template-columns: var(--code-gutter-width) minmax(0, 1fr);
   height: calc(100% - 78px);
   margin: 0 0 0 0;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 0.86rem;
-  line-height: 1.55;
+  font-size: var(--code-font-size);
+  line-height: var(--code-line-height);
+  overflow: hidden;
+}
+
+.designer-code-line-numbers {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  padding: var(--code-editor-padding-y) 10px 24px 8px;
+  overflow: hidden;
+  border-right: 1px solid #d3d9d1;
+  background: rgba(238, 242, 237, 0.86);
+  color: #7b8580;
+  font: inherit;
+  line-height: inherit;
+  text-align: right;
+  user-select: none;
+  pointer-events: none;
+}
+
+.designer-code-line-numbers span {
+  display: block;
+  height: var(--code-line-height);
+  line-height: var(--code-line-height);
+  white-space: nowrap;
+}
+
+.designer-code-scroll-layer {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .designer-code-highlight,
 .designer-code-input {
   position: absolute;
   inset: 0;
+  box-sizing: border-box;
   margin: 0;
-  padding: 0 28px 24px 74px;
+  padding: var(--code-editor-padding-y) var(--code-editor-padding-x) 24px;
   border: 0;
-  overflow: auto;
+  font: inherit;
+  line-height: inherit;
   white-space: pre;
   tab-size: 2;
 }
 
 .designer-code-highlight {
+  overflow: hidden;
   pointer-events: none;
   color: #111111;
   background: transparent;
 }
 
 .designer-code-input {
+  overflow: auto;
   resize: none;
   background: transparent;
   color: transparent;
   caret-color: #111111;
   outline: none;
+}
+
+.designer-code-placeholder {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  padding: var(--code-editor-padding-y) var(--code-editor-padding-x) 24px;
+  color: #7b8580;
+  font: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  pointer-events: none;
+  user-select: none;
 }
 
 .designer-code-input::selection {
@@ -720,7 +777,7 @@ body {
 .ers-token-card { color: #8e0074; font-weight: 700; }
 
 .designer-code-error {
-  margin: 8px 20px 0 74px;
+  margin: 8px 20px 0 calc(var(--code-gutter-width, 58px) + 16px);
   color: #9b2d24;
   font-size: 0.74rem;
 }
