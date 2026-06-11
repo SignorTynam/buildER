@@ -92,6 +92,13 @@ import {
 } from "./utils/diagram";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { shouldSyncCodeDraftFromDiagram } from "./utils/codeEditor";
+import {
+  createDiagramClipboardPayload,
+  parseDiagramClipboardPayload,
+  pasteDiagramClipboardPayload,
+  serializeDiagramClipboardPayload,
+  type DiagramClipboardPayload,
+} from "./utils/clipboard";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
 import { distributeAttributesAroundHost, placeNewAttributeAroundHost } from "./utils/attributeLayout";
@@ -1279,6 +1286,9 @@ export default function App() {
   const codeEditorFocusedRef = useRef(false);
   const suppressNextCodeSyncRef = useRef(false);
   const latestDiagramRef = useRef(history.present);
+  const diagramClipboardRef = useRef<DiagramClipboardPayload | null>(null);
+  const pasteOffsetStepRef = useRef(0);
+  const [hasDiagramClipboard, setHasDiagramClipboard] = useState(false);
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
   const hasUnsavedChangesRef = useRef(false);
@@ -2954,7 +2964,9 @@ export default function App() {
       const isEditingField =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement;
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable === true ||
+        target?.closest('[role="dialog"], .studio-modal, .modal, dialog') !== null;
 
       if (isEditingField) {
         return;
@@ -2963,6 +2975,24 @@ export default function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         handleSaveProject();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+        if (diagramView !== "er") {
+          return;
+        }
+        event.preventDefault();
+        handleCopySelection();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+        if (diagramView !== "er") {
+          return;
+        }
+        event.preventDefault();
+        void handlePasteSelection();
         return;
       }
 
@@ -5403,14 +5433,105 @@ export default function App() {
     handleDeleteExternalIdentifier(selectedNode.id, externalIdentifier.id);
   }
 
+  async function writeDiagramPayloadToSystemClipboard(payload: DiagramClipboardPayload) {
+    if (!navigator.clipboard?.writeText) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(serializeDiagramClipboardPayload(payload));
+    } catch {
+      showWarningNotice("Selezione copiata nella sessione. Clipboard di sistema non disponibile.");
+    }
+  }
+
+  async function readDiagramPayloadFromSystemClipboard(): Promise<DiagramClipboardPayload | null> {
+    if (!navigator.clipboard?.readText) {
+      return null;
+    }
+
+    try {
+      const rawClipboard = await navigator.clipboard.readText();
+      return parseDiagramClipboardPayload(rawClipboard);
+    } catch {
+      return null;
+    }
+  }
+
+  function handleCopySelection() {
+    if (diagramView !== "er") {
+      setStatusWarning("Copy disponibile nella vista ER.");
+      return;
+    }
+
+    const payload = createDiagramClipboardPayload(history.present, selection);
+    if (!payload) {
+      setStatusWarning("Seleziona almeno un elemento ER da copiare.");
+      return;
+    }
+
+    diagramClipboardRef.current = payload;
+    pasteOffsetStepRef.current = 0;
+    setHasDiagramClipboard(true);
+    void writeDiagramPayloadToSystemClipboard(payload);
+    setStatus("Selezione copiata.");
+    payload.warnings?.forEach((warning) => showWarningNotice(warning));
+  }
+
+  async function handlePasteSelection() {
+    if (diagramView !== "er") {
+      setStatusWarning("Paste disponibile nella vista ER.");
+      return;
+    }
+    if (mode !== "edit") {
+      setStatusWarning("Paste disponibile solo in modalita modifica.");
+      return;
+    }
+
+    const payload = diagramClipboardRef.current ?? (await readDiagramPayloadFromSystemClipboard());
+    if (!payload) {
+      setStatusWarning("Clipboard non contiene elementi ER Studio incollabili.");
+      return;
+    }
+
+    if (!diagramClipboardRef.current) {
+      diagramClipboardRef.current = payload;
+      setHasDiagramClipboard(true);
+    }
+
+    const offset = GRID_SIZE * 2 * (pasteOffsetStepRef.current + 1);
+    const pasted = pasteDiagramClipboardPayload(history.present, payload, { offset });
+    if (!pasted) {
+      setStatusWarning("Clipboard non contiene elementi ER Studio incollabili.");
+      return;
+    }
+
+    pasteOffsetStepRef.current = (pasteOffsetStepRef.current + 1) % 8;
+    commitDiagram(pasted.diagram);
+    setSelection(pasted.selection);
+    setTool("select");
+    setStatus("Selezione incollata.");
+  }
+
   function handleDuplicateSelection() {
+    if (diagramView !== "er") {
+      setStatusWarning("Duplica disponibile nella vista ER.");
+      return;
+    }
+    if (mode !== "edit") {
+      setStatusWarning("Duplica disponibile solo in modalita modifica.");
+      return;
+    }
+
     const duplicated = duplicateSelection(history.present, selection);
     if (!duplicated) {
+      setStatusWarning("Seleziona almeno un elemento ER da duplicare.");
       return;
     }
 
     commitDiagram(duplicated.diagram);
     setSelection(duplicated.selection);
+    setTool("select");
     setStatus("Selezione duplicata.");
   }
 
@@ -5955,7 +6076,10 @@ export default function App() {
                   onRemoveFromHierarchy={handleRemoveSelectedEntityFromHierarchy}
                   onRemoveExternalIdentifier={handleRemoveSelectedExternalIdentifier}
                   onToolChange={setTool}
+                  onCopySelection={handleCopySelection}
+                  onPasteSelection={() => void handlePasteSelection()}
                   onDuplicateSelection={handleDuplicateSelection}
+                  canPasteSelection={hasDiagramClipboard}
                   onDeleteSelection={handleDeleteSelection}
                   onCreateAttributeForSelection={handleCreateAttributeFromSelection}
                   onEntityInternalIdentifiersChange={handleEntityInternalIdentifiersChange}
@@ -6715,7 +6839,7 @@ export default function App() {
               <details className="studio-modal__details help-section">
                 <summary>Comandi Tastiera</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Ctrl/Cmd+S salva il progetto `.ersp`, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+I apre o chiude il dock tecnico, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
+                  <li>Ctrl/Cmd+S salva il progetto `.ersp`, Ctrl/Cmd+C copia, Ctrl/Cmd+V incolla, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+I apre o chiude il dock tecnico, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
                   <li>Delete/Backspace elimina la selezione; Esc annulla la selezione corrente e chiude le finestre informazioni/novita.</li>
                   <li>Nel canvas usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare ed Esc per annullare un collegamento in corso.</li>
                 </ul>

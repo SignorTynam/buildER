@@ -28,6 +28,8 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
     items: [
       { keys: "Ctrl/Cmd I", action: "Apre/chiude dock tecnico; in schema alterna SQL/Review" },
       { keys: "Ctrl/Cmd .", action: "Focus mode" },
+      { keys: "Ctrl/Cmd C", action: "Copia selezione ER" },
+      { keys: "Ctrl/Cmd V", action: "Incolla selezione ER" },
       { keys: "Ctrl/Cmd D", action: "Duplica selezione ER" },
       { keys: "Delete / Backspace", action: "Elimina selezione ER" },
     ],

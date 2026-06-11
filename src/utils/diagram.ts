@@ -16,6 +16,7 @@ import type {
   ValidationIssue,
 } from "../types/diagram";
 import { GRID_SIZE, getNodeBounds, snapPoint, snapValue } from "./geometry";
+import { duplicateDiagramSelection } from "./clipboard";
 import {
   getAttributeCardinalityOwner,
   getConnectorParticipation,
@@ -1857,103 +1858,7 @@ export function duplicateSelection(
   diagram: DiagramDocument,
   selection: SelectionState,
 ): { diagram: DiagramDocument; selection: SelectionState } | null {
-  const selectedNodes = diagram.nodes.filter((node) => selection.nodeIds.includes(node.id));
-
-  if (selectedNodes.length === 0) {
-    return null;
-  }
-
-  const idMap = new Map<string, string>();
-  const usedNodeIds = new Set(diagram.nodes.map((node) => normalizeNodeNameKey(node.id)));
-  const duplicatedNodes = selectedNodes.map((node) => {
-    const baseId = normalizeNodeNameCandidate(node.id, node.type);
-    const duplicateId = createUniqueNodeName(baseId, usedNodeIds);
-    idMap.set(node.id, duplicateId);
-
-    return {
-      ...node,
-      id: duplicateId,
-      label: node.label,
-      x: snapValue(node.x + GRID_SIZE * 2),
-      y: snapValue(node.y + GRID_SIZE * 2),
-    };
-  });
-
-  const internalIdentifierIdMap = new Map<string, string>();
-  duplicatedNodes.forEach((node) => {
-    if (node.type !== "entity") {
-      return;
-    }
-
-    (node.internalIdentifiers ?? []).forEach((identifier) => {
-      internalIdentifierIdMap.set(identifier.id, createId("internalIdentifier"));
-    });
-  });
-  const duplicatedNodesWithIdentifiers = duplicatedNodes.map((node) => {
-    if (node.type !== "entity") {
-      return node;
-    }
-
-    const remappedIdentifiers = (node.internalIdentifiers ?? [])
-      .map((identifier) => {
-        const remappedAttributeIds = identifier.attributeIds
-          .map((attributeId) => idMap.get(attributeId))
-          .filter((candidate): candidate is string => typeof candidate === "string");
-
-        if (remappedAttributeIds.length === 0) {
-          return null;
-        }
-
-        return {
-          id: internalIdentifierIdMap.get(identifier.id) ?? createId("internalIdentifier"),
-          attributeIds: remappedAttributeIds,
-        };
-      })
-      .filter((identifier): identifier is InternalIdentifier => identifier !== null);
-    const remappedExternalIdentifiers = (node.externalIdentifiers ?? [])
-      .map((identifier) => ({
-        ...identifier,
-        id: createId("externalIdentifier"),
-        importedParts: identifier.importedParts.map((part) => ({
-          ...part,
-          id: createId("externalIdentifierPart"),
-          relationshipId: idMap.get(part.relationshipId) ?? part.relationshipId,
-          sourceEntityId: idMap.get(part.sourceEntityId) ?? part.sourceEntityId,
-          importedIdentifierId:
-            internalIdentifierIdMap.get(part.importedIdentifierId) ?? part.importedIdentifierId,
-        })),
-        localAttributeIds: identifier.localAttributeIds
-          .map((attributeId) => idMap.get(attributeId) ?? attributeId)
-          .filter((attributeId, index, source) => source.indexOf(attributeId) === index),
-      }));
-
-    return {
-      ...node,
-      internalIdentifiers: remappedIdentifiers.length > 0 ? remappedIdentifiers : undefined,
-      externalIdentifiers: remappedExternalIdentifiers.length > 0 ? remappedExternalIdentifiers : undefined,
-    };
-  });
-
-  const duplicatedEdges = diagram.edges
-    .filter((edge) => idMap.has(edge.sourceId) && idMap.has(edge.targetId))
-    .map((edge) => ({
-      ...edge,
-      id: createId(edge.type),
-      sourceId: idMap.get(edge.sourceId) as string,
-      targetId: idMap.get(edge.targetId) as string,
-    }));
-
-  return {
-    diagram: {
-      ...diagram,
-      nodes: [...diagram.nodes, ...duplicatedNodesWithIdentifiers],
-      edges: [...diagram.edges, ...duplicatedEdges],
-    },
-    selection: {
-      nodeIds: duplicatedNodesWithIdentifiers.map((node) => node.id),
-      edgeIds: duplicatedEdges.map((edge) => edge.id),
-    },
-  };
+  return duplicateDiagramSelection(diagram, selection);
 }
 
 export function alignNodes(

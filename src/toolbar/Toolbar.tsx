@@ -43,7 +43,10 @@ interface ToolbarProps {
   onRemoveFromHierarchy?: () => void;
   onRemoveExternalIdentifier?: () => void;
   onToolChange: (tool: ToolKind) => void;
+  onCopySelection: () => void;
+  onPasteSelection: () => void;
   onDuplicateSelection: () => void;
+  canPasteSelection?: boolean;
   onDeleteSelection: () => void;
   onCreateAttributeForSelection: () => void;
   onRenameSelection: () => void;
@@ -77,6 +80,9 @@ type IconName =
   | "attribute"
   | "parent"
   | "connect"
+  | "copy"
+  | "paste"
+  | "duplicate"
   | "rename"
   | "delete"
   | "card"
@@ -117,6 +123,25 @@ function ToolIcon({ name }: { name: IconName }) {
           <circle {...common} cx="7" cy="7" r="2.5" />
           <circle {...common} cx="17" cy="17" r="2.5" />
           <path {...common} d="M9 9l6 6" />
+        </>
+      ) : null}
+      {name === "copy" ? (
+        <>
+          <rect {...common} x="8" y="8" width="10" height="10" />
+          <path {...common} d="M6 16H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+        </>
+      ) : null}
+      {name === "paste" ? (
+        <>
+          <path {...common} d="M9 4h6l1 2h3v14H5V6h3l1-2z" />
+          <path {...common} d="M9 10h6M9 14h5" />
+        </>
+      ) : null}
+      {name === "duplicate" ? (
+        <>
+          <rect {...common} x="8" y="8" width="10" height="10" />
+          <path {...common} d="M5 15V5h10" />
+          <path {...common} d="M17 4v4M15 6h4" />
         </>
       ) : null}
       {name === "rename" ? (
@@ -305,6 +330,7 @@ function CommandButton({ command }: { command: ToolbarCommand }) {
 export function Toolbar(props: ToolbarProps) {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const canEdit = props.mode === "edit";
+  const hasSelection = props.selectionItemCount > 0;
   const selectedAttribute = props.selectedNode?.type === "attribute" ? props.selectedNode : undefined;
   const selectedAttributeCanHaveCardinality =
     selectedAttribute !== undefined && canAttributeHaveCardinality(props.diagram, selectedAttribute);
@@ -329,7 +355,33 @@ export function Toolbar(props: ToolbarProps) {
   const baseCommands: ToolbarCommand[] = [
     { key: "undo", label: "Undo", icon: <ToolIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
     { key: "redo", label: "Redo", icon: <ToolIcon name="redo" />, onClick: () => props.onRedo?.(), disabled: !props.canRedo },
+    {
+      key: "paste",
+      label: "Paste",
+      icon: <ToolIcon name="paste" />,
+      onClick: props.onPasteSelection,
+      disabled: !canEdit || !props.canPasteSelection,
+      title: props.canPasteSelection ? "Incolla selezione ER" : "Nessuna selezione ER copiata.",
+    },
   ];
+
+  const selectionClipboardCommands: ToolbarCommand[] = hasSelection
+    ? [
+        {
+          key: "copy",
+          label: "Copy",
+          icon: <ToolIcon name="copy" />,
+          onClick: props.onCopySelection,
+        },
+        {
+          key: "duplicate",
+          label: "Duplicate",
+          icon: <ToolIcon name="duplicate" />,
+          onClick: props.onDuplicateSelection,
+          disabled: !canEdit,
+        },
+      ]
+    : [];
 
   let contextCommands: ToolbarCommand[] = [];
 
@@ -480,7 +532,7 @@ export function Toolbar(props: ToolbarProps) {
 
   return (
     <nav className="designer-context-toolbar" aria-label="Context toolbar">
-      {[...baseCommands, ...contextCommands].map((command) => (
+      {[...baseCommands, ...selectionClipboardCommands, ...contextCommands].map((command) => (
         <CommandButton key={command.key} command={command} />
       ))}
       {exportMenuOpen ? (
