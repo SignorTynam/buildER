@@ -48,6 +48,10 @@ function getSimpleAttributeIndicatorCenter(node: Extract<DiagramNode, { type: "a
   };
 }
 
+export function getSimpleAttributeMarkerCenter(node: Extract<DiagramNode, { type: "attribute" }>): Point {
+  return getSimpleAttributeIndicatorCenter(node);
+}
+
 export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }

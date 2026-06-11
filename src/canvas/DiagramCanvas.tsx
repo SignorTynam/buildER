@@ -33,11 +33,11 @@ import {
   worldPointFromClient,
 } from "../utils/geometry";
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "../utils/cardinality";
+import { chooseCollisionFreeCardinalityLabelPlacement, getCardinalityLabelAnchorPoint } from "../utils/cardinalityLayout";
 import {
   buildAttributeLabelBounds,
   buildEdgeLabelBounds,
   buildNodeReservedBounds,
-  chooseCollisionFreeEdgeLabelPlacement,
   getPointAlongPolyline,
   type ReservedLabelBox,
 } from "../utils/edgeLabelLayout";
@@ -2246,21 +2246,44 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       const usesSplitConnectorLabels =
         edge.type === "connector" && ((connectorLaneMap.get(edge.id)?.laneCount ?? 1) > 1 || roleLabel.length > 0);
       const geometryLabelPoint = getEdgeGeometry(edge, sourceNode, targetNode, connectorLaneMap.get(edge.id), compositeAttributeIds).labelPoint;
-      const defaultDisplayLabelPoint = usesSplitConnectorLabels
+      const fallbackDisplayLabelPoint = usesSplitConnectorLabels
         ? getPointAlongPolyline(points, entityIsSource ? 0.38 : 0.62)
         : {
             x: geometryLabelPoint.x,
             y: geometryLabelPoint.y - 6,
           };
-      const placement = chooseCollisionFreeEdgeLabelPlacement({
+      const anchor = getCardinalityLabelAnchorPoint({
         edge,
         sourceNode,
         targetNode,
         points,
-        defaultPoint: defaultDisplayLabelPoint,
+        fallbackPoint: fallbackDisplayLabelPoint,
+      });
+      const roleLabelPoint =
+        roleLabel.length > 0 ? getPointAlongPolyline(points, entityIsSource ? 0.68 : 0.32) : null;
+      const roleLabelBoxes: ReservedLabelBox[] =
+        roleLabelPoint
+          ? [
+              {
+                id: `${edge.id}:role-label`,
+                kind: "edge-label",
+                ...buildEdgeLabelBounds(
+                  roleLabelPoint,
+                  roleLabelPoint.y,
+                  roleLabel.length * 7 + 10,
+                ),
+              },
+            ]
+          : [];
+      const placement = chooseCollisionFreeCardinalityLabelPlacement({
+        edge,
+        sourceNode,
+        targetNode,
+        points,
+        defaultPoint: anchor.point,
         label: displayLabel,
         reservedBoxes: reservedLabelBoxes,
-        alreadyPlacedBoxes: alreadyPlacedEdgeLabelBoxes,
+        alreadyPlacedBoxes: [...alreadyPlacedEdgeLabelBoxes, ...roleLabelBoxes],
       });
 
       edgeLabelLayoutOverrides.set(edge.id, {
