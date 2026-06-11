@@ -93,7 +93,7 @@ import {
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
-import { distributeAttributesAroundHost } from "./utils/attributeLayout";
+import { distributeAttributesAroundHost, placeNewAttributeAroundHost } from "./utils/attributeLayout";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
 import {
   applyErTranslationChoice,
@@ -1146,12 +1146,7 @@ function getNextAttributePosition(
     };
   }
 
-  const simulatedAttributes = distributeAttributesAroundHost(hostNode, [
-    ...hostedAttributes,
-    nextAttribute,
-  ]);
-  const positionedNextAttribute =
-    simulatedAttributes.find((attribute) => attribute.id === nextAttribute.id) ?? nextAttribute;
+  const positionedNextAttribute = placeNewAttributeAroundHost(hostNode, hostedAttributes, nextAttribute);
 
   return {
     x: positionedNextAttribute.x,
@@ -4783,11 +4778,7 @@ export default function App() {
               height: nextSize.height,
             } as Partial<DiagramNode>);
           })()
-        : layoutDirectAttributesAroundHost(
-            nextDiagramBase,
-            hostNode,
-            findDirectHostedAttributes(nextDiagramBase, hostNode.id).map((attribute) => attribute.id),
-          );
+        : nextDiagramBase;
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
