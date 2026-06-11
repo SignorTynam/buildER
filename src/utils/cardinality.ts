@@ -1,8 +1,10 @@
 import type {
   AttributeNode,
   ConnectorEdge,
+  DiagramDocument,
   DiagramEdge,
   DiagramNode,
+  EdgeKind,
   EntityNode,
   EntityRelationshipParticipation,
   RelationshipNode,
@@ -171,7 +173,7 @@ export function getEdgeCardinalityLabel(
   targetNode: DiagramNode | undefined,
 ): string {
   if (edge.type === "connector") {
-    return getEdgeCardinalityValue(edge, sourceNode, targetNode) ?? CONNECTOR_CARDINALITY_PLACEHOLDER;
+    return getEdgeCardinalityValue(edge, sourceNode, targetNode) ?? "";
   }
 
   if (edge.type === "attribute") {
@@ -179,4 +181,109 @@ export function getEdgeCardinalityLabel(
   }
 
   return "";
+}
+
+export function shouldOpenCardinalityDialogAfterEdgeCreation(
+  edgeType: EdgeKind,
+  sourceNode: DiagramNode | undefined,
+  targetNode: DiagramNode | undefined,
+): boolean {
+  return edgeType === "connector" && getConnectorParticipationContext(sourceNode, targetNode) !== undefined;
+}
+
+export function ensureConnectorParticipation(
+  diagram: DiagramDocument,
+  edgeId: string,
+  cardinality?: ConnectorCardinality,
+): { diagram: DiagramDocument; participationId: string } | null {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const connectorEdge = diagram.edges.find(
+    (edge): edge is ConnectorEdge => edge.id === edgeId && edge.type === "connector",
+  );
+  if (!connectorEdge) {
+    return null;
+  }
+
+  const context = getConnectorParticipationContext(
+    nodeMap.get(connectorEdge.sourceId),
+    nodeMap.get(connectorEdge.targetId),
+  );
+  if (!context) {
+    return null;
+  }
+
+  const participationId = connectorEdge.participationId ?? `participation-${connectorEdge.id}`;
+  const nextEdges = diagram.edges.map((edge) =>
+    edge.id === connectorEdge.id && edge.type === "connector"
+      ? { ...edge, participationId }
+      : edge,
+  );
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.id !== context.entity.id || node.type !== "entity") {
+      return node;
+    }
+
+    const participations = node.relationshipParticipations ?? [];
+    const existing = participations.find((participation) => participation.id === participationId);
+    const nextParticipation: EntityRelationshipParticipation = {
+      ...(existing ?? { id: participationId }),
+      relationshipId: context.relationship.id,
+      ...(cardinality !== undefined ? { cardinality } : {}),
+    };
+
+    return {
+      ...node,
+      relationshipParticipations: existing
+        ? participations.map((participation) =>
+            participation.id === participationId ? nextParticipation : participation,
+          )
+        : [...participations, nextParticipation],
+    };
+  });
+
+  return {
+    diagram: {
+      ...diagram,
+      nodes: nextNodes,
+      edges: nextEdges,
+    },
+    participationId,
+  };
+}
+
+export function applyConnectorCardinalityToDiagram(
+  diagram: DiagramDocument,
+  edgeId: string,
+  cardinality: ConnectorCardinality,
+): { diagram: DiagramDocument; participationId: string } | null {
+  return ensureConnectorParticipation(diagram, edgeId, cardinality);
+}
+
+export function removeTemporaryCardinalityConnector(diagram: DiagramDocument, edgeId: string): DiagramDocument {
+  const edgeToRemove = diagram.edges.find(
+    (edge): edge is ConnectorEdge => edge.id === edgeId && edge.type === "connector",
+  );
+  if (!edgeToRemove) {
+    return diagram;
+  }
+
+  const participationId = edgeToRemove.participationId ?? `participation-${edgeToRemove.id}`;
+  return {
+    ...diagram,
+    edges: diagram.edges.filter((edge) => edge.id !== edgeId),
+    nodes: diagram.nodes.map((node) => {
+      if (node.type !== "entity" || !node.relationshipParticipations?.some((participation) => participation.id === participationId)) {
+        return node;
+      }
+
+      const relationshipParticipations = node.relationshipParticipations.filter(
+        (participation) => participation.id !== participationId,
+      );
+      return {
+        ...node,
+        relationshipParticipations:
+          relationshipParticipations.length > 0 ? relationshipParticipations : undefined,
+      };
+    }),
+  };
 }

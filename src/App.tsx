@@ -6,6 +6,11 @@ import { ChangelogModal } from "./components/ChangelogModal";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
+import {
+  CardinalityModal,
+  type CardinalityDialogState,
+  type CardinalityDialogTarget,
+} from "./components/CardinalityModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
@@ -142,11 +147,15 @@ import {
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
+  applyConnectorCardinalityToDiagram,
+  ensureConnectorParticipation,
   getAttributeCardinalityOwner,
   getConnectorParticipation,
   getConnectorParticipationContext,
   normalizeCardinalityInput,
   normalizeSupportedCardinality,
+  removeTemporaryCardinalityConnector,
+  shouldOpenCardinalityDialogAfterEdgeCreation,
 } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, getToolLabel } from "./utils/toolConfig";
 import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION, type AppChangelogEntry } from "./utils/appMeta";
@@ -234,18 +243,6 @@ interface PromptDialogState {
   cancelLabel: string;
   required: boolean;
   requiredMessage: string;
-}
-
-type CardinalityDialogTarget =
-  | { kind: "attribute"; attributeId: string }
-  | { kind: "connector"; edgeId: string };
-
-interface CardinalityDialogState {
-  target: CardinalityDialogTarget;
-  initialValue: string;
-  presetValue: string;
-  customValue: string;
-  error: string;
 }
 
 interface MixedIdentifierDialogState {
@@ -3073,7 +3070,7 @@ export default function App() {
 
         if (cardinalityDialog) {
           event.preventDefault();
-          setCardinalityDialog(null);
+          cancelCardinalityDialog();
           return;
         }
 
@@ -3744,10 +3741,20 @@ export default function App() {
     }
 
     const nextEdge = createEdge(type, resolvedSourceId, resolvedTargetId, history.present);
-    const nextDiagramBase = {
+    let edgeToSelect = nextEdge;
+    let nextDiagramBase: DiagramDocument = {
       ...history.present,
       edges: [...history.present.edges, nextEdge],
     };
+    const shouldRequestConnectorCardinality = shouldOpenCardinalityDialogAfterEdgeCreation(type, sourceNode, targetNode);
+    if (shouldRequestConnectorCardinality) {
+      const prepared = ensureConnectorParticipation(nextDiagramBase, nextEdge.id);
+      if (prepared) {
+        nextDiagramBase = prepared.diagram;
+        edgeToSelect =
+          prepared.diagram.edges.find((edge) => edge.id === nextEdge.id) ?? nextEdge;
+      }
+    }
     const nextDiagramWithEdge =
       type === "attribute" && sourceNode.type === "attribute" && targetNode.type === "attribute"
         ? (() => {
@@ -3775,10 +3782,23 @@ export default function App() {
         : nextDiagramWithEdge;
 
     commitDiagram(nextDiagram);
-    setSelection({ nodeIds: [], edgeIds: [nextEdge.id] });
+    setSelection({ nodeIds: [], edgeIds: [edgeToSelect.id] });
     setTool("select");
+    if (shouldRequestConnectorCardinality) {
+      setCardinalityDialog({
+        mode: "create-connector",
+        target: { kind: "connector", edgeId: edgeToSelect.id },
+        initialValue: "(1,1)",
+        presetValue: "(1,1)",
+        customValue: "(1,1)",
+        error: "",
+        createdEdgeWasTemporary: true,
+        previousDiagramBeforeTemporary: history.present,
+      });
+      return { success: true, message: "Scegli la cardinalita per completare il collegamento." };
+    }
     if (type === "inheritance") {
-      openGeneralizationGroupDialog(nextEdge.id, nextDiagram, { createdEdgeWasTemporary: true });
+      openGeneralizationGroupDialog(edgeToSelect.id, nextDiagram, { createdEdgeWasTemporary: true });
       return { success: true, message: "Configura il gruppo ISA per completare la gerarchia." };
     }
     return { success: true, message: "Collegamento creato." };
@@ -3862,6 +3882,7 @@ export default function App() {
 
     const currentValue = getCurrentCardinalityForTarget(target) ?? "(1,1)";
     setCardinalityDialog({
+      mode: "edit",
       target,
       initialValue: currentValue,
       presetValue: (CONNECTOR_CARDINALITY_PRESETS as readonly string[]).includes(currentValue)
@@ -3872,13 +3893,17 @@ export default function App() {
     });
   }
 
-  function applyCardinalityToTarget(target: CardinalityDialogTarget, value: string): boolean {
+  function applyCardinalityToTarget(
+    target: CardinalityDialogTarget,
+    value: string,
+    options?: { previousDiagram?: DiagramDocument },
+  ): string | null {
     const parsed = normalizeCardinalityInput(value);
     if (!parsed.valid || !parsed.value) {
       setCardinalityDialog((current) =>
         current ? { ...current, error: parsed.reason ?? "Cardinalita non valida." } : current,
       );
-      return false;
+      return null;
     }
 
     if (target.kind === "attribute") {
@@ -3894,71 +3919,33 @@ export default function App() {
               }
             : current,
         );
-        return false;
+        return null;
       }
 
       handleNodeChange(target.attributeId, { cardinality: parsed.value } as Partial<DiagramNode>);
-      setStatus(`Cardinalita aggiornata a ${parsed.value}.`);
-      return true;
+      return parsed.value;
     }
 
-    const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
     const connectorEdge = history.present.edges.find(
       (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
         edge.id === target.edgeId && edge.type === "connector",
     );
     if (!connectorEdge) {
       setCardinalityDialog((current) => current ? { ...current, error: "Connector non disponibile." } : current);
-      return false;
+      return null;
     }
 
-    const sourceNode = nodeMap.get(connectorEdge.sourceId);
-    const targetNode = nodeMap.get(connectorEdge.targetId);
-    const context = getConnectorParticipationContext(sourceNode, targetNode);
-    if (!context) {
+    const result = applyConnectorCardinalityToDiagram(history.present, connectorEdge.id, parsed.value);
+    if (!result) {
       setCardinalityDialog((current) =>
         current ? { ...current, error: "Seleziona un connector entita-relazione." } : current,
       );
-      return false;
+      return null;
     }
 
-    const participationId = connectorEdge.participationId ?? `participation-${connectorEdge.id}`;
-    const nextDiagram: DiagramDocument = {
-      ...history.present,
-      edges: history.present.edges.map((edge) =>
-        edge.id === connectorEdge.id && edge.type === "connector"
-          ? { ...edge, participationId }
-          : edge,
-      ),
-      nodes: history.present.nodes.map((node) => {
-        if (node.id !== context.entity.id || node.type !== "entity") {
-          return node;
-        }
-        const participations = node.relationshipParticipations ?? [];
-        const existing = participations.find((participation) => participation.id === participationId);
-        return {
-          ...node,
-          relationshipParticipations: existing
-            ? participations.map((participation) =>
-                participation.id === participationId
-                  ? { ...participation, cardinality: parsed.value }
-                  : participation,
-              )
-            : [
-                ...participations,
-                {
-                  id: participationId,
-                  relationshipId: context.relationship.id,
-                  cardinality: parsed.value,
-                },
-              ],
-        };
-      }),
-    };
-    commitDiagram(nextDiagram);
+    commitDiagram(result.diagram, options?.previousDiagram);
     setSelection({ nodeIds: [], edgeIds: [connectorEdge.id] });
-    setStatus(`Cardinalita aggiornata a ${parsed.value}.`);
-    return true;
+    return parsed.value;
   }
 
   async function handleOpenConnectorRoleControl() {
@@ -4046,9 +4033,78 @@ export default function App() {
       cardinalityDialog.presetValue === "custom"
         ? cardinalityDialog.customValue
         : cardinalityDialog.presetValue;
-    if (applyCardinalityToTarget(cardinalityDialog.target, value)) {
+    const appliedValue = applyCardinalityToTarget(cardinalityDialog.target, value, {
+      previousDiagram: cardinalityDialog.createdEdgeWasTemporary
+        ? cardinalityDialog.previousDiagramBeforeTemporary
+        : undefined,
+    });
+    if (appliedValue) {
       setCardinalityDialog(null);
+      setStatus(
+        cardinalityDialog.createdEdgeWasTemporary
+          ? `Collegamento creato con cardinalita ${appliedValue}.`
+          : `Cardinalita aggiornata a ${appliedValue}.`,
+      );
     }
+  }
+
+  function cancelCardinalityDialog() {
+    if (!cardinalityDialog) {
+      return;
+    }
+
+    if (cardinalityDialog.createdEdgeWasTemporary && cardinalityDialog.target.kind === "connector") {
+      const nextDiagram = removeTemporaryCardinalityConnector(
+        history.present,
+        cardinalityDialog.target.edgeId,
+      );
+      commitDiagram(nextDiagram, cardinalityDialog.previousDiagramBeforeTemporary);
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setStatus("Creazione collegamento annullata.");
+    }
+
+    setCardinalityDialog(null);
+  }
+
+  function getCardinalityDialogLabels(dialog: CardinalityDialogState): {
+    sourceLabel?: string;
+    targetLabel?: string;
+    contextLabel?: string;
+  } {
+    if (dialog.target.kind === "attribute") {
+      const attributeId = dialog.target.attributeId;
+      const attribute = history.present.nodes.find(
+        (node): node is AttributeNode => node.id === attributeId && node.type === "attribute",
+      );
+      return {
+        sourceLabel: attribute?.label,
+      };
+    }
+
+    const edgeId = dialog.target.edgeId;
+    const nodeMap = new Map(history.present.nodes.map((node) => [node.id, node]));
+    const edge = history.present.edges.find(
+      (candidate): candidate is Extract<DiagramEdge, { type: "connector" }> =>
+        candidate.id === edgeId && candidate.type === "connector",
+    );
+    if (!edge) {
+      return {};
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    const context = getConnectorParticipationContext(sourceNode, targetNode);
+    if (!context) {
+      return {
+        sourceLabel: sourceNode?.label,
+        targetLabel: targetNode?.label,
+      };
+    }
+
+    return {
+      sourceLabel: context.entity.label,
+      targetLabel: context.relationship.label,
+    };
   }
 
   function getDirectEntityAttributeContext(attributeId: string): { entity: EntityNode; attribute: AttributeNode } | null {
@@ -6422,70 +6478,20 @@ export default function App() {
       ) : null}
 
       {cardinalityDialog ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => setCardinalityDialog(null)}>
-          <div
-            className="help-modal action-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cardinality-dialog-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="help-modal-head">
-              <h2 id="cardinality-dialog-title">Cardinality</h2>
-            </div>
-            <form
-              className="action-modal-content"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submitCardinalityDialog();
-              }}
-            >
-              <div className="choice-grid">
-                {CONNECTOR_CARDINALITY_PRESETS.map((preset) => (
-                  <label key={preset} className="choice-tile">
-                    <input
-                      type="radio"
-                      name="cardinality"
-                      checked={cardinalityDialog.presetValue === preset}
-                      onChange={() => setCardinalityDialog({ ...cardinalityDialog, presetValue: preset, error: "" })}
-                    />
-                    <span>{preset.slice(1, -1)}</span>
-                  </label>
-                ))}
-                <label className="choice-tile">
-                  <input
-                    type="radio"
-                    name="cardinality"
-                    checked={cardinalityDialog.presetValue === "custom"}
-                    onChange={() => setCardinalityDialog({ ...cardinalityDialog, presetValue: "custom", error: "" })}
-                  />
-                  <span>Custom</span>
-                </label>
-              </div>
-              {cardinalityDialog.presetValue === "custom" ? (
-                <label className="field action-modal-field">
-                  <span>Formato X,Y</span>
-                  <input
-                    value={cardinalityDialog.customValue}
-                    placeholder="0,N"
-                    onChange={(event) =>
-                      setCardinalityDialog({ ...cardinalityDialog, customValue: event.target.value, error: "" })
-                    }
-                  />
-                </label>
-              ) : null}
-              {cardinalityDialog.error ? <p className="action-modal-error">{cardinalityDialog.error}</p> : null}
-              <div className="action-modal-actions">
-                <button type="button" className="header-button" onClick={() => setCardinalityDialog(null)}>
-                  Annulla
-                </button>
-                <button type="submit" className="mode-button active">
-                  Salva
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CardinalityModal
+          state={cardinalityDialog}
+          {...getCardinalityDialogLabels(cardinalityDialog)}
+          onPresetChange={(presetValue) =>
+            setCardinalityDialog((current) => current ? { ...current, presetValue, error: "" } : current)
+          }
+          onCustomValueChange={(customValue) =>
+            setCardinalityDialog((current) =>
+              current ? { ...current, presetValue: "custom", customValue, error: "" } : current,
+            )
+          }
+          onSubmit={submitCardinalityDialog}
+          onCancel={cancelCardinalityDialog}
+        />
       ) : null}
 
       {mixedIdentifierDialog ? (
