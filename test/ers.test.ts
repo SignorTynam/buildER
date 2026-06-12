@@ -55,6 +55,234 @@ function findDirectAttribute(
   );
 }
 
+function createCodeLayoutFixture(): DiagramDocument {
+  return {
+    meta: { name: "Code layout fixture", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "ENTITA1",
+        type: "entity",
+        label: "ENTITA1",
+        x: 135,
+        y: 245,
+        width: 168,
+        height: 72,
+        relationshipParticipations: [
+          { id: "participation-entita1-relazione1", relationshipId: "RELAZIONE1", cardinality: "(0,N)" },
+        ],
+      },
+      {
+        id: "ENTITA2",
+        type: "entity",
+        label: "ENTITA2",
+        x: 610,
+        y: 385,
+        width: 154,
+        height: 68,
+        relationshipParticipations: [
+          { id: "participation-entita2-relazione1", relationshipId: "RELAZIONE1", cardinality: "(1,N)" },
+        ],
+      },
+      { id: "RELAZIONE1", type: "relationship", label: "RELAZIONE1", x: 390, y: 155, width: 146, height: 86 },
+      {
+        id: "ENTITA1.NOME",
+        type: "attribute",
+        label: "NOME",
+        x: 54,
+        y: 124,
+        width: 118,
+        height: 38,
+        isIdentifier: false,
+        isCompositeInternal: false,
+        isMultivalued: false,
+      },
+      {
+        id: "ENTITA1.COGNOME",
+        type: "attribute",
+        label: "COGNOME",
+        x: 320,
+        y: 345,
+        width: 142,
+        height: 40,
+        isIdentifier: false,
+        isCompositeInternal: false,
+        isMultivalued: false,
+      },
+    ],
+    edges: [
+      {
+        id: "connector-ENTITA1-RELAZIONE1-1",
+        type: "connector",
+        sourceId: "ENTITA1",
+        targetId: "RELAZIONE1",
+        label: "",
+        lineStyle: "solid",
+        participationId: "participation-entita1-relazione1",
+      },
+      {
+        id: "connector-ENTITA2-RELAZIONE1-1",
+        type: "connector",
+        sourceId: "ENTITA2",
+        targetId: "RELAZIONE1",
+        label: "",
+        lineStyle: "dashed",
+        participationId: "participation-entita2-relazione1",
+      },
+      {
+        id: "attribute-ENTITA1-NOME-1",
+        type: "attribute",
+        sourceId: "ENTITA1",
+        targetId: "ENTITA1.NOME",
+        label: "",
+        lineStyle: "solid",
+      },
+      {
+        id: "attribute-ENTITA1-COGNOME-1",
+        type: "attribute",
+        sourceId: "ENTITA1",
+        targetId: "ENTITA1.COGNOME",
+        label: "",
+        lineStyle: "dashed",
+        manualOffset: 26,
+      },
+    ],
+  };
+}
+
+function geometrySignature(node: DiagramNode): Pick<DiagramNode, "x" | "y" | "width" | "height"> {
+  return {
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+  };
+}
+
+function assertNodeGeometryPreserved(
+  before: DiagramDocument,
+  after: DiagramDocument,
+  nodeIds: string[],
+) {
+  nodeIds.forEach((nodeId) => {
+    const beforeNode = before.nodes.find((node) => node.id === nodeId);
+    const afterNode = after.nodes.find((node) => node.id === nodeId);
+    assert.ok(beforeNode, `missing before node ${nodeId}`);
+    assert.ok(afterNode, `missing after node ${nodeId}`);
+    assert.deepEqual(geometrySignature(afterNode), geometrySignature(beforeNode), nodeId);
+  });
+}
+
+function replaceInErs(source: string, search: string, replacement: string): string {
+  assert.ok(source.includes(search), `ERS source should contain ${search}`);
+  return source.replace(search, replacement);
+}
+
+test("ERS code merge: parsing idempotente non muove nodi esistenti", () => {
+  const existing = createCodeLayoutFixture();
+  const parsed = parseErsDiagram(serializeDiagramToErs(existing), existing);
+
+  assertNodeGeometryPreserved(existing, parsed, existing.nodes.map((node) => node.id));
+  const attributeEdge = parsed.edges.find((edge) => edge.type === "attribute" && (
+    edge.sourceId === "ENTITA1.COGNOME" || edge.targetId === "ENTITA1.COGNOME"
+  ));
+  assert.equal(attributeEdge?.lineStyle, "dashed");
+  assert.equal(attributeEdge?.manualOffset, 26);
+});
+
+test("ERS code merge: cambiare cardinalita non muove nodi", () => {
+  const existing = createCodeLayoutFixture();
+  const source = replaceInErs(serializeDiagramToErs(existing), "ENTITA1: zero..many", "ENTITA1: one..many");
+  const parsed = parseErsDiagram(source, existing);
+
+  assertNodeGeometryPreserved(existing, parsed, existing.nodes.map((node) => node.id));
+  const entity1 = parsed.nodes.find((node): node is Extract<DiagramNode, { type: "entity" }> => (
+    node.id === "ENTITA1" && node.type === "entity"
+  ));
+  assert.equal(
+    entity1?.relationshipParticipations?.find((participation) => participation.relationshipId === "RELAZIONE1")
+      ?.cardinality,
+    "(1,N)",
+  );
+});
+
+test("ERS code merge: aggiungere attributo non muove elementi esistenti", () => {
+  const existing = createCodeLayoutFixture();
+  const source = replaceInErs(
+    serializeDiagramToErs(existing),
+    "    COGNOME",
+    "    COGNOME,\n    ETA",
+  );
+  const parsed = parseErsDiagram(source, existing);
+
+  assertNodeGeometryPreserved(existing, parsed, existing.nodes.map((node) => node.id));
+  const newAttribute = findDirectAttribute(parsed, "ENTITA1", "ETA");
+  assert.ok(newAttribute);
+  assert.equal(Number.isFinite(newAttribute.x), true);
+  assert.equal(Number.isFinite(newAttribute.y), true);
+});
+
+test("ERS code merge: aggiungere relazione non muove entita esistenti", () => {
+  const existing = createCodeLayoutFixture();
+  const source = `${serializeDiagramToErs(existing)}
+
+relationship RELAZIONE2 (
+    ENTITA1: zero..many,
+    ENTITA2: one..one
+)`;
+  const parsed = parseErsDiagram(source, existing);
+
+  assertNodeGeometryPreserved(existing, parsed, ["ENTITA1", "ENTITA2", "RELAZIONE1", "ENTITA1.NOME", "ENTITA1.COGNOME"]);
+  const newRelationship = parsed.nodes.find((node) => node.type === "relationship" && node.label === "RELAZIONE2");
+  assert.ok(newRelationship);
+  assert.equal(Number.isFinite(newRelationship.x), true);
+  assert.equal(Number.isFinite(newRelationship.y), true);
+});
+
+test("ERS code merge: eliminare attributo non riposiziona gli altri", () => {
+  const existing = createCodeLayoutFixture();
+  const source = replaceInErs(serializeDiagramToErs(existing), "    NOME\n", "");
+  const parsed = parseErsDiagram(source, existing);
+
+  assertNodeGeometryPreserved(existing, parsed, ["ENTITA1", "ENTITA2", "RELAZIONE1", "ENTITA1.COGNOME"]);
+  assert.equal(parsed.nodes.some((node) => node.id === "ENTITA1.NOME"), false);
+});
+
+test("ERS code merge: memoria layout preserva un nodo che ricompare dopo stato intermedio", () => {
+  const existing = createCodeLayoutFixture();
+  const fullSource = serializeDiagramToErs(existing);
+  const withoutAttributeSource = replaceInErs(fullSource, "    NOME\n", "");
+  const intermediate = parseErsDiagram(withoutAttributeSource, existing);
+  const reparsed = parseErsDiagram(fullSource, intermediate, existing);
+
+  const restoredAttribute = reparsed.nodes.find((node) => node.id === "ENTITA1.NOME");
+  const originalAttribute = existing.nodes.find((node) => node.id === "ENTITA1.NOME");
+  assert.ok(restoredAttribute);
+  assert.ok(originalAttribute);
+  assert.deepEqual(geometrySignature(restoredAttribute), geometrySignature(originalAttribute));
+  assertNodeGeometryPreserved(existing, reparsed, ["ENTITA1", "ENTITA2", "RELAZIONE1", "ENTITA1.COGNOME"]);
+});
+
+test("ERS code merge: rename sicuro di una sola entita conserva la geometria", () => {
+  const existing = createCodeLayoutFixture();
+  const source = serializeDiagramToErs(existing)
+    .replace(/^entity ENTITA2$/m, "entity CLIENTE")
+    .replace("    ENTITA2: one..many", "    CLIENTE: one..many");
+  const parsed = parseErsDiagram(source, existing);
+
+  assertNodeGeometryPreserved(existing, parsed, ["ENTITA1", "RELAZIONE1", "ENTITA1.NOME", "ENTITA1.COGNOME"]);
+  const renamed = parsed.nodes.find((node) => node.type === "entity" && node.label === "CLIENTE");
+  const previous = existing.nodes.find((node) => node.id === "ENTITA2");
+  assert.ok(renamed);
+  assert.ok(previous);
+  assert.deepEqual(geometrySignature(renamed), geometrySignature(previous));
+  const renamedConnector = parsed.edges.find((edge) => edge.type === "connector" && (
+    edge.sourceId === renamed.id || edge.targetId === renamed.id
+  ));
+  assert.equal(renamedConnector?.lineStyle, "dashed");
+  assert.equal(renamedConnector?.manualOffset, undefined);
+});
+
 test("un attributo figlio di un attributo composto non puo diventare composto", () => {
   const diagram: DiagramDocument = {
     meta: { name: "Attributo composto annidato", version: 3 },

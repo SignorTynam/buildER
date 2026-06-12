@@ -2832,6 +2832,17 @@ function buildEdgeMatchKey(edge: DiagramEdge, aliasByNodeId: Map<string, string>
   return `${edge.type}:${left}<->${right}`;
 }
 
+function buildEdgeNodeIdMatchKey(edge: Pick<DiagramEdge, "type" | "sourceId" | "targetId">): string {
+  if (edge.type === "inheritance") {
+    return `${edge.type}:${edge.sourceId}->${edge.targetId}`;
+  }
+
+  const [left, right] = [edge.sourceId, edge.targetId].sort((a, b) =>
+    a.localeCompare(b, "it", { sensitivity: "base" }),
+  );
+  return `${edge.type}:${left}<->${right}`;
+}
+
 function queueExistingEdgesByKey(diagram: DiagramDocument): Map<string, DiagramEdge[]> {
   const aliasByNodeId = assignNodeAliases(diagram);
   const queued = new Map<string, DiagramEdge[]>();
@@ -2846,6 +2857,202 @@ function queueExistingEdgesByKey(diagram: DiagramDocument): Map<string, DiagramE
     });
 
   return queued;
+}
+
+function queueExistingEdgesByNodeIdKey(diagram: DiagramDocument): Map<string, DiagramEdge[]> {
+  const aliasByNodeId = assignNodeAliases(diagram);
+  const queued = new Map<string, DiagramEdge[]>();
+
+  [...diagram.edges]
+    .sort((left, right) => compareEdges(left, right, aliasByNodeId))
+    .forEach((edge) => {
+      const key = buildEdgeNodeIdMatchKey(edge);
+      const bucket = queued.get(key) ?? [];
+      bucket.push(edge);
+      queued.set(key, bucket);
+    });
+
+  return queued;
+}
+
+function pushUniqueNodeByKey(
+  index: Map<string, DiagramNode[]>,
+  key: string | undefined,
+  node: DiagramNode,
+) {
+  if (!key) {
+    return;
+  }
+
+  const bucket = index.get(key) ?? [];
+  bucket.push(node);
+  index.set(key, bucket);
+}
+
+function getUniqueNode(index: Map<string, DiagramNode[]>, key: string | undefined): DiagramNode | undefined {
+  if (!key) {
+    return undefined;
+  }
+
+  const bucket = index.get(key);
+  return bucket?.length === 1 ? bucket[0] : undefined;
+}
+
+function buildNodeAliasIndex(
+  diagram: DiagramDocument,
+  aliasByNodeId: Map<string, string>,
+): Map<string, DiagramNode[]> {
+  const index = new Map<string, DiagramNode[]>();
+
+  diagram.nodes.forEach((node) => {
+    const alias = aliasByNodeId.get(node.id);
+    pushUniqueNodeByKey(index, alias ? `${node.type}:${alias}` : undefined, node);
+  });
+
+  return index;
+}
+
+function buildUnmatchedNodesByType(
+  nodes: DiagramNode[],
+  matchedIds: ReadonlySet<string>,
+): Map<NodeKind, DiagramNode[]> {
+  const result = new Map<NodeKind, DiagramNode[]>();
+
+  nodes.forEach((node) => {
+    if (matchedIds.has(node.id)) {
+      return;
+    }
+
+    const bucket = result.get(node.type) ?? [];
+    bucket.push(node);
+    result.set(node.type, bucket);
+  });
+
+  return result;
+}
+
+function findExistingNodeForParsedAttribute(
+  parsedAttribute: Extract<DiagramNode, { type: "attribute" }>,
+  parsedDiagram: DiagramDocument,
+  existingDiagram: DiagramDocument,
+  parsedAliasByNodeId: Map<string, string>,
+  existingAliasByNodeId: Map<string, string>,
+  matchedExistingByParsedId: Map<string, DiagramNode>,
+  usedExistingNodeIds: ReadonlySet<string>,
+): DiagramNode | undefined {
+  const parsedHostByAttributeId = buildAttributeHostMap(parsedDiagram);
+  const existingHostByAttributeId = buildAttributeHostMap(existingDiagram);
+  const parsedHostId = parsedHostByAttributeId.get(parsedAttribute.id);
+  if (!parsedHostId) {
+    return undefined;
+  }
+
+  const existingHost = matchedExistingByParsedId.get(parsedHostId);
+  if (!existingHost) {
+    return undefined;
+  }
+
+  const parsedHostAlias = parsedAliasByNodeId.get(parsedHostId) ?? parsedHostId;
+  const existingHostAlias = existingAliasByNodeId.get(existingHost.id) ?? existingHost.id;
+  const parsedLocalAlias = getLocalAttributeAlias(parsedAttribute, parsedHostAlias, parsedAliasByNodeId);
+
+  const semanticCandidates = existingDiagram.nodes.filter((node): node is Extract<DiagramNode, { type: "attribute" }> => {
+    if (node.type !== "attribute" || usedExistingNodeIds.has(node.id)) {
+      return false;
+    }
+
+    const existingHostId = existingHostByAttributeId.get(node.id);
+    if (existingHostId !== existingHost.id) {
+      return false;
+    }
+
+    return getLocalAttributeAlias(node, existingHostAlias, existingAliasByNodeId) === parsedLocalAlias;
+  });
+
+  if (semanticCandidates.length === 1) {
+    return semanticCandidates[0];
+  }
+
+  const parsedSiblings = parsedDiagram.nodes.filter((node): node is Extract<DiagramNode, { type: "attribute" }> => (
+    node.type === "attribute" &&
+    parsedHostByAttributeId.get(node.id) === parsedHostId &&
+    !matchedExistingByParsedId.has(node.id)
+  ));
+  const existingSiblings = existingDiagram.nodes.filter((node): node is Extract<DiagramNode, { type: "attribute" }> => (
+    node.type === "attribute" &&
+    existingHostByAttributeId.get(node.id) === existingHost.id &&
+    !usedExistingNodeIds.has(node.id)
+  ));
+
+  if (parsedSiblings.length === 1 && existingSiblings.length === 1) {
+    return existingSiblings[0];
+  }
+
+  return undefined;
+}
+
+function buildExistingNodeGeometryIndex(
+  parsedDiagram: DiagramDocument,
+  existingDiagram: DiagramDocument,
+): Map<string, DiagramNode> {
+  const parsedAliasByNodeId = assignNodeAliases(parsedDiagram);
+  const existingAliasByNodeId = assignNodeAliases(existingDiagram);
+  const existingById = new Map(existingDiagram.nodes.map((node) => [node.id, node]));
+  const existingByAlias = buildNodeAliasIndex(existingDiagram, existingAliasByNodeId);
+  const matchedExistingByParsedId = new Map<string, DiagramNode>();
+  const usedExistingNodeIds = new Set<string>();
+
+  function remember(parsedNode: DiagramNode, existingNode: DiagramNode | undefined): boolean {
+    if (!existingNode || existingNode.type !== parsedNode.type || usedExistingNodeIds.has(existingNode.id)) {
+      return false;
+    }
+
+    matchedExistingByParsedId.set(parsedNode.id, existingNode);
+    usedExistingNodeIds.add(existingNode.id);
+    return true;
+  }
+
+  parsedDiagram.nodes.forEach((parsedNode) => {
+    remember(parsedNode, existingById.get(parsedNode.id));
+  });
+
+  parsedDiagram.nodes.forEach((parsedNode) => {
+    if (matchedExistingByParsedId.has(parsedNode.id)) {
+      return;
+    }
+
+    const parsedAlias = parsedAliasByNodeId.get(parsedNode.id);
+    remember(parsedNode, getUniqueNode(existingByAlias, parsedAlias ? `${parsedNode.type}:${parsedAlias}` : undefined));
+  });
+
+  (["entity", "relationship"] as const).forEach((type) => {
+    const unmatchedParsed = buildUnmatchedNodesByType(parsedDiagram.nodes, new Set(matchedExistingByParsedId.keys())).get(type) ?? [];
+    const unmatchedExisting = buildUnmatchedNodesByType(existingDiagram.nodes, usedExistingNodeIds).get(type) ?? [];
+    if (unmatchedParsed.length === 1 && unmatchedExisting.length === 1) {
+      remember(unmatchedParsed[0], unmatchedExisting[0]);
+    }
+  });
+
+  parsedDiagram.nodes.forEach((parsedNode) => {
+    if (parsedNode.type !== "attribute" || matchedExistingByParsedId.has(parsedNode.id)) {
+      return;
+    }
+
+    remember(
+      parsedNode,
+      findExistingNodeForParsedAttribute(
+        parsedNode,
+        parsedDiagram,
+        existingDiagram,
+        parsedAliasByNodeId,
+        existingAliasByNodeId,
+        matchedExistingByParsedId,
+        usedExistingNodeIds,
+      ),
+    );
+  });
+
+  return matchedExistingByParsedId;
 }
 
 function autoPlaceDiagram(diagram: DiagramDocument, lockedNodeIds: Set<string>): DiagramDocument {
@@ -3726,26 +3933,19 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
 function mergeDiagramConfiguration(
   parsedDiagram: DiagramDocument,
   existingDiagram?: DiagramDocument,
+  layoutMemoryDiagram?: DiagramDocument,
 ): DiagramDocument {
   if (!existingDiagram) {
     return autoPlaceDiagram(parsedDiagram, new Set<string>());
   }
 
-  const parsedAliasByNodeId = assignNodeAliases(parsedDiagram);
-  const existingAliasByNodeId = assignNodeAliases(existingDiagram);
-  const existingNodeByAlias = new Map<string, DiagramNode>();
-
-  existingDiagram.nodes.forEach((node) => {
-    const alias = existingAliasByNodeId.get(node.id);
-    if (alias) {
-      existingNodeByAlias.set(alias, node);
-    }
-  });
-
+  const existingNodeByParsedId = buildExistingNodeGeometryIndex(parsedDiagram, existingDiagram);
+  const memoryNodeByParsedId = layoutMemoryDiagram
+    ? buildExistingNodeGeometryIndex(parsedDiagram, layoutMemoryDiagram)
+    : new Map<string, DiagramNode>();
   const lockedNodeIds = new Set<string>();
   const nodes = parsedDiagram.nodes.map((node) => {
-    const alias = parsedAliasByNodeId.get(node.id) ?? node.id;
-    const existingNode = existingNodeByAlias.get(alias);
+    const existingNode = existingNodeByParsedId.get(node.id) ?? memoryNodeByParsedId.get(node.id);
 
     if (!existingNode || existingNode.type !== node.type) {
       return node;
@@ -3772,12 +3972,46 @@ function mergeDiagramConfiguration(
     nodes,
   };
 
-  const existingEdgesByKey = queueExistingEdgesByKey(existingDiagram);
+  const existingEdgesByAliasKey = queueExistingEdgesByKey(existingDiagram);
+  const existingEdgesByNodeIdKey = queueExistingEdgesByNodeIdKey(existingDiagram);
+  const memoryEdgesByAliasKey = layoutMemoryDiagram
+    ? queueExistingEdgesByKey(layoutMemoryDiagram)
+    : new Map<string, DiagramEdge[]>();
+  const memoryEdgesByNodeIdKey = layoutMemoryDiagram
+    ? queueExistingEdgesByNodeIdKey(layoutMemoryDiagram)
+    : new Map<string, DiagramEdge[]>();
+  const usedExistingEdgeIds = new Set<string>();
   const parsedAliasMap = assignNodeAliases(parsedWithNodeConfig);
+  const layoutNodeByParsedId = new Map([...memoryNodeByParsedId, ...existingNodeByParsedId]);
+  function takeExistingEdge(bucket: DiagramEdge[] | undefined): DiagramEdge | undefined {
+    while (bucket && bucket.length > 0) {
+      const candidate = bucket.shift() as DiagramEdge;
+      if (!usedExistingEdgeIds.has(candidate.id)) {
+        usedExistingEdgeIds.add(candidate.id);
+        return candidate;
+      }
+    }
+
+    return undefined;
+  }
+
   const edges = parsedWithNodeConfig.edges.map((edge) => {
-    const key = buildEdgeMatchKey(edge, parsedAliasMap);
-    const bucket = existingEdgesByKey.get(key);
-    const existingEdge = bucket?.shift();
+    const existingSource = layoutNodeByParsedId.get(edge.sourceId);
+    const existingTarget = layoutNodeByParsedId.get(edge.targetId);
+    const nodeIdKey =
+      existingSource && existingTarget
+        ? buildEdgeNodeIdMatchKey({
+            type: edge.type,
+            sourceId: existingSource.id,
+            targetId: existingTarget.id,
+          })
+        : undefined;
+    const aliasKey = buildEdgeMatchKey(edge, parsedAliasMap);
+    const existingEdge =
+      takeExistingEdge(nodeIdKey ? existingEdgesByNodeIdKey.get(nodeIdKey) : undefined) ??
+      takeExistingEdge(existingEdgesByAliasKey.get(aliasKey)) ??
+      takeExistingEdge(nodeIdKey ? memoryEdgesByNodeIdKey.get(nodeIdKey) : undefined) ??
+      takeExistingEdge(memoryEdgesByAliasKey.get(aliasKey));
 
     if (!existingEdge) {
       return edge;
@@ -3800,12 +4034,16 @@ function mergeDiagramConfiguration(
   );
 }
 
-export function parseErsDiagram(rawSource: string, existingDiagram?: DiagramDocument): DiagramDocument {
+export function parseErsDiagram(
+  rawSource: string,
+  existingDiagram?: DiagramDocument,
+  layoutMemoryDiagram?: DiagramDocument,
+): DiagramDocument {
   const expanded = expandStructuredErs(rawSource);
 
   try {
     const parsed = parseLegacyErsDiagram(expanded.source);
-    return mergeDiagramConfiguration(parsed, existingDiagram);
+    return mergeDiagramConfiguration(parsed, existingDiagram, layoutMemoryDiagram);
   } catch (error) {
     if (error instanceof ErsParseError) {
       const mappedLine = expanded.lineMap[error.line - 1] ?? error.line;

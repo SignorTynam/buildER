@@ -1281,6 +1281,7 @@ export default function App() {
   const codeDraftRef = useRef(codeDraft);
   const codeDirtyRef = useRef(codeDirty);
   const codeEditorFocusedRef = useRef(false);
+  const codeLayoutMemoryRef = useRef<DiagramDocument | null>(null);
   const suppressNextCodeSyncRef = useRef(false);
   const latestDiagramRef = useRef(history.present);
   const diagramClipboardRef = useRef<DiagramClipboardPayload | null>(null);
@@ -2790,6 +2791,7 @@ export default function App() {
   function replaceCodeDraft(nextCode: string) {
     codeDraftRef.current = nextCode;
     codeDirtyRef.current = false;
+    codeLayoutMemoryRef.current = null;
     lastSerializedCodeRef.current = nextCode;
     setCodeDraft(nextCode);
     setCodeDirty(false);
@@ -2868,6 +2870,9 @@ export default function App() {
   function updateCodeDraft(nextCode: string) {
     codeDraftRef.current = nextCode;
     const nextDirty = nextCode !== lastSerializedCodeRef.current;
+    if (nextDirty && !codeLayoutMemoryRef.current) {
+      codeLayoutMemoryRef.current = latestDiagramRef.current;
+    }
     codeDirtyRef.current = nextDirty;
     setCodeDraft(nextCode);
     setCodeDirty(nextDirty);
@@ -2878,10 +2883,44 @@ export default function App() {
 
   function handleCodeEditorFocus() {
     codeEditorFocusedRef.current = true;
+    codeLayoutMemoryRef.current = latestDiagramRef.current;
   }
 
   function handleCodeEditorBlur() {
     codeEditorFocusedRef.current = false;
+    if (!codeDirtyRef.current) {
+      codeLayoutMemoryRef.current = null;
+    }
+  }
+
+  function rememberCodeLayout(diagram: DiagramDocument) {
+    const currentMemory = codeLayoutMemoryRef.current;
+    if (!currentMemory) {
+      codeLayoutMemoryRef.current = diagram;
+      return;
+    }
+
+    const nextNodeById = new Map(currentMemory.nodes.map((node) => [node.id, node]));
+    diagram.nodes.forEach((node) => {
+      nextNodeById.set(node.id, node);
+    });
+
+    const nextNodeIds = new Set(nextNodeById.keys());
+    const nextEdgeById = new Map(
+      currentMemory.edges
+        .filter((edge) => nextNodeIds.has(edge.sourceId) && nextNodeIds.has(edge.targetId))
+        .map((edge) => [edge.id, edge]),
+    );
+    diagram.edges.forEach((edge) => {
+      nextEdgeById.set(edge.id, edge);
+    });
+
+    codeLayoutMemoryRef.current = {
+      ...diagram,
+      nodes: Array.from(nextNodeById.values()),
+      edges: Array.from(nextEdgeById.values()),
+      generalizationGroups: diagram.generalizationGroups ?? currentMemory.generalizationGroups,
+    };
   }
 
   useEffect(() => {
@@ -2892,7 +2931,8 @@ export default function App() {
     const timeout = window.setTimeout(() => {
       try {
         const currentDiagram = latestDiagramRef.current;
-        const parsed = parseErsDiagram(codeDraftRef.current, currentDiagram);
+        rememberCodeLayout(currentDiagram);
+        const parsed = parseErsDiagram(codeDraftRef.current, currentDiagram, codeLayoutMemoryRef.current ?? undefined);
         const normalizedParsed = revalidateExternalIdentifiers(
           synchronizeExternalIdentifiers(
             synchronizeInternalIdentifiers(
@@ -2913,6 +2953,7 @@ export default function App() {
           suppressNextCodeSyncRef.current = true;
           history.commit(normalizedParsed, normalizedCurrent);
         }
+        rememberCodeLayout(normalizedParsed);
 
         if (codeError) {
           setCodeError("");
@@ -2921,6 +2962,9 @@ export default function App() {
         const nextDirty = codeDraftRef.current !== parsedSerialized;
         codeDirtyRef.current = nextDirty;
         setCodeDirty(nextDirty);
+        if (!nextDirty && !codeEditorFocusedRef.current) {
+          codeLayoutMemoryRef.current = null;
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Codice ERS non valido.";
         setCodeError(formatErsErrorMessage(message));
