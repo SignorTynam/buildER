@@ -139,7 +139,14 @@ export function CodePanel(props: CodePanelProps) {
 
   return (
     <aside className="designer-code-dock diagram-code-panel" aria-label={t("codePanel.shellAria")}>
-      <div className="designer-panel-caption">CODE</div>
+      <div className="designer-panel-caption">
+        <span>CODE</span>
+        {props.onClose ? (
+          <button type="button" className="designer-panel-close" onClick={props.onClose} aria-label="Chiudi codice ERS">
+            Close
+          </button>
+        ) : null}
+      </div>
       <div className="designer-code-editor">
         <div ref={lineNumberRef} className="designer-code-line-numbers" aria-hidden="true">
           {lineNumbers.map((lineNumber) => (

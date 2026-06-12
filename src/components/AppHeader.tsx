@@ -61,10 +61,32 @@ export function AppHeader(props: AppHeaderProps) {
       />
 
       <div className="designer-topbar-actions">
-        <button type="button" onClick={props.onNewProject}>NEW PROJECT</button>
-        <button type="button" onClick={props.onLoadProject}>OPEN PROJECT</button>
-        <button type="button" className="designer-icon-button" onClick={props.onOpenShortcuts} title="Help">?</button>
-        <button type="button" className="designer-icon-button" onClick={props.onOpenCommandMenu} title="Menu">=</button>
+        <button type="button" onClick={props.onNewProject} aria-label="Crea nuovo progetto">
+          <span className="desktop-label">NEW PROJECT</span>
+          <span className="mobile-label" aria-hidden="true">NEW</span>
+        </button>
+        <button type="button" onClick={props.onLoadProject} aria-label="Apri progetto">
+          <span className="desktop-label">OPEN PROJECT</span>
+          <span className="mobile-label" aria-hidden="true">OPEN</span>
+        </button>
+        <button
+          type="button"
+          className="designer-icon-button"
+          onClick={props.onOpenShortcuts}
+          title="Help"
+          aria-label="Apri scorciatoie e aiuto"
+        >
+          ?
+        </button>
+        <button
+          type="button"
+          className="designer-icon-button"
+          onClick={props.onOpenCommandMenu}
+          title="Menu"
+          aria-label="Apri menu comandi"
+        >
+          =
+        </button>
       </div>
     </header>
   );

@@ -352,6 +352,17 @@ export function Toolbar(props: ToolbarProps) {
   const selectedEntityHasExternalIdentifier =
     props.selectedNode?.type === "entity" && (props.selectedNode.externalIdentifiers ?? []).length > 0;
 
+  const mobileToolCommands: ToolbarCommand[] = [
+    { key: "mobile-select", label: "Select", icon: "V", onClick: () => props.onToolChange("select"), active: props.activeTool === "select" },
+    { key: "mobile-move", label: "Pan", icon: "S", onClick: () => props.onToolChange("move"), active: props.activeTool === "move" },
+    { key: "mobile-entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onToolChange("entity"), disabled: !canEdit, active: props.activeTool === "entity" },
+    { key: "mobile-relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onToolChange("relationship"), disabled: !canEdit, active: props.activeTool === "relationship" },
+    { key: "mobile-attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: () => props.onToolChange("attribute"), disabled: !canEdit, active: props.activeTool === "attribute" },
+    { key: "mobile-connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, active: props.activeTool === "connector" },
+    { key: "mobile-isa", label: "ISA", icon: <ToolIcon name="type" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, active: props.activeTool === "inheritance" },
+    { key: "mobile-delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: () => props.onToolChange("delete"), disabled: !canEdit, active: props.activeTool === "delete" },
+  ];
+
   const baseCommands: ToolbarCommand[] = [
     { key: "undo", label: "Undo", icon: <ToolIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
     { key: "redo", label: "Redo", icon: <ToolIcon name="redo" />, onClick: () => props.onRedo?.(), disabled: !props.canRedo },
@@ -532,6 +543,11 @@ export function Toolbar(props: ToolbarProps) {
 
   return (
     <nav className="designer-context-toolbar" aria-label="Context toolbar">
+      <div className="designer-mobile-tool-strip" role="group" aria-label="Strumenti principali">
+        {mobileToolCommands.map((command) => (
+          <CommandButton key={command.key} command={command} />
+        ))}
+      </div>
       {[...baseCommands, ...selectionClipboardCommands, ...contextCommands].map((command) => (
         <CommandButton key={command.key} command={command} />
       ))}

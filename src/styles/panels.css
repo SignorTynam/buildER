@@ -3195,6 +3195,807 @@ summary:focus-visible,
   background: var(--studio-surface);
 }
 
+/* Mobile support: keep the existing desktop skin, but change ergonomics below tablet widths. */
+html,
+body,
+#root {
+  min-width: 0;
+  min-height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+button,
+[role="button"],
+summary,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+.app-shell,
+.landing-shell {
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-workspace-region,
+.er-workspace-shell,
+.structured-workspace-shell,
+.translation-workspace-shell,
+.designer-workspace,
+.designer-canvas-region,
+.canvas-panel,
+.diagram-canvas,
+.logical-canvas,
+.logical-transformation-canvas {
+  min-width: 0;
+}
+
+.canvas-panel,
+.diagram-canvas,
+.logical-canvas,
+.logical-transformation-canvas {
+  touch-action: none;
+}
+
+.designer-mobile-tool-strip {
+  display: none;
+}
+
+.designer-panel-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.designer-panel-close {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-sm);
+  background: var(--studio-surface);
+  color: var(--studio-ink);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.mobile-label {
+  display: none;
+}
+
+@media (max-width: 880px) {
+  .tutorial-shell,
+  .tutorial-main,
+  .tutorial-main section,
+  .tutorial-syntax-layout,
+  .tutorial-syntax-grid,
+  .tutorial-syntax-card,
+  .tutorial-note-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .tutorial-syntax-layout,
+  .tutorial-syntax-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .tutorial-stage-code,
+  .tutorial-syntax-card pre {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .tutorial-syntax-card h3,
+  .tutorial-syntax-card p,
+  .tutorial-note-card h3,
+  .tutorial-note-card p,
+  .tutorial-note-card li,
+  .tutorial-note-list {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .landing-main {
+    width: min(100%, calc(100vw - 28px));
+  }
+
+  .landing-hero,
+  .landing-process-section,
+  .landing-story-grid,
+  .landing-value-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero {
+    gap: 18px;
+  }
+
+  .landing-hero-copy {
+    padding-right: 0;
+  }
+
+  .landing-hero-copy h1 {
+    max-width: 100%;
+  }
+
+  .landing-stat-row {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-final-cta {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .landing-final-cta .landing-primary-button {
+    width: 100%;
+  }
+
+  .app-shell.app-shell-view-er,
+  .app-shell.app-shell-view-translation,
+  .app-shell.app-shell-view-logical {
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+
+  .workspace-stage-bar,
+  .workspace-mode-strip {
+    min-height: 42px;
+    overflow-x: auto;
+    padding: 5px 8px;
+  }
+
+  .workspace-stage-tabs,
+  .workspace-view-bar {
+    width: max-content;
+  }
+
+  .bottom-status-bar {
+    max-height: 44px;
+    overflow: hidden;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+
+  .bottom-status-left,
+  .bottom-status-center,
+  .bottom-status-right {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .bottom-status-message {
+    max-width: calc(100vw - 24px);
+  }
+
+  .designer-topbar {
+    grid-template-columns: minmax(0, auto) minmax(92px, 1fr) auto;
+    gap: 8px;
+    min-height: 50px;
+    padding: max(6px, env(safe-area-inset-top)) 8px 6px;
+  }
+
+  .designer-brand {
+    min-width: 0;
+    gap: 6px;
+    letter-spacing: 0.08em;
+  }
+
+  .designer-brand strong {
+    max-width: 30vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .designer-brand span {
+    display: none;
+  }
+
+  .designer-project-name {
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 8px;
+    font-size: 0.86rem;
+  }
+
+  .designer-topbar-actions {
+    gap: 4px;
+  }
+
+  .designer-topbar-actions button,
+  .designer-icon-button,
+  .designer-topbar-actions .designer-icon-button {
+    display: inline-grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 8px;
+    border-radius: var(--studio-radius-sm);
+    font-size: 0.72rem;
+    line-height: 1;
+  }
+
+  .desktop-label {
+    display: none;
+  }
+
+  .mobile-label {
+    display: inline;
+  }
+
+  .app-shell-view-er .designer-workspace.code-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell-view-er .er-workspace-shell {
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: stretch;
+  }
+
+  .app-shell-view-er .er-workspace-shell > .designer-workspace {
+    grid-row: 1;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .app-shell-view-er .er-workspace-shell > .workspace-resizer,
+  .app-shell-view-er .er-workspace-shell > .technical-dock-panel {
+    display: none !important;
+  }
+
+  .designer-code-dock {
+    position: fixed;
+    z-index: 70;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    height: min(68dvh, 620px);
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--studio-border);
+    border-right: 0;
+    box-shadow: 0 -14px 34px rgba(12, 18, 15, 0.16);
+  }
+
+  .designer-panel-caption {
+    height: 48px;
+    padding: 8px 12px;
+  }
+
+  .designer-panel-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .designer-code-editor {
+    --code-font-size: 12px;
+    --code-line-height: 20px;
+    --code-gutter-width: 42px;
+    --code-editor-padding-x: 10px;
+    height: calc(100% - 86px);
+  }
+
+  .designer-code-error {
+    margin: 6px 12px 0 calc(var(--code-gutter-width, 42px) + 10px);
+    max-height: 38px;
+    overflow: auto;
+  }
+
+  .designer-notes-overlay {
+    position: fixed;
+    z-index: 72;
+    inset: auto 0 0 0;
+    width: auto;
+    min-width: 0;
+    height: min(68dvh, 620px);
+    padding-bottom: env(safe-area-inset-bottom);
+    border-right: 0;
+    border-left: 0;
+    box-shadow: 0 -14px 34px rgba(12, 18, 15, 0.16);
+  }
+
+  .designer-notes-toolbar {
+    min-height: 52px;
+    max-height: 112px;
+    overflow: auto;
+    padding: 8px 10px;
+  }
+
+  .designer-notes-toolbar button {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .designer-notes-editor {
+    height: calc(100% - 72px);
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  .designer-side-toggle-group.designer-side-toggle-left,
+  .designer-logical-schema-toggles {
+    top: auto;
+    right: 62px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 8px;
+    max-width: calc(100vw - 78px);
+    overflow-x: auto;
+  }
+
+  .designer-side-toggle-group .designer-side-toggle {
+    min-width: 48px;
+    min-height: 44px;
+    padding: 0 10px;
+    grid-template-columns: 16px auto;
+    white-space: nowrap;
+  }
+
+  .designer-side-toggle-diagnostics {
+    min-width: 52px;
+  }
+
+  .designer-side-toggle-label {
+    display: none;
+  }
+
+  .designer-side-toggle-right,
+  .designer-translation-notes-toggle,
+  .designer-logical-notes-toggle {
+    top: auto;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    min-width: 48px;
+    min-height: 50px;
+    padding: 4px 6px;
+    border: 1px solid var(--studio-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
+    box-shadow: var(--studio-shadow-sm);
+  }
+
+  .designer-context-toolbar,
+  .designer-translation-toolbar,
+  .designer-logical-toolbar {
+    position: absolute;
+    top: auto;
+    right: 8px;
+    bottom: calc(62px + env(safe-area-inset-bottom));
+    left: 8px;
+    width: auto;
+    max-width: calc(100vw - 16px);
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: var(--studio-shadow-sm);
+    scroll-padding-inline: 8px;
+  }
+
+  .designer-mobile-tool-strip {
+    display: contents;
+  }
+
+  .designer-toolbar-button {
+    flex: 0 0 58px;
+    min-width: 58px;
+    min-height: 56px;
+    border-right: 1px solid #e0e4e1;
+    border-bottom: 0;
+    padding: 4px;
+  }
+
+  .designer-toolbar-button:last-child {
+    border-right: 0;
+  }
+
+  .designer-toolbar-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .designer-toolbar-svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .designer-toolbar-label {
+    max-width: 54px;
+    font-size: 0.62rem;
+  }
+
+  .designer-export-popover,
+  .designer-fix-popover,
+  .designer-logical-fix-popover,
+  .designer-logical-move-popover {
+    position: fixed;
+    top: auto;
+    right: 8px;
+    bottom: calc(124px + env(safe-area-inset-bottom));
+    left: 8px;
+    width: auto;
+    max-height: min(46dvh, 420px);
+    overflow: auto;
+  }
+
+  .canvas-viewport-hud,
+  .app-shell-view-er .canvas-viewport-hud,
+  .app-shell-view-translation .canvas-viewport-hud {
+    right: 8px !important;
+    bottom: calc(126px + env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+  }
+
+  .canvas-hud-cluster.canvas-hud-cluster-viewport {
+    display: flex;
+    max-width: calc(100vw - 16px);
+    overflow-x: auto;
+  }
+
+  .canvas-hud-cluster-viewport .canvas-hud-button {
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .canvas-hud-cluster-viewport .canvas-hud-zoom {
+    min-width: 56px;
+  }
+
+  .canvas-hud-cluster-viewport button:nth-child(n+4) {
+    display: inline-flex;
+    width: auto;
+    min-width: 58px;
+    padding-inline: 8px;
+    font-size: 0.68rem;
+  }
+
+  .canvas-pan-hint,
+  .canvas-guidance {
+    display: none;
+  }
+
+  .diagram-edge path[stroke="transparent"],
+  .external-identifier-hit-path,
+  .composite-identifier-hit {
+    stroke-width: 26px;
+  }
+
+  .structured-workspace-shell,
+  .structured-workspace-shell.workspace-technical-open {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .translation-step-rail,
+  .translation-panel {
+    width: 100%;
+    max-height: 32dvh;
+    overflow: auto;
+  }
+
+  .designer-logical-workspace,
+  .designer-logical-workspace.sql-open {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(180px, 36dvh);
+  }
+
+  .designer-sql-dock {
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    border-left: 0;
+    border-top: 1px solid var(--studio-border);
+  }
+
+  .designer-sql-dock-header,
+  .designer-sql-actions {
+    flex-wrap: wrap;
+  }
+
+  .designer-sql-actions button,
+  .designer-sql-actions select {
+    min-height: 40px;
+  }
+
+  .designer-stage-label,
+  .designer-translation-status,
+  .designer-logical-status {
+    top: 10px;
+    left: 10px;
+    max-width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+  }
+
+  .landing-header-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .landing-version-chip {
+    grid-column: 1 / -1;
+    min-height: 34px;
+    justify-content: center;
+  }
+
+  .landing-primary-button,
+  .landing-secondary-link {
+    width: 100%;
+    min-height: 44px;
+    padding-inline: 0.72rem;
+  }
+
+  .landing-main {
+    width: min(100%, calc(100vw - 20px));
+    padding: 22px 0 42px;
+    gap: 24px;
+  }
+
+  .landing-hero-copy h1 {
+    font-size: 3rem;
+    line-height: 1.02;
+  }
+
+  .landing-preview-stage {
+    min-height: 260px;
+  }
+
+  .preview-entity {
+    width: 112px;
+  }
+
+  .preview-relationship {
+    width: 90px;
+    height: 90px;
+  }
+
+  .app-shell.app-shell-view-er,
+  .app-shell.app-shell-view-translation,
+  .app-shell.app-shell-view-logical {
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+
+  .designer-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand actions"
+      "project project";
+  }
+
+  .designer-brand {
+    grid-area: brand;
+  }
+
+  .designer-project-name {
+    grid-area: project;
+    justify-self: stretch;
+  }
+
+  .designer-topbar-actions {
+    grid-area: actions;
+  }
+
+  .designer-topbar-actions button:not(.designer-icon-button) {
+    display: none;
+  }
+
+  .designer-brand strong {
+    max-width: 54vw;
+  }
+
+  .workspace-stage-tab,
+  .workspace-view-button {
+    min-height: 38px;
+    padding-inline: 10px;
+  }
+
+  .bottom-status-bar {
+    display: none;
+  }
+
+  .designer-context-toolbar,
+  .designer-translation-toolbar,
+  .designer-logical-toolbar {
+    bottom: calc(62px + env(safe-area-inset-bottom));
+  }
+
+  .canvas-viewport-hud,
+  .app-shell-view-er .canvas-viewport-hud,
+  .app-shell-view-translation .canvas-viewport-hud {
+    bottom: calc(126px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .designer-code-dock,
+  .designer-notes-overlay {
+    height: min(70dvh, 620px);
+  }
+
+  .studio-modal-backdrop,
+  .designer-modal-backdrop,
+  .intro-modal-backdrop,
+  .help-modal-backdrop,
+  .command-modal-backdrop,
+  .entity-key-modal-backdrop {
+    align-items: end;
+    place-items: end stretch;
+    padding: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .studio-modal,
+  .studio-modal--wide,
+  .studio-modal--medium,
+  .help-modal,
+  .intro-modal,
+  .action-modal,
+  .designer-cardinality-modal,
+  .sql-reverse-modal,
+  .entity-key-modal {
+    width: min(100%, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+    border-radius: var(--studio-radius-md) var(--studio-radius-md) 0 0;
+  }
+
+  .studio-modal__header,
+  .help-modal-head,
+  .intro-modal-head,
+  .designer-cardinality-modal__header,
+  .sql-reverse-modal__header,
+  .entity-key-modal-header {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .studio-modal__close,
+  .help-close,
+  .designer-cardinality-button,
+  .sql-reverse-modal__actions button,
+  .sql-reverse-modal__file-button,
+  .entity-key-modal-close,
+  .entity-key-modal-footer-actions button,
+  .action-modal-actions button {
+    min-height: 44px;
+  }
+
+  .studio-modal__body,
+  .help-modal-body,
+  .intro-modal-content,
+  .action-modal-content,
+  .designer-cardinality-modal__body,
+  .sql-reverse-modal__body,
+  .entity-key-modal-body {
+    max-height: calc(100dvh - 132px - env(safe-area-inset-bottom));
+    overflow: auto;
+    padding: 12px;
+  }
+
+  .studio-modal__grid,
+  .command-modal-content,
+  .shortcuts-modal-content,
+  .choice-grid,
+  .intro-grid,
+  .entity-key-modal-body {
+    grid-template-columns: 1fr !important;
+  }
+
+  .studio-modal__footer,
+  .sql-reverse-modal__actions,
+  .action-modal-actions,
+  .designer-cardinality-actions,
+  .entity-key-modal-footer,
+  .entity-key-modal-footer-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+    background: var(--studio-surface-strong);
+    border-top: 1px solid var(--studio-border);
+  }
+
+  .sql-reverse-modal__action-spacer {
+    display: none;
+  }
+
+  .sql-reverse-modal__title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sql-reverse-modal__textarea {
+    min-height: 34dvh;
+    font-size: 0.82rem;
+  }
+
+  .sql-reverse-modal__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .designer-cardinality-grid,
+  .designer-cardinality-visual {
+    grid-template-columns: 1fr;
+  }
+
+  .designer-cardinality-visual span:first-child {
+    text-align: left;
+  }
+
+  .entity-key-modal-preview-pane {
+    min-height: 260px;
+  }
+
+  .entity-key-preview-canvas {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-hero-copy h1 {
+    font-size: 2.55rem;
+  }
+
+  .designer-toolbar-button {
+    flex-basis: 54px;
+    min-width: 54px;
+  }
+
+  .designer-toolbar-label {
+    font-size: 0.58rem;
+  }
+
+  .canvas-hud-cluster-viewport .canvas-hud-button {
+    min-width: 42px;
+    width: 42px;
+  }
+
+  .studio-modal__item,
+  .studio-modal .command-menu-item {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-modal .command-menu-item kbd {
+    justify-self: start;
+  }
+
+  .designer-code-editor {
+    --code-gutter-width: 36px;
+    --code-editor-padding-x: 8px;
+  }
+}
+
 .canvas-hud-cluster-viewport .canvas-hud-zoom {
   width: auto;
   min-width: 54px;

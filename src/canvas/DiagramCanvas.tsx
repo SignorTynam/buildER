@@ -121,6 +121,21 @@ type InteractionState =
       offsetMax: number;
     };
 
+interface ActivePointer {
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  pointerType: string;
+}
+
+interface PinchState {
+  pointerIds: [number, number];
+  startDistance: number;
+  startViewport: Viewport;
+  startCenter: Point;
+  startWorldCenter: Point;
+}
+
 type InlineEditState =
   | { kind: "node"; id: string; value: string }
   | { kind: "edge"; id: string; value: string }
@@ -1807,6 +1822,8 @@ function buildExternalIdentifierSortKey(identifier: ExternalIdentifier): string 
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const activePointersRef = useRef<Map<number, ActivePointer>>(new Map());
+  const pinchStateRef = useRef<PinchState | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [pendingConnectionSource, setPendingConnectionSource] = useState<string | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<Point | null>(null);
@@ -2600,6 +2617,107 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.onStatusMessageChange(`Zoom ${Math.round(nextZoom * 100)}%.`);
   }
 
+  function getPointerCenter(first: ActivePointer, second: ActivePointer, rect: DOMRect): Point {
+    return {
+      x: (first.clientX + second.clientX) / 2 - rect.left,
+      y: (first.clientY + second.clientY) / 2 - rect.top,
+    };
+  }
+
+  function getPointerDistance(first: ActivePointer, second: ActivePointer): number {
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+  }
+
+  function startPinchInteraction() {
+    const touchPointers = Array.from(activePointersRef.current.values()).filter(
+      (pointer) => pointer.pointerType === "touch",
+    );
+    const rect = getViewportRect();
+
+    if (touchPointers.length < 2 || !rect) {
+      return;
+    }
+
+    const [first, second] = touchPointers;
+    const startDistance = getPointerDistance(first, second);
+    if (startDistance < 8) {
+      return;
+    }
+
+    const startCenter = getPointerCenter(first, second, rect);
+    pinchStateRef.current = {
+      pointerIds: [first.pointerId, second.pointerId],
+      startDistance,
+      startViewport: props.viewport,
+      startCenter,
+      startWorldCenter: {
+        x: (startCenter.x - props.viewport.x) / props.viewport.zoom,
+        y: (startCenter.y - props.viewport.y) / props.viewport.zoom,
+      },
+    };
+    setInteraction({ kind: "idle" });
+    dismissPanHint();
+  }
+
+  function updatePinchInteraction() {
+    const pinch = pinchStateRef.current;
+    if (!pinch) {
+      return false;
+    }
+
+    const first = activePointersRef.current.get(pinch.pointerIds[0]);
+    const second = activePointersRef.current.get(pinch.pointerIds[1]);
+    const rect = getViewportRect();
+
+    if (!first || !second || !rect) {
+      pinchStateRef.current = null;
+      return false;
+    }
+
+    const distance = getPointerDistance(first, second);
+    if (distance < 8) {
+      return true;
+    }
+
+    const center = getPointerCenter(first, second, rect);
+    const nextZoom = clampZoom(pinch.startViewport.zoom * (distance / pinch.startDistance));
+
+    props.onViewportChange({
+      zoom: nextZoom,
+      x: center.x - pinch.startWorldCenter.x * nextZoom,
+      y: center.y - pinch.startWorldCenter.y * nextZoom,
+    });
+    return true;
+  }
+
+  function trackPointer(event: ReactPointerEvent, target?: Element) {
+    activePointersRef.current.set(event.pointerId, {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      pointerType: event.pointerType,
+    });
+
+    if (event.pointerType === "touch" && target && "setPointerCapture" in target) {
+      try {
+        target.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture can fail if the browser already released the pointer.
+      }
+    }
+
+    if (event.pointerType === "touch" && activePointersRef.current.size >= 2) {
+      startPinchInteraction();
+    }
+  }
+
+  function releasePointer(event: ReactPointerEvent) {
+    activePointersRef.current.delete(event.pointerId);
+    if (pinchStateRef.current?.pointerIds.includes(event.pointerId)) {
+      pinchStateRef.current = null;
+    }
+  }
+
   function openInlineEditorForSelection() {
     if (readOnly) {
       return;
@@ -2863,6 +2981,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function handleCanvasPointerDown(event: ReactPointerEvent<SVGRectElement>) {
+    trackPointer(event, event.currentTarget);
+
     if (event.button === 2) {
       return;
     }
@@ -3005,6 +3125,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleNodePointerDown(event: ReactPointerEvent<SVGGElement>, node: DiagramNode) {
     event.stopPropagation();
+    trackPointer(event, event.currentTarget);
     event.currentTarget.focus();
 
     if (readOnly) {
@@ -3078,6 +3199,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleEdgePointerDown(event: ReactPointerEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
+    trackPointer(event, event.currentTarget);
     event.currentTarget.focus();
 
     if (readOnly) {
@@ -3125,6 +3247,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     externalIdentifierId: string,
   ) {
     event.stopPropagation();
+    trackPointer(event, event.currentTarget);
     event.currentTarget.focus();
 
     if (readOnly) {
@@ -3181,6 +3304,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     externalIdentifierId: string,
   ) {
     event.stopPropagation();
+    trackPointer(event, event.currentTarget);
     event.currentTarget.focus();
 
     if (readOnly) {
@@ -3211,6 +3335,19 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activePointersRef.current.has(event.pointerId)) {
+      activePointersRef.current.set(event.pointerId, {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        pointerType: event.pointerType,
+      });
+    }
+
+    if (updatePinchInteraction()) {
+      return;
+    }
+
     if (placeableCanvasTool(props.tool)) {
       setPlacementPreviewPoint(getWorldPointFromEvent(event));
     }
@@ -3330,6 +3467,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    releasePointer(event);
+
     if (interaction.kind === "idle") {
       return;
     }
@@ -3743,6 +3882,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       onKeyDown={handleCanvasKeyDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onPointerLeave={(event) => {
         if (pendingConnectionSource) {
           setConnectionPreviewPoint(null);
