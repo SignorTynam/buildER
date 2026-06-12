@@ -15,6 +15,19 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [4.6.2] - 2026-06-12
+
+### Changed
+- Versione applicativa aggiornata a ER Studio 4.6.2 con `package.json`, `package-lock.json`, metadati UI e changelog allineati.
+- Il pannello Code conserva posizione e dimensioni dei nodi gia presenti quando il testo ERS viene modificato.
+- Il merge ERS usa una memoria layout per evitare che nodi rimossi temporaneamente durante la digitazione vengano riposizionati quando ricompaiono.
+- Matching ERS piu robusto per ID, alias, attributi collegati al relativo host e rename, con preservazione dei metadati degli edge.
+
+### Fixed
+- I connector entita-relazione non possono piu essere deformati trascinando manualmente il tracciato; le cardinalita restano editabili senza spostare il link.
+- Gli offset manuali legacy dei connector vengono ignorati e ripuliti per impedire geometrie instabili nei salvataggi esistenti.
+- Aggiunti test di regressione per stabilita del layout da Code panel, memoria layout e routing dei connector.
+
 ## [4.5.2] - 2026-06-03
 
 ### Added

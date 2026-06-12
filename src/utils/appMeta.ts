@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.6.1";
+export const APP_VERSION = "4.6.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,23 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "4.6.2",
+    date: "2026-06-12",
+    impact: "patch",
+    headline: "Layout ERS stabile durante le modifiche codice",
+    summary:
+      "ER Studio 4.6.2 stabilizza il merge dal pannello Code e impedisce ai connector di deformare la geometria del diagramma.",
+    updates: [
+      "Versione applicativa aggiornata a ER Studio 4.6.2 con metadati package e changelog allineati.",
+      "Il pannello Code ora conserva geometria e posizione dei nodi gia presenti quando il testo ERS viene modificato.",
+      "Aggiunta una memoria layout per le modifiche da codice: un nodo che sparisce temporaneamente durante la digitazione e poi ricompare non viene piu riposizionato come nuovo.",
+      "Il merge ERS riconosce meglio entita, attributi e rename usando ID esatti, alias locali e host degli attributi, preservando anche i metadati degli edge.",
+      "I connector entita-relazione non accettano piu spostamenti manuali del tracciato: le cardinalita restano modificabili senza trascinare il link.",
+      "Gli offset manuali legacy dei connector vengono ignorati e ripuliti, evitando che vecchi salvataggi deformino le linee.",
+      "Aggiunti test di regressione per preservazione geometria, memoria layout e routing stabile dei connector.",
+    ],
+  },
   {
     version: "4.6.1",
     date: "2026-06-05",
