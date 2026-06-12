@@ -15,6 +15,7 @@ import {
   type ReservedLabelBox,
 } from "../src/utils/edgeLabelLayout.ts";
 import { buildNodeReservedBounds } from "../src/utils/edgeLabelLayout.ts";
+import { getEdgeGeometry as getDiagramEdgeGeometry, getRenderedEdgeGeometry as getDiagramRenderedEdgeGeometry } from "../src/utils/geometry.ts";
 
 function entity(id: string, x: number, y: number): DiagramNode {
   return { id, type: "entity", label: id, x, y, width: 140, height: 64 };
@@ -98,6 +99,22 @@ test("cardinality layout: connector label stays near source entity endpoint inst
   assert.ok(distance(anchor.point, endpoint) >= 36);
   assert.ok(distance(anchor.point, endpoint) <= 58);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 90);
+});
+
+test("cardinality layout: connector geometry ignores legacy manual offset", () => {
+  const source = entity("ENTITY1", 0, 0);
+  const target = relationship("RELATIONSHIP1", 420, -7);
+  const edge = connector("edge-1", source.id, target.id);
+  const offsetEdge: DiagramEdge = { ...edge, manualOffset: 80 };
+
+  assert.deepEqual(
+    getDiagramEdgeGeometry(offsetEdge, source, target),
+    getDiagramEdgeGeometry(edge, source, target),
+  );
+  assert.deepEqual(
+    getDiagramRenderedEdgeGeometry(offsetEdge, source, target),
+    getDiagramRenderedEdgeGeometry(edge, source, target),
+  );
 });
 
 test("cardinality layout: connector label stays near target entity endpoint for reversed edges", () => {
@@ -214,4 +231,3 @@ test("cardinality layout: connector cardinality avoids role label near the same 
   assert.equal(boundsIntersect(placement.bounds, roleBox), false);
   assert.ok(distance(placement.point, points[0]) < distance(getPointAlongPolyline(points, 0.5), points[0]));
 });
-

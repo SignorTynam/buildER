@@ -20,6 +20,7 @@ import {
   isSupportedCardinality,
   normalizeSupportedCardinality,
 } from "./cardinality";
+import { removeDisallowedManualRouting } from "./edgeRouting";
 import {
   canConnect,
   getMultivaluedAttributeSize,
@@ -3288,14 +3289,15 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     const occurrence = (occurrenceByKey.get(key) ?? 0) + 1;
     occurrenceByKey.set(key, occurrence);
 
-    const baseEdge = {
+    const baseEdge = removeDisallowedManualRouting({
       id: buildEdgeId(edgeSpec.type, sourceNode.id, targetNode.id, occurrence),
+      type: edgeSpec.type,
       sourceId: sourceNode.id,
       targetId: targetNode.id,
       label: edgeSpec.label,
       lineStyle: edgeSpec.lineStyle,
       ...(typeof edgeSpec.manualOffset === "number" ? { manualOffset: edgeSpec.manualOffset } : {}),
-    };
+    });
 
     if (edgeSpec.type === "inheritance") {
       return {
@@ -3785,7 +3787,7 @@ function mergeDiagramConfiguration(
       ...edge,
       label: edge.label || existingEdge.label,
       lineStyle: existingEdge.lineStyle,
-      manualOffset: existingEdge.manualOffset,
+      ...(edge.type !== "connector" ? { manualOffset: existingEdge.manualOffset } : {}),
     };
   });
 

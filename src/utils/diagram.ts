@@ -24,6 +24,7 @@ import {
   isSupportedCardinality,
   normalizeSupportedCardinality,
 } from "./cardinality";
+import { removeDisallowedManualRouting } from "./edgeRouting";
 
 const MULTIVALUED_ATTRIBUTE_MIN_WIDTH = 92;
 const MULTIVALUED_ATTRIBUTE_MAX_WIDTH = 320;
@@ -1961,11 +1962,13 @@ export function serializeDiagram(diagram: DiagramDocument): string {
       synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(diagram).diagram),
     ),
   ));
+  const normalizedEdges = normalizedDiagram.edges.map(removeDisallowedManualRouting);
   const normalizedNotes = normalizeDiagramNotes((normalizedDiagram as { notes?: unknown }).notes);
 
   return JSON.stringify(
     {
       ...normalizedDiagram,
+      edges: normalizedEdges,
       meta: {
         ...normalizedDiagram.meta,
         version: CURRENT_DIAGRAM_VERSION,
@@ -3592,7 +3595,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
 
           if (edge.type === "connector") {
             return {
-              ...edge,
+              ...removeDisallowedManualRouting(edge),
               participationId:
                 typeof rawEdge.participationId === "string" && rawEdge.participationId.trim().length > 0
                   ? rawEdge.participationId
@@ -3647,7 +3650,10 @@ export function parseDiagram(rawJson: string): DiagramDocument {
   let normalizedDiagram = normalizeGeneralizationGroups(revalidateExternalIdentifiers(synchronizedDiagram).diagram);
   normalizedDiagram = mergeCompatibleGeneralizationGroups(normalizedDiagram);
   normalizedDiagram = cleanupGeneralizationReferences(normalizedDiagram);
-  return normalizedDiagram;
+  return {
+    ...normalizedDiagram,
+    edges: normalizedDiagram.edges.map(removeDisallowedManualRouting),
+  };
 }
 
 export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {

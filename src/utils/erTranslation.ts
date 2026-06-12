@@ -31,6 +31,7 @@ import {
   synchronizeInternalIdentifiers,
   validateDiagram,
 } from "./diagram";
+import { canEdgeUseManualRouting } from "./edgeRouting";
 import { buildLogicalSourceSignature } from "./logicalMapping";
 
 interface GeneralizationHierarchy {
@@ -174,7 +175,7 @@ function mergeDiagramLayout(
 
   const nextEdges = diagram.edges.map((edge) => {
     const previous = previousEdges.get(edge.id);
-    if (!previous || previous.manualOffset === undefined) {
+    if (!previous || previous.manualOffset === undefined || !canEdgeUseManualRouting(edge)) {
       return edge;
     }
 

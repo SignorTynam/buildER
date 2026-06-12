@@ -16,6 +16,7 @@ import {
   getExternalIdentifierImportedRelationshipIds,
   getExternalIdentifierLocalAttributeIds,
 } from "../utils/diagram";
+import { canEdgeUseManualRouting } from "../utils/edgeRouting";
 import {
   clampZoom,
   clipPointToNodePerimeter,
@@ -2689,6 +2690,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return false;
     }
 
+    if (!canEdgeUseManualRouting(selectedEdge)) {
+      props.onStatusMessageChange("Il routing dei connector e automatico: sposta entita o relazione.");
+      return false;
+    }
+
     if (isExternalIdentifierConnectorEdge(selectedEdge)) {
       props.onStatusMessageChange("Gli estremi del collegamento dell'identificatore esterno sono bloccati.");
       return false;
@@ -3097,6 +3103,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function handleEdgeLabelPointerDown(event: ReactPointerEvent<SVGTextElement>, edge: DiagramEdge) {
+    event.preventDefault();
     event.stopPropagation();
 
     if (readOnly) {
@@ -3109,36 +3116,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    const sourceNode = nodeMap.get(edge.sourceId);
-    const targetNode = nodeMap.get(edge.targetId);
-    if (!sourceNode || !targetNode) {
-      return;
-    }
-
-    if (isExternalIdentifierConnectorEdge(edge)) {
-      props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
-      props.onStatusMessageChange("Gli estremi del collegamento dell'identificatore esterno sono bloccati.");
-      return;
-    }
-
-    const sourceCenter = getNodeCenter(sourceNode);
-    const targetCenter = getNodeCenter(targetNode);
-    // Drag should move connectors across parallel lanes, i.e. on the perpendicular axis.
-    const axis =
-      Math.abs(sourceCenter.x - targetCenter.x) >= Math.abs(sourceCenter.y - targetCenter.y)
-        ? "y"
-        : "x";
-
     props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
-    setInteraction({
-      kind: "edge-drag",
-      pointerId: event.pointerId,
-      startClient: { x: event.clientX, y: event.clientY },
-      originalDiagram: props.diagram,
-      edgeId: edge.id,
-      startOffset: edge.manualOffset ?? 0,
-      axis,
-    });
   }
 
   function handleExternalIdentifierPointerDown(
@@ -3283,6 +3261,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (interaction.kind === "edge-drag") {
+      const draggedEdge = interaction.originalDiagram.edges.find((edge) => edge.id === interaction.edgeId);
+      if (!draggedEdge || !canEdgeUseManualRouting(draggedEdge)) {
+        return;
+      }
+
       const pointerDelta =
         interaction.axis === "x"
           ? event.clientX - interaction.startClient.x
@@ -3358,7 +3341,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (interaction.kind === "edge-drag") {
-      props.onCommitDiagram(props.diagram, interaction.originalDiagram);
+      const draggedEdge = interaction.originalDiagram.edges.find((edge) => edge.id === interaction.edgeId);
+      if (draggedEdge && canEdgeUseManualRouting(draggedEdge)) {
+        props.onCommitDiagram(props.diagram, interaction.originalDiagram);
+      }
       setInteraction({ kind: "idle" });
       return;
     }
@@ -3736,7 +3722,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.tool === "select"
       ? [
           props.diagram.edges.some((edge) => edge.type === "connector")
-            ? { key: "connector-label", label: "Label connector", hint: "Trascina la cardinalita per regolare il routing." }
+            ? { key: "connector-label", label: "Label connector", hint: "Doppio click sulla cardinalita per modificarla." }
             : null,
           externalIdentifierLayouts.length > 0
             ? { key: "external-id-marker", label: "Marker ext. ID", hint: "Hover o focus sul marker per selezionarlo." }

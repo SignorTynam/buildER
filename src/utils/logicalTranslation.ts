@@ -36,6 +36,7 @@ import type {
 } from "../types/logical";
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "./cardinality";
 import { normalizeGeneralizationGroups } from "./diagram";
+import { canEdgeUseManualRouting } from "./edgeRouting";
 import { normalizeLogicalModelGeometry } from "./logicalLayout";
 import { normalizeLogicalModelSqlMetadata } from "./logicalSqlMetadata";
 
@@ -2928,7 +2929,7 @@ function buildTransformationGraph(
         sourceEdgeId: edge.id,
         sourceEdgeType: edge.type,
         lineStyle: edge.lineStyle,
-        manualOffset: edge.manualOffset,
+        ...(canEdgeUseManualRouting(edge) ? { manualOffset: edge.manualOffset } : {}),
         cardinalityLabel: getEdgeCardinalityLabel(edge, nodeById.get(edge.sourceId), nodeById.get(edge.targetId)),
         generatedByDecisionIds: [],
         relatedTargetKeys: [buildTargetKey("relationship", relationshipId)],

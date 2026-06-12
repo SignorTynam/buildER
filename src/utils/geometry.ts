@@ -10,6 +10,7 @@ import type {
   Point,
   Viewport,
 } from "../types/diagram";
+import { getEffectiveManualOffset } from "./edgeRouting";
 
 interface EdgeLaneInfo {
   laneIndex: number;
@@ -725,7 +726,8 @@ function buildNonAttributeLogicalPoints(
   compositeAttributeIds?: ReadonlySet<string>,
 ): Point[] {
   const laneCount = laneInfo?.laneCount ?? 1;
-  const connectorLaneOffset = getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
+  const manualOffset = getEffectiveManualOffset(edge);
+  const connectorLaneOffset = getParallelLaneOffset(laneInfo) + manualOffset;
   const sourceAnchor = getNodeLogicalAnchor(sourceNode, compositeAttributeIds);
   const targetAnchor = getNodeLogicalAnchor(targetNode, compositeAttributeIds);
 
@@ -773,13 +775,13 @@ export function getEdgeGeometry(
     ], attributeNode, hostNode, compositeAttributeIds);
   } else if (
     edge.type === "connector" &&
-    ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(edge.manualOffset ?? 0) > 0.001)
+    ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(getEffectiveManualOffset(edge)) > 0.001)
   ) {
     points = buildRecursiveConnectorPoints(
       sourceNode,
       targetNode,
       laneInfo,
-      (laneInfo?.laneCount ?? 1) > 1 ? 0 : edge.manualOffset ?? 0,
+      (laneInfo?.laneCount ?? 1) > 1 ? 0 : getEffectiveManualOffset(edge),
     );
   } else {
     const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo, compositeAttributeIds);
@@ -800,12 +802,13 @@ export function getRenderedEdgeGeometry(
   compositeAttributeIds?: ReadonlySet<string>,
 ): EdgeGeometry {
   if (edge.type === "connector") {
-    if ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(edge.manualOffset ?? 0) > 0.001) {
+    const effectiveManualOffset = getEffectiveManualOffset(edge);
+    if ((laneInfo?.laneCount ?? 1) > 1 || Math.abs(effectiveManualOffset) > 0.001) {
       const points = buildRecursiveConnectorPoints(
         sourceNode,
         targetNode,
         laneInfo,
-        (laneInfo?.laneCount ?? 1) > 1 ? 0 : edge.manualOffset ?? 0,
+        (laneInfo?.laneCount ?? 1) > 1 ? 0 : effectiveManualOffset,
       );
 
       return {

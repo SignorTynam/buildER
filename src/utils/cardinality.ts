@@ -9,6 +9,7 @@ import type {
   EntityRelationshipParticipation,
   RelationshipNode,
 } from "../types/diagram";
+import { removeDisallowedManualRouting } from "./edgeRouting";
 
 export const CONNECTOR_CARDINALITY_PLACEHOLDER = "(X,Y)";
 
@@ -215,7 +216,7 @@ export function ensureConnectorParticipation(
   const participationId = connectorEdge.participationId ?? `participation-${connectorEdge.id}`;
   const nextEdges = diagram.edges.map((edge) =>
     edge.id === connectorEdge.id && edge.type === "connector"
-      ? { ...edge, participationId }
+      ? removeDisallowedManualRouting({ ...edge, participationId })
       : edge,
   );
   const nextNodes = diagram.nodes.map((node) => {

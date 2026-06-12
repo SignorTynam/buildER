@@ -10,6 +10,8 @@ import {
   removeTemporaryCardinalityConnector,
   shouldOpenCardinalityDialogAfterEdgeCreation,
 } from "../src/utils/cardinality.ts";
+import { canEdgeUseManualRouting } from "../src/utils/edgeRouting.ts";
+import { parseDiagram, serializeDiagram } from "../src/utils/diagram.ts";
 
 function entity(id: string): EntityNode {
   return {
@@ -144,7 +146,10 @@ test("cardinality flow: cancel removes temporary connector and its participation
 });
 
 test("cardinality flow: submit new connector keeps coherent participation and cardinality", () => {
-  const prepared = ensureConnectorParticipation(baseDiagram(connector("edge-1")), "edge-1");
+  const prepared = ensureConnectorParticipation(
+    baseDiagram({ ...connector("edge-1"), manualOffset: 42 }),
+    "edge-1",
+  );
   assert.ok(prepared);
 
   const applied = applyConnectorCardinalityToDiagram(prepared.diagram, "edge-1", "(1,N)");
@@ -155,8 +160,37 @@ test("cardinality flow: submit new connector keeps coherent participation and ca
 
   assert.equal(nextEdge?.type, "connector");
   assert.equal(nextEdge?.participationId, applied.participationId);
+  assert.equal(nextEdge?.sourceId, "ENTITY1");
+  assert.equal(nextEdge?.targetId, "RELATIONSHIP1");
+  assert.equal(nextEdge?.manualOffset, undefined);
   assert.equal(participation?.relationshipId, "RELATIONSHIP1");
   assert.equal(participation?.cardinality, "(1,N)");
+});
+
+test("cardinality flow: manual routing is disabled for connectors", () => {
+  assert.equal(canEdgeUseManualRouting(connector("edge-1")), false);
+  assert.equal(
+    canEdgeUseManualRouting({
+      id: "attribute-edge",
+      type: "attribute",
+      sourceId: "ENTITY1",
+      targetId: "ATTR1",
+      label: "",
+      lineStyle: "solid",
+    }),
+    true,
+  );
+});
+
+test("cardinality flow: parse and serialize remove connector manual offset", () => {
+  const diagram = baseDiagram({ ...connector("edge-1"), manualOffset: 36 });
+
+  const serialized = serializeDiagram(diagram);
+  const serializedDiagram = JSON.parse(serialized) as DiagramDocument;
+  assert.equal(serializedDiagram.edges[0]?.manualOffset, undefined);
+
+  const parsed = parseDiagram(JSON.stringify(diagram));
+  assert.equal(parsed.edges[0]?.manualOffset, undefined);
 });
 
 test("cardinality flow: modal primary label reflects create versus edit mode", () => {
