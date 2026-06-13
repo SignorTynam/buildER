@@ -2901,7 +2901,7 @@ summary:focus-visible {
   }
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 899px) {
   .app-header.studio-topbar {
     grid-template-columns: 1fr;
   }
@@ -7299,7 +7299,7 @@ textarea:disabled {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 899px) {
   .structured-workspace-shell,
   .structured-workspace-shell.workspace-technical-open {
     display: flex;

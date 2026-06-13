@@ -1782,7 +1782,7 @@ body,
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 899px) {
   .app-header.studio-topbar {
     grid-template-columns: 1fr;
   }
@@ -2990,7 +2990,7 @@ summary:focus-visible,
   color: var(--studio-danger);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 899px) {
   .app-shell {
     grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
@@ -3303,7 +3303,7 @@ textarea {
   display: none;
 }
 
-@media (max-width: 880px) {
+@media (max-width: 899px) {
   .tutorial-shell,
   .tutorial-main,
   .tutorial-main section,
@@ -3733,7 +3733,11 @@ textarea {
     overflow: auto;
   }
 
-  .designer-logical-workspace,
+  .designer-logical-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
   .designer-logical-workspace.sql-open {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(180px, 36dvh);
@@ -3763,11 +3767,17 @@ textarea {
   }
 
   .designer-logical-canvas.sql-open .designer-logical-toolbar {
+    right: 8px;
     bottom: calc(36dvh + 64px + env(safe-area-inset-bottom));
+    left: 8px;
+    width: auto;
+    max-width: calc(100vw - 16px);
   }
 
   .designer-logical-canvas.sql-open .canvas-viewport-hud {
-    bottom: calc(36dvh + 146px + env(safe-area-inset-bottom)) !important;
+    right: 8px !important;
+    bottom: 146px !important;
+    left: auto !important;
   }
 
   .designer-stage-label,
@@ -3970,11 +3980,20 @@ textarea {
     bottom: 0;
     display: flex;
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 8px;
     padding: 10px 12px max(10px, env(safe-area-inset-bottom));
     background: var(--studio-surface-strong);
     border-top: 1px solid var(--studio-border);
+  }
+
+  .sql-reverse-modal__actions > *,
+  .entity-key-modal-footer-actions > *,
+  .action-modal-actions > *,
+  .designer-cardinality-actions > * {
+    flex: 0 0 auto;
+    width: 100%;
   }
 
   .sql-reverse-modal__action-spacer {
@@ -4054,4 +4073,117 @@ textarea {
   padding: 0 8px;
   color: var(--studio-muted);
   font-size: 0.72rem;
+}
+
+/* Patch 3 responsive layout map:
+   >=1180 desktop full, 900-1179 compact desktop/tablet landscape,
+   641-899 tablet portrait, <=640 phone bottom controls. */
+.app-shell-view-er .er-workspace-shell {
+  grid-template-rows: minmax(0, 1fr) !important;
+  align-items: stretch;
+}
+
+.app-shell-view-er .er-workspace-shell > .designer-workspace,
+.app-shell-view-er .designer-workspace,
+.app-shell-view-er .designer-canvas-region,
+.app-shell-view-er .canvas-panel,
+.app-shell-view-er .diagram-canvas {
+  min-height: 0 !important;
+}
+
+.app-shell-view-er .er-workspace-shell > .designer-workspace,
+.app-shell-view-er .designer-workspace {
+  height: 100% !important;
+  align-self: stretch;
+}
+
+.app-shell-view-er .designer-workspace {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) and (max-width: 1179px) {
+  .app-shell.app-shell-view-er,
+  .app-shell.app-shell-view-translation,
+  .app-shell.app-shell-view-logical {
+    grid-template-rows: 42px minmax(0, 1fr) auto !important;
+  }
+
+  .app-workspace-region,
+  .er-workspace-shell,
+  .structured-workspace-shell,
+  .designer-workspace,
+  .designer-canvas-region {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .designer-topbar {
+    grid-template-columns: minmax(170px, 260px) minmax(180px, 280px) minmax(0, auto);
+    gap: 12px;
+  }
+
+  .designer-brand {
+    min-width: 170px;
+  }
+
+  .designer-topbar-actions {
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .app-shell-view-er .designer-quick-actions-bar {
+    top: 10px;
+    right: 14px;
+    bottom: auto;
+    left: auto;
+    max-width: min(500px, calc(100vw - 116px));
+  }
+
+  .app-shell-view-er .designer-context-toolbar {
+    top: 74px;
+    left: 18px;
+    right: auto;
+    bottom: auto;
+  }
+
+  .app-shell-view-er .canvas-viewport-hud,
+  .app-shell-view-translation .canvas-viewport-hud,
+  .app-shell-view-logical .canvas-viewport-hud {
+    top: auto !important;
+    right: 18px !important;
+    bottom: 18px !important;
+    left: auto !important;
+  }
+
+  .designer-logical-workspace.sql-open {
+    grid-template-columns: minmax(280px, 32vw) minmax(0, 1fr);
+  }
+
+  .designer-sql-dock {
+    min-width: 280px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 899px) {
+  .app-shell-view-er .er-workspace-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .app-shell-view-er .er-workspace-shell > .workspace-resizer,
+  .app-shell-view-er .er-workspace-shell > .technical-dock-panel {
+    display: none !important;
+  }
+
+  .designer-context-toolbar,
+  .designer-translation-toolbar,
+  .designer-logical-toolbar {
+    bottom: calc(70px + env(safe-area-inset-bottom));
+  }
+
+  .canvas-viewport-hud,
+  .app-shell-view-er .canvas-viewport-hud,
+  .app-shell-view-translation .canvas-viewport-hud {
+    bottom: calc(154px + env(safe-area-inset-bottom)) !important;
+  }
 }

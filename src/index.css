@@ -86,10 +86,12 @@ body,
 #root {
   margin: 0;
   height: 100%;
+  min-width: 0;
 }
 
 body {
   background: var(--studio-bg);
+  overflow-x: hidden;
 }
 
 button,
@@ -110,6 +112,11 @@ button:disabled {
   display: grid;
   grid-template-rows: auto auto 1fr;
   height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
   color: #111111;
 }
 
@@ -13245,7 +13252,7 @@ summary:focus-visible,
   color: var(--studio-danger);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 899px) {
   .app-shell {
     grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
