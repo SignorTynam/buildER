@@ -70,9 +70,13 @@ type ToolbarCommand = {
   disabled?: boolean;
   title?: string;
   active?: boolean;
+  className?: string;
+  ariaLabel?: string;
 };
 
 type IconName =
+  | "select"
+  | "move"
   | "undo"
   | "redo"
   | "entity"
@@ -107,6 +111,18 @@ function ToolIcon({ name }: { name: IconName }) {
 
   return (
     <svg className="designer-toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
+      {name === "select" ? (
+        <>
+          <path {...common} d="M5 4l10 10-5 1.2L8 20 5 4z" />
+          <path {...common} d="M10 15l3.5 5" />
+        </>
+      ) : null}
+      {name === "move" ? (
+        <>
+          <path {...common} d="M12 3v18M3 12h18" />
+          <path {...common} d="m8 7 4-4 4 4M8 17l4 4 4-4M7 8 3 12l4 4M17 8l4 4-4 4" />
+        </>
+      ) : null}
       {name === "undo" ? <path {...common} d="M9 8H4v5M5 9a8 8 0 1 1 2 8" /> : null}
       {name === "redo" ? <path {...common} d="M15 8h5v5M19 9a8 8 0 1 0-2 8" /> : null}
       {name === "entity" ? <rect {...common} x="5" y="7" width="14" height="10" /> : null}
@@ -207,9 +223,11 @@ function ToolIcon({ name }: { name: IconName }) {
         </>
       ) : null}
       {name === "type" ? (
-        <text className="designer-toolbar-svg-text" x="12" y="14" textAnchor="middle">
-          ISA
-        </text>
+        <>
+          <path {...common} d="M12 5v5" />
+          <path {...common} d="M6 19h12" />
+          <path {...common} d="M12 10 5 19M12 10l7 9" />
+        </>
       ) : null}
     </svg>
   );
@@ -312,14 +330,20 @@ function connectorHasCardinalityOneOne(diagram: DiagramDocument, edge: DiagramEd
 }
 
 function CommandButton({ command }: { command: ToolbarCommand }) {
+  const className = [
+    "designer-toolbar-button",
+    command.active ? "active" : "",
+    command.className ?? "",
+  ].filter(Boolean).join(" ");
+
   return (
     <button
       type="button"
-      className={command.active ? "designer-toolbar-button active" : "designer-toolbar-button"}
+      className={className}
       onClick={command.onClick}
       disabled={command.disabled}
       title={command.title ?? command.label}
-      aria-label={command.label}
+      aria-label={command.ariaLabel ?? command.label}
     >
       <span className="designer-toolbar-icon" aria-hidden="true">{command.icon}</span>
       <span className="designer-toolbar-label">{command.label}</span>
@@ -352,15 +376,14 @@ export function Toolbar(props: ToolbarProps) {
   const selectedEntityHasExternalIdentifier =
     props.selectedNode?.type === "entity" && (props.selectedNode.externalIdentifiers ?? []).length > 0;
 
-  const mobileToolCommands: ToolbarCommand[] = [
-    { key: "mobile-select", label: "Select", icon: "V", onClick: () => props.onToolChange("select"), active: props.activeTool === "select" },
-    { key: "mobile-move", label: "Pan", icon: "S", onClick: () => props.onToolChange("move"), active: props.activeTool === "move" },
-    { key: "mobile-entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onToolChange("entity"), disabled: !canEdit, active: props.activeTool === "entity" },
-    { key: "mobile-relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onToolChange("relationship"), disabled: !canEdit, active: props.activeTool === "relationship" },
-    { key: "mobile-attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: () => props.onToolChange("attribute"), disabled: !canEdit, active: props.activeTool === "attribute" },
-    { key: "mobile-connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, active: props.activeTool === "connector" },
-    { key: "mobile-isa", label: "ISA", icon: <ToolIcon name="type" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, active: props.activeTool === "inheritance" },
-    { key: "mobile-delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: () => props.onToolChange("delete"), disabled: !canEdit, active: props.activeTool === "delete" },
+  const primaryToolCommands: ToolbarCommand[] = [
+    { key: "primary-select", label: "Select", icon: <ToolIcon name="select" />, onClick: () => props.onToolChange("select"), active: props.activeTool === "select", ariaLabel: "Seleziona elementi" },
+    { key: "primary-move", label: "Pan", icon: <ToolIcon name="move" />, onClick: () => props.onToolChange("move"), active: props.activeTool === "move", ariaLabel: "Sposta il viewport" },
+    { key: "primary-entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onToolChange("entity"), disabled: !canEdit, active: props.activeTool === "entity", ariaLabel: "Strumento entita" },
+    { key: "primary-relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onToolChange("relationship"), disabled: !canEdit, active: props.activeTool === "relationship", ariaLabel: "Strumento relazione" },
+    { key: "primary-attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: () => props.onToolChange("attribute"), disabled: !canEdit, active: props.activeTool === "attribute", ariaLabel: "Strumento attributo" },
+    { key: "primary-connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, active: props.activeTool === "connector", ariaLabel: "Strumento collegamento" },
+    { key: "primary-isa", label: "ISA", icon: <ToolIcon name="type" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, active: props.activeTool === "inheritance", ariaLabel: "Strumento generalizzazione ISA" },
   ];
 
   const baseCommands: ToolbarCommand[] = [
@@ -398,8 +421,8 @@ export function Toolbar(props: ToolbarProps) {
 
   if (props.selectionItemCount === 0) {
     contextCommands = [
-      { key: "entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onCreateEntity?.(), disabled: !canEdit },
-      { key: "relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onCreateRelationship?.(), disabled: !canEdit },
+      { key: "entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onCreateEntity?.(), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onCreateRelationship?.(), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
       { key: "translate", label: "Translate", icon: <ToolIcon name="translate" />, onClick: props.onOpenTranslation },
       { key: "export", label: "Export", icon: <ToolIcon name="export" />, onClick: () => setExportMenuOpen((current) => !current) },
     ];
@@ -417,7 +440,7 @@ export function Toolbar(props: ToolbarProps) {
     ];
   } else if (props.selectedNode?.type === "entity") {
     contextCommands = [
-      { key: "parent", label: "To Parent", icon: <ToolIcon name="parent" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit },
+      { key: "parent", label: "To Parent", icon: <ToolIcon name="parent" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
       ...(selectedEntityIsInHierarchy
         ? [
             {
@@ -441,14 +464,14 @@ export function Toolbar(props: ToolbarProps) {
             } satisfies ToolbarCommand,
           ]
         : []),
-      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
+      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
       { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
       { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedNode?.type === "relationship") {
     contextCommands = [
-      { key: "connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit },
-      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit },
+      { key: "connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
       { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
       { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
@@ -463,6 +486,7 @@ export function Toolbar(props: ToolbarProps) {
         icon: <ToolIcon name="attribute" />,
         onClick: props.onCreateAttributeForSelection,
         disabled: !canEdit || !selectedAttributeCanCreateSubattribute,
+        className: selectedAttribute.isMultivalued === true ? "designer-toolbar-mobile-hidden" : undefined,
         title: selectedAttributeCanCreateSubattribute
           ? undefined
           : "Un attributo figlio di un attributo composto non puo diventare composto.",
@@ -543,14 +567,21 @@ export function Toolbar(props: ToolbarProps) {
 
   return (
     <nav className="designer-context-toolbar" aria-label="Context toolbar">
-      <div className="designer-mobile-tool-strip" role="group" aria-label="Strumenti principali">
-        {mobileToolCommands.map((command) => (
+      <div className="designer-toolbar-group designer-toolbar-primary" role="group" aria-label="Strumenti principali">
+        {primaryToolCommands.map((command) => (
           <CommandButton key={command.key} command={command} />
         ))}
       </div>
-      {[...baseCommands, ...selectionClipboardCommands, ...contextCommands].map((command) => (
-        <CommandButton key={command.key} command={command} />
-      ))}
+      <div className="designer-toolbar-group designer-toolbar-history" role="group" aria-label="Cronologia e clipboard">
+        {[...baseCommands, ...selectionClipboardCommands].map((command) => (
+          <CommandButton key={command.key} command={command} />
+        ))}
+      </div>
+      <div className="designer-toolbar-group designer-toolbar-context" role="group" aria-label="Azioni contestuali">
+        {contextCommands.map((command) => (
+          <CommandButton key={command.key} command={command} />
+        ))}
+      </div>
       {exportMenuOpen ? (
         <div className="designer-export-popover" role="menu" aria-label="Export ER">
           <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveProject?.(); }}>

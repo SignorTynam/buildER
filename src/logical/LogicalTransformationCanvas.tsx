@@ -1696,22 +1696,22 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
 
       <div className="canvas-viewport-hud" aria-label="Controlli viewport Logico">
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
-          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1 / 1.14)}>
+          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1 / 1.14)} aria-label="Riduci zoom">
             -
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport}>
+          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label="Reset zoom">
             {Math.round(props.viewport.zoom * 100)}%
           </button>
-          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1.14)}>
+          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1.14)} aria-label="Aumenta zoom">
             +
           </button>
-          <button type="button" className="canvas-hud-button" onClick={fitToContent}>
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label="Adatta contenuto al viewport">
             Adatta
           </button>
-          <button type="button" className="canvas-hud-button" onClick={centerContent}>
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerContent} aria-label="Centra contenuto">
             Centra
           </button>
-          <button type="button" className="canvas-hud-button" onClick={resetViewport}>
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label="Reset viewport">
             Reset
           </button>
         </div>

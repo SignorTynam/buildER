@@ -6075,12 +6075,14 @@ export default function App() {
               ) : null}
 
               <div className="designer-canvas-region">
-                <div className="designer-side-toggle-group designer-side-toggle-left" aria-label="Pannelli rapidi">
+                <div className="designer-quick-actions-bar designer-side-toggle-group" aria-label="Pannelli rapidi">
                   <button
                     type="button"
-                    className="designer-side-toggle"
+                    className={["designer-side-toggle", codePanelOpen ? "active" : ""].filter(Boolean).join(" ")}
                     onClick={handleToggleCodePanel}
                     title={codePanelOpen ? "Chiudi codice ERS" : "Apri codice ERS"}
+                    aria-label={codePanelOpen ? "Chiudi pannello Code ERS" : "Apri pannello Code ERS"}
+                    aria-pressed={codePanelOpen}
                   >
                     <span aria-hidden="true">{"<>"}</span>
                     Code
@@ -6090,10 +6092,10 @@ export default function App() {
                     className="designer-side-toggle"
                     onClick={handleOpenSqlReverseWorkflow}
                     title="Importa schema SQL"
-                    aria-label="Apri Reverse Engineering SQL"
+                    aria-label="Apri workflow Reverse Engineering SQL"
                   >
                     <span aria-hidden="true">DB</span>
-                    SQL
+                    Reverse
                   </button>
                   <button
                     type="button"
@@ -6102,6 +6104,7 @@ export default function App() {
                     }`}
                     onClick={() => setErrorsPanelOpen(true)}
                     title="Apri errori e warning"
+                    aria-label="Apri elenco errori e warning"
                   >
                     <span aria-hidden="true">{issues.some((issue) => issue.level === "error") ? "X" : "!"}</span>
                     Errors
@@ -6116,6 +6119,11 @@ export default function App() {
                       showDiagnostics
                         ? "Hide warnings and errors on canvas"
                         : "Show warnings and errors on canvas"
+                    }
+                    aria-label={
+                      showDiagnostics
+                        ? "Nascondi diagnostica sul canvas"
+                        : "Mostra diagnostica sul canvas"
                     }
                     aria-pressed={showDiagnostics}
                   >
@@ -6135,16 +6143,18 @@ export default function App() {
                     </span>
                     <span className="designer-side-toggle-label">Diagnostics</span>
                   </button>
+                  <button
+                    type="button"
+                    className={["designer-side-toggle", notesPanelOpen ? "active" : ""].filter(Boolean).join(" ")}
+                    onClick={handleToggleNotesPanel}
+                    title={notesPanelOpen ? "Chiudi note" : "Apri note"}
+                    aria-label={notesPanelOpen ? "Chiudi pannello Notes" : "Apri pannello Notes"}
+                    aria-pressed={notesPanelOpen}
+                  >
+                    <span aria-hidden="true">N</span>
+                    Notes
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="designer-side-toggle designer-side-toggle-right"
-                  onClick={handleToggleNotesPanel}
-                  title={notesPanelOpen ? "Chiudi note" : "Apri note"}
-                >
-                  <span aria-hidden="true">N</span>
-                  {notesPanelOpen ? "Hide" : "Notes"}
-                </button>
 
                 <Toolbar
                   diagram={history.present}

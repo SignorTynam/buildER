@@ -842,11 +842,6 @@ body {
   top: auto;
 }
 
-.canvas-hud-cluster-viewport .canvas-hud-zoom,
-.canvas-hud-cluster-viewport button:nth-child(n+4) {
-  display: none;
-}
-
 .canvas-hud-button {
   min-width: 38px;
   min-height: 38px;

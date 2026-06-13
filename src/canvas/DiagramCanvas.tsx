@@ -4455,22 +4455,22 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
       <div className="canvas-viewport-hud" aria-label="Controlli viewport">
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
-          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1 / 1.14)}>
+          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1 / 1.14)} aria-label="Riduci zoom">
             -
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport}>
+          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label="Reset zoom">
             {Math.round(props.viewport.zoom * 100)}%
           </button>
-          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1.14)}>
+          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1.14)} aria-label="Aumenta zoom">
             +
           </button>
-          <button type="button" className="canvas-hud-button" onClick={fitToContent}>
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label="Adatta contenuto al viewport">
             {props.selection.nodeIds.length > 0 ? "Adatta sel." : "Adatta"}
           </button>
-          <button type="button" className="canvas-hud-button" onClick={centerDiagram}>
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerDiagram} aria-label="Centra diagramma">
             Centra
           </button>
-          <button type="button" className="canvas-hud-button" onClick={resetViewport}>
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label="Reset viewport">
             Reset
           </button>
         </div>
