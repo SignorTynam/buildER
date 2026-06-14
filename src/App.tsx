@@ -6107,41 +6107,8 @@ export default function App() {
                     aria-label="Apri elenco errori e warning"
                   >
                     <span aria-hidden="true">{issues.some((issue) => issue.level === "error") ? "X" : "!"}</span>
-                    Errors
-                  </button>
-                  <button
-                    type="button"
-                    className={`designer-side-toggle designer-side-toggle-diagnostics ${
-                      showDiagnostics ? "active" : "muted"
-                    }`}
-                    onClick={handleToggleDiagnosticsVisibility}
-                    title={
-                      showDiagnostics
-                        ? "Hide warnings and errors on canvas"
-                        : "Show warnings and errors on canvas"
-                    }
-                    aria-label={
-                      showDiagnostics
-                        ? "Nascondi diagnostica sul canvas"
-                        : "Mostra diagnostica sul canvas"
-                    }
-                    aria-pressed={showDiagnostics}
-                  >
-                    <span className="designer-side-toggle-icon" aria-hidden="true">
-                      <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
-                        <path
-                          d="M1.9 8.5s2.4-4 6.6-4 6.6 4 6.6 4-2.4 4-6.6 4-6.6-4-6.6-4Z"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinejoin="round"
-                        />
-                        <circle cx="8.5" cy="8.5" r="1.8" stroke="currentColor" strokeWidth="1.6" />
-                        {!showDiagnostics ? (
-                          <path d="M3.4 13.6 13.6 3.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                        ) : null}
-                      </svg>
-                    </span>
-                    <span className="designer-side-toggle-label">Diagnostics</span>
+                    <span className="designer-side-toggle-label">Errors</span>
+                    {issues.length > 0 ? <span className="designer-side-toggle-badge">{issues.length}</span> : null}
                   </button>
                   <button
                     type="button"
@@ -6501,6 +6468,31 @@ export default function App() {
               </button>
             </div>
             <div className="action-modal-content errors-modal-list">
+              <div className="errors-modal-toolbar">
+                <button
+                  type="button"
+                  className={["errors-modal-diagnostics-toggle", showDiagnostics ? "active" : ""].filter(Boolean).join(" ")}
+                  onClick={handleToggleDiagnosticsVisibility}
+                  aria-pressed={showDiagnostics}
+                  aria-label={showDiagnostics ? "Nascondi diagnostica sul canvas" : "Mostra diagnostica sul canvas"}
+                >
+                  <span className="errors-modal-diagnostics-icon" aria-hidden="true">
+                    <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+                      <path
+                        d="M1.9 8.5s2.4-4 6.6-4 6.6 4 6.6 4-2.4 4-6.6 4-6.6-4-6.6-4Z"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="8.5" cy="8.5" r="1.8" stroke="currentColor" strokeWidth="1.6" />
+                      {!showDiagnostics ? (
+                        <path d="M3.4 13.6 13.6 3.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      ) : null}
+                    </svg>
+                  </span>
+                  <span>Mostra diagnostica sul canvas</span>
+                </button>
+              </div>
               {!showDiagnostics && issues.filter(issueTargetExists).length > 0 ? (
                 <p className="errors-modal-note">
                   Gli indicatori sul canvas sono nascosti; la validazione resta attiva.

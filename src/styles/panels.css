@@ -3634,6 +3634,10 @@ textarea {
     display: none;
   }
 
+  .designer-toolbar-button.designer-toolbar-mobile-hidden {
+    display: none;
+  }
+
   .designer-toolbar-button {
     flex: 0 0 58px;
     min-width: 58px;
@@ -4075,6 +4079,276 @@ textarea {
   font-size: 0.72rem;
 }
 
+/* Patch 4: compact mobile header, ordered bottom controls and modern viewport HUD. */
+.canvas-viewport-hud {
+  z-index: 20;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  backdrop-filter: none;
+}
+
+.canvas-hud-cluster.canvas-hud-cluster-viewport {
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 96%, transparent);
+  box-shadow: var(--studio-shadow-panel);
+  backdrop-filter: blur(12px);
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-button-zoom-control,
+.canvas-hud-cluster-viewport .canvas-hud-zoom {
+  background: var(--studio-surface-muted);
+  color: var(--studio-ink);
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-zoom,
+.canvas-hud-cluster-viewport .canvas-hud-button-text {
+  width: auto;
+  min-width: 50px;
+  padding-inline: 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0;
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-button-text {
+  border-color: var(--studio-border);
+  background: var(--studio-surface);
+  color: var(--studio-ink);
+}
+
+.canvas-hud-cluster-viewport .canvas-hud-button:hover:not(:disabled),
+.canvas-hud-cluster-viewport .canvas-hud-button:focus-visible {
+  border-color: var(--studio-border-strong);
+  background: var(--studio-surface-strong);
+  color: var(--studio-accent-strong);
+  outline: none;
+  box-shadow: var(--studio-focus-ring);
+}
+
+.designer-side-toggle-badge {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--studio-warning-soft);
+  color: var(--studio-warning);
+  font-size: 0.65rem;
+  font-weight: 850;
+}
+
+.errors-modal-toolbar {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.errors-modal-diagnostics-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-md);
+  background: var(--studio-surface);
+  color: var(--studio-ink);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.errors-modal-diagnostics-toggle.active {
+  border-color: rgba(37, 79, 72, 0.34);
+  background: var(--studio-accent-soft);
+  color: var(--studio-accent-strong);
+}
+
+.errors-modal-diagnostics-toggle:hover,
+.errors-modal-diagnostics-toggle:focus-visible {
+  border-color: var(--studio-border-strong);
+  background: var(--studio-surface-strong);
+  outline: none;
+  box-shadow: var(--studio-focus-ring);
+}
+
+.errors-modal-diagnostics-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+@media (max-width: 899px) {
+  .designer-quick-actions-bar,
+  .designer-side-toggle-group.designer-side-toggle-left,
+  .designer-logical-schema-toggles {
+    z-index: 30;
+    top: auto;
+    right: 8px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    left: 8px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .designer-side-toggle-right,
+  .designer-translation-notes-toggle,
+  .designer-logical-notes-toggle {
+    z-index: 31;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .designer-context-toolbar,
+  .designer-translation-toolbar,
+  .designer-logical-toolbar {
+    z-index: 40;
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .canvas-viewport-hud,
+  .app-shell-view-er .canvas-viewport-hud,
+  .app-shell-view-translation .canvas-viewport-hud,
+  .app-shell-view-logical .canvas-viewport-hud {
+    z-index: 20;
+    right: 8px !important;
+    bottom: calc(148px + env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+  }
+
+  .designer-export-popover,
+  .designer-fix-popover,
+  .designer-logical-fix-popover,
+  .designer-logical-move-popover {
+    bottom: calc(150px + env(safe-area-inset-bottom));
+  }
+
+  .designer-logical-canvas.sql-open .designer-logical-schema-toggles,
+  .designer-logical-canvas.sql-open .designer-logical-notes-toggle {
+    bottom: calc(36dvh + 84px + env(safe-area-inset-bottom));
+  }
+
+  .designer-logical-canvas.sql-open .designer-logical-toolbar {
+    bottom: calc(36dvh + 8px + env(safe-area-inset-bottom));
+  }
+
+  .designer-logical-canvas.sql-open .canvas-viewport-hud {
+    bottom: 148px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell.app-shell-view-er,
+  .app-shell.app-shell-view-translation,
+  .app-shell.app-shell-view-logical {
+    grid-template-rows: 52px minmax(0, 1fr) auto !important;
+  }
+
+  .designer-topbar {
+    grid-template-columns: minmax(78px, max-content) minmax(0, 1fr) auto;
+    grid-template-areas: "brand project actions";
+    gap: 8px;
+    height: 52px;
+    min-height: 52px;
+    padding: max(4px, env(safe-area-inset-top)) 8px 4px;
+    overflow: hidden;
+  }
+
+  .designer-brand {
+    grid-area: brand;
+    min-width: 0;
+    max-width: 104px;
+    align-items: center;
+    gap: 0;
+    letter-spacing: 0.06em;
+  }
+
+  .designer-brand strong {
+    max-width: 104px;
+    overflow: hidden;
+    font-size: 0.82rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .designer-brand span {
+    display: none;
+  }
+
+  .designer-project-name {
+    grid-area: project;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    padding: 0 8px;
+    font-size: 0.82rem;
+  }
+
+  .designer-topbar-actions {
+    grid-area: actions;
+    display: inline-flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .designer-topbar-actions button:not(.designer-icon-button) {
+    display: none;
+  }
+
+  .designer-topbar-actions .designer-icon-button,
+  .designer-icon-button {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .designer-brand {
+    max-width: 92px;
+  }
+
+  .designer-brand strong {
+    max-width: 92px;
+  }
+
+  .canvas-hud-cluster-viewport .canvas-hud-button {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .canvas-hud-cluster-viewport .canvas-hud-zoom,
+  .canvas-hud-cluster-viewport .canvas-hud-button-text {
+    min-width: 52px;
+    padding-inline: 8px;
+  }
+}
+
 /* Patch 3 responsive layout map:
    >=1180 desktop full, 900-1179 compact desktop/tablet landscape,
    641-899 tablet portrait, <=640 phone bottom controls. */
@@ -4185,5 +4459,60 @@ textarea {
   .app-shell-view-er .canvas-viewport-hud,
   .app-shell-view-translation .canvas-viewport-hud {
     bottom: calc(154px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 899px) {
+  .designer-quick-actions-bar,
+  .designer-side-toggle-group.designer-side-toggle-left,
+  .designer-logical-schema-toggles {
+    top: auto;
+    right: 8px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    left: 8px;
+    max-width: calc(100vw - 16px);
+    z-index: 30;
+  }
+
+  .designer-side-toggle-right,
+  .designer-translation-notes-toggle,
+  .designer-logical-notes-toggle {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    z-index: 31;
+  }
+
+  .designer-context-toolbar,
+  .designer-translation-toolbar,
+  .designer-logical-toolbar {
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 40;
+  }
+
+  .canvas-viewport-hud,
+  .app-shell-view-er .canvas-viewport-hud,
+  .app-shell-view-translation .canvas-viewport-hud,
+  .app-shell-view-logical .canvas-viewport-hud {
+    top: auto !important;
+    right: 8px !important;
+    bottom: calc(148px + env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+    z-index: 20;
+  }
+
+  .designer-code-dock,
+  .designer-notes-overlay {
+    bottom: calc(214px + env(safe-area-inset-bottom));
+    height: min(42dvh, 420px);
+    max-height: calc(100dvh - 310px);
+  }
+}
+
+@media (max-width: 899px) {
+  .designer-code-dock,
+  .designer-notes-overlay {
+    bottom: calc(214px + env(safe-area-inset-bottom));
+    height: min(42dvh, 420px);
+    max-height: calc(100dvh - 310px);
   }
 }
