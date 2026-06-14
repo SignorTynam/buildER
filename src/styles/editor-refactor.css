@@ -501,6 +501,50 @@ body {
   background: #ffffff;
 }
 
+.designer-fix-option {
+  display: grid;
+  gap: 3px;
+  min-height: 38px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--studio-border);
+  background: transparent;
+  color: var(--studio-ink);
+  padding: 8px 12px;
+  text-align: left;
+  font: 0.76rem "IBM Plex Sans", "Segoe UI", sans-serif;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.designer-fix-option:last-child {
+  border-bottom: 0;
+}
+
+.designer-fix-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.designer-fix-option small {
+  color: var(--studio-muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.designer-fix-option:hover:not(:disabled),
+.designer-fix-option:focus-visible {
+  background: var(--studio-surface);
+  color: var(--studio-accent-strong);
+  outline: none;
+}
+
+.designer-fix-option:disabled {
+  color: var(--studio-muted);
+  cursor: not-allowed;
+}
+
 .designer-fix-choice-icon {
   align-self: center;
   justify-self: center;
