@@ -73,6 +73,7 @@ import {
   duplicateSelection,
   edgeAlreadyExists,
   type ExternalIdentifierInvalidation,
+  getEligibleLocalExternalIdentifierAttributes,
   getEligibleImportedIdentifierParts,
   findNode,
   getMultivaluedAttributeSize,
@@ -4329,14 +4330,10 @@ export default function App() {
       return;
     }
 
-    const localEligible = findDirectHostedAttributes(history.present, hostEntity.id).filter((attribute) => {
-      if (attribute.isMultivalued === true) {
-        return false;
-      }
-      const usedInternal = (hostEntity?.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.includes(attribute.id));
-      const usedExternal = (hostEntity?.externalIdentifiers ?? []).some((identifier) => identifier.localAttributeIds.includes(attribute.id));
-      return !usedInternal && !usedExternal;
-    });
+    const localEligible = getEligibleLocalExternalIdentifierAttributes(
+      hostEntity,
+      findDirectHostedAttributes(history.present, hostEntity.id),
+    );
 
     let localAttributeIds = options.localAttributeIds ?? [];
     if (options.mixed) {
@@ -4418,19 +4415,10 @@ export default function App() {
       return;
     }
 
-    const attributes = findDirectHostedAttributes(history.present, hostEntity.id)
-      .filter((attribute) => {
-        if (attribute.isMultivalued === true || attribute.isIdentifier === true || attribute.isCompositeInternal === true) {
-          return false;
-        }
-        const usedInternal = (hostEntity.internalIdentifiers ?? []).some((identifier) =>
-          identifier.attributeIds.includes(attribute.id),
-        );
-        const usedExternal = (hostEntity.externalIdentifiers ?? []).some((identifier) =>
-          identifier.localAttributeIds.includes(attribute.id),
-        );
-        return !usedInternal && !usedExternal;
-      })
+    const attributes = getEligibleLocalExternalIdentifierAttributes(
+      hostEntity,
+      findDirectHostedAttributes(history.present, hostEntity.id),
+    )
       .map((attribute) => ({ id: attribute.id, label: attribute.label }));
 
     setMixedIdentifierDialog({
@@ -4760,19 +4748,6 @@ export default function App() {
             "l'identificatore esterno non e stato creato",
             `l'attributo locale "${targetNode.label}" e gia occupato da un identificatore interno`,
             "scegli un attributo locale semplice non gia usato come identificatore",
-          ),
-        };
-      }
-
-      if (
-        (targetEntity.externalIdentifiers ?? []).some((identifier) => identifier.localAttributeIds.includes(targetNode.id))
-      ) {
-        return {
-          success: false,
-          message: buildStructuredErrorMessage(
-            "l'identificatore esterno non e stato creato",
-            `l'attributo locale "${targetNode.label}" e gia usato in un altro identificatore esterno`,
-            "seleziona un attributo locale libero oppure modifica l'identificatore esistente",
           ),
         };
       }

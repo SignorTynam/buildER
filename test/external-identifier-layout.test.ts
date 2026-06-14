@@ -9,12 +9,207 @@ import {
   extendOpenRouteEndpoints,
   getStableLocalIdentifierMarkerPoint,
 } from "../src/canvas/DiagramCanvas.tsx";
-import type { Bounds, DiagramDocument, Point } from "../src/types/diagram.ts";
-import { getEligibleImportedIdentifierParts } from "../src/utils/diagram.ts";
+import type { AttributeNode, Bounds, DiagramDocument, EntityNode, Point } from "../src/types/diagram.ts";
+import {
+  getEligibleLocalExternalIdentifierAttributes,
+  getEligibleImportedIdentifierParts,
+  synchronizeExternalIdentifiers,
+  validateDiagram,
+} from "../src/utils/diagram.ts";
 
 function point(x: number, y: number): Point {
   return { x, y };
 }
+
+function buildSharedLocalExternalIdentifierDiagram(): DiagramDocument {
+  return {
+    meta: { name: "Identificatori esterni condivisi", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "ENTITA1",
+        type: "entity",
+        label: "ENTITA1",
+        x: 80,
+        y: 80,
+        width: 140,
+        height: 64,
+        internalIdentifiers: [{ id: "ENTITA1-id", attributeIds: ["ATTRIBUTO1"] }],
+        relationshipParticipations: [{ id: "p-entita1-relazione1", relationshipId: "RELAZIONE1", cardinality: "(1,N)" }],
+      },
+      {
+        id: "ENTITA2",
+        type: "entity",
+        label: "ENTITA2",
+        x: 360,
+        y: 180,
+        width: 140,
+        height: 64,
+        relationshipParticipations: [
+          { id: "p-entita2-relazione1", relationshipId: "RELAZIONE1", cardinality: "(1,1)" },
+          { id: "p-entita2-relazione2", relationshipId: "RELAZIONE2", cardinality: "(1,1)" },
+        ],
+        externalIdentifiers: [
+          {
+            id: "ext-1",
+            importedParts: [
+              {
+                id: "ext-part-1",
+                relationshipId: "RELAZIONE1",
+                sourceEntityId: "ENTITA1",
+                importedIdentifierId: "ENTITA1-id",
+              },
+            ],
+            localAttributeIds: ["ATTRIBUTO6", "ATTRIBUTO6"],
+          },
+          {
+            id: "ext-duplicate",
+            importedParts: [
+              {
+                id: "ext-part-duplicate",
+                relationshipId: "RELAZIONE1",
+                sourceEntityId: "ENTITA1",
+                importedIdentifierId: "ENTITA1-id",
+              },
+            ],
+            localAttributeIds: ["ATTRIBUTO6"],
+          },
+          {
+            id: "ext-2",
+            importedParts: [
+              {
+                id: "ext-part-2",
+                relationshipId: "RELAZIONE2",
+                sourceEntityId: "ENTITA3",
+                importedIdentifierId: "ENTITA3-id",
+              },
+            ],
+            localAttributeIds: ["ATTRIBUTO6"],
+          },
+        ],
+      },
+      {
+        id: "ENTITA3",
+        type: "entity",
+        label: "ENTITA3",
+        x: 660,
+        y: 80,
+        width: 140,
+        height: 64,
+        internalIdentifiers: [{ id: "ENTITA3-id", attributeIds: ["ATTRIBUTO11"] }],
+        relationshipParticipations: [{ id: "p-entita3-relazione2", relationshipId: "RELAZIONE2", cardinality: "(1,N)" }],
+      },
+      { id: "RELAZIONE1", type: "relationship", label: "RELAZIONE1", x: 250, y: 120, width: 130, height: 78 },
+      { id: "RELAZIONE2", type: "relationship", label: "RELAZIONE2", x: 520, y: 120, width: 130, height: 78 },
+      { id: "ATTRIBUTO1", type: "attribute", label: "ATTRIBUTO1", x: 70, y: 20, width: 150, height: 28 },
+      { id: "ATTRIBUTO6", type: "attribute", label: "ATTRIBUTO6", x: 360, y: 280, width: 150, height: 28 },
+      { id: "ATTRIBUTO11", type: "attribute", label: "ATTRIBUTO11", x: 650, y: 20, width: 150, height: 28 },
+    ],
+    edges: [
+      { id: "attr-1", type: "attribute", sourceId: "ENTITA1", targetId: "ATTRIBUTO1", label: "", lineStyle: "solid" },
+      { id: "attr-6", type: "attribute", sourceId: "ENTITA2", targetId: "ATTRIBUTO6", label: "", lineStyle: "solid" },
+      { id: "attr-11", type: "attribute", sourceId: "ENTITA3", targetId: "ATTRIBUTO11", label: "", lineStyle: "solid" },
+      {
+        id: "connector-1",
+        type: "connector",
+        sourceId: "ENTITA1",
+        targetId: "RELAZIONE1",
+        label: "",
+        lineStyle: "solid",
+        participationId: "p-entita1-relazione1",
+      },
+      {
+        id: "connector-2",
+        type: "connector",
+        sourceId: "RELAZIONE1",
+        targetId: "ENTITA2",
+        label: "",
+        lineStyle: "solid",
+        participationId: "p-entita2-relazione1",
+      },
+      {
+        id: "connector-3",
+        type: "connector",
+        sourceId: "ENTITA2",
+        targetId: "RELAZIONE2",
+        label: "",
+        lineStyle: "solid",
+        participationId: "p-entita2-relazione2",
+      },
+      {
+        id: "connector-4",
+        type: "connector",
+        sourceId: "RELAZIONE2",
+        targetId: "ENTITA3",
+        label: "",
+        lineStyle: "solid",
+        participationId: "p-entita3-relazione2",
+      },
+    ],
+  };
+}
+
+test("external identifier: synchronize keeps distinct mixed identifiers sharing the same local attribute", () => {
+  const synchronized = synchronizeExternalIdentifiers(buildSharedLocalExternalIdentifierDiagram());
+  const entity2 = synchronized.nodes.find((node): node is EntityNode => node.id === "ENTITA2" && node.type === "entity");
+
+  assert.ok(entity2);
+  assert.equal(entity2.externalIdentifiers?.length, 2);
+  assert.deepEqual(
+    entity2.externalIdentifiers?.map((identifier) => identifier.id).sort(),
+    ["ext-1", "ext-2"],
+  );
+  entity2.externalIdentifiers?.forEach((identifier) => {
+    assert.deepEqual(identifier.localAttributeIds, ["ATTRIBUTO6"]);
+  });
+  assert.deepEqual(
+    entity2.externalIdentifiers?.map((identifier) => identifier.importedParts[0]?.relationshipId).sort(),
+    ["RELAZIONE1", "RELAZIONE2"],
+  );
+  assert.deepEqual(
+    validateDiagram(synchronized).filter((issue) => issue.id.includes("external-identifier")),
+    [],
+  );
+});
+
+test("external identifier modal: local attribute stays eligible when another external identifier already uses it", () => {
+  const diagram = buildSharedLocalExternalIdentifierDiagram();
+  const entity2 = diagram.nodes.find((node): node is EntityNode => node.id === "ENTITA2" && node.type === "entity");
+  const attribute6 = diagram.nodes.find((node): node is AttributeNode => node.id === "ATTRIBUTO6" && node.type === "attribute");
+  const internalAttribute: AttributeNode = {
+    id: "ATTRIBUTO_INTERNO",
+    type: "attribute",
+    label: "ATTRIBUTO_INTERNO",
+    x: 0,
+    y: 0,
+    width: 150,
+    height: 28,
+    isIdentifier: true,
+  };
+  const multivaluedAttribute: AttributeNode = {
+    id: "ATTRIBUTO_MULTI",
+    type: "attribute",
+    label: "ATTRIBUTO_MULTI",
+    x: 0,
+    y: 0,
+    width: 150,
+    height: 28,
+    isMultivalued: true,
+  };
+
+  assert.ok(entity2);
+  assert.ok(attribute6);
+
+  const eligibleAttributes = getEligibleLocalExternalIdentifierAttributes(
+    {
+      ...entity2,
+      internalIdentifiers: [{ id: "internal-id", attributeIds: [internalAttribute.id] }],
+    },
+    [attribute6, internalAttribute, multivaluedAttribute],
+  );
+
+  assert.deepEqual(eligibleAttributes.map((attribute) => attribute.id), ["ATTRIBUTO6"]);
+});
 
 test("external identifier imported-only: vertical layout anchors near the host top side and avoids the cardinality label", () => {
   const hostBounds: Bounds = { x: 200, y: 300, width: 160, height: 70 };

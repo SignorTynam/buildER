@@ -1249,6 +1249,47 @@ relationship RELAZIONE1 (
   assert.doesNotMatch(serialized, /ENTITA1: one\.\.one external/);
 });
 
+test("ERS preserva identificatori misti diversi con lo stesso attributo locale", () => {
+  const diagram = parseErsDiagram(`entity ENTITA1 {
+    identifier(ATTRIBUTO1)
+}
+entity ENTITA2 {
+    identifier(ATTRIBUTO6, RELAZIONE1),
+    identifier(ATTRIBUTO6, RELAZIONE2)
+}
+entity ENTITA3 {
+    identifier(ATTRIBUTO11)
+}
+
+relationship RELAZIONE1 (
+    ENTITA2: one..one,
+    ENTITA1: one..many
+)
+relationship RELAZIONE2 (
+    ENTITA2: one..one,
+    ENTITA3: one..many
+)`);
+
+  const entity2 = findEntity(diagram, "ENTITA2");
+  const attribute6 = findDirectAttribute(diagram, "ENTITA2", "ATTRIBUTO6");
+
+  assert.ok(entity2);
+  assert.ok(attribute6);
+  assert.equal(entity2.externalIdentifiers?.length, 2);
+  assert.deepEqual(
+    entity2.externalIdentifiers?.map((identifier) => identifier.localAttributeIds).sort(),
+    [[attribute6.id], [attribute6.id]],
+  );
+  assert.deepEqual(
+    entity2.externalIdentifiers?.map((identifier) => identifier.importedParts[0]?.relationshipId).sort(),
+    ["RELAZIONE1", "RELAZIONE2"],
+  );
+
+  const serialized = serializeDiagramToErs(diagram);
+  assert.match(serialized, /identifier\(ATTRIBUTO6, RELAZIONE1\)/);
+  assert.match(serialized, /identifier\(ATTRIBUTO6, RELAZIONE2\)/);
+});
+
 test("ERS migra il vecchio formato external al formato identifier", () => {
   const diagram = parseErsDiagram(`entity ENTITA1 {
     ATTRIBUTO1 (external),

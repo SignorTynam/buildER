@@ -1567,6 +1567,19 @@ function isEligibleLocalExternalIdentifierAttribute(
   return true;
 }
 
+export function getEligibleLocalExternalIdentifierAttributes(
+  entity: EntityNode,
+  attributes: AttributeNode[],
+): AttributeNode[] {
+  const internalIdentifierAttributeIds = new Set(
+    (entity.internalIdentifiers ?? []).flatMap((identifier) => identifier.attributeIds),
+  );
+
+  return attributes.filter((attribute) =>
+    isEligibleLocalExternalIdentifierAttribute(attribute, internalIdentifierAttributeIds),
+  );
+}
+
 function normalizeExternalIdentifierSet(
   diagram: DiagramDocument,
   entity: EntityNode,
@@ -1580,7 +1593,6 @@ function normalizeExternalIdentifierSet(
   const internalIdentifierAttributeIds = new Set(
     (entity.internalIdentifiers ?? []).flatMap((identifier) => identifier.attributeIds),
   );
-  const usedLocalAttributeIds = new Set<string>();
   const usedIdentifierSignatures = new Set<string>();
   const normalizedIdentifiers: ExternalIdentifier[] = [];
   const rawIdentifiers = Array.isArray(entity.externalIdentifiers) ? entity.externalIdentifiers : [];
@@ -1683,12 +1695,10 @@ function normalizeExternalIdentifierSet(
         const attribute = directAttributeMap.get(attributeId);
         return (
           attribute !== undefined &&
-          isEligibleLocalExternalIdentifierAttribute(attribute, internalIdentifierAttributeIds) &&
-          !usedLocalAttributeIds.has(attributeId)
+          isEligibleLocalExternalIdentifierAttribute(attribute, internalIdentifierAttributeIds)
         );
       });
 
-    normalizedLocalAttributeIds.forEach((attributeId) => usedLocalAttributeIds.add(attributeId));
     const importedSignature = normalizedImportedParts
       .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join(":"))
       .sort()
@@ -4030,7 +4040,6 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       });
 
       const externalIdentifiers = node.externalIdentifiers ?? [];
-      const attributeOwnerByExternalIdentifier = new Map<string, string>();
       externalIdentifiers.forEach((identifier, index) => {
         const identifierLabel = identifier.id || `external-identifier-${index + 1}`;
         const validation = validateExternalIdentifier(diagram, node, identifier);
@@ -4062,20 +4071,6 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
               targetType: "node",
             });
           }
-
-          const externalOwner = attributeOwnerByExternalIdentifier.get(attributeId);
-          if (externalOwner && externalOwner !== identifierLabel) {
-            issues.push({
-              id: `external-identifier-overlap-${node.id}-${identifier.id}-${attributeId}`,
-              level: "error",
-              message: `L'attributo "${attributeNode.label}" appartiene a piu identificatori esterni su "${node.label}".`,
-              targetId: node.id,
-              targetType: "node",
-            });
-            return;
-          }
-
-          attributeOwnerByExternalIdentifier.set(attributeId, identifierLabel);
         });
       });
     }

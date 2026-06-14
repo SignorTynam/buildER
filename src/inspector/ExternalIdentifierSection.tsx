@@ -9,6 +9,7 @@ import type {
 } from "../types/diagram";
 import {
   getEntityDirectAttributes,
+  getEligibleLocalExternalIdentifierAttributes,
   getEligibleImportedIdentifierParts,
   getExternalIdentifierImportedAttributes,
   getExternalIdentifierImportedPartAttributes,
@@ -43,46 +44,6 @@ function createExternalIdentifierId(): string {
 
 function buildOptionKey(option: Pick<ExternalIdentifierImportPart, "relationshipId" | "sourceEntityId" | "importedIdentifierId">): string {
   return [option.relationshipId, option.sourceEntityId, option.importedIdentifierId].join("::");
-}
-
-function filterEligibleLocalAttributes(
-  entity: EntityNode,
-  attributes: AttributeNode[],
-  currentIdentifiers: ExternalIdentifier[],
-  excludedIdentifierIndex?: number,
-): AttributeNode[] {
-  const usedAttributeIds = new Set<string>();
-  const internalIdentifierAttributeIds = new Set(
-    (entity.internalIdentifiers ?? []).flatMap((identifier) => identifier.attributeIds),
-  );
-
-  currentIdentifiers.forEach((identifier, index) => {
-    if (index === excludedIdentifierIndex) {
-      return;
-    }
-
-    identifier.localAttributeIds.forEach((attributeId) => usedAttributeIds.add(attributeId));
-  });
-
-  return attributes.filter((attribute) => {
-    if (attribute.isMultivalued === true) {
-      return false;
-    }
-
-    if (attribute.isIdentifier === true || attribute.isCompositeInternal === true) {
-      return false;
-    }
-
-    if (internalIdentifierAttributeIds.has(attribute.id)) {
-      return false;
-    }
-
-    if (usedAttributeIds.has(attribute.id)) {
-      return false;
-    }
-
-    return true;
-  });
 }
 
 function ExternalIdentifierModal({
@@ -227,8 +188,7 @@ export function ExternalIdentifierSection({
       return [] as AttributeNode[];
     }
 
-    const editingIndex = modalIndex < externalIdentifiers.length ? modalIndex : undefined;
-    const eligible = filterEligibleLocalAttributes(entity, directAttributes, externalIdentifiers, editingIndex);
+    const eligible = getEligibleLocalExternalIdentifierAttributes(entity, directAttributes);
     const byId = new Map(eligible.map((attribute) => [attribute.id, attribute]));
 
     selectedExternalIdentifier?.localAttributeIds.forEach((attributeId) => {
