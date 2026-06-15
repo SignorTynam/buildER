@@ -15,6 +15,39 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [5.0] - 2026-06-15
+
+### Added
+- buildER 5 introduce una release maggiore dedicata a rebrand, responsive/mobile, UI moderna, SQL Reverse e coerenza complessiva dell'editor.
+- Aggiunta una strategia responsive completa per desktop largo, desktop stretto/tablet landscape, tablet portrait e telefono.
+- Introdotto un sistema icone centralizzato basato su `lucide-react` e `StudioIcon`, con icone custom per gli elementi ER specifici.
+- Aggiunta una command palette moderna per il Menu comandi, con ricerca, categorie, icone, shortcut chip, stati active/disabled e layout mobile dedicato.
+- Aggiunta una shortcuts sheet moderna per Keyboard Shortcuts, con ricerca, filtri categoria, righe sottili e kbd chip compatti.
+- Aggiunto supporto funzionale al riuso dello stesso attributo locale in piu identificatori esterni/misti alternativi della stessa entita.
+
+### Changed
+- Il programma cambia nome: da ER Studio a buildER.
+- Versione applicativa aggiornata a buildER 5.0 con `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README e changelog allineati.
+- Stabilizzati app shell, workspace, canvas e pannelli con viewport dinamici, safe area mobile, min-height coerenti e prevenzione dell'overflow orizzontale globale.
+- Riorganizzata la vista ER mobile: HUD viewport sopra, quick actions al centro e toolbox come barra piu bassa, senza collisioni tra controlli.
+- Header mobile compattato su una sola riga con brand, nome progetto e pulsanti help/menu.
+- Quick actions ER unificate in Code, Reverse, Errors e Notes; Diagnostics e stato diagnostica sono stati spostati dentro Errors.
+- HUD viewport modernizzato con icone e controlli Adatta, Centra e Reset sempre visibili, compatti e touch-friendly.
+- Toolbox ER riallineato allo stile delle viste Translation e Logical: rail compatta, separatori sottili, niente titoli di sezione e comandi contestuali mostrati solo quando utili.
+- Preview SQL Reverse logica ed ER riallineate allo stile delle viste reali, con sfondi coerenti, footer azioni riservato e HUD non sovrapposto ad Avanti/Done.
+- Modal SQL Reverse, pannello Errors, quick actions e footer azioni modernizzati con superfici, bordi, spacing e icone coerenti.
+- Normalizzazione degli identificatori esterni aggiornata: non esiste piu un blocco globale sugli attributi locali gia usati da un altro identificatore esterno.
+- Traduzione logica e serializzazione ERS preservano identificatori misti distinti che condividono lo stesso attributo locale.
+
+### Fixed
+- Rimossa la duplicazione di opzioni nel toolbox ER mobile, incluse duplicazioni semantiche di Attribute, Delete e Connect.
+- Corretti overlay e collisioni tra quick actions, toolbox e HUD viewport su mobile e desktop.
+- Corretta la sovrapposizione dell'HUD viewport con i bottoni finali nelle preview SQL Reverse.
+- Rimosso il layer laterale con colore incoerente nelle preview SQL Reverse.
+- Corretti layout fragili di CodePanel, NotesPanel, modali e pannelli laterali su mobile.
+- Corretti stili legacy residui in toolbar, modali, Errors, SQL Reverse e menu contestuali.
+- Aggiunti e aggiornati test di regressione per identificatori esterni condivisi, SQL Reverse, parsing/serializzazione ERS, layout canvas e workflow logico.
+
 ## [4.6.2] - 2026-06-12
 
 ### Changed

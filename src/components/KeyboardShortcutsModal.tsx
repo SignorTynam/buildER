@@ -161,7 +161,7 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
               </span>
               <div>
                 <h2 id="keyboard-shortcuts-title" className="shortcuts-sheet-title">Keyboard shortcuts</h2>
-                <p className="shortcuts-sheet-subtitle">Comandi rapidi supportati da ER Studio.</p>
+                <p className="shortcuts-sheet-subtitle">Comandi rapidi supportati da buildER.</p>
               </div>
             </div>
             <button

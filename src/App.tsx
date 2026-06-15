@@ -5566,7 +5566,7 @@ export default function App() {
 
     const payload = diagramClipboardRef.current ?? (await readDiagramPayloadFromSystemClipboard());
     if (!payload) {
-      setStatusWarning("Clipboard non contiene elementi ER Studio incollabili.");
+      setStatusWarning("Clipboard non contiene elementi buildER incollabili.");
       return;
     }
 
@@ -5578,7 +5578,7 @@ export default function App() {
     const offset = GRID_SIZE * 2 * (pasteOffsetStepRef.current + 1);
     const pasted = pasteDiagramClipboardPayload(history.present, payload, { offset });
     if (!pasted) {
-      setStatusWarning("Clipboard non contiene elementi ER Studio incollabili.");
+      setStatusWarning("Clipboard non contiene elementi buildER incollabili.");
       return;
     }
 
@@ -5772,7 +5772,7 @@ export default function App() {
     }
 
     try {
-      await downloadPng(svgRef.current, "chen-er-diagram.png");
+      await downloadPng(svgRef.current, "builder-diagram.png");
       setStatus("PNG esportato.");
     } catch (error) {
       console.error(error);
@@ -5792,7 +5792,7 @@ export default function App() {
       return;
     }
 
-    downloadSvg(svgRef.current, "chen-er-diagram.svg");
+    downloadSvg(svgRef.current, "builder-diagram.svg");
     setStatus("SVG esportato.");
   }
 
@@ -6826,7 +6826,7 @@ export default function App() {
             <div className="studio-modal__header">
               <div>
                 <h2 id="about-modal-title" className="studio-modal__title">Informazioni</h2>
-                <p className="studio-modal__subtitle">ER Studio e stato corrente dell'editor.</p>
+                <p className="studio-modal__subtitle">buildER e stato corrente dell'editor.</p>
               </div>
               <button
                 type="button"

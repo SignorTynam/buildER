@@ -1,5 +1,5 @@
-export const APP_NAME = "ER Studio";
-export const APP_VERSION = "4.6.2";
+export const APP_NAME = "buildER";
+export const APP_VERSION = "5.0";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,65 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "5.0",
+    date: "2026-06-15",
+    impact: "major",
+    headline: "buildER 5: nuovo nome, esperienza responsive e UI moderna",
+    summary:
+      "buildER 5 e un upgrade maggiore: introduce il nuovo nome dell'app, consolida il supporto mobile/tablet, modernizza toolbar, modali e icone, rafforza SQL Reverse e aggiorna la logica degli identificatori esterni/misti.",
+    hero: {
+      eyebrow: "Major Upgrade",
+      title: "Benvenuto in buildER 5",
+      subtitle:
+        "Dalla 4.6.2 a buildER 5 l'editor cambia nome e diventa piu stabile su desktop, tablet e mobile, con strumenti piu coerenti, preview SQL Reverse moderne e identificatori misti piu flessibili.",
+    },
+    highlights: [
+      {
+        title: "Responsive reale",
+        description: "ER, Translation, Logical e SQL Reverse ora usano breakpoint piu chiari, controlli bottom ordinati e pannelli piu robusti su mobile e tablet.",
+        tag: "Layout",
+      },
+      {
+        title: "UI moderna e coerente",
+        description: "Icon system centralizzato, quick actions, HUD viewport, command palette e shortcuts sheet sostituiscono parti legacy e placeholder testuali.",
+        tag: "Studio",
+      },
+      {
+        title: "SQL Reverse integrato",
+        description: "Input modal, preview logica, preview ER, footer azioni, errori e warning sono stati riallineati allo stile moderno dell'app.",
+        tag: "Reverse",
+      },
+    ],
+    updates: [
+      "Il programma cambia nome: da ER Studio a buildER.",
+      "Versione applicativa aggiornata a buildER 5.0 con package, lockfile, metadati UI, README e changelog allineati come major upgrade.",
+      "Definita una strategia responsive completa per desktop largo, desktop stretto/tablet landscape, tablet portrait e telefono.",
+      "Stabilizzati app shell, workspace, canvas, pannelli e safe area usando viewport dinamici, min-height coerenti e prevenzione dell'overflow orizzontale globale.",
+      "Riorganizzata la vista ER mobile: HUD viewport sopra, quick actions al centro e toolbox come barra piu bassa, senza collisioni tra controlli.",
+      "Header mobile compattato su una sola riga con brand, nome progetto e pulsanti help/menu sempre raggiungibili.",
+      "Quick actions ER unificate in Code, Reverse, Errors e Notes, con Diagnostics spostato dentro il pannello Errors.",
+      "Errors e Notes/Code/Reverse condividono markup e stile, badge compatti e stati attivi coerenti.",
+      "HUD viewport modernizzato con icone e controlli Adatta, Centra e Reset sempre visibili e touch-friendly.",
+      "Toolbox ER riallineato a Translation e Logical come rail compatta senza titoli di sezione, con comandi contestuali mostrati solo quando utili alla selezione.",
+      "Eliminate duplicazioni nel toolbox mobile per Attribute, Delete, Connect e comandi contestuali equivalenti.",
+      "Introdotto un sistema icone centralizzato basato su lucide-react e StudioIcon, con icone custom per elementi ER specifici.",
+      "Sostituiti placeholder testuali e SVG locali principali con icone coerenti in header, toolbar ER, Translation, Logical, SQL Reverse, HUD, modali e pannelli.",
+      "Modernizzato il Menu comandi come command palette search-first con categorie, icone, shortcut chip sottili, stati active/disabled e layout mobile dedicato.",
+      "Modernizzato il modal Keyboard Shortcuts come shortcuts sheet con ricerca, filtri categoria, righe sottili e kbd chip compatti.",
+      "Rifiniti i button UI dei menu contestuali Move e dei footer modali per evitare bottoni legacy o disallineati.",
+      "Modernizzato il modal SQL Reverse con header, textarea, errori/warning e footer azioni coerenti con lo stile Studio.",
+      "Modernizzato il pannello Errors con cards warning/error, toggle diagnostica sul canvas e layout scrollabile su mobile.",
+      "Uniformate le preview SQL Reverse logica ed ER allo stile delle viste reali, con sfondi coerenti e HUD non sovrapposto ai bottoni Avanti/Done.",
+      "Migliorato il layout SQL Reverse per schemi piu grandi, foreign key, unique, not null e warning su statement non supportati.",
+      "Aggiornata la regola degli identificatori esterni/misti: lo stesso attributo locale puo partecipare a piu identificatori misti alternativi della stessa entita.",
+      "La normalizzazione degli identificatori esterni non elimina piu un attributo locale solo perche gia usato in un altro identificatore esterno, mantenendo invece deduplica interna e validazioni locali.",
+      "ERS import/export preserva identificatori misti diversi che condividono lo stesso attributo locale.",
+      "La traduzione logica mantiene alternative distinte quando identificatori esterni diversi riusano lo stesso attributo locale ma importano parti differenti.",
+      "Aggiunti e aggiornati test di regressione per identificatori esterni condivisi, SQL Reverse, layout responsive, parsing/serializzazione ERS e workflow logico.",
+      "Eseguiti controlli browser/devtools su viewport mobile, tablet e desktop per overflow, accessibilita dei controlli, modali, quick actions, toolbox e preview SQL Reverse.",
+    ],
+  },
   {
     version: "4.6.2",
     date: "2026-06-12",

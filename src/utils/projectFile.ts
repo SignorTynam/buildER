@@ -144,7 +144,7 @@ function assertProjectKind(value: unknown): asserts value is typeof PROJECT_FILE
     throw new ProjectFileError("invalid-kind", {
       what: "il file progetto non e stato caricato",
       why: `il campo kind non corrisponde a "${PROJECT_FILE_KIND}"`,
-      how: "seleziona un file progetto ER Studio valido con estensione .ersp o un backup legacy compatibile",
+      how: "seleziona un file progetto buildER valido con estensione .ersp o un backup legacy compatibile",
     });
   }
 }
@@ -303,7 +303,7 @@ function sanitizeCurrentProjectView(
     throw new ProjectFileError("invalid-view-state", {
       what: "il file progetto non e stato caricato",
       why: "lo stato delle viste salvate non e completo",
-      how: "riesporta il progetto da ER Studio oppure apri un backup integro",
+      how: "riesporta il progetto da buildER oppure apri un backup integro",
     });
   }
 
@@ -582,7 +582,7 @@ export function parseProjectFile(rawText: string, options?: ParseProjectFileOpti
 
   throw new ProjectFileError("invalid-format", {
     what: "il file progetto non e stato caricato",
-    why: "il contenuto JSON non rappresenta ne un progetto ER Studio ne un diagramma legacy compatibile",
+    why: "il contenuto JSON non rappresenta ne un progetto buildER ne un diagramma legacy compatibile",
     how: "seleziona un file .ersp valido oppure un backup .json esportato da una versione precedente",
   });
 }

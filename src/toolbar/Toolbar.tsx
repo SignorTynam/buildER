@@ -527,7 +527,7 @@ export function Toolbar(props: ToolbarProps) {
       {exportMenuOpen ? (
         <div className="designer-export-popover" role="menu" aria-label="Export ER">
           <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveProject?.(); }}>
-            ER Studio Project
+            buildER Project
           </button>
           <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveErs?.(); }}>
             Diagram Code

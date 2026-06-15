@@ -641,7 +641,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     return (
       <div className="designer-export-popover designer-logical-export-popover" role="menu" aria-label="Export logico">
         <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportProject)}>
-          ER Studio Project
+          buildER Project
         </button>
         <button
           type="button"

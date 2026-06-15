@@ -1,7 +1,7 @@
 {
-  "name": "chen-er-diagram-studio",
+  "name": "builder",
   "private": true,
-  "version": "4.6.2",
+  "version": "5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

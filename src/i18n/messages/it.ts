@@ -1,7 +1,7 @@
 export const it = {
   app: {
-    name: "ER Studio",
-    title: "ER Studio",
+    name: "buildER",
+    title: "buildER",
     versionLabel: "Versione {{version}}",
     currentVersion: "Versione corrente {{version}}",
   },

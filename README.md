@@ -1,16 +1,25 @@
-# Chen ER Diagram Studio (v4.6.2)
+# buildER (v5.0)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG e sincronizzazione ERS live.
 
-## Novita 4.6.2
+## Novita 5
 
-- Versione aggiornata a `4.6.2`, con metadati package, schermata Versione e changelog allineati.
-- Il pannello Code ora aggiorna il diagramma senza riposizionare i nodi gia presenti quando si modifica il testo ERS.
-- Aggiunta memoria layout durante le modifiche da codice: se un nodo sparisce temporaneamente mentre si digita e poi ricompare, mantiene la sua geometria precedente.
-- Merge ERS piu robusto per ID, alias, attributi collegati alla propria entita e rename, con preservazione dei metadati degli edge.
-- Connector entita-relazione resi stabili: il tracciato non e piu trascinabile manualmente, mentre le cardinalita restano editabili.
-- Offset manuali legacy dei connector ignorati e ripuliti, cosi i salvataggi vecchi non deformano le linee.
-- Aggiunti test di regressione per layout da pannello Code, memoria layout e routing stabile dei connector.
+buildER 5 e un upgrade maggiore rispetto alla 4.6.2. Non e una release di soli fix: introduce il nuovo nome dell'app e aggiorna esperienza responsive, UI, SQL Reverse, toolbox, modali, icone e gestione degli identificatori misti/esterni.
+
+- Versione aggiornata a `5.0`, con package, lockfile, metadati applicativi, changelog e README allineati.
+- Il programma cambia nome: da ER Studio a buildER.
+- Strategia responsive completa per desktop largo, desktop stretto/tablet landscape, tablet portrait e telefono.
+- Header mobile, quick actions, toolbox ER e HUD viewport riorganizzati per evitare collisioni e overflow.
+- Toolbox ER riallineato allo stile delle viste Translation e Logical, con rail compatta e comandi contestuali mostrati solo quando servono.
+- Quick actions ER unificate in Code, Reverse, Errors e Notes; Diagnostics e stato diagnostica sono integrati nel pannello Errors.
+- Sistema icone centralizzato con `lucide-react` e `StudioIcon`, incluse icone custom per gli elementi ER.
+- Menu comandi trasformato in command palette moderna con ricerca, categorie, icone, shortcut chip e layout mobile.
+- Keyboard Shortcuts trasformato in shortcuts sheet moderna con ricerca, filtri e kbd chip compatti.
+- SQL Reverse modal, preview logica, preview ER, footer azioni ed Errors modal modernizzati e resi coerenti con lo stile Studio.
+- HUD viewport `Adatta`, `Centra` e `Reset` sempre visibile, moderno e non sovrapposto ai bottoni nelle preview.
+- Identificatori esterni/misti aggiornati: lo stesso attributo locale puo partecipare a piu identificatori misti alternativi della stessa entita.
+- Parsing/serializzazione ERS e traduzione logica preservano identificatori misti distinti anche se condividono un attributo locale.
+- Aggiunti e aggiornati test di regressione per identificatori esterni, SQL Reverse, ERS, layout canvas e workflow logico.
 
 ## Requisiti
 
