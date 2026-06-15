@@ -83,7 +83,6 @@ export const sq: DeepPartialMessages = {
         loadErs: "Ngarko ERS",
         saveProject: "Ruaj projektin",
         saveErs: "Shkarko ERS",
-        ersGuide: "Udhezuesi ERS",
         about: "Rreth aplikacionit",
         whatsNew: "Te rejat",
       },

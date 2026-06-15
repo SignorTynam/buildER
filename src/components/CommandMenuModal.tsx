@@ -43,7 +43,6 @@ interface CommandMenuModalProps {
   onExportPng: () => void;
   onExportSvg: () => void;
   onResetErs: () => void;
-  onOpenErsGuide: () => void;
   onAbout: () => void;
   onWhatsNew: () => void;
   onToggleFocusMode: () => void;
@@ -375,13 +374,6 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
         detail: "Comandi supportati",
         icon: "keyboard",
         action: props.onOpenShortcuts,
-      },
-      {
-        id: "help-ers-guide",
-        category: "help",
-        label: "Guida ERS",
-        icon: "bookOpen",
-        action: props.onOpenErsGuide,
       },
       {
         id: "help-whats-new",

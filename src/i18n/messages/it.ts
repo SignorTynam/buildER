@@ -104,7 +104,6 @@ export const it = {
         loadErs: "Carica ERS",
         saveProject: "Salva progetto",
         saveErs: "Scarica ERS",
-        ersGuide: "Guida ERS",
         about: "Informazioni",
         whatsNew: "Novita",
       },

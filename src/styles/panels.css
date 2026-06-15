@@ -611,7 +611,7 @@
 }
 
 @media (max-width: 1180px) {
-  .command-menu-tool-grid {
+.command-menu-tool-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -626,7 +626,7 @@
 }
 
 @media (max-width: 860px) {
-  .command-menu-tool-grid {
+.command-menu-tool-grid {
     grid-template-columns: 1fr;
   }
 
@@ -757,7 +757,7 @@
 }
 
 @media (max-width: 760px) {
-  .workspace-mode-strip {
+.workspace-mode-strip {
     padding-inline: 10px;
     overflow-x: auto;
   }
@@ -1725,7 +1725,7 @@ body,
 }
 
 @media (max-width: 520px) {
-  .toolbar-panel.contextual-toolbar {
+.toolbar-panel.contextual-toolbar {
     padding: 8px;
   }
 
@@ -1769,21 +1769,21 @@ body,
 }
 
 @media (min-width: 1360px) {
-  .structured-workspace-shell {
+.structured-workspace-shell {
     --structured-rail-width: 184px;
     --structured-panel-width: minmax(320px, 352px);
   }
 }
 
 @media (min-width: 1600px) {
-  .structured-workspace-shell {
+.structured-workspace-shell {
     --structured-rail-width: 196px;
     --structured-panel-width: minmax(340px, 380px);
   }
 }
 
 @media (max-width: 899px) {
-  .app-header.studio-topbar {
+.app-header.studio-topbar {
     grid-template-columns: 1fr;
   }
 
@@ -1980,13 +1980,13 @@ body,
 }
 
 @media (min-width: 1360px) {
-  .structured-workspace-shell {
+.structured-workspace-shell {
     --structured-panel-width: minmax(380px, 460px);
   }
 }
 
 @media (min-width: 1600px) {
-  .structured-workspace-shell {
+.structured-workspace-shell {
     --structured-panel-width: minmax(400px, 500px);
   }
 }
@@ -2052,7 +2052,7 @@ body,
 }
 
 @supports selector(:has(*)) {
-  .structured-workspace-shell:has(> .translation-panel-collapsed) {
+.structured-workspace-shell:has(> .translation-panel-collapsed) {
     --structured-panel-width: 64px;
   }
 }
@@ -2991,7 +2991,7 @@ summary:focus-visible,
 }
 
 @media (max-width: 899px) {
-  .app-shell {
+.app-shell {
     grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
 
@@ -3018,7 +3018,7 @@ summary:focus-visible,
 }
 
 @media (max-width: 760px) {
-  .workspace-stage-tab-label,
+.workspace-stage-tab-label,
   .studio-topbar-button span,
   .studio-topbar-toggle span,
   .workspace-stage-connector {
@@ -3494,42 +3494,7 @@ textarea {
 }
 
 @media (max-width: 899px) {
-  .tutorial-shell,
-  .tutorial-main,
-  .tutorial-main section,
-  .tutorial-syntax-layout,
-  .tutorial-syntax-grid,
-  .tutorial-syntax-card,
-  .tutorial-note-card {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .tutorial-syntax-layout,
-  .tutorial-syntax-grid {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  .tutorial-stage-code,
-  .tutorial-syntax-card pre {
-    max-width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    white-space: pre;
-  }
-
-  .tutorial-syntax-card h3,
-  .tutorial-syntax-card p,
-  .tutorial-note-card h3,
-  .tutorial-note-card p,
-  .tutorial-note-card li,
-  .tutorial-note-list {
-    min-width: 0;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-
-  .landing-main {
+.landing-main {
     width: min(100%, calc(100vw - 28px));
   }
 
@@ -3980,7 +3945,7 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  .landing-header {
+.landing-header {
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
@@ -4251,7 +4216,7 @@ textarea {
 }
 
 @media (max-width: 480px) {
-  .landing-hero-copy h1 {
+.landing-hero-copy h1 {
     font-size: 2.55rem;
   }
 
@@ -4404,7 +4369,7 @@ textarea {
 }
 
 @media (max-width: 480px) {
-  .sql-reverse-preview-body .canvas-viewport-hud,
+.sql-reverse-preview-body .canvas-viewport-hud,
   .app-shell-view-er .sql-reverse-preview-body .canvas-viewport-hud,
   .app-shell-view-logical .sql-reverse-preview-body .canvas-viewport-hud,
   .app-shell-view-translation .sql-reverse-preview-body .canvas-viewport-hud {
@@ -4537,7 +4502,7 @@ textarea {
 }
 
 @media (max-width: 899px) {
-  .designer-quick-actions-bar,
+.designer-quick-actions-bar,
   .designer-side-toggle-group.designer-side-toggle-left,
   .designer-logical-schema-toggles {
     z-index: 30;
@@ -4594,7 +4559,7 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  .app-shell.app-shell-view-er,
+.app-shell.app-shell-view-er,
   .app-shell.app-shell-view-translation,
   .app-shell.app-shell-view-logical {
     grid-template-rows: 52px minmax(0, 1fr) auto !important;
@@ -4672,7 +4637,7 @@ textarea {
 }
 
 @media (max-width: 480px) {
-  .designer-brand {
+.designer-brand {
     max-width: 92px;
   }
 
@@ -4721,7 +4686,7 @@ textarea {
 }
 
 @media (min-width: 900px) and (max-width: 1179px) {
-  .app-shell.app-shell-view-er,
+.app-shell.app-shell-view-er,
   .app-shell.app-shell-view-translation,
   .app-shell.app-shell-view-logical {
     grid-template-rows: 42px minmax(0, 1fr) auto !important;
@@ -4785,7 +4750,7 @@ textarea {
 }
 
 @media (min-width: 641px) and (max-width: 899px) {
-  .app-shell-view-er .er-workspace-shell {
+.app-shell-view-er .er-workspace-shell {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
@@ -4808,7 +4773,7 @@ textarea {
 }
 
 @media (min-width: 641px) and (max-width: 899px) {
-  .designer-quick-actions-bar,
+.designer-quick-actions-bar,
   .designer-side-toggle-group.designer-side-toggle-left,
   .designer-logical-schema-toggles {
     top: auto;
@@ -4854,7 +4819,7 @@ textarea {
 }
 
 @media (max-width: 899px) {
-  .designer-code-dock,
+.designer-code-dock,
   .designer-notes-overlay {
     bottom: calc(214px + env(safe-area-inset-bottom));
     height: min(42dvh, 420px);
@@ -5145,7 +5110,7 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  .shortcuts-modal {
+.shortcuts-modal {
     width: calc(100vw - 16px);
     max-width: calc(100vw - 16px);
     height: calc(100dvh - 16px - env(safe-area-inset-bottom));
@@ -5522,7 +5487,7 @@ textarea {
 }
 
 @media (max-width: 640px) {
-  .command-modal {
+.command-modal {
     width: calc(100vw - 16px);
     max-width: calc(100vw - 16px);
     height: calc(100dvh - 16px - env(safe-area-inset-bottom));

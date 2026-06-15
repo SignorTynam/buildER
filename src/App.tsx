@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { ChangelogModal } from "./components/ChangelogModal";
-import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
 import {
@@ -301,7 +301,6 @@ interface OnboardingProgress {
   allCompleted: boolean;
 }
 
-type AppSurface = "studio" | "code-tutorial";
 type SqlReverseWorkflowStep = "idle" | "input" | "logical-preview" | "er-preview";
 
 interface SqlReverseWorkflowState {
@@ -329,7 +328,6 @@ interface WorkspaceSessionSnapshot {
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
   logicalStage: LogicalStage;
-  surface: AppSurface;
   diagramView: WorkspaceView;
   tool: ToolKind;
   mode: EditorMode;
@@ -359,7 +357,6 @@ interface WorkspaceSessionBootstrap {
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
   logicalStage: LogicalStage;
-  surface: AppSurface;
   diagramView: WorkspaceView;
   tool: ToolKind;
   mode: EditorMode;
@@ -422,6 +419,7 @@ const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
 const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v4";
 const WORKSPACE_SESSION_SAVE_DEBOUNCE_MS = 420;
+const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 1200);
 const TOOL_KIND_VALUES: ToolKind[] = [
   "move",
   "select",
@@ -605,7 +603,6 @@ function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     logicalWorkspace: createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
     logicalGenerated: false,
     logicalStage: "translation",
-    surface: "studio",
     diagramView: "er",
     tool: "select",
     mode: "edit",
@@ -655,7 +652,6 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     const storedSelection = sanitizeSelectionState(parsed.selection);
     const storedTranslationSelection = sanitizeSelectionState(parsed.translationSelection);
     const storedLogicalSelection = sanitizeLogicalSelectionState(parsed.logicalSelection);
-    const storedSurface: AppSurface = parsed.surface === "code-tutorial" ? "code-tutorial" : "studio";
     const storedDiagramView: WorkspaceView =
       parsed.diagramView === "logical" ? "logical" : parsed.diagramView === "translation" ? "translation" : "er";
     const storedTool = sanitizeToolKind(parsed.tool);
@@ -691,7 +687,6 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
           : createEmptyLogicalWorkspace(storedTranslationWorkspace.translatedDiagram),
       logicalGenerated: parsed.logicalGenerated === true,
       logicalStage: parsed.logicalStage === "schema" ? "schema" : "translation",
-      surface: storedSurface,
       diagramView: storedDiagramView,
       tool: storedTool,
       mode: "edit",
@@ -1209,7 +1204,7 @@ export default function App() {
   const initialLogicalWorkspaceRef = useRef<LogicalWorkspaceDocument>(sessionBootstrap.logicalWorkspace);
   const logicalHistory = useHistory<LogicalWorkspaceDocument>(initialLogicalWorkspaceRef.current);
   const initialSerializedCode = sessionBootstrap.codeDraft;
-  const [surface, setSurface] = useState<AppSurface>(sessionBootstrap.surface);
+  const [booting, setBooting] = useState(true);
   const [diagramView, setDiagramView] = useState<WorkspaceView>(sessionBootstrap.diagramView);
   const [tool, setTool] = useState<ToolKind>(sessionBootstrap.tool);
   const [mode] = useState<EditorMode>(sessionBootstrap.mode);
@@ -1430,7 +1425,6 @@ export default function App() {
   } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
   const versionAnnouncementBlocked =
-    surface !== "studio" ||
     commandMenuOpen ||
     keyboardShortcutsOpen ||
     aboutOpen ||
@@ -1460,6 +1454,14 @@ export default function App() {
       // Ignore storage errors and keep the app usable.
     }
   }
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setBooting(false);
+    }, APP_BOOT_DELAY_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   useEffect(() => {
     const previousVersion = getLastSeenAppVersion();
@@ -1555,7 +1557,6 @@ export default function App() {
       logicalWorkspace: logicalHistory.present,
       logicalGenerated,
       logicalStage,
-      surface,
       diagramView,
       tool,
       mode,
@@ -1606,7 +1607,6 @@ export default function App() {
     logicalViewport,
     mode,
     selection,
-    surface,
     tool,
     toolbarCollapsed,
     toolbarWidth,
@@ -1642,7 +1642,6 @@ export default function App() {
     logicalViewport,
     mode,
     selection,
-    surface,
     tool,
     toolbarCollapsed,
     toolbarWidth,
@@ -1780,7 +1779,7 @@ export default function App() {
   }, [notesPanelResizeBounds.max, notesPanelResizeBounds.min]);
 
   useEffect(() => {
-    if (surface !== "studio" || diagramView !== "er") {
+    if (diagramView !== "er") {
       return;
     }
 
@@ -1805,7 +1804,7 @@ export default function App() {
     onboardingPreviousSnapshotRef.current = createOnboardingSnapshot(history.present);
     setOnboardingOpen(true);
     setStatusMessage("Tour guidato attivo: completa i 4 step nel canvas.");
-  }, [diagramView, onboardingOpen, sessionBootstrap.restored, surface]);
+  }, [diagramView, onboardingOpen, sessionBootstrap.restored]);
 
   useEffect(() => {
     if (!onboardingOpen) {
@@ -2195,22 +2194,6 @@ export default function App() {
       confirmLabel: "Continua",
       cancelLabel: "Annulla",
     });
-  }
-
-  function openStudioSurface() {
-    setSurface("studio");
-    setIntroOpen(false);
-  }
-
-  async function openCodeTutorialSurface() {
-    if (surface === "studio" && !(await confirmDiscardChanges("aprire la guida ERS"))) {
-      return;
-    }
-
-    setSurface("code-tutorial");
-    setAboutOpen(false);
-    setWhatsNewOpen(false);
-    setIntroOpen(false);
   }
 
   function openCommandMenu() {
@@ -2849,7 +2832,6 @@ export default function App() {
         : options?.diagramView === "translation"
           ? "translation"
           : "er";
-    setSurface("studio");
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
@@ -5871,7 +5853,6 @@ export default function App() {
   const onboardingActiveStepIndex = onboardingSteps.findIndex((step) => !step.complete);
   const resolvedOnboardingStepIndex = onboardingActiveStepIndex >= 0 ? onboardingActiveStepIndex : onboardingSteps.length - 1;
   const showOnboardingGuide =
-    surface === "studio" &&
     diagramView === "er" &&
     onboardingOpen &&
     onboardingSteps.length > 0;
@@ -5973,15 +5954,8 @@ export default function App() {
       </SqlReversePreviewFrame>
     ) : null;
 
-  if (surface === "code-tutorial") {
-    return (
-      <CodeModeTutorialPage
-        appTitle={APP_TITLE}
-        appVersion={APP_VERSION}
-        onBackWorkspace={openStudioSurface}
-        onOpenCodeStudio={openStudioSurface}
-      />
-    );
+  if (booting) {
+    return <AppLoadingScreen />;
   }
 
   return (
@@ -6347,7 +6321,6 @@ export default function App() {
           onExportPng={handleExportPng}
           onExportSvg={handleExportSvg}
           onResetErs={handleResetCodeFromDiagram}
-          onOpenErsGuide={openCodeTutorialSurface}
           onAbout={() => {
             setWhatsNewOpen(false);
             setAboutOpen(true);

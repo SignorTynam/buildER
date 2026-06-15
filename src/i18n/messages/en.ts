@@ -83,7 +83,6 @@ export const en: DeepPartialMessages = {
         loadErs: "Load ERS",
         saveProject: "Save project",
         saveErs: "Download ERS",
-        ersGuide: "ERS guide",
         about: "About",
         whatsNew: "What's new",
       },
