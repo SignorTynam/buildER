@@ -1,0 +1,80 @@
+name: Richiesta funzionalità
+description: Proponi una nuova funzionalità o un miglioramento per buildER
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Usa questo template per proporre miglioramenti chiari, motivati e verificabili.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema o bisogno utente
+      description: Quale problema risolve questa funzionalità?
+      placeholder: "Descrivi il caso d'uso o il limite attuale."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Soluzione proposta
+      description: Descrivi la funzionalità desiderata e il comportamento atteso.
+      placeholder: "Spiega cosa dovrebbe fare buildER dopo questa modifica."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area interessata
+      multiple: true
+      options:
+        - Canvas / editor ER
+        - Reverse engineering SQL
+        - Layout attributi / entità / relazioni
+        - Cardinalità / collegamenti
+        - Import / export progetto
+        - UI / responsive / mobile
+        - Documentazione
+        - Altro
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative considerate
+      description: Hai valutato altre soluzioni o workaround?
+      placeholder: "Descrivi eventuali alternative."
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criteri di accettazione
+      description: Come si verifica che la funzionalità sia completata correttamente?
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contesto aggiuntivo
+      description: Aggiungi screenshot, mockup, esempi SQL o riferimenti utili.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: Ho cercato issue o pull request già esistenti su questa richiesta.
+          required: true
+        - label: La richiesta è descritta dal punto di vista dell'utente o del flusso applicativo.
+          required: true
