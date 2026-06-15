@@ -22,6 +22,8 @@ import type { TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { StudioIcon } from "./components/icons/StudioIcon";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
+import { useI18n } from "./i18n/useI18n";
+import type { MessageKey, TranslationParams } from "./i18n";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
 import { TranslationWorkspace } from "./translation/TranslationWorkspace";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -178,6 +180,7 @@ const DEFAULT_VIEWPORT: Viewport = {
 };
 
 type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
+type AppTranslator = (key: MessageKey, params?: TranslationParams) => string;
 
 interface VersionAnnouncementState {
   previousVersion: string | null;
@@ -185,20 +188,29 @@ interface VersionAnnouncementState {
   changelogEntry: AppChangelogEntry;
 }
 
-function createFallbackChangelogEntry(version: string, updateKind: VisibleVersionUpdateKind): AppChangelogEntry {
+function createFallbackChangelogEntry(
+  version: string,
+  updateKind: VisibleVersionUpdateKind,
+  translate: AppTranslator,
+): AppChangelogEntry {
   const importantUpdate = updateKind === "minor" || updateKind === "major";
 
   return {
     version,
     date: new Date().toISOString().slice(0, 10),
     impact: updateKind,
-    headline: importantUpdate ? "Nuova versione disponibile" : "Aggiornamento di stabilita",
+    headline: importantUpdate
+      ? translate("app.updateFallback.importantHeadline")
+      : translate("app.updateFallback.patchHeadline"),
     summary: importantUpdate
-      ? "Questa release introduce miglioramenti importanti all'esperienza di lavoro."
-      : "Questa release include correzioni e miglioramenti mirati.",
+      ? translate("app.updateFallback.importantSummary")
+      : translate("app.updateFallback.patchSummary"),
     updates: importantUpdate
-      ? ["Nuova release pronta per l'uso.", "Miglioramenti all'esperienza dell'editor."]
-      : ["Correzioni e miglioramenti di stabilita."],
+      ? [
+          translate("app.updateFallback.importantUpdatePrimary"),
+          translate("app.updateFallback.importantUpdateSecondary"),
+        ]
+      : [translate("app.updateFallback.patchUpdate")],
   };
 }
 
@@ -1191,6 +1203,7 @@ function layoutDirectAttributesAroundHost(
 }
 
 export default function App() {
+  const { t } = useI18n();
   const sessionBootstrapRef = useRef<WorkspaceSessionBootstrap | null>(null);
   if (!sessionBootstrapRef.current) {
     sessionBootstrapRef.current = readWorkspaceSessionBootstrap();
@@ -1497,7 +1510,7 @@ export default function App() {
 
     const changelogEntry =
       APP_CHANGELOG.find((entry) => entry.version === APP_VERSION) ??
-      createFallbackChangelogEntry(APP_VERSION, updateKind);
+      createFallbackChangelogEntry(APP_VERSION, updateKind, t);
     const openDelay = window.setTimeout(() => {
       setVersionAnnouncement((current) =>
         current ?? {
@@ -1509,7 +1522,7 @@ export default function App() {
     }, 550);
 
     return () => window.clearTimeout(openDelay);
-  }, [versionAnnouncement, versionAnnouncementBlocked]);
+  }, [t, versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
     if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { WorkspaceView } from "../types/translation";
-import { SUPPORTED_LOCALES } from "../i18n";
+import { SUPPORTED_LOCALES, type Locale } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
 
@@ -60,43 +60,26 @@ type CommandMenuItem = {
   icon: StudioIconName;
   disabled?: boolean;
   active?: boolean;
+  testId?: string;
   action: () => void;
 };
 
-const CATEGORY_LABELS: Record<CommandCategory, string> = {
-  workflow: "Workflow",
-  workspace: "Workspace",
-  edit: "Edit",
-  file: "File",
-  help: "Help",
-  language: "Lingua",
-};
-
-const CATEGORY_FILTERS: Array<{ id: "all" | CommandCategory; label: string }> = [
-  { id: "all", label: "Tutti" },
-  { id: "workflow", label: CATEGORY_LABELS.workflow },
-  { id: "workspace", label: CATEGORY_LABELS.workspace },
-  { id: "edit", label: CATEGORY_LABELS.edit },
-  { id: "file", label: CATEGORY_LABELS.file },
-  { id: "help", label: CATEGORY_LABELS.help },
-  { id: "language", label: CATEGORY_LABELS.language },
-];
-
-function normalizeCommandSearch(value: string) {
+function normalizeCommandSearch(value: string, locale: Locale) {
   return value
     .trim()
-    .toLocaleLowerCase("it-IT")
+    .toLocaleLowerCase(locale)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function commandMatches(item: CommandMenuItem, query: string) {
+function commandMatches(item: CommandMenuItem, query: string, categoryLabel: string, locale: Locale) {
   if (!query) {
     return true;
   }
 
   return normalizeCommandSearch(
-    `${item.label} ${item.detail ?? ""} ${item.shortcut ?? ""} ${CATEGORY_LABELS[item.category]}`,
+    `${item.label} ${item.detail ?? ""} ${item.shortcut ?? ""} ${categoryLabel}`,
+    locale,
   ).includes(query);
 }
 
@@ -114,6 +97,7 @@ function CommandPaletteItem({ item, onRun }: { item: CommandMenuItem; onRun: (it
       onClick={() => onRun(item)}
       disabled={item.disabled}
       aria-pressed={item.active ? true : undefined}
+      data-testid={item.testId}
     >
       <span className="command-palette-item-icon" aria-hidden="true">
         <StudioIcon name={item.icon} />
@@ -133,12 +117,37 @@ function CommandPaletteItem({ item, onRun }: { item: CommandMenuItem; onRun: (it
 }
 
 export function CommandMenuModal(props: CommandMenuModalProps) {
-  const { locale, setLocale, getLanguageMenuLabel } = useI18n();
+  const { locale, setLocale, getLanguageMenuLabel, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<"all" | CommandCategory>("all");
   const isErView = props.diagramView === "er";
   const isTranslationView = props.diagramView === "translation";
   const isLogicalView = props.diagramView === "logical";
+
+  const categoryLabels: Record<CommandCategory, string> = useMemo(
+    () => ({
+      workflow: t("commandMenu.categories.workflow"),
+      workspace: t("commandMenu.categories.workspace"),
+      edit: t("commandMenu.categories.edit"),
+      file: t("commandMenu.categories.file"),
+      help: t("commandMenu.categories.help"),
+      language: t("commandMenu.categories.language"),
+    }),
+    [t],
+  );
+
+  const categoryFilters: Array<{ id: "all" | CommandCategory; label: string }> = useMemo(
+    () => [
+      { id: "all", label: t("commandMenu.categories.all") },
+      { id: "workflow", label: categoryLabels.workflow },
+      { id: "workspace", label: categoryLabels.workspace },
+      { id: "edit", label: categoryLabels.edit },
+      { id: "file", label: categoryLabels.file },
+      { id: "help", label: categoryLabels.help },
+      { id: "language", label: categoryLabels.language },
+    ],
+    [categoryLabels, t],
+  );
 
   function runCommand(action: () => void) {
     action();
@@ -150,8 +159,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-er",
         category: "workflow",
-        label: "Modello ER",
-        detail: "Canvas concettuale",
+        label: t("commandMenu.commands.workflowEr.label"),
+        detail: t("commandMenu.commands.workflowEr.detail"),
         icon: "entity",
         active: props.diagramView === "er",
         action: () => props.onDiagramViewChange("er"),
@@ -159,8 +168,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-translation",
         category: "workflow",
-        label: "Traduzione",
-        detail: "Passi ER intermedi",
+        label: t("commandMenu.commands.workflowTranslation.label"),
+        detail: t("commandMenu.commands.workflowTranslation.detail"),
         icon: "translate",
         active: props.diagramView === "translation",
         action: () => props.onDiagramViewChange("translation"),
@@ -168,8 +177,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-logical",
         category: "workflow",
-        label: "Schema logico",
-        detail: "Tabelle, chiavi e vincoli",
+        label: t("commandMenu.commands.workflowLogical.label"),
+        detail: t("commandMenu.commands.workflowLogical.detail"),
         icon: "database",
         active: props.diagramView === "logical" && !props.logicalSqlOpen,
         action: props.onOpenLogicalWorkflow,
@@ -177,8 +186,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-sql",
         category: "workflow",
-        label: "SQL",
-        detail: "Anteprima dello schema",
+        label: t("commandMenu.commands.workflowSql.label"),
+        detail: t("commandMenu.commands.workflowSql.detail"),
         icon: "code",
         active: props.diagramView === "logical" && props.logicalSqlOpen,
         action: props.onOpenSql,
@@ -186,8 +195,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-reset-translation",
         category: "workflow",
-        label: "Reset traduzione",
-        detail: "Riparti dai passi ER",
+        label: t("commandMenu.commands.workflowResetTranslation.label"),
+        detail: t("commandMenu.commands.workflowResetTranslation.detail"),
         icon: "reset",
         disabled: !isTranslationView,
         action: props.onResetTranslation,
@@ -195,8 +204,10 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-generate-schema",
         category: "workflow",
-        label: props.logicalOutOfDate ? "Riallinea schema" : "Rigenera schema",
-        detail: "Aggiorna il modello logico",
+        label: props.logicalOutOfDate
+          ? t("commandMenu.commands.workflowRealignSchema.label")
+          : t("commandMenu.commands.workflowGenerateSchema.label"),
+        detail: t("commandMenu.commands.workflowGenerateSchema.detail"),
         icon: "refresh",
         disabled: !isLogicalView,
         action: props.onGenerateLogicalModel,
@@ -204,8 +215,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-auto-layout",
         category: "workflow",
-        label: "Auto layout logico",
-        detail: "Ridistribuisci le tabelle",
+        label: t("commandMenu.commands.workflowAutoLayout.label"),
+        detail: t("commandMenu.commands.workflowAutoLayout.detail"),
         icon: "fix",
         disabled: !isLogicalView,
         action: props.onAutoLayoutLogical,
@@ -213,8 +224,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workflow-fit-logical",
         category: "workflow",
-        label: "Adatta canvas logico",
-        detail: "Centra e adatta lo schema",
+        label: t("commandMenu.commands.workflowFitLogical.label"),
+        detail: t("commandMenu.commands.workflowFitLogical.detail"),
         icon: "fit",
         disabled: !isLogicalView,
         action: props.onFitLogical,
@@ -222,8 +233,8 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workspace-sql-reverse",
         category: "workspace",
-        label: "Reverse Engineering SQL",
-        detail: "Importa CREATE TABLE con workflow guidato",
+        label: t("commandMenu.commands.workspaceSqlReverse.label"),
+        detail: t("commandMenu.commands.workspaceSqlReverse.detail"),
         icon: "databaseReverse",
         disabled: !isErView,
         action: props.onOpenSqlReverseWorkflow,
@@ -231,8 +242,10 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workspace-code",
         category: "workspace",
-        label: props.codePanelOpen ? "Nascondi Code" : "Mostra Code",
-        detail: "Editor ERS nel workspace",
+        label: props.codePanelOpen
+          ? t("commandMenu.commands.workspaceCodeHide.label")
+          : t("commandMenu.commands.workspaceCodeShow.label"),
+        detail: t("commandMenu.commands.workspaceCodeShow.detail"),
         icon: "code",
         active: props.codePanelOpen,
         action: props.onToggleCodePanel,
@@ -240,8 +253,10 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workspace-notes",
         category: "workspace",
-        label: props.notesPanelOpen ? "Nascondi Notes" : "Mostra Notes",
-        detail: "Annotazioni nel tab dedicato",
+        label: props.notesPanelOpen
+          ? t("commandMenu.commands.workspaceNotesHide.label")
+          : t("commandMenu.commands.workspaceNotesShow.label"),
+        detail: t("commandMenu.commands.workspaceNotesShow.detail"),
         icon: "notes",
         active: props.notesPanelOpen,
         action: props.onToggleNotesPanel,
@@ -249,8 +264,10 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workspace-focus",
         category: "workspace",
-        label: props.focusMode ? "Disattiva focus" : "Attiva focus",
-        detail: "Nascondi pannelli non necessari",
+        label: props.focusMode
+          ? t("commandMenu.commands.workspaceFocusDisable.label")
+          : t("commandMenu.commands.workspaceFocusEnable.label"),
+        detail: t("commandMenu.commands.workspaceFocusEnable.detail"),
         shortcut: "Ctrl/Cmd .",
         icon: "focus",
         active: props.focusMode,
@@ -259,8 +276,10 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "workspace-tool-rail",
         category: "workspace",
-        label: props.toolRailCollapsed ? "Espandi strumenti" : "Comprimi strumenti",
-        detail: "Cambia densita della rail",
+        label: props.toolRailCollapsed
+          ? t("commandMenu.commands.workspaceToolRailExpand.label")
+          : t("commandMenu.commands.workspaceToolRailCollapse.label"),
+        detail: t("commandMenu.commands.workspaceToolRailExpand.detail"),
         icon: "panelLeft",
         active: props.toolRailCollapsed,
         action: props.onToggleToolRail,
@@ -268,7 +287,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "edit-undo",
         category: "edit",
-        label: "Annulla",
+        label: t("commandMenu.commands.editUndo.label"),
         shortcut: "Ctrl/Cmd Z",
         icon: "undo",
         disabled: !props.canUndo,
@@ -277,7 +296,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "edit-redo",
         category: "edit",
-        label: "Ripeti",
+        label: t("commandMenu.commands.editRedo.label"),
         shortcut: "Ctrl/Cmd Y",
         icon: "redo",
         disabled: !props.canRedo,
@@ -286,7 +305,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "edit-duplicate",
         category: "edit",
-        label: "Duplica selezione",
+        label: t("commandMenu.commands.editDuplicate.label"),
         shortcut: "Ctrl/Cmd D",
         icon: "duplicate",
         disabled: !isErView || props.selectionItemCount === 0,
@@ -295,7 +314,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "edit-rename",
         category: "edit",
-        label: "Rinomina selezione",
+        label: t("commandMenu.commands.editRename.label"),
         shortcut: "Enter",
         icon: "rename",
         disabled: !isErView || props.selectionItemCount !== 1,
@@ -304,7 +323,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "edit-delete",
         category: "edit",
-        label: "Elimina selezione",
+        label: t("commandMenu.commands.editDelete.label"),
         shortcut: "Del",
         icon: "delete",
         disabled: !isErView || props.selectionItemCount === 0,
@@ -313,28 +332,28 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "file-new-project",
         category: "file",
-        label: "Nuovo progetto",
+        label: t("commandMenu.commands.fileNewProject.label"),
         icon: "newProject",
         action: props.onNewProject,
       },
       {
         id: "file-open-project",
         category: "file",
-        label: "Apri progetto",
+        label: t("commandMenu.commands.fileOpenProject.label"),
         icon: "openProject",
         action: props.onLoadProject,
       },
       {
         id: "file-open-ers",
         category: "file",
-        label: "Apri ERS",
+        label: t("commandMenu.commands.fileOpenErs.label"),
         icon: "upload",
         action: props.onLoadErs,
       },
       {
         id: "file-save-project",
         category: "file",
-        label: "Salva progetto",
+        label: t("commandMenu.commands.fileSaveProject.label"),
         shortcut: "Ctrl/Cmd S",
         icon: "save",
         action: props.onSaveProject,
@@ -342,50 +361,50 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       {
         id: "file-download-ers",
         category: "file",
-        label: "Scarica ERS",
+        label: t("commandMenu.commands.fileDownloadErs.label"),
         icon: "download",
         action: props.onSaveErs,
       },
       {
         id: "file-export-png",
         category: "file",
-        label: "Export PNG",
+        label: t("commandMenu.commands.fileExportPng.label"),
         icon: "image",
         action: props.onExportPng,
       },
       {
         id: "file-export-svg",
         category: "file",
-        label: "Export SVG",
+        label: t("commandMenu.commands.fileExportSvg.label"),
         icon: "fileImage",
         action: props.onExportSvg,
       },
       {
         id: "file-reset-ers",
         category: "file",
-        label: "Rigenera sorgente ERS",
+        label: t("commandMenu.commands.fileResetErs.label"),
         icon: "refresh",
         action: props.onResetErs,
       },
       {
         id: "help-shortcuts",
         category: "help",
-        label: "Scorciatoie tastiera",
-        detail: "Comandi supportati",
+        label: t("commandMenu.commands.helpShortcuts.label"),
+        detail: t("commandMenu.commands.helpShortcuts.detail"),
         icon: "keyboard",
         action: props.onOpenShortcuts,
       },
       {
         id: "help-whats-new",
         category: "help",
-        label: "Novita",
+        label: t("commandMenu.commands.helpWhatsNew.label"),
         icon: "history",
         action: props.onWhatsNew,
       },
       {
         id: "help-about",
         category: "help",
-        label: "Informazioni",
+        label: t("commandMenu.commands.helpAbout.label"),
         icon: "info",
         action: props.onAbout,
       },
@@ -393,9 +412,13 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
         id: `language-${language}`,
         category: "language",
         label: getLanguageMenuLabel(language),
-        detail: language === locale ? "Lingua attiva" : "Cambia lingua interfaccia",
+        detail:
+          language === locale
+            ? t("commandMenu.language.active")
+            : t("commandMenu.language.change"),
         icon: language === locale ? "done" : "globe",
         active: locale === language,
+        testId: `language-command-${language}`,
         action: () => {
           setLocale(language);
         },
@@ -409,13 +432,16 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       locale,
       props,
       setLocale,
+      t,
     ],
   );
-  const normalizedQuery = normalizeCommandSearch(searchQuery);
+  const normalizedQuery = normalizeCommandSearch(searchQuery, locale);
   const visibleCommands = commands.filter(
-    (item) => (activeCategory === "all" || item.category === activeCategory) && commandMatches(item, normalizedQuery),
+    (item) =>
+      (activeCategory === "all" || item.category === activeCategory) &&
+      commandMatches(item, normalizedQuery, categoryLabels[item.category], locale),
   );
-  const groupedCommands = CATEGORY_FILTERS.filter((filter) => filter.id !== "all")
+  const groupedCommands = categoryFilters.filter((filter) => filter.id !== "all")
     .map((filter) => ({
       id: filter.id as CommandCategory,
       label: filter.label,
@@ -431,6 +457,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
         aria-modal="true"
         aria-labelledby="command-menu-title"
         onClick={(event) => event.stopPropagation()}
+        data-testid="command-menu"
       >
         <div className="command-palette">
           <div className="command-palette-header">
@@ -439,9 +466,13 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
                 <StudioIcon name="menu" />
               </span>
               <div>
-                <h2 id="command-menu-title" className="command-palette-title">Menu comandi</h2>
+                <h2 id="command-menu-title" className="command-palette-title">{t("commandMenu.title")}</h2>
                 <p className="command-palette-subtitle">
-                  {props.appTitle} {props.appVersion} - {props.diagramName}
+                  {t("commandMenu.subtitle", {
+                    appTitle: props.appTitle,
+                    appVersion: props.appVersion,
+                    diagramName: props.diagramName,
+                  })}
                 </p>
               </div>
             </div>
@@ -449,7 +480,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
               type="button"
               className="studio-modal__close command-palette-close"
               onClick={props.onClose}
-              aria-label="Chiudi menu comandi"
+              aria-label={t("commandMenu.closeAria")}
             >
               <StudioIcon name="close" aria-hidden="true" />
             </button>
@@ -462,13 +493,14 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Cerca comando..."
-                aria-label="Cerca comando"
+                placeholder={t("commandMenu.searchPlaceholder")}
+                aria-label={t("commandMenu.searchAria")}
+                data-testid="command-menu-search"
                 autoFocus
               />
             </label>
-            <div className="command-palette-tabs" aria-label="Filtra comandi">
-              {CATEGORY_FILTERS.map((filter) => (
+            <div className="command-palette-tabs" aria-label={t("commandMenu.filterAria")}>
+              {categoryFilters.map((filter) => (
                 <button
                   key={filter.id}
                   type="button"
@@ -499,14 +531,14 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             ) : (
               <div className="command-palette-empty" role="status">
                 <StudioIcon name="search" aria-hidden="true" />
-                <strong>Nessun comando trovato</strong>
-                <span>Prova con un altro termine o cambia categoria.</span>
+                <strong>{t("commandMenu.emptyTitle")}</strong>
+                <span>{t("commandMenu.emptyDescription")}</span>
               </div>
             )}
           </div>
 
           <div className="command-palette-footer">
-            {visibleCommands.length} {visibleCommands.length === 1 ? "comando" : "comandi"} visibili
+            {t("commandMenu.visibleCount", { count: visibleCommands.length })}
           </div>
         </div>
       </div>

@@ -18,6 +18,10 @@ test("shows the buildER loading screen and opens the studio without the ERS guid
     }
   });
 
+  await page.addInitScript(() => {
+    window.localStorage.setItem("chen-er-diagram-studio:locale", "it");
+  });
+
   await page.goto("/");
 
   const loadingScreen = page.getByTestId("app-loading-screen");
@@ -31,7 +35,7 @@ test("shows the buildER loading screen and opens the studio without the ERS guid
   await expect(page.locator(".app-shell")).toBeVisible();
   await expect(page.locator(".designer-canvas-region")).toBeVisible();
 
-  await page.getByRole("button", { name: "Apri menu comandi" }).click();
+  await page.getByTestId("app-header-menu").click();
   await expect(page.getByRole("dialog", { name: "Menu comandi" })).toBeVisible();
   await expect(page.getByText(removedGuideLabel)).toHaveCount(0);
 

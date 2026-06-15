@@ -66,6 +66,8 @@ export type MessageKey = LeafKeyOf<Messages>;
 type MessageBundle = Record<string, unknown>;
 
 const IS_DEV = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
+const rawMessagesByLocale: Record<Locale, MessageBundle> = { it, en, sq };
+const warnedMissingKeys = new Set<string>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -235,6 +237,20 @@ function fallbackMissingKey(key: string): string {
   return tail.replace(/([A-Z])/g, " $1").replace(/[-_]/g, " ").trim() || key;
 }
 
+function warnMissingLocaleKey(locale: Locale, key: string) {
+  if (!IS_DEV || locale === DEFAULT_LOCALE) {
+    return;
+  }
+
+  const warningKey = `${locale}:${key}`;
+  if (warnedMissingKeys.has(warningKey)) {
+    return;
+  }
+
+  warnedMissingKeys.add(warningKey);
+  console.warn(`[i18n] Missing "${key}" for locale "${locale}". Falling back to "${DEFAULT_LOCALE}".`);
+}
+
 export function getMessages(locale: Locale = currentLocale): Messages {
   return mergedMessagesByLocale[locale];
 }
@@ -244,6 +260,10 @@ export function translate(
   params?: TranslationParams,
   locale: Locale = currentLocale,
 ): string {
+  if (getMessageValue(rawMessagesByLocale[locale], key) == null) {
+    warnMissingLocaleKey(locale, key);
+  }
+
   const localized = getMessageValue(getMessages(locale), key);
   const fallback = getMessageValue(getMessages(DEFAULT_LOCALE), key);
   const resolved = localized ?? fallback;

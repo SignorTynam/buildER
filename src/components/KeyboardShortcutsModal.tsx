@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import type { Locale } from "../i18n";
+import { useI18n } from "../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
 
 interface ShortcutItem {
@@ -20,107 +22,20 @@ interface KeyboardShortcutsModalProps {
   onClose: () => void;
 }
 
-const SHORTCUT_SECTIONS: ShortcutSection[] = [
-  {
-    id: "standard",
-    title: "Azioni standard",
-    shortTitle: "Standard",
-    icon: "keyboard",
-    items: [
-      { keys: "Ctrl/Cmd S", action: "Salva progetto .ersp" },
-      { keys: "Ctrl/Cmd Z", action: "Undo" },
-      { keys: "Ctrl/Cmd Shift Z", action: "Redo" },
-      { keys: "Ctrl/Cmd Y", action: "Redo" },
-      { keys: "Esc", action: "Chiude modal, annulla selezione o termina operazione corrente" },
-    ],
-  },
-  {
-    id: "workspace",
-    title: "Workspace",
-    shortTitle: "Workspace",
-    icon: "show",
-    items: [
-      { keys: "Ctrl/Cmd I", action: "Apre/chiude dock tecnico; in schema alterna SQL/Review" },
-      { keys: "Ctrl/Cmd .", action: "Focus mode" },
-      { keys: "Ctrl/Cmd C", action: "Copia selezione ER" },
-      { keys: "Ctrl/Cmd V", action: "Incolla selezione ER" },
-      { keys: "Ctrl/Cmd D", action: "Duplica selezione ER" },
-      { keys: "Delete / Backspace", action: "Elimina selezione ER" },
-    ],
-  },
-  {
-    id: "er",
-    title: "Strumenti ER",
-    shortTitle: "ER",
-    icon: "design",
-    items: [
-      { keys: "V", action: "Selezione" },
-      { keys: "S", action: "Sposta / pan" },
-      { keys: "E", action: "Entita" },
-      { keys: "R", action: "Relazione" },
-      { keys: "A", action: "Attributo" },
-      { keys: "C", action: "Collegamento" },
-      { keys: "G", action: "Generalizzazione" },
-      { keys: "X", action: "Cancella" },
-    ],
-  },
-  {
-    id: "canvas",
-    title: "Canvas",
-    shortTitle: "Canvas",
-    icon: "fit",
-    items: [
-      { keys: "Tab", action: "Focus su nodi e collegamenti" },
-      { keys: "Enter", action: "Rinomina elemento selezionato o in focus" },
-      { keys: "Frecce", action: "Sposta elemento selezionato con precisione" },
-      { keys: "+ / -", action: "Zoom quando il canvas ha focus" },
-      { keys: "Rotella", action: "Zoom viewport" },
-      { keys: "Tasto centrale drag", action: "Pan del canvas" },
-    ],
-  },
-  {
-    id: "code",
-    title: "Editor codice",
-    shortTitle: "Codice",
-    icon: "code",
-    items: [
-      { keys: "Tab", action: "Inserisce tabulazione nel codice ERS" },
-      { keys: "( [ {", action: "Auto-pair se il codice e modificabile" },
-      { keys: ") ] }", action: "Salta la parentesi di chiusura gia presente" },
-    ],
-  },
-  {
-    id: "logical",
-    title: "Schema logico",
-    shortTitle: "Logico",
-    icon: "database",
-    items: [
-      { keys: "Doppio click tabella", action: "Rinomina tabella" },
-      { keys: "Doppio click colonna", action: "Rinomina colonna" },
-      { keys: "Type Mode", action: "Clic su colonna per aprire editor SQL contestuale" },
-    ],
-  },
-];
-
-const FILTERS: Array<{ id: "all" | ShortcutSectionId; label: string }> = [
-  { id: "all", label: "Tutti" },
-  ...SHORTCUT_SECTIONS.map((section) => ({ id: section.id, label: section.shortTitle })),
-];
-
-function normalizeSearch(value: string) {
+function normalizeSearch(value: string, locale: Locale) {
   return value
     .trim()
-    .toLocaleLowerCase("it-IT")
+    .toLocaleLowerCase(locale)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function shortcutMatches(section: ShortcutSection, item: ShortcutItem, query: string) {
+function shortcutMatches(section: ShortcutSection, item: ShortcutItem, query: string, locale: Locale) {
   if (!query) {
     return true;
   }
 
-  return normalizeSearch(`${section.title} ${section.shortTitle} ${item.action} ${item.keys}`).includes(query);
+  return normalizeSearch(`${section.title} ${section.shortTitle} ${item.action} ${item.keys}`, locale).includes(query);
 }
 
 function splitShortcutKeys(keys: string) {
@@ -128,19 +43,112 @@ function splitShortcutKeys(keys: string) {
 }
 
 export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
+  const { locale, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSection, setActiveSection] = useState<"all" | ShortcutSectionId>("all");
-  const normalizedQuery = normalizeSearch(searchQuery);
+
+  const shortcutSections: ShortcutSection[] = useMemo(
+    () => [
+      {
+        id: "standard",
+        title: t("keyboardShortcuts.sections.standard.title"),
+        shortTitle: t("keyboardShortcuts.sections.standard.shortTitle"),
+        icon: "keyboard",
+        items: [
+          { keys: "Ctrl/Cmd S", action: t("keyboardShortcuts.actions.saveProject") },
+          { keys: "Ctrl/Cmd Z", action: t("keyboardShortcuts.actions.undo") },
+          { keys: "Ctrl/Cmd Shift Z", action: t("keyboardShortcuts.actions.redo") },
+          { keys: "Ctrl/Cmd Y", action: t("keyboardShortcuts.actions.redo") },
+          { keys: "Esc", action: t("keyboardShortcuts.actions.escape") },
+        ],
+      },
+      {
+        id: "workspace",
+        title: t("keyboardShortcuts.sections.workspace.title"),
+        shortTitle: t("keyboardShortcuts.sections.workspace.shortTitle"),
+        icon: "show",
+        items: [
+          { keys: "Ctrl/Cmd I", action: t("keyboardShortcuts.actions.toggleTechnicalDock") },
+          { keys: "Ctrl/Cmd .", action: t("keyboardShortcuts.actions.focusMode") },
+          { keys: "Ctrl/Cmd C", action: t("keyboardShortcuts.actions.copySelection") },
+          { keys: "Ctrl/Cmd V", action: t("keyboardShortcuts.actions.pasteSelection") },
+          { keys: "Ctrl/Cmd D", action: t("keyboardShortcuts.actions.duplicateSelection") },
+          { keys: "Delete / Backspace", action: t("keyboardShortcuts.actions.deleteSelection") },
+        ],
+      },
+      {
+        id: "er",
+        title: t("keyboardShortcuts.sections.er.title"),
+        shortTitle: t("keyboardShortcuts.sections.er.shortTitle"),
+        icon: "design",
+        items: [
+          { keys: "V", action: t("keyboardShortcuts.actions.selectTool") },
+          { keys: "S", action: t("keyboardShortcuts.actions.moveTool") },
+          { keys: "E", action: t("keyboardShortcuts.actions.entityTool") },
+          { keys: "R", action: t("keyboardShortcuts.actions.relationshipTool") },
+          { keys: "A", action: t("keyboardShortcuts.actions.attributeTool") },
+          { keys: "C", action: t("keyboardShortcuts.actions.connectorTool") },
+          { keys: "G", action: t("keyboardShortcuts.actions.generalizationTool") },
+          { keys: "X", action: t("keyboardShortcuts.actions.deleteTool") },
+        ],
+      },
+      {
+        id: "canvas",
+        title: t("keyboardShortcuts.sections.canvas.title"),
+        shortTitle: t("keyboardShortcuts.sections.canvas.shortTitle"),
+        icon: "fit",
+        items: [
+          { keys: "Tab", action: t("keyboardShortcuts.actions.focusNodes") },
+          { keys: "Enter", action: t("keyboardShortcuts.actions.renameFocused") },
+          { keys: t("keyboardShortcuts.keys.arrows"), action: t("keyboardShortcuts.actions.movePrecise") },
+          { keys: "+ / -", action: t("keyboardShortcuts.actions.zoomWhenFocused") },
+          { keys: t("keyboardShortcuts.keys.wheel"), action: t("keyboardShortcuts.actions.wheelZoom") },
+          { keys: t("keyboardShortcuts.keys.middleButtonDrag"), action: t("keyboardShortcuts.actions.middleButtonPan") },
+        ],
+      },
+      {
+        id: "code",
+        title: t("keyboardShortcuts.sections.code.title"),
+        shortTitle: t("keyboardShortcuts.sections.code.shortTitle"),
+        icon: "code",
+        items: [
+          { keys: "Tab", action: t("keyboardShortcuts.actions.insertTab") },
+          { keys: "( [ {", action: t("keyboardShortcuts.actions.autoPair") },
+          { keys: ") ] }", action: t("keyboardShortcuts.actions.skipClosingBracket") },
+        ],
+      },
+      {
+        id: "logical",
+        title: t("keyboardShortcuts.sections.logical.title"),
+        shortTitle: t("keyboardShortcuts.sections.logical.shortTitle"),
+        icon: "database",
+        items: [
+          { keys: t("keyboardShortcuts.keys.doubleClickTable"), action: t("keyboardShortcuts.actions.renameTable") },
+          { keys: t("keyboardShortcuts.keys.doubleClickColumn"), action: t("keyboardShortcuts.actions.renameColumn") },
+          { keys: t("keyboardShortcuts.keys.typeMode"), action: t("keyboardShortcuts.actions.typeMode") },
+        ],
+      },
+    ],
+    [t],
+  );
+  const filters: Array<{ id: "all" | ShortcutSectionId; label: string }> = useMemo(
+    () => [
+      { id: "all", label: t("keyboardShortcuts.filters.all") },
+      ...shortcutSections.map((section) => ({ id: section.id, label: section.shortTitle })),
+    ],
+    [shortcutSections, t],
+  );
+  const normalizedQuery = normalizeSearch(searchQuery, locale);
   const visibleSections = useMemo(
     () =>
-      SHORTCUT_SECTIONS
+      shortcutSections
         .filter((section) => activeSection === "all" || section.id === activeSection)
         .map((section) => ({
           ...section,
-          items: section.items.filter((item) => shortcutMatches(section, item, normalizedQuery)),
+          items: section.items.filter((item) => shortcutMatches(section, item, normalizedQuery, locale)),
         }))
         .filter((section) => section.items.length > 0),
-    [activeSection, normalizedQuery],
+    [activeSection, locale, normalizedQuery, shortcutSections],
   );
   const resultCount = visibleSections.reduce((count, section) => count + section.items.length, 0);
 
@@ -160,15 +168,15 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
                 <StudioIcon name="keyboard" />
               </span>
               <div>
-                <h2 id="keyboard-shortcuts-title" className="shortcuts-sheet-title">Keyboard shortcuts</h2>
-                <p className="shortcuts-sheet-subtitle">Comandi rapidi supportati da buildER.</p>
+                <h2 id="keyboard-shortcuts-title" className="shortcuts-sheet-title">{t("keyboardShortcuts.title")}</h2>
+                <p className="shortcuts-sheet-subtitle">{t("keyboardShortcuts.subtitle")}</p>
               </div>
             </div>
             <button
               type="button"
               className="studio-modal__close shortcuts-sheet-close"
               onClick={props.onClose}
-              aria-label="Chiudi scorciatoie"
+              aria-label={t("keyboardShortcuts.closeAria")}
             >
               <StudioIcon name="close" aria-hidden="true" />
             </button>
@@ -181,13 +189,13 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Cerca comando o scorciatoia..."
-                aria-label="Cerca comando o scorciatoia"
+                placeholder={t("keyboardShortcuts.searchPlaceholder")}
+                aria-label={t("keyboardShortcuts.searchAria")}
                 autoFocus
               />
             </label>
-            <div className="shortcuts-sheet-tabs" aria-label="Filtra scorciatoie">
-              {FILTERS.map((filter) => (
+            <div className="shortcuts-sheet-tabs" aria-label={t("keyboardShortcuts.filterAria")}>
+              {filters.map((filter) => (
                 <button
                   key={filter.id}
                   type="button"
@@ -213,7 +221,7 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
                     {section.items.map((item) => (
                       <div key={`${section.id}-${item.keys}-${item.action}`} className="shortcuts-sheet-row">
                         <span className="shortcuts-sheet-action">{item.action}</span>
-                        <span className="shortcuts-sheet-keys" aria-label={`Scorciatoia: ${item.keys}`}>
+                        <span className="shortcuts-sheet-keys" aria-label={t("keyboardShortcuts.shortcutAria", { keys: item.keys })}>
                           {splitShortcutKeys(item.keys).map((combo, comboIndex) => (
                             <span key={`${item.keys}-${comboIndex}`} className="shortcuts-sheet-key-combo">
                               {combo.map((key) => (
@@ -230,14 +238,14 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
             ) : (
               <div className="shortcuts-sheet-empty" role="status">
                 <StudioIcon name="search" aria-hidden="true" />
-                <strong>Nessuna scorciatoia trovata</strong>
-                <span>Prova con un comando, una categoria o una combinazione di tasti diversa.</span>
+                <strong>{t("keyboardShortcuts.emptyTitle")}</strong>
+                <span>{t("keyboardShortcuts.emptyDescription")}</span>
               </div>
             )}
           </div>
 
           <div className="shortcuts-sheet-footer">
-            {resultCount} {resultCount === 1 ? "scorciatoia" : "scorciatoie"} visibili
+            {t("keyboardShortcuts.visibleCount", { count: resultCount })}
           </div>
         </div>
       </div>

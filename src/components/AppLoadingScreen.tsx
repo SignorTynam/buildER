@@ -1,35 +1,38 @@
 import { useMemo } from "react";
+import type { MessageKey } from "../i18n";
+import { useI18n } from "../i18n/useI18n";
 import builderLogo from "../image/buildER no background.png";
 
-const LOADING_TIPS = [
-  "Suggerimento: usa Reverse Engineering SQL per partire da CREATE TABLE gia esistenti.",
-  "Suggerimento: il pannello Code ti permette di controllare il DSL ERS mentre lavori sul canvas.",
-  "Suggerimento: esporta in PNG o SVG quando vuoi inserire il diagramma nella relazione.",
-  "Suggerimento: il menu comandi ti permette di trovare rapidamente workflow, export e viste.",
-  "Suggerimento: usa la vista logica per controllare tabelle, chiavi e vincoli prima dell'SQL.",
-  "Suggerimento: se importi SQL, controlla sempre warning e preview prima di applicare.",
-  "Suggerimento: rinomina subito entita e relazioni per mantenere il modello leggibile.",
-  "Suggerimento: usa Notes per salvare decisioni progettuali direttamente nel progetto.",
-  "Suggerimento: il formato .ersp mantiene diagramma, viste e stato del progetto.",
-  "Suggerimento: mantieni gli attributi vicini al loro host per un diagramma piu chiaro.",
-];
+const LOADING_TIP_KEYS = [
+  "loading.tips.reverseSql",
+  "loading.tips.codePanel",
+  "loading.tips.export",
+  "loading.tips.commandMenu",
+  "loading.tips.logicalView",
+  "loading.tips.importSql",
+  "loading.tips.rename",
+  "loading.tips.notes",
+  "loading.tips.projectFile",
+  "loading.tips.layout",
+] as const satisfies readonly MessageKey[];
 
 export function AppLoadingScreen() {
-  const tip = useMemo(() => LOADING_TIPS[Math.floor(Math.random() * LOADING_TIPS.length)], []);
+  const { t } = useI18n();
+  const tipKey = useMemo(() => LOADING_TIP_KEYS[Math.floor(Math.random() * LOADING_TIP_KEYS.length)], []);
 
   return (
     <main className="app-loading-screen" data-testid="app-loading-screen" role="status" aria-live="polite">
-      <section className="app-loading-card" aria-label="Caricamento buildER">
-        <img className="app-loading-logo" src={builderLogo} alt="buildER" draggable={false} />
+      <section className="app-loading-card" aria-label={t("loading.cardAria")}>
+        <img className="app-loading-logo" src={builderLogo} alt={t("app.name")} draggable={false} />
         <div className="app-loading-brand">
-          <span>buildER</span>
-          <strong>Preparazione workspace...</strong>
+          <span>{t("app.name")}</span>
+          <strong>{t("loading.status")}</strong>
         </div>
         <div className="app-loading-progress" aria-hidden="true">
           <span className="app-loading-progress-bar" />
         </div>
         <p className="app-loading-tip" data-testid="app-loading-tip">
-          {tip}
+          <span>{t("loading.tipLabel")}:</span> {t(tipKey)}
         </p>
       </section>
     </main>

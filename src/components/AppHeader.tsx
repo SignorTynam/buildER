@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { WorkspaceView } from "../types/translation";
+import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
 
 interface AppHeaderProps {
@@ -23,6 +24,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader(props: AppHeaderProps) {
+  const { t } = useI18n();
   const [draftName, setDraftName] = useState(props.diagramName);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export function AppHeader(props: AppHeaderProps) {
   }, [props.diagramName]);
 
   function commitProjectName() {
-    const trimmed = draftName.trim() || "ER project";
+    const trimmed = draftName.trim() || t("appHeader.defaultProjectName");
     setDraftName(trimmed);
     if (trimmed !== props.diagramName) {
       props.onDiagramNameChange?.(trimmed);
@@ -42,7 +44,7 @@ export function AppHeader(props: AppHeaderProps) {
 
   return (
     <header className={`designer-topbar app-header-view-${props.diagramView}`}>
-      <div className="designer-brand" aria-label="Brand">
+      <div className="designer-brand" aria-label={t("appHeader.brandAria")}>
         <strong>{props.appTitle}</strong>
         <span>v{props.appVersion}</span>
       </div>
@@ -58,26 +60,37 @@ export function AppHeader(props: AppHeaderProps) {
             event.currentTarget.blur();
           }
         }}
-        aria-label="Project name"
+        aria-label={t("appHeader.projectNameAria")}
       />
 
       <div className="designer-topbar-actions">
-        <button type="button" onClick={props.onNewProject} aria-label="Crea nuovo progetto">
+        <button
+          type="button"
+          onClick={props.onNewProject}
+          aria-label={t("appHeader.actions.newProjectAria")}
+          data-testid="app-header-new-project"
+        >
           <StudioIcon name="newProject" aria-hidden="true" />
-          <span className="desktop-label">NEW PROJECT</span>
-          <span className="mobile-label" aria-hidden="true">NEW</span>
+          <span className="desktop-label">{t("appHeader.actions.newProject")}</span>
+          <span className="mobile-label" aria-hidden="true">{t("appHeader.actions.newProjectShort")}</span>
         </button>
-        <button type="button" onClick={props.onLoadProject} aria-label="Apri progetto">
+        <button
+          type="button"
+          onClick={props.onLoadProject}
+          aria-label={t("appHeader.actions.openProjectAria")}
+          data-testid="app-header-open-project"
+        >
           <StudioIcon name="openProject" aria-hidden="true" />
-          <span className="desktop-label">OPEN PROJECT</span>
-          <span className="mobile-label" aria-hidden="true">OPEN</span>
+          <span className="desktop-label">{t("appHeader.actions.openProject")}</span>
+          <span className="mobile-label" aria-hidden="true">{t("appHeader.actions.openProjectShort")}</span>
         </button>
         <button
           type="button"
           className="designer-icon-button"
           onClick={props.onOpenShortcuts}
-          title="Help"
-          aria-label="Apri scorciatoie e aiuto"
+          title={t("appHeader.actions.helpTitle")}
+          aria-label={t("appHeader.actions.helpAria")}
+          data-testid="app-header-help"
         >
           <StudioIcon name="help" aria-hidden="true" />
         </button>
@@ -85,8 +98,9 @@ export function AppHeader(props: AppHeaderProps) {
           type="button"
           className="designer-icon-button"
           onClick={props.onOpenCommandMenu}
-          title="Menu"
-          aria-label="Apri menu comandi"
+          title={t("appHeader.actions.menuTitle")}
+          aria-label={t("appHeader.actions.menuAria")}
+          data-testid="app-header-menu"
         >
           <StudioIcon name="menu" aria-hidden="true" />
         </button>
