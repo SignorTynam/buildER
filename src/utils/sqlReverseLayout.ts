@@ -7,6 +7,7 @@ import type {
   RelationshipNode,
 } from "../types/diagram";
 import { GRID_SIZE, snapValue } from "./geometry";
+import { layoutSqlReverseAttributes } from "./sqlReverseAttributeLayout";
 
 export interface SqlReverseLayoutOptions {
   marginX?: number;
@@ -41,8 +42,6 @@ interface LayoutBounds {
   width: number;
   height: number;
 }
-
-type AttributeSide = "left" | "right" | "top" | "bottom";
 
 const DEFAULT_SQL_REVERSE_LAYOUT_OPTIONS: RequiredSqlReverseLayoutOptions = {
   marginX: 180,
@@ -79,7 +78,7 @@ export function layoutSqlReverseDiagram(
 
   layoutRelationships(relationshipNodes, diagram.edges, nodeById, occupied, resolvedOptions);
 
-  layoutAttributes(attributeNodes, diagram.edges, nodeById, occupied, resolvedOptions);
+  layoutSqlReverseAttributes(attributeNodes, diagram.edges, nodeById, occupied);
 
   const shiftedNodes = shiftDiagramToPositiveArea(nodes, resolvedOptions).map((node) => ({
     ...node,
@@ -344,182 +343,6 @@ function pairOffset(index: number, step: number): number {
   }
   const magnitude = Math.ceil(index / 2) * step;
   return index % 2 === 0 ? -magnitude : magnitude;
-}
-
-function layoutAttributes(
-  attributes: AttributeNode[],
-  edges: DiagramEdge[],
-  nodeById: Map<string, DiagramNode>,
-  occupied: LayoutBounds[],
-  options: RequiredSqlReverseLayoutOptions,
-): void {
-  const attributesByOwnerId = new Map<string, AttributeNode[]>();
-
-  attributes.forEach((attribute) => {
-    const owner = findAttributeOwner(attribute, edges, nodeById);
-    if (!owner) {
-      return;
-    }
-    const bucket = attributesByOwnerId.get(owner.id) ?? [];
-    bucket.push(attribute);
-    attributesByOwnerId.set(owner.id, bucket);
-  });
-
-  [...attributesByOwnerId.entries()]
-    .sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
-    .forEach(([ownerId, ownerAttributes]) => {
-      const owner = nodeById.get(ownerId);
-      if (!owner || (owner.type !== "entity" && owner.type !== "relationship" && owner.type !== "attribute")) {
-        return;
-      }
-
-      const laidOut = layoutAttributesForOwner(
-        owner,
-        ownerAttributes.sort((left, right) => {
-          if (left.isIdentifier !== right.isIdentifier) {
-            return left.isIdentifier ? -1 : 1;
-          }
-          return left.id.localeCompare(right.id);
-        }),
-        occupied,
-        options,
-      );
-      laidOut.forEach((attribute) => {
-        const target = nodeById.get(attribute.id);
-      if (target?.type === "attribute") {
-        target.x = attribute.x;
-        target.y = attribute.y;
-      }
-    });
-  });
-}
-
-function findAttributeOwner(
-  attribute: AttributeNode,
-  edges: DiagramEdge[],
-  nodeById: Map<string, DiagramNode>,
-): EntityNode | RelationshipNode | AttributeNode | undefined {
-  const edge = edges.find((candidate) => {
-    return candidate.type === "attribute" && (candidate.sourceId === attribute.id || candidate.targetId === attribute.id);
-  });
-  if (!edge) {
-    return undefined;
-  }
-  const ownerId = edge.sourceId === attribute.id ? edge.targetId : edge.sourceId;
-  const owner = nodeById.get(ownerId);
-  return owner?.type === "entity" || owner?.type === "relationship" || owner?.type === "attribute" ? owner : undefined;
-}
-
-function layoutAttributesForOwner(
-  owner: EntityNode | RelationshipNode | AttributeNode,
-  attributes: AttributeNode[],
-  occupiedBounds: LayoutBounds[],
-  options: RequiredSqlReverseLayoutOptions,
-): AttributeNode[] {
-  const sideCounts = buildAttributeSideCounts(attributes);
-  const usedSideIndexes = new Map<AttributeSide, number>();
-  const laidOut: AttributeNode[] = [];
-
-  attributes.forEach((attribute, index) => {
-    const preferredSides = getPreferredAttributeSides(attribute, index);
-    let placed: AttributeNode | null = null;
-
-    for (let ring = 1; ring <= 6 && !placed; ring += 1) {
-      for (const side of preferredSides) {
-        const sideIndex = usedSideIndexes.get(side) ?? 0;
-        const candidate = placeAttributeCandidate(attribute, owner, side, sideIndex, sideCounts.get(side) ?? 1, ring, options);
-        if (!collidesWithAny(getNodeBounds(candidate), occupiedBounds, options.collisionPadding)) {
-          usedSideIndexes.set(side, sideIndex + 1);
-          placed = candidate;
-          break;
-        }
-      }
-    }
-
-    if (!placed) {
-      const side = preferredSides[0] ?? "right";
-      const sideIndex = usedSideIndexes.get(side) ?? 0;
-      usedSideIndexes.set(side, sideIndex + 1);
-      placed = placeAttributeCandidate(attribute, owner, side, sideIndex, sideCounts.get(side) ?? 1, 7, options);
-    }
-
-    laidOut.push(placed);
-    occupiedBounds.push(getNodeBounds(placed));
-  });
-
-  return laidOut;
-}
-
-function buildAttributeSideCounts(attributes: AttributeNode[]): Map<AttributeSide, number> {
-  const counts = new Map<AttributeSide, number>([
-    ["left", 0],
-    ["right", 0],
-    ["top", 0],
-    ["bottom", 0],
-  ]);
-
-  attributes.forEach((attribute, index) => {
-    const side = getPreferredAttributeSides(attribute, index)[0] ?? "right";
-    counts.set(side, (counts.get(side) ?? 0) + 1);
-  });
-
-  return counts;
-}
-
-function getPreferredAttributeSides(attribute: AttributeNode, index: number): AttributeSide[] {
-  if (attribute.isIdentifier) {
-    return index % 2 === 0 ? ["top", "left", "right", "bottom"] : ["left", "top", "right", "bottom"];
-  }
-
-  const sideOrders: AttributeSide[][] = [
-    ["right", "bottom", "top", "left"],
-    ["left", "bottom", "top", "right"],
-    ["bottom", "right", "left", "top"],
-    ["top", "right", "left", "bottom"],
-  ];
-  return sideOrders[index % sideOrders.length] ?? ["right", "left", "bottom", "top"];
-}
-
-function placeAttributeCandidate(
-  attribute: AttributeNode,
-  owner: EntityNode | RelationshipNode | AttributeNode,
-  side: AttributeSide,
-  sideIndex: number,
-  sideCount: number,
-  ring: number,
-  options: RequiredSqlReverseLayoutOptions,
-): AttributeNode {
-  const centeredIndex = sideIndex - (Math.max(1, sideCount) - 1) / 2;
-  const ownerCenterX = owner.x + owner.width / 2;
-  const ownerCenterY = owner.y + owner.height / 2;
-
-  if (side === "left") {
-    return {
-      ...attribute,
-      x: snapValue(owner.x - options.attributeGapX * ring - attribute.width, GRID_SIZE),
-      y: snapValue(ownerCenterY + centeredIndex * options.attributeSpacingY - attribute.height / 2, GRID_SIZE),
-    };
-  }
-  if (side === "right") {
-    return {
-      ...attribute,
-      x: snapValue(owner.x + owner.width + options.attributeGapX * ring, GRID_SIZE),
-      y: snapValue(ownerCenterY + centeredIndex * options.attributeSpacingY - attribute.height / 2, GRID_SIZE),
-    };
-  }
-  if (side === "top") {
-    return {
-      ...attribute,
-      x: snapValue(ownerCenterX + centeredIndex * options.attributeSpacingX - attribute.width / 2, GRID_SIZE),
-      y: snapValue(owner.y - options.attributeGapY * ring - attribute.height, GRID_SIZE),
-    };
-  }
-
-  return {
-    ...attribute,
-    x: snapValue(ownerCenterX + centeredIndex * options.attributeSpacingX - attribute.width / 2, GRID_SIZE),
-    y: snapValue(owner.y + owner.height + options.attributeGapY * ring, GRID_SIZE),
-  };
 }
 
 function shiftDiagramToPositiveArea(
