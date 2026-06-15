@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { useI18n } from "../i18n/useI18n";
+import { StudioIcon } from "./icons/StudioIcon";
 import { applyAutoPairEdit, applyTabEdit, buildLineNumbers } from "../utils/codeEditor";
 
 interface CodePanelProps {
@@ -143,7 +144,7 @@ export function CodePanel(props: CodePanelProps) {
         <span>CODE</span>
         {props.onClose ? (
           <button type="button" className="designer-panel-close" onClick={props.onClose} aria-label="Chiudi codice ERS">
-            Close
+            <StudioIcon name="close" aria-hidden="true" />
           </button>
         ) : null}
       </div>

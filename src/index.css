@@ -89,6 +89,30 @@ body,
   min-width: 0;
 }
 
+.studio-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: currentColor;
+  vertical-align: middle;
+}
+
+.studio-icon-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+.studio-icon-md {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.studio-icon-lg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
 body {
   background: var(--studio-bg);
   overflow-x: hidden;

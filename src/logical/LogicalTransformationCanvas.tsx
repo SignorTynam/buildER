@@ -9,6 +9,7 @@ import type {
 import { DiagramIdentifierOverlay } from "../canvas/DiagramCanvas";
 import { DiagramEdgeView } from "../canvas/DiagramEdge";
 import { DiagramNodeView } from "../canvas/DiagramNode";
+import { StudioIcon } from "../components/icons/StudioIcon";
 import type { DiagramDocument, DiagramEdge, DiagramNode, Point, Viewport } from "../types/diagram";
 import type {
   LogicalColumn,
@@ -1697,21 +1698,24 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       <div className="canvas-viewport-hud" aria-label="Controlli viewport Logico">
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
           <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCenter(1 / 1.14)} aria-label="Riduci zoom">
-            -
+            <StudioIcon name="zoomOut" aria-hidden="true" />
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label="Reset zoom">
             {Math.round(props.viewport.zoom * 100)}%
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCenter(1.14)} aria-label="Aumenta zoom">
-            +
+            <StudioIcon name="zoomIn" aria-hidden="true" />
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label="Adatta contenuto al viewport">
+            <StudioIcon name="fit" aria-hidden="true" />
             Adatta
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerContent} aria-label="Centra contenuto">
+            <StudioIcon name="center" aria-hidden="true" />
             Centra
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label="Reset viewport">
+            <StudioIcon name="reset" aria-hidden="true" />
             Reset
           </button>
         </div>

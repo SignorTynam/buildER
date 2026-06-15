@@ -9,6 +9,7 @@ import type {
 } from "react";
 import { DiagramEdgeView, type EdgeLabelLayoutOverride } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
+import { StudioIcon } from "../components/icons/StudioIcon";
 import { getToolDefinitions } from "../utils/toolConfig";
 import {
   expandNodeIdsForMove,
@@ -4456,21 +4457,24 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       <div className="canvas-viewport-hud" aria-label="Controlli viewport">
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
           <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1 / 1.14)} aria-label="Riduci zoom">
-            -
+            <StudioIcon name="zoomOut" aria-hidden="true" />
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label="Reset zoom">
             {Math.round(props.viewport.zoom * 100)}%
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1.14)} aria-label="Aumenta zoom">
-            +
+            <StudioIcon name="zoomIn" aria-hidden="true" />
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label="Adatta contenuto al viewport">
+            <StudioIcon name="fit" aria-hidden="true" />
             {props.selection.nodeIds.length > 0 ? "Adatta sel." : "Adatta"}
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerDiagram} aria-label="Centra diagramma">
+            <StudioIcon name="center" aria-hidden="true" />
             Centra
           </button>
           <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label="Reset viewport">
+            <StudioIcon name="reset" aria-hidden="true" />
             Reset
           </button>
         </div>

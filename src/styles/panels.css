@@ -3077,6 +3077,7 @@ summary:focus-visible,
 }
 
 .designer-side-toggle-group .designer-side-toggle-errors {
+  position: relative;
   top: auto;
 }
 
@@ -3103,19 +3104,6 @@ summary:focus-visible,
   font-weight: 900;
 }
 
-.designer-toolbar-svg {
-  width: 25px;
-  height: 25px;
-  display: block;
-}
-
-.designer-toolbar-svg-text {
-  fill: currentColor;
-  font-size: 5.4px;
-  font-weight: 850;
-  letter-spacing: 0;
-}
-
 .designer-toolbar-button {
   min-height: 66px;
 }
@@ -3128,16 +3116,18 @@ summary:focus-visible,
   font-size: 0;
 }
 
-.designer-toolbar-button:disabled .designer-toolbar-svg {
-  opacity: 0.42;
-}
-
 .designer-toolbar-group {
   display: contents;
 }
 
 .designer-toolbar-primary {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .errors-modal {
@@ -3628,14 +3618,35 @@ textarea {
   .designer-toolbar-history,
   .designer-toolbar-context {
     display: contents;
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    pointer-events: auto;
+    visibility: visible;
   }
 
   .designer-toolbar-mobile-hidden {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    pointer-events: none;
+    visibility: hidden;
   }
 
   .designer-toolbar-button.designer-toolbar-mobile-hidden {
-    display: none;
+    position: absolute;
+    width: 1px;
+    min-width: 1px;
+    height: 1px;
+    min-height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    pointer-events: none;
+    visibility: hidden;
   }
 
   .designer-toolbar-button {
@@ -3654,11 +3665,6 @@ textarea {
   .designer-toolbar-icon {
     width: 24px;
     height: 24px;
-  }
-
-  .designer-toolbar-svg {
-    width: 22px;
-    height: 22px;
   }
 
   .designer-toolbar-label {
@@ -3871,7 +3877,15 @@ textarea {
   }
 
   .designer-topbar-actions button:not(.designer-icon-button) {
-    display: none;
+    position: absolute;
+    width: 1px;
+    min-width: 1px;
+    height: 1px;
+    min-height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    pointer-events: none;
+    visibility: hidden;
   }
 
   .designer-brand strong {
@@ -4149,16 +4163,22 @@ textarea {
 }
 
 .designer-side-toggle-badge {
+  position: absolute;
+  top: 4px;
+  left: 26px;
   display: inline-grid;
-  min-width: 18px;
-  height: 18px;
+  min-width: 16px;
+  height: 16px;
   place-items: center;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 999px;
   background: var(--studio-warning-soft);
   color: var(--studio-warning);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 850;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--studio-surface);
+  pointer-events: none;
 }
 
 .errors-modal-toolbar {
@@ -4197,6 +4217,55 @@ textarea {
 .errors-modal-diagnostics-icon {
   display: inline-grid;
   place-items: center;
+}
+
+.designer-toolbar-icon,
+.designer-toolbar-button .designer-toolbar-icon,
+.designer-side-toggle span,
+.errors-modal-diagnostics-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.designer-toolbar-icon .studio-icon,
+.designer-toolbar-button .studio-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.designer-side-toggle .studio-icon,
+.designer-icon-button .studio-icon,
+.canvas-hud-button .studio-icon,
+.studio-modal__close .studio-icon,
+.help-close .studio-icon,
+.designer-panel-close .studio-icon,
+.entity-key-modal-close .studio-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.canvas-hud-button-text {
+  gap: 6px;
+}
+
+.header-button .studio-icon,
+.mode-button .studio-icon,
+.sql-reverse-preview-done .studio-icon,
+.designer-notes-hide .studio-icon,
+.designer-fix-choice-icon .studio-icon,
+.designer-fix-option .studio-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.designer-fix-choice-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.designer-logical-move-popover .designer-fix-option {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
 }
 
 @media (max-width: 899px) {
@@ -4313,7 +4382,15 @@ textarea {
   }
 
   .designer-topbar-actions button:not(.designer-icon-button) {
-    display: none;
+    position: absolute;
+    width: 1px;
+    min-width: 1px;
+    height: 1px;
+    min-height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    pointer-events: none;
+    visibility: hidden;
   }
 
   .designer-topbar-actions .designer-icon-button,

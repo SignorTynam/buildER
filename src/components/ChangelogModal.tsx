@@ -1,6 +1,7 @@
 import { useRef } from "react";
 
 import type { AppChangelogEntry, AppChangelogImpact } from "../utils/appMeta";
+import { StudioIcon } from "./icons/StudioIcon";
 
 interface ChangelogModalProps {
   appName: string;
@@ -61,7 +62,7 @@ export function ChangelogModal({ appName, currentVersion, entries, onClose }: Ch
             autoFocus
             ref={closeButtonRef}
           >
-            Chiudi
+            <StudioIcon name="close" aria-hidden="true" />
           </button>
         </header>
 

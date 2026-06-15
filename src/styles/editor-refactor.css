@@ -4798,12 +4798,6 @@ textarea:disabled {
   left: 54px;
 }
 
-.designer-logical-toolbar .designer-toolbar-svg svg {
-  width: 25px;
-  height: 25px;
-  display: block;
-}
-
 .designer-logical-view.sql-open .designer-logical-toolbar {
   left: calc(min(max(25vw, 320px), 460px) + 54px);
 }

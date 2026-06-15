@@ -1,5 +1,6 @@
 import type { ValidationIssue } from "../types/diagram";
 import type { WorkspaceView } from "../types/translation";
+import { StudioIcon } from "./icons/StudioIcon";
 
 type NoticeTone = "success" | "warning" | "error";
 
@@ -97,25 +98,11 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
           <div className={`bottom-status-message tone-${primaryTone}`}>
             {primaryTone !== "info" && (
               <span className={`bottom-status-indicator tone-${primaryTone}`}>
-                {primaryTone === "warning" && (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M6 1L11 10H1L6 1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                    <circle cx="6" cy="8" r="0.5" fill="currentColor"/>
-                    <path d="M6 4v2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                )}
-                {primaryTone === "error" && (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M4 4l4 4M8 4l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                )}
-                {primaryTone === "success" && (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M3.5 6l2 2 3-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
+                <StudioIcon
+                  name={primaryTone === "warning" ? "warning" : primaryTone === "error" ? "error" : "success"}
+                  className="studio-icon-sm"
+                  aria-hidden="true"
+                />
               </span>
             )}
             <span className="bottom-status-message-text">{primaryMessage}</span>
@@ -126,9 +113,7 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
                 onClick={() => props.onDismissNotice(primaryNotice.id)}
                 aria-label="Chiudi notifica"
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                  <path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <StudioIcon name="close" className="studio-icon-sm" aria-hidden="true" />
               </button>
             )}
           </div>

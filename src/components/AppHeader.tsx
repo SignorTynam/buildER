@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { WorkspaceView } from "../types/translation";
+import { StudioIcon } from "./icons/StudioIcon";
 
 interface AppHeaderProps {
   appTitle: string;
@@ -62,10 +63,12 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="designer-topbar-actions">
         <button type="button" onClick={props.onNewProject} aria-label="Crea nuovo progetto">
+          <StudioIcon name="newProject" aria-hidden="true" />
           <span className="desktop-label">NEW PROJECT</span>
           <span className="mobile-label" aria-hidden="true">NEW</span>
         </button>
         <button type="button" onClick={props.onLoadProject} aria-label="Apri progetto">
+          <StudioIcon name="openProject" aria-hidden="true" />
           <span className="desktop-label">OPEN PROJECT</span>
           <span className="mobile-label" aria-hidden="true">OPEN</span>
         </button>
@@ -76,7 +79,7 @@ export function AppHeader(props: AppHeaderProps) {
           title="Help"
           aria-label="Apri scorciatoie e aiuto"
         >
-          ?
+          <StudioIcon name="help" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -85,7 +88,7 @@ export function AppHeader(props: AppHeaderProps) {
           title="Menu"
           aria-label="Apri menu comandi"
         >
-          =
+          <StudioIcon name="menu" aria-hidden="true" />
         </button>
       </div>
     </header>

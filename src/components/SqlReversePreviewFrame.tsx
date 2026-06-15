@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { StudioIcon } from "./icons/StudioIcon";
 
 interface SqlReversePreviewFrameProps {
   title: string;
@@ -29,10 +30,12 @@ export function SqlReversePreviewFrame({
           <div className="sql-reverse-preview-header-actions">
             {onBack ? (
               <button type="button" className="header-button" onClick={onBack}>
+                <StudioIcon name="arrowUp" aria-hidden="true" />
                 Indietro
               </button>
             ) : null}
             <button type="button" className="header-button" onClick={onCancel}>
+              <StudioIcon name="close" aria-hidden="true" />
               Annulla import
             </button>
           </div>
@@ -40,6 +43,7 @@ export function SqlReversePreviewFrame({
         <div className="sql-reverse-preview-body">{children}</div>
         <div className="sql-reverse-preview-actions">
           <button type="button" className="sql-reverse-preview-done" onClick={onDone}>
+            <StudioIcon name="done" aria-hidden="true" />
             Done
           </button>
         </div>

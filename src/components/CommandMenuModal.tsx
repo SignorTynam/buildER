@@ -1,6 +1,7 @@
 import type { WorkspaceView } from "../types/translation";
 import { SUPPORTED_LOCALES } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
+import { StudioIcon } from "./icons/StudioIcon";
 
 interface CommandMenuModalProps {
   appTitle: string;
@@ -109,7 +110,7 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
             aria-label="Chiudi menu comandi"
             autoFocus
           >
-            Chiudi
+            <StudioIcon name="close" aria-hidden="true" />
           </button>
         </div>
 

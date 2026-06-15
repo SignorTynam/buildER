@@ -10,6 +10,7 @@ import type {
   ToolKind,
   ValidationIssue,
 } from "../types/diagram";
+import { StudioIcon } from "../components/icons/StudioIcon";
 import { getConnectorParticipation, getConnectorParticipationContext } from "../utils/cardinality";
 import { canAttributeBecomeComposite, canAttributeHaveCardinality } from "../utils/diagram";
 
@@ -73,165 +74,6 @@ type ToolbarCommand = {
   className?: string;
   ariaLabel?: string;
 };
-
-type IconName =
-  | "select"
-  | "move"
-  | "undo"
-  | "redo"
-  | "entity"
-  | "relationship"
-  | "attribute"
-  | "parent"
-  | "connect"
-  | "copy"
-  | "paste"
-  | "duplicate"
-  | "rename"
-  | "delete"
-  | "card"
-  | "role"
-  | "translate"
-  | "export"
-  | "save"
-  | "simpleId"
-  | "compositeId"
-  | "externalId"
-  | "removeHierarchy"
-  | "type";
-
-function ToolIcon({ name }: { name: IconName }) {
-  const common = {
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-
-  return (
-    <svg className="designer-toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
-      {name === "select" ? (
-        <>
-          <path {...common} d="M5 4l10 10-5 1.2L8 20 5 4z" />
-          <path {...common} d="M10 15l3.5 5" />
-        </>
-      ) : null}
-      {name === "move" ? (
-        <>
-          <path {...common} d="M12 3v18M3 12h18" />
-          <path {...common} d="m8 7 4-4 4 4M8 17l4 4 4-4M7 8 3 12l4 4M17 8l4 4-4 4" />
-        </>
-      ) : null}
-      {name === "undo" ? <path {...common} d="M9 8H4v5M5 9a8 8 0 1 1 2 8" /> : null}
-      {name === "redo" ? <path {...common} d="M15 8h5v5M19 9a8 8 0 1 0-2 8" /> : null}
-      {name === "entity" ? <rect {...common} x="5" y="7" width="14" height="10" /> : null}
-      {name === "relationship" ? <path {...common} d="M12 4 21 12 12 20 3 12 12 4z" /> : null}
-      {name === "attribute" ? (
-        <>
-          <path {...common} d="M4 12h7" />
-          <circle {...common} cx="16" cy="12" r="4.5" />
-        </>
-      ) : null}
-      {name === "parent" ? <path {...common} d="M12 5v12M6 17h12" /> : null}
-      {name === "connect" ? (
-        <>
-          <circle {...common} cx="7" cy="7" r="2.5" />
-          <circle {...common} cx="17" cy="17" r="2.5" />
-          <path {...common} d="M9 9l6 6" />
-        </>
-      ) : null}
-      {name === "copy" ? (
-        <>
-          <rect {...common} x="8" y="8" width="10" height="10" />
-          <path {...common} d="M6 16H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
-        </>
-      ) : null}
-      {name === "paste" ? (
-        <>
-          <path {...common} d="M9 4h6l1 2h3v14H5V6h3l1-2z" />
-          <path {...common} d="M9 10h6M9 14h5" />
-        </>
-      ) : null}
-      {name === "duplicate" ? (
-        <>
-          <rect {...common} x="8" y="8" width="10" height="10" />
-          <path {...common} d="M5 15V5h10" />
-          <path {...common} d="M17 4v4M15 6h4" />
-        </>
-      ) : null}
-      {name === "rename" ? (
-        <>
-          <path {...common} d="M4 20h5L20 9l-5-5L4 15v5z" />
-          <path {...common} d="M13 6l5 5" />
-        </>
-      ) : null}
-      {name === "delete" ? (
-        <>
-          <path {...common} d="M6 7h12M9 7V5h6v2M9 11v6M15 11v6" />
-          <path {...common} d="M8 7l1 13h6l1-13" />
-        </>
-      ) : null}
-      {name === "card" ? (
-        <>
-          <rect {...common} x="4" y="7" width="16" height="10" rx="2" />
-          <text className="designer-toolbar-svg-text" x="12" y="14" textAnchor="middle">
-            1,N
-          </text>
-        </>
-      ) : null}
-      {name === "role" ? (
-        <text className="designer-toolbar-svg-text" x="12" y="14" textAnchor="middle">
-          R
-        </text>
-      ) : null}
-      {name === "translate" ? (
-        <>
-          <path {...common} d="M4 5h9M8 5c0 5 3 8 7 10M12 5c0 4-3 7-8 10" />
-          <path {...common} d="M14 19l3-8 3 8M15 16h4" />
-        </>
-      ) : null}
-      {name === "export" ? (
-        <>
-          <path {...common} d="M12 4v10M8 10l4 4 4-4" />
-          <path {...common} d="M5 18h14" />
-        </>
-      ) : null}
-      {name === "save" ? (
-        <>
-          <path {...common} d="M5 4h12l2 2v14H5V4z" />
-          <path {...common} d="M8 4v6h8V4M8 20v-6h8v6" />
-        </>
-      ) : null}
-      {name === "simpleId" ? <circle cx="12" cy="12" r="5" fill="currentColor" /> : null}
-      {name === "compositeId" ? (
-        <>
-          <circle cx="8" cy="12" r="3.5" fill="currentColor" />
-          <circle cx="16" cy="12" r="3.5" fill="currentColor" />
-        </>
-      ) : null}
-      {name === "externalId" ? (
-        <>
-          <circle {...common} cx="9" cy="12" r="4" />
-          <circle cx="16" cy="12" r="3.5" fill="currentColor" />
-        </>
-      ) : null}
-      {name === "removeHierarchy" ? (
-        <>
-          <path {...common} d="M12 5v9M7 14h10" />
-          <path {...common} d="M5 20 19 4" />
-        </>
-      ) : null}
-      {name === "type" ? (
-        <>
-          <path {...common} d="M12 5v5" />
-          <path {...common} d="M6 19h12" />
-          <path {...common} d="M12 10 5 19M12 10l7 9" />
-        </>
-      ) : null}
-    </svg>
-  );
-}
 
 function findAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
@@ -377,22 +219,22 @@ export function Toolbar(props: ToolbarProps) {
     props.selectedNode?.type === "entity" && (props.selectedNode.externalIdentifiers ?? []).length > 0;
 
   const primaryToolCommands: ToolbarCommand[] = [
-    { key: "primary-select", label: "Select", icon: <ToolIcon name="select" />, onClick: () => props.onToolChange("select"), active: props.activeTool === "select", ariaLabel: "Seleziona elementi" },
-    { key: "primary-move", label: "Pan", icon: <ToolIcon name="move" />, onClick: () => props.onToolChange("move"), active: props.activeTool === "move", ariaLabel: "Sposta il viewport" },
-    { key: "primary-entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onToolChange("entity"), disabled: !canEdit, active: props.activeTool === "entity", ariaLabel: "Strumento entita" },
-    { key: "primary-relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onToolChange("relationship"), disabled: !canEdit, active: props.activeTool === "relationship", ariaLabel: "Strumento relazione" },
-    { key: "primary-attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: () => props.onToolChange("attribute"), disabled: !canEdit, active: props.activeTool === "attribute", ariaLabel: "Strumento attributo" },
-    { key: "primary-connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, active: props.activeTool === "connector", ariaLabel: "Strumento collegamento" },
-    { key: "primary-isa", label: "ISA", icon: <ToolIcon name="type" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, active: props.activeTool === "inheritance", ariaLabel: "Strumento generalizzazione ISA" },
+    { key: "primary-select", label: "Select", icon: <StudioIcon name="select" />, onClick: () => props.onToolChange("select"), active: props.activeTool === "select", ariaLabel: "Seleziona elementi" },
+    { key: "primary-move", label: "Pan", icon: <StudioIcon name="pan" />, onClick: () => props.onToolChange("move"), active: props.activeTool === "move", ariaLabel: "Sposta il viewport" },
+    { key: "primary-entity", label: "Entity", icon: <StudioIcon name="entity" />, onClick: () => props.onToolChange("entity"), disabled: !canEdit, active: props.activeTool === "entity", ariaLabel: "Strumento entita" },
+    { key: "primary-relation", label: "Relation", icon: <StudioIcon name="relationship" />, onClick: () => props.onToolChange("relationship"), disabled: !canEdit, active: props.activeTool === "relationship", ariaLabel: "Strumento relazione" },
+    { key: "primary-attribute", label: "Attribute", icon: <StudioIcon name="attribute" />, onClick: () => props.onToolChange("attribute"), disabled: !canEdit, active: props.activeTool === "attribute", ariaLabel: "Strumento attributo" },
+    { key: "primary-connect", label: "Connect", icon: <StudioIcon name="connector" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, active: props.activeTool === "connector", ariaLabel: "Strumento collegamento" },
+    { key: "primary-isa", label: "ISA", icon: <StudioIcon name="isa" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, active: props.activeTool === "inheritance", ariaLabel: "Strumento generalizzazione ISA" },
   ];
 
   const baseCommands: ToolbarCommand[] = [
-    { key: "undo", label: "Undo", icon: <ToolIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
-    { key: "redo", label: "Redo", icon: <ToolIcon name="redo" />, onClick: () => props.onRedo?.(), disabled: !props.canRedo },
+    { key: "undo", label: "Undo", icon: <StudioIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
+    { key: "redo", label: "Redo", icon: <StudioIcon name="redo" />, onClick: () => props.onRedo?.(), disabled: !props.canRedo },
     {
       key: "paste",
       label: "Paste",
-      icon: <ToolIcon name="paste" />,
+      icon: <StudioIcon name="paste" />,
       onClick: props.onPasteSelection,
       disabled: !canEdit || !props.canPasteSelection,
       title: props.canPasteSelection ? "Incolla selezione ER" : "Nessuna selezione ER copiata.",
@@ -404,13 +246,13 @@ export function Toolbar(props: ToolbarProps) {
         {
           key: "copy",
           label: "Copy",
-          icon: <ToolIcon name="copy" />,
+          icon: <StudioIcon name="copy" />,
           onClick: props.onCopySelection,
         },
         {
           key: "duplicate",
           label: "Duplicate",
-          icon: <ToolIcon name="duplicate" />,
+          icon: <StudioIcon name="duplicate" />,
           onClick: props.onDuplicateSelection,
           disabled: !canEdit,
         },
@@ -421,32 +263,32 @@ export function Toolbar(props: ToolbarProps) {
 
   if (props.selectionItemCount === 0) {
     contextCommands = [
-      { key: "entity", label: "Entity", icon: <ToolIcon name="entity" />, onClick: () => props.onCreateEntity?.(), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
-      { key: "relation", label: "Relation", icon: <ToolIcon name="relationship" />, onClick: () => props.onCreateRelationship?.(), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
-      { key: "translate", label: "Translate", icon: <ToolIcon name="translate" />, onClick: props.onOpenTranslation },
-      { key: "export", label: "Export", icon: <ToolIcon name="export" />, onClick: () => setExportMenuOpen((current) => !current) },
+      { key: "entity", label: "Entity", icon: <StudioIcon name="entity" />, onClick: () => props.onCreateEntity?.(), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "relation", label: "Relation", icon: <StudioIcon name="relationship" />, onClick: () => props.onCreateRelationship?.(), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "translate", label: "Translate", icon: <StudioIcon name="translate" />, onClick: props.onOpenTranslation },
+      { key: "export", label: "Export", icon: <StudioIcon name="export" />, onClick: () => setExportMenuOpen((current) => !current) },
     ];
   } else if (props.selection.nodeIds.length >= 2 && props.selection.edgeIds.length === 0) {
     contextCommands = [
       {
         key: "composite-id",
         label: "Composite Id",
-        icon: <ToolIcon name="compositeId" />,
+        icon: <StudioIcon name="compositeId" />,
         onClick: () => props.onOpenCompositeIdentifier?.(),
         disabled: !canEdit || !compositeSelection.valid,
         title: compositeSelection.title,
       },
-      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <StudioIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedNode?.type === "entity") {
     contextCommands = [
-      { key: "parent", label: "To Parent", icon: <ToolIcon name="parent" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "parent", label: "To Parent", icon: <StudioIcon name="parent" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
       ...(selectedEntityIsInHierarchy
         ? [
             {
               key: "remove-hierarchy",
               label: "Remove ISA",
-              icon: <ToolIcon name="removeHierarchy" />,
+              icon: <StudioIcon name="removeHierarchy" />,
               onClick: () => props.onRemoveFromHierarchy?.(),
               title: "Remove this entity from its hierarchy",
             } satisfies ToolbarCommand,
@@ -457,23 +299,23 @@ export function Toolbar(props: ToolbarProps) {
             {
               key: "remove-external-id",
               label: "Remove Ext Id",
-              icon: <ToolIcon name="externalId" />,
+              icon: <StudioIcon name="externalId" />,
               onClick: () => props.onRemoveExternalIdentifier?.(),
               disabled: !canEdit,
               title: "Remove the external identifier from this entity",
             } satisfies ToolbarCommand,
           ]
         : []),
-      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
-      { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "attribute", label: "Attribute", icon: <StudioIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "rename", label: "Rename", icon: <StudioIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <StudioIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedNode?.type === "relationship") {
     contextCommands = [
-      { key: "connect", label: "Connect", icon: <ToolIcon name="connect" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
-      { key: "attribute", label: "Attribute", icon: <ToolIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
-      { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "connect", label: "Connect", icon: <StudioIcon name="connector" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "attribute", label: "Attribute", icon: <StudioIcon name="attribute" />, onClick: props.onCreateAttributeForSelection, disabled: !canEdit, className: "designer-toolbar-mobile-hidden" },
+      { key: "rename", label: "Rename", icon: <StudioIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <StudioIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (selectedAttribute) {
     const idDisabledTitle = attributeContext?.eligibleForInternalId
@@ -483,7 +325,7 @@ export function Toolbar(props: ToolbarProps) {
       {
         key: selectedAttribute.isMultivalued === true ? "attribute" : "subattribute",
         label: selectedAttribute.isMultivalued === true ? "Attribute" : "Subattribute",
-        icon: <ToolIcon name="attribute" />,
+        icon: <StudioIcon name="attribute" />,
         onClick: props.onCreateAttributeForSelection,
         disabled: !canEdit || !selectedAttributeCanCreateSubattribute,
         className: selectedAttribute.isMultivalued === true ? "designer-toolbar-mobile-hidden" : undefined,
@@ -494,7 +336,7 @@ export function Toolbar(props: ToolbarProps) {
       {
         key: "simple-id",
         label: "Simple Id",
-        icon: <ToolIcon name="simpleId" />,
+        icon: <StudioIcon name="simpleId" />,
         onClick: () => props.onToggleSimpleIdentifier?.(),
         disabled: !canEdit || !attributeContext?.eligibleForInternalId,
         title: idDisabledTitle,
@@ -502,7 +344,7 @@ export function Toolbar(props: ToolbarProps) {
       {
         key: "composite-id",
         label: "Composite Id",
-        icon: <ToolIcon name="compositeId" />,
+        icon: <StudioIcon name="compositeId" />,
         onClick: () => props.onOpenCompositeIdentifier?.(),
         disabled: true,
         title: "Seleziona almeno due attributi semplici con Ctrl/Cmd+click.",
@@ -512,14 +354,14 @@ export function Toolbar(props: ToolbarProps) {
             {
               key: "card",
               label: "Card",
-              icon: <ToolIcon name="card" />,
+              icon: <StudioIcon name="cardinality" />,
               onClick: () => props.onOpenCardinality?.(),
               disabled: !canEdit,
             } satisfies ToolbarCommand,
           ]
         : []),
-      { key: "rename", label: "Rename", icon: <ToolIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "rename", label: "Rename", icon: <StudioIcon name="rename" />, onClick: props.onRenameSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <StudioIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedEdge && isEntityRelationshipConnector(props.diagram, props.selectedEdge)) {
     const mixedDisabled = !connectorHasCardinalityOneOne(props.diagram, props.selectedEdge);
@@ -527,21 +369,21 @@ export function Toolbar(props: ToolbarProps) {
       {
         key: "external-id",
         label: "External Id",
-        icon: <ToolIcon name="externalId" />,
+        icon: <StudioIcon name="externalId" />,
         onClick: () => props.onOpenExternalIdentifier?.(),
         disabled: !canEdit,
       },
       {
         key: "mixed-id",
         label: "Mixed Id",
-        icon: <ToolIcon name="compositeId" />,
+        icon: <StudioIcon name="compositeId" />,
         onClick: () => props.onOpenMixedIdentifier?.(),
         disabled: !canEdit || mixedDisabled,
         title: mixedDisabled ? "L'identificatore esterno misto richiede cardinalita 1,1 sull'entita." : undefined,
       },
-      { key: "card", label: "Card", icon: <ToolIcon name="card" />, onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
-      { key: "role", label: "Role", icon: <ToolIcon name="role" />, onClick: () => props.onOpenRole?.(), disabled: !canEdit },
-      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "card", label: "Card", icon: <StudioIcon name="cardinality" />, onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
+      { key: "role", label: "Role", icon: <StudioIcon name="role" />, onClick: () => props.onOpenRole?.(), disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <StudioIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else if (props.selectedEdge?.type === "inheritance") {
     const constraintTitle =
@@ -552,16 +394,16 @@ export function Toolbar(props: ToolbarProps) {
       {
         key: "type",
         label: "Type",
-        icon: <ToolIcon name="type" />,
+        icon: <StudioIcon name="isa" />,
         onClick: () => props.onOpenInheritanceType?.(),
         disabled: !canEdit,
         title: constraintTitle,
       },
-      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <StudioIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   } else {
     contextCommands = [
-      { key: "delete", label: "Delete", icon: <ToolIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
+      { key: "delete", label: "Delete", icon: <StudioIcon name="delete" />, onClick: props.onDeleteSelection, disabled: !canEdit },
     ];
   }
 

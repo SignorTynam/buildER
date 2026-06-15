@@ -8,6 +8,7 @@ import {
   getErTranslationChoicesForItem,
 } from "../utils/erTranslation";
 import { useI18n } from "../i18n/useI18n";
+import { StudioIcon, type StudioIconName } from "../components/icons/StudioIcon";
 
 interface TranslationWorkspaceProps {
   workspace: ErTranslationWorkspaceDocument;
@@ -68,20 +69,20 @@ function getChoiceOrder(choice: ErTranslationChoice): number {
   return order[choice.rule] ?? 99;
 }
 
-function getChoiceIcon(choice: ErTranslationChoice): string {
+function getChoiceIcon(choice: ErTranslationChoice): StudioIconName {
   if (choice.rule === "generalization-collapse-up") {
-    return "Up";
+    return "moveUp";
   }
   if (choice.rule === "generalization-collapse-down") {
-    return "Dn";
+    return "moveDown";
   }
   if (choice.rule === "generalization-substitution") {
-    return "Sub";
+    return "translate";
   }
   if (choice.rule === "composite-split") {
-    return "Split";
+    return "split";
   }
-  return "Merge";
+  return "merge";
 }
 
 function buildTranslationHighlights(
@@ -118,66 +119,6 @@ function buildTranslationHighlights(
   });
 
   return { pendingNodeIds, pendingEdgeIds, blockedNodeIds, blockedEdgeIds };
-}
-
-function ToolbarIcon(props: { name: "undo" | "redo" | "reset" | "design" | "translate" | "export" | "save" | "fix" }) {
-  const common = {
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-
-  return (
-    <svg className="designer-toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
-      {props.name === "undo" ? (
-        <>
-          <path {...common} d="M9 7H4v5" />
-          <path {...common} d="M4.5 12A8 8 0 1 0 7 6.2" />
-        </>
-      ) : props.name === "redo" ? (
-        <>
-          <path {...common} d="M15 7h5v5" />
-          <path {...common} d="M19.5 12A8 8 0 1 1 17 6.2" />
-        </>
-      ) : props.name === "reset" ? (
-        <>
-          <path {...common} d="M20 12a8 8 0 1 1-2.35-5.65" />
-          <path {...common} d="M20 4v6h-6" />
-        </>
-      ) : props.name === "design" ? (
-        <>
-          <rect {...common} x="4" y="4" width="6" height="6" />
-          <rect {...common} x="14" y="4" width="6" height="6" />
-          <rect {...common} x="4" y="14" width="6" height="6" />
-          <path {...common} d="M10 7h4M7 10v4M10 17h4M17 10v4" />
-        </>
-      ) : props.name === "translate" ? (
-        <>
-          <rect {...common} x="5" y="4" width="14" height="16" />
-          <path {...common} d="M8 8h8M8 12h8M8 16h5" />
-        </>
-      ) : props.name === "export" ? (
-        <>
-          <path {...common} d="M12 3v11" />
-          <path {...common} d="m8 10 4 4 4-4" />
-          <path {...common} d="M5 17v3h14v-3" />
-        </>
-      ) : props.name === "save" ? (
-        <>
-          <path {...common} d="M5 4h12l2 2v14H5z" />
-          <path {...common} d="M8 4v6h8V4" />
-          <path {...common} d="M8 16h8v4H8z" />
-        </>
-      ) : (
-        <>
-          <path {...common} d="M7 7h10M7 12h10M7 17h6" />
-          <path {...common} d="m16 16 2 2 4-5" />
-        </>
-      )}
-    </svg>
-  );
 }
 
 function ToolbarButton(props: {
@@ -240,30 +181,30 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
     <div className="designer-workspace designer-translation-view">
       <div className="designer-canvas-region designer-translation-canvas">
         <div className="designer-context-toolbar designer-translation-toolbar" role="toolbar" aria-label="Restructuring tools">
-          <ToolbarButton label={t("translation.restructuring.undo")} icon={<ToolbarIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
-          <ToolbarButton label={t("translation.restructuring.redo")} icon={<ToolbarIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
-          <ToolbarButton label={t("translation.restructuring.reset")} icon={<ToolbarIcon name="reset" />} onClick={props.onResetTranslation} />
+          <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
+          <ToolbarButton label={t("translation.restructuring.redo")} icon={<StudioIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
+          <ToolbarButton label={t("translation.restructuring.reset")} icon={<StudioIcon name="reset" />} onClick={props.onResetTranslation} />
           <span className="designer-toolbar-separator" aria-hidden="true" />
           {selectedItem ? (
             <ToolbarButton
               label={t("translation.restructuring.fix")}
-              icon={<ToolbarIcon name="fix" />}
+              icon={<StudioIcon name="fix" />}
               active={fixOpen}
               disabled={fixDisabled}
               title={fixTitle}
               onClick={() => setFixOpen((value) => !value)}
             />
           ) : null}
-          <ToolbarButton label={t("translation.restructuring.design")} icon={<ToolbarIcon name="design" />} onClick={props.onOpenDesign} />
+          <ToolbarButton label={t("translation.restructuring.design")} icon={<StudioIcon name="design" />} onClick={props.onOpenDesign} />
           <ToolbarButton
             label={t("translation.restructuring.translate")}
-            icon={<ToolbarIcon name="translate" />}
+            icon={<StudioIcon name="translate" />}
             disabled={translateDisabled}
             title={translateTitle}
             onClick={props.onOpenLogical}
           />
           <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
-          <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} onClick={props.onExportProject} />
+          <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} onClick={props.onExportProject} />
         </div>
 
         <button
@@ -272,7 +213,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           onClick={props.onToggleNotesPanel}
           title={props.notesPanelOpen ? "Chiudi note" : "Apri note"}
         >
-          <span aria-hidden="true">N</span>
+          <StudioIcon name="notes" aria-hidden="true" />
           {props.notesPanelOpen ? "Hide" : "Notes"}
         </button>
 
@@ -293,7 +234,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                   }}
                 >
                   <span className="designer-fix-choice-icon" aria-hidden="true">
-                    {getChoiceIcon(choice)}
+                    <StudioIcon name={getChoiceIcon(choice)} aria-hidden="true" />
                   </span>
                   <span className="designer-fix-choice-main">
                     <span className="designer-fix-choice-label">{choice.label}</span>

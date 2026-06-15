@@ -35,6 +35,7 @@ import {
 import { LOGICAL_SQL_DIALECT_OPTIONS, generateLogicalSql, type LogicalSqlDialect } from "../utils/logicalSql";
 import { EntityKeyChoicePreview } from "./EntityKeyChoicePreview";
 import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } from "./LogicalTransformationCanvas";
+import { StudioIcon } from "../components/icons/StudioIcon";
 
 type LogicalBulkStep = Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">;
 type ColumnMoveDirection = "up" | "down" | "top" | "bottom";
@@ -253,61 +254,6 @@ function renameWithPrompt(label: string, currentValue: string, onRename: (nextVa
   }
 }
 
-function ToolbarIcon(props: { name: string }) {
-  const common = {
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-
-  if (props.name === "undo") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M9 14 4 9l5-5" /><path {...common} d="M4 9h10a6 6 0 0 1 6 6v1" /></svg>;
-  }
-  if (props.name === "redo") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="m15 14 5-5-5-5" /><path {...common} d="M20 9H10a6 6 0 0 0-6 6v1" /></svg>;
-  }
-  if (props.name === "reset") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M3 12a9 9 0 1 0 3-6.7" /><path {...common} d="M3 4v5h5" /></svg>;
-  }
-  if (props.name === "fix") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="m14.7 6.3 3-3 3 3-3 3" /><path {...common} d="M4 20l7.6-7.6" /><path {...common} d="m13 5 6 6" /><path {...common} d="M4 8h5" /><path {...common} d="M6.5 5.5v5" /></svg>;
-  }
-  if (props.name === "design") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><rect {...common} x="4" y="4" width="6" height="6" /><rect {...common} x="14" y="4" width="6" height="6" /><rect {...common} x="4" y="14" width="6" height="6" /><path {...common} d="M10 7h4M7 10v4M17 10v4M10 17h4" /></svg>;
-  }
-  if (props.name === "done") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><circle {...common} cx="12" cy="12" r="9" /><path {...common} d="m7.5 12.3 3 3L17 8.8" /></svg>;
-  }
-  if (props.name === "export") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M12 3v12" /><path {...common} d="m7 10 5 5 5-5" /><path {...common} d="M5 19h14" /></svg>;
-  }
-  if (props.name === "save") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M5 4h12l2 2v14H5z" /><path {...common} d="M8 4v6h8V4" /><path {...common} d="M8 20v-6h8v6" /></svg>;
-  }
-  if (props.name === "unique") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M7 12a5 5 0 0 1 10 0v2" /><path {...common} d="M7 14a5 5 0 0 0 10 0" /><path {...common} d="M12 17v3" /></svg>;
-  }
-  if (props.name === "type") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><rect {...common} x="5" y="4" width="14" height="16" /><path {...common} d="M8 8h8M8 12h8M8 16h5" /></svg>;
-  }
-  if (props.name === "move") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M12 3v18" /><path {...common} d="m8 7 4-4 4 4" /><path {...common} d="m8 17 4 4 4-4" /></svg>;
-  }
-  if (props.name === "rename") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M4 20h4l10-10-4-4L4 16z" /><path {...common} d="m13 7 4 4" /></svg>;
-  }
-  if (props.name === "show") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M4 5h12v14H4z" /><path {...common} d="m13 9 4 3-4 3" /><path {...common} d="M17 12H8" /></svg>;
-  }
-  if (props.name === "notes") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M6 4h10l2 2v14H6z" /><path {...common} d="M16 4v4h4" /><path {...common} d="M9 12h6M9 16h5" /></svg>;
-  }
-
-  return null;
-}
-
 function ToolbarButton(props: {
   label: string;
   icon: ReactNode;
@@ -330,7 +276,7 @@ function ToolbarButton(props: {
       title={props.title}
       onClick={props.onClick}
     >
-      <span className="designer-toolbar-icon designer-toolbar-svg" aria-hidden="true">
+      <span className="designer-toolbar-icon" aria-hidden="true">
         {props.icon}
       </span>
       <span className="designer-toolbar-label">{props.label}</span>
@@ -550,10 +496,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   function renderCommonLeadButtons(includeReset = true) {
     return (
       <>
-        <ToolbarButton label={t("translation.restructuring.undo")} icon={<ToolbarIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
-        <ToolbarButton label={t("translation.restructuring.redo")} icon={<ToolbarIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
+        <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
+        <ToolbarButton label={t("translation.restructuring.redo")} icon={<StudioIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
         {includeReset ? (
-          <ToolbarButton label={t("translation.restructuring.reset")} icon={<ToolbarIcon name="reset" />} onClick={props.onResetTranslation} />
+          <ToolbarButton label={t("translation.restructuring.reset")} icon={<StudioIcon name="reset" />} onClick={props.onResetTranslation} />
         ) : null}
         <span className="designer-toolbar-separator" aria-hidden="true" />
       </>
@@ -569,7 +515,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           <>
             <ToolbarButton
               label={t("logical.designer.fix")}
-              icon={<ToolbarIcon name="fix" />}
+              icon={<StudioIcon name="fix" />}
               active={fixMenuOpen}
               disabled={!preferredChoice}
               title={!preferredChoice ? t("logical.designer.notFixable") : undefined}
@@ -577,23 +523,23 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             />
             <ToolbarButton
               label={t("logical.designer.rename")}
-              icon={<ToolbarIcon name="rename" />}
+              icon={<StudioIcon name="rename" />}
               onClick={() => selectedTranslationItem && renameWithPrompt(t("logical.designer.rename"), selectedTranslationItem.label, () => undefined)}
             />
           </>
         ) : null}
         {nextBulkStep ? (
-          <ToolbarButton label={bulkLabel} icon={<ToolbarIcon name="fix" />} onClick={() => handleBulkFixClick(nextBulkStep)} />
+          <ToolbarButton label={bulkLabel} icon={<StudioIcon name="fix" />} onClick={() => handleBulkFixClick(nextBulkStep)} />
         ) : null}
-        <ToolbarButton label={t("translation.restructuring.design")} icon={<ToolbarIcon name="design" />} onClick={props.onOpenDesign} />
+        <ToolbarButton label={t("translation.restructuring.design")} icon={<StudioIcon name="design" />} onClick={props.onOpenDesign} />
         <ToolbarButton
           label={t("logical.designer.done")}
-          icon={<ToolbarIcon name="done" />}
+          icon={<StudioIcon name="done" />}
           disabled={doneDisabled}
           title={doneDisabled ? t("logical.designer.completeBeforeSchema") : undefined}
           onClick={props.onDone}
         />
-        <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
+        <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
       </div>
     );
   }
@@ -613,7 +559,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           <>
             <ToolbarButton
               label={t("logical.designer.unique")}
-              icon={<ToolbarIcon name="unique" />}
+              icon={<StudioIcon name="unique" />}
               disabled={!selectedColumnContext || uniqueLocked}
               title={
                 !selectedColumnContext
@@ -632,7 +578,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             />
             <ToolbarButton
               label={t("logical.designer.type")}
-              icon={<ToolbarIcon name="type" />}
+              icon={<StudioIcon name="type" />}
               active={props.typeMode}
               disabled={!selectedColumnContext || typeLocked}
               title={
@@ -646,7 +592,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             />
             <ToolbarButton
               label={t("logical.designer.move")}
-              icon={<ToolbarIcon name="move" />}
+              icon={<StudioIcon name="move" />}
               active={moveMenuOpen}
               onClick={() => {
                 if (selectedColumnContext) {
@@ -656,7 +602,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             />
             <ToolbarButton
               label={t("logical.designer.rename")}
-              icon={<ToolbarIcon name="rename" />}
+              icon={<StudioIcon name="rename" />}
               onClick={() =>
                 selectedColumnContext
                   ? renameWithPrompt(t("logical.designer.renameColumn"), selectedColumnContext.column.name, (nextName) =>
@@ -675,12 +621,12 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           <>
             <ToolbarButton
               label={t("logical.designer.fixEntities")}
-              icon={<ToolbarIcon name="fix" />}
+              icon={<StudioIcon name="fix" />}
               disabled={!nextBulkStep}
               onClick={() => nextBulkStep && handleBulkFixClick(nextBulkStep)}
             />
-            <ToolbarButton label={t("translation.restructuring.design")} icon={<ToolbarIcon name="design" />} onClick={props.onOpenDesign} />
-            <ToolbarButton label={t("translation.restructuring.export")} icon={<ToolbarIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
+            <ToolbarButton label={t("translation.restructuring.design")} icon={<StudioIcon name="design" />} onClick={props.onOpenDesign} />
+            <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
           </>
         ) : null}
       </div>
@@ -728,7 +674,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               title={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
             >
               <span aria-hidden="true">
-                <ToolbarIcon name="show" />
+                <StudioIcon name="show" />
               </span>
               {sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
             </button>
@@ -742,7 +688,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             onClick={props.onToggleNotesPanel}
             title={props.notesPanelOpen ? "Chiudi note" : "Apri note"}
           >
-            <span aria-hidden="true">N</span>
+            <StudioIcon name="notes" aria-hidden="true" />
             {props.notesPanelOpen ? "Hide" : "Notes"}
           </button>
         ) : null}
@@ -773,11 +719,11 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         {moveMenuOpen && selectedColumnContext ? (
           <div className="designer-fix-popover designer-logical-move-popover">
             {[
-              ["up", t("logical.designer.moveUp")],
-              ["down", t("logical.designer.moveDown")],
-              ["top", t("logical.designer.moveTop")],
-              ["bottom", t("logical.designer.moveBottom")],
-            ].map(([direction, label]) => (
+              ["up", t("logical.designer.moveUp"), "moveUp"],
+              ["down", t("logical.designer.moveDown"), "moveDown"],
+              ["top", t("logical.designer.moveTop"), "moveToTop"],
+              ["bottom", t("logical.designer.moveBottom"), "moveToBottom"],
+            ].map(([direction, label, iconName]) => (
               <button
                 key={direction}
                 type="button"
@@ -791,6 +737,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                   setMoveMenuOpen(false);
                 }}
               >
+                <StudioIcon name={iconName as "moveUp" | "moveDown" | "moveToTop" | "moveToBottom"} aria-hidden="true" />
                 <span>{label}</span>
               </button>
             ))}
@@ -836,9 +783,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                   className="entity-key-modal-close"
                   aria-label="Annulla scelta chiave primaria"
                   onClick={() => setEntityKeySelectionModal(null)}
-                >
-                  X
-                </button>
+                ><StudioIcon name="close" aria-hidden="true" /></button>
               </header>
               <div className="entity-key-modal-body">
                 {currentEntityKeyRequest ? (

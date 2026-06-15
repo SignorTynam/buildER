@@ -1,4 +1,5 @@
 import type { WorkspaceView } from "../types/translation";
+import { StudioIcon } from "./icons/StudioIcon";
 
 interface WorkspaceStageBarProps {
   currentView: WorkspaceView;
@@ -15,27 +16,12 @@ interface WorkspaceStageBarProps {
 
 function StageIcon({ stage }: { stage: "er" | "translation" | "logical" }) {
   if (stage === "er") {
-    return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <rect x="3" y="5" width="10" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-        <circle cx="8" cy="8" r="1" fill="currentColor"/>
-      </svg>
-    );
+    return <StudioIcon name="entity" className="studio-icon-sm" aria-hidden="true" />;
   }
   if (stage === "translation") {
-    return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path d="M4 8h8M8 4v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        <path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
-      </svg>
-    );
+    return <StudioIcon name="translate" className="studio-icon-sm" aria-hidden="true" />;
   }
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-      <path d="M3 6h10M6 6v7" stroke="currentColor" strokeWidth="1.5"/>
-    </svg>
-  );
+  return <StudioIcon name="design" className="studio-icon-sm" aria-hidden="true" />;
 }
 
 export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
@@ -56,10 +42,7 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
         </button>
 
         <div className="workspace-stage-connector" aria-hidden="true">
-          <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
-            <path d="M0 8h20" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2"/>
-            <path d="M16 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <StudioIcon name="arrowRight" className="studio-icon-sm" />
         </div>
 
         <button
@@ -76,10 +59,7 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
         </button>
 
         <div className="workspace-stage-connector" aria-hidden="true">
-          <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
-            <path d="M0 8h20" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2"/>
-            <path d="M16 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <StudioIcon name="arrowRight" className="studio-icon-sm" />
         </div>
 
         <button
@@ -95,7 +75,9 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
             <span className="workspace-stage-badge">{props.logicalPendingCount}</span>
           )}
           {props.logicalPendingCount === 0 && props.logicalOutOfDate && (
-            <span className="workspace-stage-badge workspace-stage-badge-warning">!</span>
+            <span className="workspace-stage-badge workspace-stage-badge-warning">
+              <StudioIcon name="warning" className="studio-icon-sm" aria-hidden="true" />
+            </span>
           )}
         </button>
       </div>

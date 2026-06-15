@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react";
 import type { LogicalIssue } from "../types/logical";
 import type { SqlReverseIssue } from "../types/sqlReverse";
+import { StudioIcon } from "./icons/StudioIcon";
 import { WarningCard } from "./panels";
 
 interface SqlReverseInputModalProps {
@@ -69,8 +70,8 @@ export function SqlReverseInputModal({
               Questa feature è in beta. Al momento supporta solo istruzioni CREATE TABLE. Altri costrutti SQL saranno supportati nella versione finale.
             </p>
           </div>
-          <button type="button" className="studio-modal__close" onClick={onCancel}>
-            Annulla
+          <button type="button" className="studio-modal__close" onClick={onCancel} aria-label="Chiudi workflow SQL reverse">
+            <StudioIcon name="close" aria-hidden="true" />
           </button>
         </div>
 
@@ -133,6 +134,7 @@ export function SqlReverseInputModal({
 
         <div className="studio-modal__footer sql-reverse-modal__actions">
           <label className="header-button sql-reverse-modal__file-button">
+            <StudioIcon name="upload" aria-hidden="true" />
             Carica .sql
             <input
               type="file"
@@ -143,6 +145,7 @@ export function SqlReverseInputModal({
             />
           </label>
           <button type="button" className="header-button" onClick={onClear}>
+            <StudioIcon name="reset" aria-hidden="true" />
             Pulisci
           </button>
           <span className="sql-reverse-modal__action-spacer" />
@@ -150,6 +153,7 @@ export function SqlReverseInputModal({
             Annulla
           </button>
           <button type="button" className="mode-button active" onClick={onAnalyze}>
+            <StudioIcon name="databaseReverse" aria-hidden="true" />
             Analizza SQL
           </button>
         </div>

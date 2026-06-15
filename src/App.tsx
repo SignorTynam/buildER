@@ -19,6 +19,7 @@ import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
 import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
 import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
 import type { TechnicalPanelTab } from "./components/TechnicalDockPanel";
+import { StudioIcon } from "./components/icons/StudioIcon";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
@@ -6059,7 +6060,7 @@ export default function App() {
                     aria-label={codePanelOpen ? "Chiudi pannello Code ERS" : "Apri pannello Code ERS"}
                     aria-pressed={codePanelOpen}
                   >
-                    <span aria-hidden="true">{"<>"}</span>
+                    <StudioIcon name="code" aria-hidden="true" />
                     Code
                   </button>
                   <button
@@ -6069,7 +6070,7 @@ export default function App() {
                     title="Importa schema SQL"
                     aria-label="Apri workflow Reverse Engineering SQL"
                   >
-                    <span aria-hidden="true">DB</span>
+                    <StudioIcon name="databaseReverse" aria-hidden="true" />
                     Reverse
                   </button>
                   <button
@@ -6081,7 +6082,7 @@ export default function App() {
                     title="Apri errori e warning"
                     aria-label="Apri elenco errori e warning"
                   >
-                    <span aria-hidden="true">{issues.some((issue) => issue.level === "error") ? "X" : "!"}</span>
+                    <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} aria-hidden="true" />
                     <span className="designer-side-toggle-label">Errors</span>
                     {issues.length > 0 ? <span className="designer-side-toggle-badge">{issues.length}</span> : null}
                   </button>
@@ -6093,7 +6094,7 @@ export default function App() {
                     aria-label={notesPanelOpen ? "Chiudi pannello Notes" : "Apri pannello Notes"}
                     aria-pressed={notesPanelOpen}
                   >
-                    <span aria-hidden="true">N</span>
+                    <StudioIcon name="notes" aria-hidden="true" />
                     Notes
                   </button>
                 </div>
@@ -6438,8 +6439,8 @@ export default function App() {
           >
             <div className="help-modal-head">
               <h2 id="errors-dialog-title">Errors</h2>
-              <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)}>
-                Chiudi
+              <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)} aria-label="Chiudi errori e warning">
+                <StudioIcon name="close" aria-hidden="true" />
               </button>
             </div>
             <div className="action-modal-content errors-modal-list">
@@ -6451,20 +6452,11 @@ export default function App() {
                   aria-pressed={showDiagnostics}
                   aria-label={showDiagnostics ? "Nascondi diagnostica sul canvas" : "Mostra diagnostica sul canvas"}
                 >
-                  <span className="errors-modal-diagnostics-icon" aria-hidden="true">
-                    <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
-                      <path
-                        d="M1.9 8.5s2.4-4 6.6-4 6.6 4 6.6 4-2.4 4-6.6 4-6.6-4-6.6-4Z"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinejoin="round"
-                      />
-                      <circle cx="8.5" cy="8.5" r="1.8" stroke="currentColor" strokeWidth="1.6" />
-                      {!showDiagnostics ? (
-                        <path d="M3.4 13.6 13.6 3.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                      ) : null}
-                    </svg>
-                  </span>
+                  <StudioIcon
+                    name={showDiagnostics ? "viewOn" : "viewOff"}
+                    className="errors-modal-diagnostics-icon"
+                    aria-hidden="true"
+                  />
                   <span>Mostra diagnostica sul canvas</span>
                 </button>
               </div>
@@ -6751,8 +6743,8 @@ export default function App() {
           >
             <div className="intro-modal-head">
               <h2 id="intro-modal-title">Benvenuto in {APP_TITLE}</h2>
-              <button type="button" className="help-close" onClick={() => setIntroOpen(false)}>
-                Chiudi
+              <button type="button" className="help-close" onClick={() => setIntroOpen(false)} aria-label="Chiudi introduzione">
+                <StudioIcon name="close" aria-hidden="true" />
               </button>
             </div>
 
@@ -6818,7 +6810,7 @@ export default function App() {
                 aria-label="Chiudi informazioni"
                 autoFocus
               >
-                Chiudi
+                <StudioIcon name="close" aria-hidden="true" />
               </button>
             </div>
 

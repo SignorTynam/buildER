@@ -1,3 +1,5 @@
+import { StudioIcon } from "./icons/StudioIcon";
+
 interface ShortcutItem {
   keys: string;
   action: string;
@@ -98,7 +100,7 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
             aria-label="Chiudi scorciatoie"
             autoFocus
           >
-            Chiudi
+            <StudioIcon name="close" aria-hidden="true" />
           </button>
         </div>
 

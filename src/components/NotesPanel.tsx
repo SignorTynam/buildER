@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useI18n } from "../i18n/useI18n";
+import { StudioIcon } from "./icons/StudioIcon";
 
 interface NotesPanelProps {
   notes: string;
@@ -121,7 +122,12 @@ export function NotesPanel(props: NotesPanelProps) {
         ))}
         <button type="button" onClick={insertLink}>Link</button>
         <button type="button" onClick={insertImage}>Image</button>
-        {props.onClose ? <button type="button" className="designer-notes-hide" onClick={props.onClose}>Hide</button> : null}
+        {props.onClose ? (
+          <button type="button" className="designer-notes-hide" onClick={props.onClose}>
+            <StudioIcon name="close" aria-hidden="true" />
+            Hide
+          </button>
+        ) : null}
       </div>
       <div
         ref={editorRef}
