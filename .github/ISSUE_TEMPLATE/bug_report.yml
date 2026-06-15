@@ -1,0 +1,96 @@
+name: Segnalazione bug
+description: Segnala un problema riproducibile in buildER
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per la segnalazione. Compila le sezioni essenziali per aiutare a riprodurre e risolvere il problema.
+
+  - type: input
+    id: version
+    attributes:
+      label: Versione o branch
+      description: Indica versione, branch o commit in cui hai visto il problema.
+      placeholder: "Esempio: main, v5.0, feature/mobile-support"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrizione del problema
+      description: Spiega cosa non funziona e perché è un bug.
+      placeholder: "Descrivi il comportamento anomalo osservato."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passaggi per riprodurre
+      description: Elenca i passaggi minimi per riprodurre il bug.
+      placeholder: |
+        1. Apri ...
+        2. Clicca ...
+        3. Osserva ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento atteso
+      description: Descrivi cosa ti aspettavi che accadesse.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento effettivo
+      description: Descrivi cosa accade invece.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area interessata
+      multiple: true
+      options:
+        - Canvas / editor ER
+        - Reverse engineering SQL
+        - Layout attributi / entità / relazioni
+        - Cardinalità / collegamenti
+        - Import / export progetto
+        - UI / responsive / mobile
+        - Test / build / configurazione
+        - Altro
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser e sistema operativo
+      placeholder: "Esempio: Edge 125 su Windows 11"
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshot, video o log
+      description: Aggiungi immagini, GIF, video o log utili alla diagnosi.
+      placeholder: "Trascina qui file o incolla eventuali errori della console."
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: Ho verificato che il problema sia riproducibile.
+          required: true
+        - label: Ho cercato issue già aperte sullo stesso problema.
+          required: true
