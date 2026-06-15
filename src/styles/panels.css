@@ -3168,43 +3168,17 @@ summary:focus-visible,
   z-index: 40;
   top: 64px;
   left: 14px;
-  display: flex;
-  flex-direction: column;
-  width: 104px;
-  max-height: calc(100% - 92px);
+  display: grid;
+  width: 72px;
+  max-height: calc(100% - 96px);
   gap: 0;
-  padding: 8px 7px;
+  padding: 4px;
   border: 1px solid var(--studio-border);
   border-radius: 14px;
   background: color-mix(in srgb, var(--studio-surface-strong) 96%, white);
   box-shadow: var(--studio-shadow-sm);
   overflow-x: hidden;
   overflow-y: auto;
-}
-
-.designer-toolbar-section {
-  display: grid;
-  gap: 1px;
-  padding: 5px 0;
-  border-bottom: 1px solid var(--studio-border);
-}
-
-.designer-toolbar-section:last-of-type {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.designer-toolbar-section-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.designer-toolbar-section-grid {
-  display: grid;
-  gap: 3px;
 }
 
 .designer-toolbar-button:hover:not(:disabled),
@@ -3229,6 +3203,7 @@ summary:focus-visible,
   color: var(--studio-accent-strong);
 }
 
+.designer-er-toolbar,
 .designer-translation-toolbar,
 .designer-logical-toolbar {
   display: grid;
@@ -3240,6 +3215,7 @@ summary:focus-visible,
   overflow-y: auto;
 }
 
+.designer-er-toolbar .designer-toolbar-button,
 .designer-translation-toolbar .designer-toolbar-button,
 .designer-logical-toolbar .designer-toolbar-button {
   grid-template-columns: 1fr;
@@ -3251,6 +3227,7 @@ summary:focus-visible,
   text-align: center;
 }
 
+.designer-er-toolbar .designer-toolbar-label,
 .designer-translation-toolbar .designer-toolbar-label,
 .designer-logical-toolbar .designer-toolbar-label {
   max-width: 58px;
@@ -3258,6 +3235,7 @@ summary:focus-visible,
   white-space: normal;
 }
 
+.designer-er-toolbar .designer-toolbar-separator,
 .designer-translation-toolbar .designer-toolbar-separator,
 .designer-logical-toolbar .designer-toolbar-separator {
   width: 100%;
@@ -3840,34 +3818,6 @@ textarea {
     scroll-padding-inline: 8px;
   }
 
-  .designer-context-toolbar .designer-toolbar-section {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: stretch;
-    padding: 0 4px 0 0;
-    border-right: 1px solid var(--studio-border);
-    border-bottom: 0;
-  }
-
-  .designer-context-toolbar .designer-toolbar-section:last-of-type {
-    padding-right: 0;
-    border-right: 0;
-  }
-
-  .designer-context-toolbar .designer-toolbar-section-title {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .designer-context-toolbar .designer-toolbar-section-grid {
-    display: flex;
-    flex: 0 0 auto;
-    gap: 4px;
-  }
-
   .designer-toolbar-button {
     flex: 0 0 58px;
     grid-template-columns: 1fr;
@@ -3890,6 +3840,16 @@ textarea {
     max-width: 54px;
     font-size: 0.62rem;
     white-space: normal;
+  }
+
+  .designer-er-toolbar .designer-toolbar-separator,
+  .designer-translation-toolbar .designer-toolbar-separator,
+  .designer-logical-toolbar .designer-toolbar-separator {
+    flex: 0 0 1px;
+    width: 1px;
+    height: auto;
+    min-height: 42px;
+    margin: 4px 2px;
   }
 
   .designer-export-popover,

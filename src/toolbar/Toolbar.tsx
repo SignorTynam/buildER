@@ -75,12 +75,6 @@ type ToolbarCommand = {
   ariaLabel?: string;
 };
 
-type ToolbarSection = {
-  key: string;
-  label: string;
-  commands: ToolbarCommand[];
-};
-
 function findAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
   const edge = diagram.edges.find(
@@ -210,7 +204,6 @@ export function Toolbar(props: ToolbarProps) {
     selectedAttribute !== undefined && canAttributeBecomeComposite(props.diagram, selectedAttribute);
   const attributeContext = selectedAttribute ? getAttributeContext(props.diagram, selectedAttribute) : undefined;
   const compositeSelection = getCompositeSelectionContext(props.diagram, props.selection);
-  const connectorContext = getConnectorContext(props.diagram, props.selectedEdge);
   const selectedEntityIsInHierarchy =
     canEdit &&
     props.selectedNode?.type === "entity" &&
@@ -223,6 +216,17 @@ export function Toolbar(props: ToolbarProps) {
     );
   const selectedEntityHasExternalIdentifier =
     props.selectedNode?.type === "entity" && (props.selectedNode.externalIdentifiers ?? []).length > 0;
+  const hasNoSelection = props.selectionItemCount === 0;
+  const hasSingleNodeSelection =
+    props.selectionItemCount === 1 &&
+    props.selection.nodeIds.length === 1 &&
+    props.selection.edgeIds.length === 0;
+  const canCreateAttributeForSelection =
+    canEdit &&
+    hasSingleNodeSelection &&
+    props.selectedNode?.type === "entity";
+  const canStartConnectorFromSelection = canEdit && hasSingleNodeSelection && props.selectedNode?.type === "relationship";
+  const canStartIsaFromSelection = canEdit && hasSingleNodeSelection && props.selectedNode?.type === "entity";
 
   const navigateCommands: ToolbarCommand[] = [
     { key: "primary-select", label: "Select", icon: <StudioIcon name="select" />, onClick: () => props.onToolChange("select"), active: props.activeTool === "select", ariaLabel: "Seleziona elementi" },
@@ -230,14 +234,66 @@ export function Toolbar(props: ToolbarProps) {
   ];
 
   const createCommands: ToolbarCommand[] = [
-    { key: "primary-entity", label: "Entity", icon: <StudioIcon name="entity" />, onClick: () => props.onToolChange("entity"), disabled: !canEdit, active: props.activeTool === "entity", ariaLabel: "Strumento entita" },
-    { key: "primary-relation", label: "Relation", icon: <StudioIcon name="relationship" />, onClick: () => props.onToolChange("relationship"), disabled: !canEdit, active: props.activeTool === "relationship", ariaLabel: "Strumento relazione" },
-    { key: "primary-attribute", label: "Attribute", icon: <StudioIcon name="attribute" />, onClick: () => props.onToolChange("attribute"), disabled: !canEdit, active: props.activeTool === "attribute", ariaLabel: "Strumento attributo" },
+    ...(hasNoSelection
+      ? [
+          {
+            key: "primary-entity",
+            label: "Entity",
+            icon: <StudioIcon name="entity" />,
+            onClick: () => props.onToolChange("entity"),
+            disabled: !canEdit,
+            active: props.activeTool === "entity",
+            ariaLabel: "Strumento entita",
+          } satisfies ToolbarCommand,
+          {
+            key: "primary-relation",
+            label: "Relation",
+            icon: <StudioIcon name="relationship" />,
+            onClick: () => props.onToolChange("relationship"),
+            disabled: !canEdit,
+            active: props.activeTool === "relationship",
+            ariaLabel: "Strumento relazione",
+          } satisfies ToolbarCommand,
+        ]
+      : []),
+    ...(canCreateAttributeForSelection
+      ? [
+          {
+            key: "primary-attribute",
+            label: "Attribute",
+            icon: <StudioIcon name="attribute" />,
+            onClick: props.onCreateAttributeForSelection,
+            ariaLabel: "Aggiungi attributo alla selezione",
+          } satisfies ToolbarCommand,
+        ]
+      : []),
   ];
 
   const connectCommands: ToolbarCommand[] = [
-    { key: "primary-connect", label: "Connect", icon: <StudioIcon name="connector" />, onClick: () => props.onToolChange("connector"), disabled: !canEdit, active: props.activeTool === "connector", ariaLabel: "Strumento collegamento" },
-    { key: "primary-isa", label: "ISA", icon: <StudioIcon name="isa" />, onClick: () => props.onToolChange("inheritance"), disabled: !canEdit, active: props.activeTool === "inheritance", ariaLabel: "Strumento generalizzazione ISA" },
+    ...(canStartConnectorFromSelection
+      ? [
+          {
+            key: "primary-connect",
+            label: "Connect",
+            icon: <StudioIcon name="connector" />,
+            onClick: () => props.onToolChange("connector"),
+            active: props.activeTool === "connector",
+            ariaLabel: "Collega la relazione selezionata a una entita",
+          } satisfies ToolbarCommand,
+        ]
+      : []),
+    ...(canStartIsaFromSelection
+      ? [
+          {
+            key: "primary-isa",
+            label: "ISA",
+            icon: <StudioIcon name="isa" />,
+            onClick: () => props.onToolChange("inheritance"),
+            active: props.activeTool === "inheritance",
+            ariaLabel: "Crea una generalizzazione ISA dalla entita selezionata",
+          } satisfies ToolbarCommand,
+        ]
+      : []),
   ];
 
   const historyClipboardCommands: ToolbarCommand[] = [
@@ -440,33 +496,34 @@ export function Toolbar(props: ToolbarProps) {
     detailCommands = [];
   }
 
-  const toolbarSections: ToolbarSection[] = [
-    { key: "navigate", label: "Navigate", commands: navigateCommands },
-    { key: "create", label: "Create", commands: createCommands },
-    { key: "connect", label: "Connect", commands: connectCommands },
-    { key: "edit", label: "Edit", commands: editCommands },
-    { key: "details", label: "Details", commands: detailCommands },
-    { key: "workflow", label: "Workflow", commands: workflowCommands },
-  ].filter((section) => section.commands.length > 0);
+  const renderCommands = (groupKey: string, commands: ToolbarCommand[]) =>
+    commands.map((command) => <CommandButton key={`${groupKey}-${command.key}`} command={command} />);
 
   return (
-    <nav className="designer-context-toolbar" aria-label="ER toolbar">
-      {toolbarSections.map((section) => (
-        <section
-          key={section.key}
-          className={`designer-toolbar-section designer-toolbar-section-${section.key}`}
-          aria-labelledby={`designer-toolbar-section-${section.key}`}
-        >
-          <h3 id={`designer-toolbar-section-${section.key}`} className="designer-toolbar-section-title">
-            {section.label}
-          </h3>
-          <div className="designer-toolbar-section-grid">
-            {section.commands.map((command) => (
-              <CommandButton key={`${section.key}-${command.key}`} command={command} />
-            ))}
-          </div>
-        </section>
-      ))}
+    <nav className="designer-context-toolbar designer-er-toolbar" aria-label="ER toolbar">
+      {renderCommands("navigate", navigateCommands)}
+      {createCommands.length > 0 ? (
+        <>
+          <span className="designer-toolbar-separator" aria-hidden="true" />
+          {renderCommands("create", createCommands)}
+        </>
+      ) : null}
+      {connectCommands.length > 0 ? (
+        <>
+          <span className="designer-toolbar-separator" aria-hidden="true" />
+          {renderCommands("connect", connectCommands)}
+        </>
+      ) : null}
+      <span className="designer-toolbar-separator" aria-hidden="true" />
+      {renderCommands("edit", editCommands)}
+      {detailCommands.length > 0 ? (
+        <>
+          <span className="designer-toolbar-separator" aria-hidden="true" />
+          {renderCommands("details", detailCommands)}
+        </>
+      ) : null}
+      <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
+      {renderCommands("workflow", workflowCommands)}
       {exportMenuOpen ? (
         <div className="designer-export-popover" role="menu" aria-label="Export ER">
           <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveProject?.(); }}>
