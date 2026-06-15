@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowUpDown,
+  BookOpen,
   Braces,
   ChevronsDown,
   ChevronsUp,
@@ -20,11 +21,15 @@ import {
   Eye,
   EyeOff,
   FileCode2,
+  FileImage,
   FilePlus,
   FileType,
+  Focus,
   FolderOpen,
   GitBranchPlus,
+  Globe2,
   History,
+  Image,
   Info,
   KeyRound,
   Keyboard,
@@ -36,10 +41,12 @@ import {
   Move as MoveIcon,
   NotebookText,
   OctagonAlert,
+  PanelLeftOpen,
   PanelRightOpen,
   PanelsTopLeft,
   Pencil,
   Plus,
+  RefreshCcw,
   RotateCcw,
   Save,
   Scan,
@@ -64,6 +71,7 @@ export type StudioIconName =
   | "arrowRight"
   | "arrowUp"
   | "attribute"
+  | "bookOpen"
   | "braces"
   | "cardinality"
   | "center"
@@ -84,10 +92,14 @@ export type StudioIconName =
   | "errors"
   | "export"
   | "externalId"
+  | "fileImage"
   | "fit"
   | "fix"
+  | "focus"
+  | "globe"
   | "help"
   | "history"
+  | "image"
   | "info"
   | "isa"
   | "isaType"
@@ -104,11 +116,13 @@ export type StudioIconName =
   | "newProject"
   | "notes"
   | "openProject"
+  | "panelLeft"
   | "pan"
   | "paste"
   | "parent"
   | "redo"
   | "relationship"
+  | "refresh"
   | "removeHierarchy"
   | "rename"
   | "reset"
@@ -142,6 +156,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   arrowDown: ArrowDown,
   arrowRight: ArrowRight,
   arrowUp: ArrowUp,
+  bookOpen: BookOpen,
   braces: Braces,
   center: Crosshair,
   close: XIcon,
@@ -157,10 +172,14 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   error: OctagonAlert,
   errors: CircleAlert,
   export: Download,
+  fileImage: FileImage,
   fit: Scan,
   fix: WandSparkles,
+  focus: Focus,
+  globe: Globe2,
   help: CircleHelp,
   history: History,
+  image: Image,
   info: Info,
   keyboard: Keyboard,
   lightbulb: Lightbulb,
@@ -174,10 +193,12 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   newProject: FilePlus,
   notes: NotebookText,
   openProject: FolderOpen,
+  panelLeft: PanelLeftOpen,
   pan: MoveIcon,
   paste: ClipboardPaste,
   parent: GitBranchPlus,
   redo: Redo2,
+  refresh: RefreshCcw,
   removeHierarchy: Unlink,
   rename: Pencil,
   reset: RotateCcw,
