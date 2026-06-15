@@ -12824,10 +12824,17 @@ summary:focus-visible,
 .sql-reverse-modal {
   width: min(860px, calc(100vw - 32px));
   max-height: min(88dvh, 820px);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-lg);
+  background: color-mix(in srgb, var(--studio-surface-strong) 96%, white);
+  box-shadow: var(--studio-shadow-floating);
+  overflow: hidden;
 }
 
 .sql-reverse-modal__header {
   align-items: flex-start;
+  border-bottom: 1px solid var(--studio-border);
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, white);
 }
 
 .sql-reverse-modal__title-row {
@@ -12857,6 +12864,9 @@ summary:focus-visible,
 .sql-reverse-modal__body {
   display: grid;
   gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  background: var(--studio-surface);
 }
 
 .sql-reverse-modal__label {
@@ -12874,7 +12884,7 @@ summary:focus-visible,
   padding: 14px;
   border: 1px solid var(--studio-border);
   border-radius: var(--studio-radius-md);
-  background: #fbfcfb;
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, white);
   color: var(--studio-ink);
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.88rem;
@@ -12913,14 +12923,93 @@ summary:focus-visible,
   font-size: 0.72rem;
 }
 
-.sql-reverse-modal__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.sql-reverse-feedback-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--studio-warning) 28%, var(--studio-border));
+  border-radius: var(--studio-radius-md);
+  background: color-mix(in srgb, var(--studio-warning-soft) 56%, var(--studio-surface));
+  color: var(--studio-ink);
 }
 
-.sql-reverse-modal__action-spacer {
-  flex: 1 1 auto;
+.sql-reverse-feedback-card.tone-error {
+  border-color: color-mix(in srgb, var(--studio-danger) 30%, var(--studio-border));
+  background: color-mix(in srgb, var(--studio-danger-soft) 54%, var(--studio-surface));
+}
+
+.sql-reverse-feedback-card__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--studio-warning);
+  background: color-mix(in srgb, var(--studio-surface-strong) 74%, transparent);
+}
+
+.sql-reverse-feedback-card.tone-error .sql-reverse-feedback-card__icon {
+  color: var(--studio-danger);
+}
+
+.sql-reverse-feedback-card__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sql-reverse-feedback-card__copy strong {
+  color: var(--studio-muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.sql-reverse-feedback-card__copy span {
+  color: var(--studio-ink);
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.sql-reverse-modal__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--studio-border);
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, white);
+}
+
+.sql-reverse-modal__action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sql-reverse-modal__action-group-primary {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.sql-reverse-modal__actions .header-button,
+.sql-reverse-modal__actions .mode-button,
+.sql-reverse-modal__file-button {
+  min-height: 38px;
+  padding-inline: 14px;
+  border-radius: var(--studio-radius-md);
+  white-space: nowrap;
 }
 
 .sql-reverse-modal__file-button {
@@ -12936,38 +13025,41 @@ summary:focus-visible,
 }
 
 .sql-reverse-preview-shell {
+  --preview-footer-height: 68px;
+  --preview-canvas-fill: var(--diagram-canvas-fill);
   display: grid;
   min-width: 0;
   min-height: 0;
   padding: 14px;
-  background: var(--studio-bg);
+  background: var(--preview-canvas-fill);
 }
 
 .sql-reverse-preview-frame {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
-  border: 2px solid var(--studio-accent);
+  border: 1px solid var(--studio-border);
   border-radius: var(--studio-radius-lg);
-  background: var(--studio-surface);
-  box-shadow: var(--studio-shadow-floating);
+  background: var(--preview-canvas-fill);
+  box-shadow: var(--studio-shadow-panel);
   overflow: hidden;
 }
 
 .sql-reverse-preview-ribbon {
   position: absolute;
   z-index: 3;
-  top: 10px;
-  left: 14px;
+  top: 14px;
+  left: 18px;
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 12px;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--studio-accent) 34%, var(--studio-border));
   border-radius: 999px;
-  background: var(--studio-accent);
-  color: #fff;
+  background: var(--studio-accent-soft);
+  color: var(--studio-accent-strong);
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -12978,9 +13070,9 @@ summary:focus-visible,
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 44px 18px 14px;
+  padding: 48px 18px 14px;
   border-bottom: 1px solid var(--studio-border);
-  background: var(--studio-surface);
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, white);
 }
 
 .sql-reverse-preview-title {
@@ -13005,9 +13097,12 @@ summary:focus-visible,
 }
 
 .sql-reverse-preview-body {
+  --canvas-hud-bottom-offset: calc(var(--preview-footer-height) + 16px);
+  position: relative;
   min-width: 0;
   min-height: 0;
-  background: var(--diagram-canvas-fill);
+  overflow: hidden;
+  background: var(--preview-canvas-fill);
 }
 
 .sql-reverse-preview-body .canvas-panel,
@@ -13016,20 +13111,72 @@ summary:focus-visible,
   height: 100%;
   border: 0;
   border-radius: 0;
+  box-shadow: none;
+}
+
+.sql-reverse-preview-body .diagram-canvas,
+.sql-reverse-preview-body .logical-canvas {
+  background:
+    linear-gradient(var(--diagram-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--diagram-grid) 1px, transparent 1px),
+    var(--preview-canvas-fill);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+
+.sql-reverse-preview-body .logical-canvas-panel,
+.sql-reverse-preview-body .logical-canvas {
+  background:
+    linear-gradient(var(--diagram-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--diagram-grid) 1px, transparent 1px),
+    var(--diagram-canvas-fill);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+
+.sql-reverse-preview-shell-logical {
+  --logical-preview-canvas-fill: #dfe3dc;
+  --preview-canvas-fill: var(--logical-preview-canvas-fill);
+  background: var(--logical-preview-canvas-fill);
+}
+
+.sql-reverse-preview-shell-er {
+  --er-preview-canvas-fill: #dfe3dc;
+  --preview-canvas-fill: var(--er-preview-canvas-fill);
+  background: var(--er-preview-canvas-fill);
+}
+
+.sql-reverse-preview-shell-er .sql-reverse-preview-frame,
+.sql-reverse-preview-shell-er .sql-reverse-preview-body,
+.sql-reverse-preview-shell-er .canvas-panel,
+.sql-reverse-preview-shell-er .diagram-canvas {
+  --diagram-canvas-fill: var(--er-preview-canvas-fill);
+  background: var(--er-preview-canvas-fill);
+  background-image: none;
+}
+
+.sql-reverse-preview-shell-logical .sql-reverse-preview-frame,
+.sql-reverse-preview-shell-logical .sql-reverse-preview-body,
+.sql-reverse-preview-shell-logical .logical-canvas-panel,
+.sql-reverse-preview-shell-logical .logical-canvas {
+  --diagram-canvas-fill: var(--logical-preview-canvas-fill);
+  background: var(--logical-preview-canvas-fill);
+  background-image: none;
+}
+
+.sql-reverse-preview-body .canvas-viewport-hud {
+  bottom: var(--canvas-hud-bottom-offset, 14px);
 }
 
 .sql-reverse-preview-actions {
-  position: absolute;
-  z-index: 4;
-  right: 18px;
-  bottom: 18px;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  pointer-events: none;
+  min-height: var(--preview-footer-height);
+  padding: 10px 18px;
+  border-top: 1px solid var(--studio-border);
+  background: color-mix(in srgb, var(--studio-surface-strong) 94%, white);
 }
 
 .sql-reverse-preview-done {
-  pointer-events: auto;
   min-width: 112px;
   min-height: 44px;
   border: 1px solid var(--studio-accent-strong);
@@ -13051,7 +13198,18 @@ summary:focus-visible,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .sql-reverse-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .sql-reverse-modal__actions {
+    position: sticky;
+    bottom: 0;
+  }
+
   .sql-reverse-preview-shell {
+    --preview-footer-height: 74px;
     padding: 8px;
   }
 
@@ -13062,8 +13220,13 @@ summary:focus-visible,
   }
 
   .sql-reverse-preview-actions {
-    right: 12px;
-    bottom: 12px;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .sql-reverse-preview-done {
+    width: 100%;
   }
 }
 

@@ -8,6 +8,8 @@ interface SqlReversePreviewFrameProps {
   onDone: () => void;
   onCancel: () => void;
   onBack?: () => void;
+  doneLabel?: string;
+  variant?: "er" | "logical";
 }
 
 export function SqlReversePreviewFrame({
@@ -17,9 +19,19 @@ export function SqlReversePreviewFrame({
   onDone,
   onCancel,
   onBack,
+  doneLabel = "Done",
+  variant = "er",
 }: SqlReversePreviewFrameProps) {
+  const shellClassName = [
+    "sql-reverse-preview-shell",
+    `sql-reverse-preview-shell-${variant}`,
+    variant === "logical" ? "designer-logical-view" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <section className="sql-reverse-preview-shell" aria-label={title}>
+    <section className={shellClassName} aria-label={title}>
       <div className="sql-reverse-preview-frame">
         <div className="sql-reverse-preview-ribbon">PREVIEW</div>
         <header className="sql-reverse-preview-header">
@@ -44,7 +56,7 @@ export function SqlReversePreviewFrame({
         <div className="sql-reverse-preview-actions">
           <button type="button" className="sql-reverse-preview-done" onClick={onDone}>
             <StudioIcon name="done" aria-hidden="true" />
-            Done
+            {doneLabel}
           </button>
         </div>
       </div>

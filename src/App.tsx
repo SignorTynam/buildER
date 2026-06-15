@@ -5932,6 +5932,8 @@ export default function App() {
         subtitle="Step 2 di 3 — Tabelle, chiavi e vincoli ricavati dal CREATE TABLE."
         onDone={handleSqlReverseLogicalDone}
         onCancel={handleCancelSqlReverseWorkflow}
+        doneLabel="Avanti"
+        variant="logical"
       >
         <SqlReverseLogicalPreview
           sourceDiagram={sqlReversePreviewSourceDiagram}
@@ -5954,6 +5956,8 @@ export default function App() {
         onDone={handleSqlReverseFinalDone}
         onCancel={handleCancelSqlReverseWorkflow}
         onBack={handleSqlReverseBackToLogicalPreview}
+        doneLabel="Done"
+        variant="er"
       >
         <SqlReverseErPreview
           diagram={sqlReverseWorkflow.result.diagram}
@@ -6445,8 +6449,16 @@ export default function App() {
             aria-labelledby="errors-dialog-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="help-modal-head">
-              <h2 id="errors-dialog-title">Errors</h2>
+            <div className="help-modal-head errors-modal-head">
+              <div className="errors-modal-heading">
+                <span className="errors-modal-heading-icon" aria-hidden="true">
+                  <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} />
+                </span>
+                <div>
+                  <h2 id="errors-dialog-title">Errors</h2>
+                  <p>{issues.filter(issueTargetExists).length} warning/errori nel diagramma</p>
+                </div>
+              </div>
               <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)} aria-label="Chiudi errori e warning">
                 <StudioIcon name="close" aria-hidden="true" />
               </button>
@@ -6474,7 +6486,7 @@ export default function App() {
                 </p>
               ) : null}
               {issues.filter(issueTargetExists).length === 0 ? (
-                <p>Nessun errore o warning nel diagramma.</p>
+                <p className="errors-modal-empty">Nessun errore o warning nel diagramma.</p>
               ) : (
                 issues.filter(issueTargetExists).map((issue) => (
                   <button
@@ -6487,9 +6499,14 @@ export default function App() {
                       }
                     }}
                   >
-                    <strong>{issue.level === "error" ? "error" : "warning"}</strong>
-                    <span>{getIssueElementLabel(issue)}</span>
-                    <p>{issue.message}</p>
+                    <span className="errors-modal-item-icon" aria-hidden="true">
+                      <StudioIcon name={issue.level === "error" ? "error" : "warning"} />
+                    </span>
+                    <span className="errors-modal-item-copy">
+                      <strong>{issue.level === "error" ? "error" : "warning"}</strong>
+                      <span>{getIssueElementLabel(issue)}</span>
+                      <p>{issue.message}</p>
+                    </span>
                   </button>
                 ))
               )}

@@ -340,12 +340,14 @@ body {
 
 .errors-modal-item {
   display: grid;
-  gap: 5px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
   width: 100%;
   border: 1px solid var(--studio-border);
-  border-left: 4px solid var(--diagram-warning);
-  border-radius: 6px;
-  background: #ffffff;
+  border-left: 0;
+  border-radius: var(--studio-radius-md);
+  background: var(--studio-surface);
   padding: 12px;
   text-align: left;
 }

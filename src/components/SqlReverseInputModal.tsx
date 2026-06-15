@@ -2,7 +2,6 @@ import type { ChangeEvent } from "react";
 import type { LogicalIssue } from "../types/logical";
 import type { SqlReverseIssue } from "../types/sqlReverse";
 import { StudioIcon } from "./icons/StudioIcon";
-import { WarningCard } from "./panels";
 
 interface SqlReverseInputModalProps {
   sql: string;
@@ -23,6 +22,26 @@ const MAX_VISIBLE_ISSUES = 8;
 
 function formatIssue(issue: SqlReverseIssue | LogicalIssue): string {
   return `${issue.level.toUpperCase()} - ${issue.code}`;
+}
+
+interface SqlReverseFeedbackCardProps {
+  tone: "error" | "warning";
+  title: string;
+  children: string;
+}
+
+function SqlReverseFeedbackCard({ tone, title, children }: SqlReverseFeedbackCardProps) {
+  return (
+    <div className={`sql-reverse-feedback-card tone-${tone}`} role={tone === "error" ? "alert" : "status"}>
+      <span className="sql-reverse-feedback-card__icon" aria-hidden="true">
+        <StudioIcon name={tone === "error" ? "error" : "warning"} />
+      </span>
+      <span className="sql-reverse-feedback-card__copy">
+        <strong>{title}</strong>
+        <span>{children}</span>
+      </span>
+    </div>
+  );
 }
 
 export function SqlReverseInputModal({
@@ -90,10 +109,16 @@ export function SqlReverseInputModal({
             autoFocus
           />
 
-          {errorMessage ? <WarningCard type="error">{errorMessage}</WarningCard> : null}
+          {errorMessage ? (
+            <SqlReverseFeedbackCard tone="error" title="Errore">
+              {errorMessage}
+            </SqlReverseFeedbackCard>
+          ) : null}
 
           {isPreviewReady && warningCount > 0 && !errorMessage ? (
-            <WarningCard type="warning">SQL analizzato con {warningCount} warning non bloccanti.</WarningCard>
+            <SqlReverseFeedbackCard tone="warning" title="Warning">
+              {`SQL analizzato con ${warningCount} warning non bloccanti.`}
+            </SqlReverseFeedbackCard>
           ) : null}
 
           {isPreviewReady && !errorMessage ? (
@@ -108,12 +133,9 @@ export function SqlReverseInputModal({
           {visibleSqlIssues.length > 0 ? (
             <div className="sql-reverse-modal__issues" aria-label="Issue SQL">
               {visibleSqlIssues.map((issue) => (
-                <WarningCard key={issue.id} type={issue.level}>
-                  <span className="sql-reverse-modal__issue-copy">
-                    <strong>{formatIssue(issue)}</strong>
-                    <span>{issue.message}</span>
-                  </span>
-                </WarningCard>
+                <SqlReverseFeedbackCard key={issue.id} tone={issue.level} title={formatIssue(issue)}>
+                  {issue.message}
+                </SqlReverseFeedbackCard>
               ))}
             </div>
           ) : null}
@@ -121,41 +143,41 @@ export function SqlReverseInputModal({
           {visibleLogicalIssues.length > 0 ? (
             <div className="sql-reverse-modal__issues" aria-label="Issue logiche">
               {visibleLogicalIssues.map((issue) => (
-                <WarningCard key={issue.id} type={issue.level}>
-                  <span className="sql-reverse-modal__issue-copy">
-                    <strong>{formatIssue(issue)}</strong>
-                    <span>{issue.message}</span>
-                  </span>
-                </WarningCard>
+                <SqlReverseFeedbackCard key={issue.id} tone={issue.level} title={formatIssue(issue)}>
+                  {issue.message}
+                </SqlReverseFeedbackCard>
               ))}
             </div>
           ) : null}
         </div>
 
         <div className="studio-modal__footer sql-reverse-modal__actions">
-          <label className="header-button sql-reverse-modal__file-button">
-            <StudioIcon name="upload" aria-hidden="true" />
-            Carica .sql
-            <input
-              type="file"
-              accept=".sql,text/plain,application/sql"
-              className="sql-reverse-file-input"
-              aria-label="Carica file SQL"
-              onChange={handleFileChange}
-            />
-          </label>
-          <button type="button" className="header-button" onClick={onClear}>
-            <StudioIcon name="reset" aria-hidden="true" />
-            Pulisci
-          </button>
-          <span className="sql-reverse-modal__action-spacer" />
-          <button type="button" className="header-button" onClick={onCancel}>
-            Annulla
-          </button>
-          <button type="button" className="mode-button active" onClick={onAnalyze}>
-            <StudioIcon name="databaseReverse" aria-hidden="true" />
-            Analizza SQL
-          </button>
+          <div className="sql-reverse-modal__action-group sql-reverse-modal__action-group-secondary">
+            <label className="header-button sql-reverse-modal__file-button">
+              <StudioIcon name="upload" aria-hidden="true" />
+              Carica .sql
+              <input
+                type="file"
+                accept=".sql,text/plain,application/sql"
+                className="sql-reverse-file-input"
+                aria-label="Carica file SQL"
+                onChange={handleFileChange}
+              />
+            </label>
+            <button type="button" className="header-button" onClick={onClear}>
+              <StudioIcon name="reset" aria-hidden="true" />
+              Pulisci
+            </button>
+          </div>
+          <div className="sql-reverse-modal__action-group sql-reverse-modal__action-group-primary">
+            <button type="button" className="header-button" onClick={onCancel}>
+              Annulla
+            </button>
+            <button type="button" className="mode-button active" onClick={onAnalyze}>
+              <StudioIcon name="databaseReverse" aria-hidden="true" />
+              Analizza SQL
+            </button>
+          </div>
         </div>
       </div>
     </div>
