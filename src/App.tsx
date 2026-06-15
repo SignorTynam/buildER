@@ -6060,8 +6060,10 @@ export default function App() {
                     aria-label={codePanelOpen ? "Chiudi pannello Code ERS" : "Apri pannello Code ERS"}
                     aria-pressed={codePanelOpen}
                   >
-                    <StudioIcon name="code" aria-hidden="true" />
-                    Code
+                    <span className="designer-side-toggle-icon" aria-hidden="true">
+                      <StudioIcon name="code" />
+                    </span>
+                    <span className="designer-side-toggle-label">Code</span>
                   </button>
                   <button
                     type="button"
@@ -6070,8 +6072,10 @@ export default function App() {
                     title="Importa schema SQL"
                     aria-label="Apri workflow Reverse Engineering SQL"
                   >
-                    <StudioIcon name="databaseReverse" aria-hidden="true" />
-                    Reverse
+                    <span className="designer-side-toggle-icon" aria-hidden="true">
+                      <StudioIcon name="databaseReverse" />
+                    </span>
+                    <span className="designer-side-toggle-label">Reverse</span>
                   </button>
                   <button
                     type="button"
@@ -6082,7 +6086,9 @@ export default function App() {
                     title="Apri errori e warning"
                     aria-label="Apri elenco errori e warning"
                   >
-                    <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} aria-hidden="true" />
+                    <span className="designer-side-toggle-icon" aria-hidden="true">
+                      <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} />
+                    </span>
                     <span className="designer-side-toggle-label">Errors</span>
                     {issues.length > 0 ? <span className="designer-side-toggle-badge">{issues.length}</span> : null}
                   </button>
@@ -6094,8 +6100,10 @@ export default function App() {
                     aria-label={notesPanelOpen ? "Chiudi pannello Notes" : "Apri pannello Notes"}
                     aria-pressed={notesPanelOpen}
                   >
-                    <StudioIcon name="notes" aria-hidden="true" />
-                    Notes
+                    <span className="designer-side-toggle-icon" aria-hidden="true">
+                      <StudioIcon name="notes" />
+                    </span>
+                    <span className="designer-side-toggle-label">Notes</span>
                   </button>
                 </div>
 

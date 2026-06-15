@@ -183,27 +183,35 @@ body {
 .designer-context-toolbar {
   position: absolute;
   z-index: 12;
-  top: 76px;
-  left: 54px;
-  width: 64px;
-  display: grid;
+  top: 72px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  width: 104px;
+  max-height: calc(100% - 96px);
   gap: 0;
-  border: 1px solid #cfd4d1;
-  border-radius: 5px;
-  background: #f8f9f7;
-  overflow: visible;
+  padding: 8px 7px;
+  border: 1px solid var(--studio-border, #cfd4d1);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--studio-surface-strong, #f8f9f7) 96%, white);
+  box-shadow: var(--studio-shadow-sm, 0 8px 20px rgba(17, 17, 17, 0.08));
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .designer-toolbar-button {
   display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 24px auto;
   place-items: center;
-  gap: 2px;
-  min-height: 55px;
-  border: 0;
-  border-bottom: 1px solid #e0e4e1;
+  gap: 4px;
+  min-height: 52px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 10px;
   background: transparent;
-  color: #000000;
-  padding: 5px 3px;
+  color: var(--studio-ink, #000000);
+  padding: 5px 4px;
   text-align: center;
 }
 
@@ -214,13 +222,13 @@ body {
 .designer-export-popover {
   position: absolute;
   z-index: 24;
-  left: 74px;
-  bottom: 0;
+  left: calc(100% + 8px);
+  bottom: 8px;
   display: grid;
   min-width: 178px;
-  border: 1px solid #cfd4d1;
-  border-radius: 5px;
-  background: #f8f9f7;
+  border: 1px solid var(--studio-border, #cfd4d1);
+  border-radius: var(--studio-radius-md, 8px);
+  background: var(--studio-surface-strong, #f8f9f7);
   box-shadow: 0 8px 22px rgba(17, 17, 17, 0.12);
   overflow: hidden;
 }
@@ -256,16 +264,17 @@ body {
 }
 
 .designer-toolbar-icon {
-  font-size: 1.55rem;
+  display: inline-grid;
+  place-items: center;
   line-height: 1;
-  font-weight: 500;
 }
 
 .designer-toolbar-label {
-  max-width: 58px;
+  max-width: 100%;
   overflow-wrap: anywhere;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   line-height: 1.1;
+  font-weight: 760;
 }
 
 .designer-toolbar-separator {
@@ -275,7 +284,8 @@ body {
 }
 
 .designer-toolbar-button.active {
-  background: #ffd94d;
+  border-color: color-mix(in srgb, var(--studio-accent, #ffd94d) 58%, var(--studio-border, #cfd4d1));
+  background: var(--studio-accent-soft, #ffd94d);
 }
 
 .designer-side-toggle-errors {
