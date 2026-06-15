@@ -4161,7 +4161,6 @@ textarea {
 
   .studio-modal__grid,
   .command-modal-content,
-  .shortcuts-modal-content,
   .choice-grid,
   .intro-grid,
   .entity-key-modal-body {
@@ -4860,5 +4859,350 @@ textarea {
     bottom: calc(214px + env(safe-area-inset-bottom));
     height: min(42dvh, 420px);
     max-height: calc(100dvh - 310px);
+  }
+}
+
+/* Keyboard shortcuts modal */
+.shortcuts-modal {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  width: min(700px, calc(100vw - 32px));
+  height: min(760px, calc(100dvh - 96px));
+  max-height: min(760px, calc(100dvh - 96px));
+  overflow: hidden;
+}
+
+.shortcuts-sheet {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  max-height: inherit;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--studio-surface-strong) 92%, white), var(--studio-surface) 34%),
+    var(--studio-surface);
+}
+
+.shortcuts-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--studio-border) 72%, transparent);
+}
+
+.shortcuts-sheet-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.shortcuts-sheet-title-icon {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--studio-surface-muted) 82%, white);
+  color: var(--studio-accent-strong);
+}
+
+.shortcuts-sheet-title,
+.shortcuts-sheet-subtitle {
+  margin: 0;
+}
+
+.shortcuts-sheet-title {
+  color: var(--studio-ink);
+  font-size: 1rem;
+  font-weight: 740;
+  letter-spacing: 0;
+}
+
+.shortcuts-sheet-subtitle {
+  margin-top: 3px;
+  color: var(--studio-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.shortcuts-sheet-close {
+  flex: 0 0 auto;
+}
+
+.shortcuts-sheet-controls {
+  display: grid;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent);
+  background: color-mix(in srgb, var(--studio-surface) 90%, transparent);
+}
+
+.shortcuts-sheet-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--studio-surface-strong) 88%, white);
+  color: var(--studio-muted);
+}
+
+.shortcuts-sheet-search:focus-within {
+  border-color: var(--studio-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--studio-accent) 16%, transparent);
+}
+
+.shortcuts-sheet-search input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--studio-ink);
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.shortcuts-sheet-search input::placeholder {
+  color: var(--studio-muted);
+}
+
+.shortcuts-sheet-tabs {
+  display: flex;
+  min-width: 0;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 1px;
+}
+
+.shortcuts-sheet-tab {
+  min-height: 30px;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 0.73rem;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+.shortcuts-sheet-tab:hover,
+.shortcuts-sheet-tab:focus-visible {
+  border-color: var(--studio-border);
+  background: var(--studio-surface-muted);
+  color: var(--studio-ink);
+}
+
+.shortcuts-sheet-tab.active {
+  border-color: color-mix(in srgb, var(--studio-accent) 48%, var(--studio-border));
+  background: var(--studio-accent-soft);
+  color: var(--studio-accent-strong);
+}
+
+.shortcuts-sheet-list {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-height: 0;
+  padding: 14px 18px 18px;
+  overflow: auto;
+}
+
+.shortcuts-sheet-section {
+  display: grid;
+  gap: 6px;
+}
+
+.shortcuts-sheet-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--studio-muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.shortcuts-sheet-section-title .studio-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.shortcuts-sheet-section-list {
+  display: grid;
+  border-top: 1px solid color-mix(in srgb, var(--studio-border) 68%, transparent);
+}
+
+.shortcuts-sheet-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--studio-border) 42%, transparent);
+}
+
+.shortcuts-sheet-row:hover {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--studio-surface-muted) 56%, transparent), transparent);
+}
+
+.shortcuts-sheet-action {
+  min-width: 0;
+  color: var(--studio-ink);
+  font-size: 0.84rem;
+  font-weight: 560;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.shortcuts-sheet-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+}
+
+.shortcuts-sheet-key-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcuts-sheet-key-combo + .shortcuts-sheet-key-combo::before {
+  content: "/";
+  margin-right: 1px;
+  color: var(--studio-muted);
+  font-size: 0.72rem;
+}
+
+.shortcuts-sheet-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--studio-border) 84%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--studio-surface-muted) 76%, var(--studio-surface));
+  color: var(--studio-ink);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  font-weight: 640;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--studio-border) 58%, transparent);
+}
+
+.shortcuts-sheet-empty {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 34px 16px;
+  border: 1px dashed color-mix(in srgb, var(--studio-border) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--studio-surface-muted) 44%, transparent);
+  color: var(--studio-muted);
+  text-align: center;
+}
+
+.shortcuts-sheet-empty .studio-icon {
+  color: var(--studio-accent-strong);
+}
+
+.shortcuts-sheet-empty strong {
+  color: var(--studio-ink);
+  font-size: 0.92rem;
+}
+
+.shortcuts-sheet-empty span {
+  max-width: 32rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.shortcuts-sheet-footer {
+  padding: 10px 18px 13px;
+  border-top: 1px solid color-mix(in srgb, var(--studio-border) 58%, transparent);
+  background: color-mix(in srgb, var(--studio-surface-strong) 84%, transparent);
+  color: var(--studio-muted);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 640px) {
+  .shortcuts-modal {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  }
+
+  .shortcuts-sheet {
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  }
+
+  .shortcuts-sheet-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    gap: 10px;
+    padding: 12px;
+    background: var(--studio-surface);
+  }
+
+  .shortcuts-sheet-title-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .shortcuts-sheet-title {
+    font-size: 0.95rem;
+  }
+
+  .shortcuts-sheet-subtitle {
+    font-size: 0.73rem;
+  }
+
+  .shortcuts-sheet-controls {
+    position: sticky;
+    top: 59px;
+    z-index: 2;
+    padding: 10px 12px;
+    background: var(--studio-surface);
+  }
+
+  .shortcuts-sheet-list {
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .shortcuts-sheet-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 7px;
+    padding: 10px 0;
+  }
+
+  .shortcuts-sheet-keys {
+    justify-content: flex-start;
+  }
+
+  .shortcuts-sheet-footer {
+    padding: 9px 12px max(10px, env(safe-area-inset-bottom));
   }
 }
