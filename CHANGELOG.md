@@ -15,6 +15,31 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [5.1] - 2026-06-16
+
+### Added
+- Aggiunta schermata di caricamento iniziale con logo buildER, messaggio localizzato, suggerimento e delay configurabile per i test.
+- Aggiunti asset brand completi: logo buildER, varianti senza sfondo/senza testo, favicon SVG/ICO/PNG, Apple touch icon e web app manifest.
+- Aggiunta configurazione Playwright per test end-to-end su Chromium con dev server Vite automatico.
+- Aggiunti test E2E per loading screen e cambio lingua dell'app chrome tra italiano, inglese e albanese.
+- Aggiunti template GitHub per bug report, feature request, pull request e configurazione issue template.
+- Aggiunto il Code of Conduct del repository.
+
+### Changed
+- Versione applicativa aggiornata a buildER 5.1 con `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README e changelog allineati.
+- Integrata la loading screen nel flusso principale dell'app, evitando che l'editor compaia prima che il workspace sia pronto.
+- Aggiornato `index.html` per usare il nuovo favicon dell'app.
+- Estesa la localizzazione di header, command menu, keyboard shortcuts e app chrome in italiano, inglese e albanese.
+- Localizzati testi, aria-label, tooltip e stati di Toolbar, NotesPanel, CodePanel, CardinalityModal, SQL Reverse e Logical Translation workspace.
+- Aggiornati i dizionari `it`, `en` e `sq` e aggiunto un layer di integrazione per nuove sezioni localizzate.
+- Rifiniti layout CSS di pannelli, loading screen, header e componenti collegati alle viste localizzate.
+
+### Fixed
+- Rimosso il tutorial legacy della modalita Code, ormai sostituito dai flussi moderni dell'app.
+- Aggiunte chiavi i18n per errori strutturati, messaggi di connessione, SQL Reverse, canvas e modal di scelta PK logica.
+- Rimosse diverse classificazioni basate su pattern testuali italiani nei messaggi dell'app, sostituendole con percorsi espliciti e localizzabili.
+- Estesi i test i18n unitari per coprire le nuove chiavi e garantire che inglese e albanese non ricadano su fallback italiani.
+
 ## [5.0] - 2026-06-15
 
 ### Added

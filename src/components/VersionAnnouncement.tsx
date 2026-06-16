@@ -24,7 +24,7 @@ function getUpdateLabel(updateKind: VersionAnnouncementKind): string {
     return "Important Update";
   }
 
-  return "Update";
+  return "Fix";
 }
 
 function getFallbackHighlights(entry: AppChangelogEntry): AppChangelogFeature[] {
@@ -60,7 +60,7 @@ export function VersionAnnouncement({
       (updateKind === "major"
         ? `Benvenuto nella nuova generazione di ${appName}`
         : `${appName} ${currentVersion} e arrivato`)
-    : `${appName} e stato aggiornato`;
+    : `${appName} ha ricevuto un fix`;
   const subtitle = isWowUpdate
     ? changelogEntry.hero?.subtitle ?? changelogEntry.summary ?? "Scopri le principali novita di questa release."
     : "Abbiamo corretto bug e migliorato la stabilita.";

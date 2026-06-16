@@ -1,8 +1,23 @@
-# buildER (v5.0)
+# buildER (v5.1)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG e sincronizzazione ERS live.
 
-## Novita 5
+## Fix 5.1
+
+buildER 5.1 e un fix della 5.0: completa l'esperienza di avvio, allinea meglio la localizzazione e aggiorna gli asset dell'app senza introdurre un cambio di generazione.
+
+- Versione aggiornata a `5.1`, con package, lockfile, metadati applicativi, changelog e README allineati.
+- Aggiunta schermata di caricamento iniziale con logo buildER, messaggio localizzato e suggerimento.
+- La loading screen rispetta la lingua salvata prima che l'editor sia pronto.
+- Aggiunti asset brand completi: logo, varianti logo, favicon, Apple touch icon e web app manifest.
+- Aggiornato il favicon usato da `index.html`.
+- Rimosso il tutorial legacy della modalita Code.
+- Localizzazione estesa per header, command menu, keyboard shortcuts, toolbar, modali, pannelli tecnici e SQL Reverse.
+- Aggiunte chiavi i18n per errori strutturati, messaggi di connessione, canvas e scelta PK logica.
+- Aggiunti test end-to-end per loading screen e cambio lingua IT/EN/SQ.
+- Aggiunti template GitHub per issue/PR e Code of Conduct.
+
+## Novita 5.0
 
 buildER 5 e un upgrade maggiore rispetto alla 4.6.2. Non e una release di soli fix: introduce il nuovo nome dell'app e aggiorna esperienza responsive, UI, SQL Reverse, toolbox, modali, icone e gestione degli identificatori misti/esterni.
 

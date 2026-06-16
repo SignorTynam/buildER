@@ -1475,8 +1475,6 @@ export default function App() {
       return;
     }
 
-    const updateKind: VisibleVersionUpdateKind = classification.kind;
-
     if (hasSeenVersionAnnouncement(APP_VERSION)) {
       rememberLastSeenAppVersion(APP_VERSION);
       return;
@@ -1488,7 +1486,8 @@ export default function App() {
 
     const changelogEntry =
       APP_CHANGELOG.find((entry) => entry.version === APP_VERSION) ??
-      createFallbackChangelogEntry(APP_VERSION, updateKind, t);
+      createFallbackChangelogEntry(APP_VERSION, classification.kind, t);
+    const updateKind: VisibleVersionUpdateKind = changelogEntry.impact ?? classification.kind;
     const openDelay = window.setTimeout(() => {
       setVersionAnnouncement((current) =>
         current ?? {

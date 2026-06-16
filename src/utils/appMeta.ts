@@ -1,5 +1,5 @@
 export const APP_NAME = "buildER";
-export const APP_VERSION = "5.0";
+export const APP_VERSION = "5.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,56 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "5.1",
+    date: "2026-06-16",
+    impact: "patch",
+    headline: "buildER 5.1: fix per avvio, localizzazione e identita dell'app",
+    summary:
+      "buildER 5.1 e un fix della versione 5.0: aggiunge una schermata di avvio dedicata, completa diverse localizzazioni in italiano, inglese e albanese, allinea gli asset brand e copre i flussi principali con test end-to-end.",
+    hero: {
+      eyebrow: "Fix 5.1",
+      title: "buildER 5.1",
+      subtitle:
+        "Un fix mirato che rende l'esperienza piu rifinita dall'apertura dell'app ai principali comandi localizzati.",
+    },
+    highlights: [
+      {
+        title: "Avvio piu curato",
+        description: "La nuova loading screen mostra il brand buildER, prepara il workspace e rispetta la lingua salvata prima che l'editor sia pronto.",
+        tag: "Startup",
+      },
+      {
+        title: "Localizzazione estesa",
+        description: "Toolbar, menu comandi, shortcut, modali, pannelli tecnici, SQL Reverse e messaggi applicativi usano chiavi i18n piu complete.",
+        tag: "i18n",
+      },
+      {
+        title: "Identita visiva completa",
+        description: "Logo, favicon, manifest e asset buildER sono allineati all'app e ai browser moderni.",
+        tag: "Brand",
+      },
+    ],
+    updates: [
+      "Versione applicativa aggiornata a buildER 5.1 con package, lockfile, metadati UI e changelog allineati.",
+      "Aggiunta la schermata di caricamento iniziale con logo buildER, messaggio localizzato, suggerimento e delay configurabile per i test.",
+      "Integrata la loading screen nel flusso principale dell'app, evitando che l'editor compaia prima che il workspace sia pronto.",
+      "Aggiunti logo buildER, varianti senza sfondo/senza testo, favicon SVG/ICO/PNG, Apple touch icon e web app manifest.",
+      "Aggiornato `index.html` per usare il nuovo favicon dell'app.",
+      "Rimosso il tutorial legacy della modalita Code, ormai sostituito dai flussi moderni dell'app.",
+      "Estesa la localizzazione di header, command menu, keyboard shortcuts e app chrome in italiano, inglese e albanese.",
+      "Localizzati testi, aria-label, tooltip e stati di Toolbar, NotesPanel, CodePanel, CardinalityModal, SQL Reverse e Logical Translation workspace.",
+      "Aggiunte chiavi i18n per errori strutturati, messaggi di connessione, SQL Reverse, canvas e modal di scelta PK logica.",
+      "Rimosse diverse classificazioni basate su pattern testuali italiani nei messaggi dell'app, sostituendole con percorsi espliciti e localizzabili.",
+      "Aggiornati i dizionari `it`, `en` e `sq` e aggiunto un layer di integrazione per nuove sezioni localizzate.",
+      "Rifiniti alcuni layout CSS di pannelli, loading screen, header e componenti collegati alle viste localizzate.",
+      "Aggiunta configurazione Playwright per test end-to-end su Chromium con dev server Vite automatico.",
+      "Aggiunti test E2E per loading screen e cambio lingua dell'app chrome tra italiano, inglese e albanese.",
+      "Estesi i test i18n unitari per coprire le nuove chiavi e garantire che inglese e albanese non ricadano su fallback italiani.",
+      "Aggiunti template GitHub per bug report, feature request, pull request e configurazione issue template.",
+      "Aggiunto il Code of Conduct del repository.",
+    ],
+  },
   {
     version: "5.0",
     date: "2026-06-15",
