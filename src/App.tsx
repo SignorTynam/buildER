@@ -36,6 +36,7 @@ import type {
   EditorMode,
   ExternalIdentifier,
   GeneralizationGroup,
+  IdentifierSelection,
   IsaCompleteness,
   IsaDisjointness,
   Point,
@@ -87,6 +88,7 @@ import {
   parseDiagram,
   removeEntityFromGeneralizationHierarchy,
   removeExternalIdentifierFromEntity,
+  removeInternalIdentifierFromEntity,
   removeSelection,
   serializeDiagram,
   updateGeneralizationGroupDetails,
@@ -1204,6 +1206,7 @@ export default function App() {
     nodeIds: [...sessionBootstrap.selection.nodeIds],
     edgeIds: [...sessionBootstrap.selection.edgeIds],
   }));
+  const [identifierSelection, setIdentifierSelection] = useState<IdentifierSelection | null>(null);
   const [translationViewport, setTranslationViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.translationViewport }));
   const [translationSelection, setTranslationSelection] = useState<SelectionState>(() => ({
     nodeIds: [...sessionBootstrap.translationSelection.nodeIds],
@@ -1274,7 +1277,7 @@ export default function App() {
   const latestDiagramRef = useRef(history.present);
   const diagramClipboardRef = useRef<DiagramClipboardPayload | null>(null);
   const pasteOffsetStepRef = useRef(0);
-  const [hasDiagramClipboard, setHasDiagramClipboard] = useState(false);
+  const [, setHasDiagramClipboard] = useState(false);
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
   const hasUnsavedChangesRef = useRef(false);
@@ -3035,6 +3038,10 @@ export default function App() {
 
       if (diagramView === "er" && (event.key === "Delete" || event.key === "Backspace")) {
         event.preventDefault();
+        if (identifierSelection) {
+          handleDeleteIdentifierSelection();
+          return;
+        }
         handleDeleteSelection();
         return;
       }
@@ -3114,6 +3121,7 @@ export default function App() {
             return;
           }
           setSelection({ nodeIds: [], edgeIds: [] });
+          setIdentifierSelection(null);
         } else {
           setLogicalSelection(EMPTY_LOGICAL_SELECTION);
         }
@@ -3131,6 +3139,7 @@ export default function App() {
     diagramView,
     errorsPanelOpen,
     history,
+    identifierSelection,
     generalizationGroupDialog,
     introOpen,
     keyboardShortcutsOpen,
@@ -4251,7 +4260,7 @@ export default function App() {
     }
 
     if (!hostEntity) {
-      setStatusWarning("Mixed Id richiede un'entita host o un connector entita-relazione.");
+      setStatusWarning("External Id richiede un'entita host o un connector entita-relazione.");
       return;
     }
 
@@ -4332,18 +4341,18 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostEntity.id], edgeIds: [] });
-    setStatus(localAttributeIds.length > 0 ? "Identificatore misto creato." : "Identificatore esterno creato.");
+    setStatus(localAttributeIds.length > 0 ? "Identificatore esterno misto creato." : "Identificatore esterno creato.");
   }
 
   function handleOpenMixedIdentifierModal() {
     const connectorContext = getConnectorContextFromSelectedEdge();
     if (!connectorContext) {
-      setStatusWarning("Mixed Id richiede un connector entita-relazione selezionato.");
+      setStatusWarning("External Id richiede un connector entita-relazione selezionato.");
       return;
     }
 
     if (!selectedConnectorRequiresMixedIdentifierCardinality()) {
-      setStatusWarning("L'identificatore esterno misto richiede cardinalita 1,1 sull'entita.");
+      setStatusWarning("Gli identificatori esterni richiedono cardinalita (1,1) sul lato dell'entita.");
       return;
     }
 
@@ -5429,7 +5438,52 @@ export default function App() {
     const nextDiagram = removeExternalIdentifierFromEntity(history.present, hostEntityId, externalIdentifierId);
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostEntityId], edgeIds: [] });
-    setStatus("Identificatore esterno rimosso.");
+    setIdentifierSelection(null);
+    setStatus(t("workspace.externalIdentifierRemoved"));
+  }
+
+  function handleDeleteIdentifierSelection() {
+    if (!identifierSelection) {
+      setStatusWarning(t("workspace.noIdentifierSelected"));
+      return;
+    }
+
+    if (identifierSelection.kind === "external") {
+      handleDeleteExternalIdentifier(
+        identifierSelection.hostEntityId,
+        identifierSelection.externalIdentifierId,
+      );
+      setIdentifierSelection(null);
+      return;
+    }
+
+    const hostEntity = history.present.nodes.find(
+      (node): node is EntityNode =>
+        node.id === identifierSelection.hostEntityId &&
+        node.type === "entity",
+    );
+    if (
+      !hostEntity ||
+      !(hostEntity.internalIdentifiers ?? []).some(
+        (identifier) => identifier.id === identifierSelection.internalIdentifierId,
+      )
+    ) {
+      setStatusWarning(t("workspace.noIdentifierSelected"));
+      setIdentifierSelection(null);
+      return;
+    }
+
+    const nextDiagram = removeInternalIdentifierFromEntity(
+      history.present,
+      identifierSelection.hostEntityId,
+      identifierSelection.internalIdentifierId,
+    );
+
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [identifierSelection.hostEntityId], edgeIds: [] });
+    setIdentifierSelection(null);
+    setTool("select");
+    setStatus(t("workspace.internalIdentifierRemoved"));
   }
 
   function handleRemoveSelectedExternalIdentifier() {
@@ -6066,16 +6120,14 @@ export default function App() {
                   onToggleSimpleIdentifier={handleToggleSimpleIdentifierFromSelection}
                   onOpenCompositeIdentifier={handleCreateCompositeIdentifierFromSelection}
                   onOpenMixedIdentifier={handleOpenMixedIdentifierModal}
-                  onOpenExternalIdentifier={() => createExternalIdentifierFromContext({ mixed: false })}
                   onOpenInheritanceType={handleOpenInheritanceTypeControl}
                   onRemoveFromHierarchy={handleRemoveSelectedEntityFromHierarchy}
                   onRemoveExternalIdentifier={handleRemoveSelectedExternalIdentifier}
                   onToolChange={setTool}
-                  onCopySelection={handleCopySelection}
-                  onPasteSelection={() => void handlePasteSelection()}
                   onDuplicateSelection={handleDuplicateSelection}
-                  canPasteSelection={hasDiagramClipboard}
                   onDeleteSelection={handleDeleteSelection}
+                  selectedIdentifier={identifierSelection}
+                  onDeleteIdentifierSelection={handleDeleteIdentifierSelection}
                   onCreateAttributeForSelection={handleCreateAttributeFromSelection}
                   onEntityInternalIdentifiersChange={handleEntityInternalIdentifiersChange}
                   onEntityExternalIdentifiersChange={handleEntityExternalIdentifiersChange}
@@ -6100,7 +6152,12 @@ export default function App() {
                   statusMessage={statusMessage}
                   svgRef={svgRef}
                   onViewportChange={setViewport}
-                  onSelectionChange={setSelection}
+                  onSelectionChange={(nextSelection) => {
+                    setSelection(nextSelection);
+                    setIdentifierSelection(null);
+                  }}
+                  selectedIdentifier={identifierSelection}
+                  onIdentifierSelectionChange={setIdentifierSelection}
                   onPreviewDiagram={handlePreviewDiagram}
                   onCommitDiagram={commitDiagram}
                   onCreateNode={handleCreateNode}
@@ -6113,6 +6170,7 @@ export default function App() {
                   onDeleteEdge={handleDeleteEdgeById}
                   onDeleteSelection={handleDeleteSelection}
                   onDeleteExternalIdentifier={handleDeleteExternalIdentifier}
+                  onDeleteIdentifierSelection={handleDeleteIdentifierSelection}
                   onRenameNode={handleRenameNode}
                   onRenameEdge={handleRenameEdge}
                   onStatusMessageChange={handleCanvasStatusMessage}
@@ -6471,7 +6529,7 @@ export default function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="help-modal-head">
-              <h2 id="mixed-id-dialog-title">Mixed Id</h2>
+              <h2 id="mixed-id-dialog-title">{t("workspace.externalIdentifierDialog.title")}</h2>
             </div>
             <form
               className="action-modal-content"
@@ -6480,7 +6538,8 @@ export default function App() {
                 submitMixedIdentifierDialog();
               }}
             >
-              <div className="context-card-title">Parti importate eleggibili</div>
+              <p className="action-modal-description">{t("workspace.externalIdentifierDialog.description")}</p>
+              <div className="context-card-title">{t("workspace.externalIdentifierDialog.importedParts")}</div>
               <div className="checkbox-list">
                 {mixedIdentifierDialog.importedParts.map((part) => {
                   const partKey = buildExternalImportPartKey(part);
@@ -6501,7 +6560,7 @@ export default function App() {
                   );
                 })}
               </div>
-              <div className="context-card-title">Attributi locali dell'host</div>
+              <div className="context-card-title">{t("workspace.externalIdentifierDialog.localAttributes")}</div>
               <div className="checkbox-list">
                 {mixedIdentifierDialog.attributes.map((attribute) => (
                   <label key={attribute.id} className="checkbox-row">
@@ -6522,10 +6581,10 @@ export default function App() {
               {mixedIdentifierDialog.error ? <p className="action-modal-error">{mixedIdentifierDialog.error}</p> : null}
               <div className="action-modal-actions">
                 <button type="button" className="header-button" onClick={() => setMixedIdentifierDialog(null)}>
-                  Annulla
+                  {t("workspace.externalIdentifierDialog.cancel")}
                 </button>
                 <button type="submit" className="mode-button active" disabled={mixedIdentifierDialog.importedParts.length === 0}>
-                  Crea
+                  {t("workspace.externalIdentifierDialog.create")}
                 </button>
               </div>
             </form>

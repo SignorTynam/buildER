@@ -9276,13 +9276,10 @@ textarea:focus-visible,
 
 .external-identifier:hover .external-identifier-marker,
 .external-identifier:focus-within .external-identifier-marker,
-.external-identifier-active .external-identifier-marker,
 .composite-identifier:hover .composite-identifier-marker,
 .composite-identifier:focus-within .composite-identifier-marker,
-.composite-identifier-active .composite-identifier-marker,
 .composite-identifier:hover .composite-identifier-junction,
-.composite-identifier:focus-within .composite-identifier-junction,
-.composite-identifier-active .composite-identifier-junction {
+.composite-identifier:focus-within .composite-identifier-junction {
   fill: rgba(48, 95, 88, 0.16);
 }
 

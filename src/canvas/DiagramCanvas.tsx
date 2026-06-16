@@ -62,6 +62,7 @@ import type {
   DiagramNode,
   EditorMode,
   ExternalIdentifier,
+  IdentifierSelection,
   Point,
   SelectionState,
   ToolKind,
@@ -174,6 +175,8 @@ interface DiagramCanvasProps {
   translationHighlights?: DiagramHighlights;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: SelectionState) => void;
+  selectedIdentifier?: IdentifierSelection | null;
+  onIdentifierSelectionChange?: (selection: IdentifierSelection | null) => void;
   onPreviewDiagram: (diagram: DiagramDocument) => void;
   onCommitDiagram: (diagram: DiagramDocument, previous: DiagramDocument) => void;
   onCreateNode: (
@@ -196,6 +199,7 @@ interface DiagramCanvasProps {
   onDeleteEdge: (edgeId: string) => void;
   onDeleteSelection: () => void;
   onDeleteExternalIdentifier: (hostEntityId: string, externalIdentifierId: string) => void;
+  onDeleteIdentifierSelection?: () => void;
   onRenameNode: (nodeId: string, label: string) => void;
   onRenameEdge: (edgeId: string, label: string) => void;
   onStatusMessageChange: (message: string) => void;
@@ -261,6 +265,7 @@ interface CompositeIdentifierMemberMarker {
 interface CompositeIdentifierLayout {
   groupKey: string;
   hostEntityId: string;
+  internalIdentifierId: string;
   memberAttributeIds: string[];
   laneIndex: number;
   frame: RouteFrame;
@@ -954,6 +959,7 @@ export function buildCompositeInternalIdentifierPath(
 export function buildCompositeIdentifierLayout(
   groupKey: string,
   hostEntityId: string,
+  internalIdentifierId: string,
   hostBounds: Bounds,
   hostCenter: Point,
   members: CompositeIdentifierMember[],
@@ -976,6 +982,7 @@ export function buildCompositeIdentifierLayout(
   return {
     groupKey,
     hostEntityId,
+    internalIdentifierId,
     memberAttributeIds: members.map((member) => member.attributeId),
     laneIndex,
     frame: frameLayout.frame,
@@ -1804,6 +1811,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const compositeGroups = new Map<string, { host: Extract<DiagramNode, { type: "entity" }>; members: CompositeIdentifierMember[] }>();
   const compositeGroupKeyByAttributeId = new Map<string, string>();
   const compositeGroupMemberIdsByGroupKey = new Map<string, string[]>();
+  const compositeInternalIdentifierIdByGroupKey = new Map<string, string>();
   const compositeIdentifierLayouts: CompositeIdentifierLayout[] = [];
   const externalIdentifierLayouts: ExternalIdentifierLayout[] = [];
   const externalIdentifierFrameLayouts: ExternalIdentifierFrameLayout[] = [];
@@ -1853,6 +1861,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }
 
       compositeGroupMemberIdsByGroupKey.set(groupKey, uniqueAttributeIds);
+      compositeInternalIdentifierIdByGroupKey.set(groupKey, identifierId);
 
       uniqueAttributeIds.forEach((attributeId) => {
         if (!compositeGroupKeyByAttributeId.has(attributeId)) {
@@ -2008,6 +2017,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       const layout = buildCompositeIdentifierLayout(
         groupKey,
         group.host.id,
+        compositeInternalIdentifierIdByGroupKey.get(groupKey) ?? groupKey,
         hostBounds,
         hostCenter,
         orderedMembers,
@@ -3053,12 +3063,26 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     if (readOnly) {
       props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
+      props.onIdentifierSelectionChange?.({
+        kind: "internal",
+        hostEntityId: layout.hostEntityId,
+        internalIdentifierId: layout.internalIdentifierId,
+        attributeIds: layout.memberAttributeIds,
+      });
       return;
     }
 
     if (props.tool !== "select") {
       return;
     }
+
+    props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
+    props.onIdentifierSelectionChange?.({
+      kind: "internal",
+      hostEntityId: layout.hostEntityId,
+      internalIdentifierId: layout.internalIdentifierId,
+      attributeIds: layout.memberAttributeIds,
+    });
 
     const memberAttributeIds = layout.memberAttributeIds.filter((attributeId) => {
       const node = nodeMap.get(attributeId);
@@ -3213,6 +3237,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       if (hostEntity?.type === "entity") {
         setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
         props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
+        props.onIdentifierSelectionChange?.({ kind: "external", hostEntityId, externalIdentifierId });
       }
       return;
     }
@@ -3233,6 +3258,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
     props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
+    props.onIdentifierSelectionChange?.({ kind: "external", hostEntityId, externalIdentifierId });
     const identifier = hostEntity.externalIdentifiers?.find(
       (candidate) => candidate.id === externalIdentifierId,
     );
@@ -3270,6 +3296,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       if (hostEntity?.type === "entity") {
         setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
         props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
+        props.onIdentifierSelectionChange?.({ kind: "external", hostEntityId, externalIdentifierId });
       }
       return;
     }
@@ -3290,6 +3317,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
     props.onSelectionChange({ nodeIds: [hostEntityId], edgeIds: [] });
+    props.onIdentifierSelectionChange?.({ kind: "external", hostEntityId, externalIdentifierId });
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -4126,11 +4154,16 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             </g>
           ) : null}
 
-          {compositeIdentifierLayouts.map((layout) => (
+          {compositeIdentifierLayouts.map((layout) => {
+            const compositeIdentifierSelected =
+              props.selectedIdentifier?.kind === "internal" &&
+              props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
+              props.selectedIdentifier.internalIdentifierId === layout.internalIdentifierId;
+            return (
             <g
               key={`composite-id-${layout.groupKey}`}
               className={
-                activeCompositeGroupKey === layout.groupKey
+                activeCompositeGroupKey === layout.groupKey || compositeIdentifierSelected
                   ? "composite-identifier composite-identifier-active"
                   : "composite-identifier"
               }
@@ -4141,6 +4174,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   : undefined
               }
             >
+              {compositeIdentifierSelected ? (
+                <path
+                  className="composite-identifier-focus-ring"
+                  d={layout.pathData}
+                  fill="none"
+                  stroke={DIAGRAM_FOCUS}
+                  strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  pointerEvents="none"
+                />
+              ) : null}
               <path
                 className="composite-identifier-path"
                 d={layout.pathData}
@@ -4165,6 +4210,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 />
               ))}
               {layout.terminalMarker ? (
+                <>
+                {compositeIdentifierSelected ? (
+                  <circle
+                    className="composite-identifier-focus-ring"
+                    cx={layout.terminalMarker.x}
+                    cy={layout.terminalMarker.y}
+                    r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS + 4}
+                    fill={DIAGRAM_FOCUS}
+                    pointerEvents="none"
+                  />
+                ) : null}
                 <circle
                   className="composite-identifier-marker"
                   cx={layout.terminalMarker.x}
@@ -4175,6 +4231,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                   pointerEvents="none"
                 />
+                </>
               ) : null}
 
               {compositeIdentifierInteractive ? (
@@ -4213,7 +4270,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 </>
               ) : null}
             </g>
-          ))}
+            );
+          })}
 
           {externalIdentifierLayouts.map((layout) => {
             if (layout.kind === "imported_only" && layout.junction) {
@@ -4222,11 +4280,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 focusedTarget?.kind === "externalIdentifier" &&
                 focusedTarget.hostEntityId === layout.hostEntityId &&
                 focusedTarget.externalIdentifierId === layout.externalIdentifierId;
+              const externalIdentifierSelected =
+                props.selectedIdentifier?.kind === "external" &&
+                props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
+                props.selectedIdentifier.externalIdentifierId === layout.externalIdentifierId;
               return (
                 <g
                   key={`external-id-${layout.externalIdentifierId}`}
                   className={
-                    activeExternalIdentifierId === layout.externalIdentifierId || externalIdentifierFocused
+                    activeExternalIdentifierId === layout.externalIdentifierId ||
+                    externalIdentifierFocused ||
+                    externalIdentifierSelected
                       ? "external-identifier external-identifier-imported external-identifier-active"
                       : "external-identifier external-identifier-imported"
                   }
@@ -4276,6 +4340,31 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                       strokeWidth={EXTERNAL_IDENTIFIER_IMPORTED_HIT_STROKE_WIDTH}
                     />
                   ) : null}
+                  {externalIdentifierSelected ? (
+                    <path
+                      className="external-identifier-focus-ring"
+                      d={markerPath}
+                      fill="none"
+                      stroke={DIAGRAM_FOCUS}
+                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      pointerEvents="none"
+                    />
+                  ) : null}
+                  {externalIdentifierSelected && layout.bracketStart && layout.bracketEnd ? (
+                    <line
+                      className="external-identifier-focus-ring"
+                      x1={layout.bracketStart.x}
+                      y1={layout.bracketStart.y}
+                      x2={layout.bracketEnd.x}
+                      y2={layout.bracketEnd.y}
+                      stroke={DIAGRAM_FOCUS}
+                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
+                      strokeLinecap="round"
+                      pointerEvents="none"
+                    />
+                  ) : null}
                   <path
                     className="external-identifier-path"
                     d={markerPath}
@@ -4316,17 +4405,33 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     strokeWidth={1.8}
                     pointerEvents="none"
                   />
+                  {externalIdentifierSelected ? (
+                    <circle
+                      className="external-identifier-focus-ring"
+                      cx={layout.marker.x}
+                      cy={layout.marker.y}
+                      r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS + 4}
+                      fill="none"
+                      stroke={DIAGRAM_FOCUS}
+                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
+                      pointerEvents="none"
+                    />
+                  ) : null}
                 </g>
               );
             }
 
             const pathData = pathFromPoints(layout.pathPoints);
+            const externalIdentifierSelected =
+              props.selectedIdentifier?.kind === "external" &&
+              props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
+              props.selectedIdentifier.externalIdentifierId === layout.externalIdentifierId;
 
             return (
               <g
                 key={`external-id-${layout.externalIdentifierId}`}
                 className={
-                  activeExternalIdentifierId === layout.externalIdentifierId
+                  activeExternalIdentifierId === layout.externalIdentifierId || externalIdentifierSelected
                     ? "external-identifier external-identifier-mixed external-identifier-active"
                     : "external-identifier external-identifier-mixed"
                 }
@@ -4339,6 +4444,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 }
               >
                 <path className="external-identifier-hit-path" d={pathData} fill="none" stroke="transparent" strokeWidth={14} />
+                {externalIdentifierSelected ? (
+                  <path
+                    className="external-identifier-focus-ring"
+                    d={pathData}
+                    fill="none"
+                    stroke={DIAGRAM_FOCUS}
+                    strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    pointerEvents="none"
+                  />
+                ) : null}
                 <path
                   className="external-identifier-path"
                   d={pathData}
@@ -4371,6 +4488,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   />
                 ) : null}
                 {layout.markerStemStart ? (
+                  <>
+                  {externalIdentifierSelected ? (
+                    <line
+                      className="external-identifier-focus-ring"
+                      x1={layout.markerStemStart.x}
+                      y1={layout.markerStemStart.y}
+                      x2={layout.marker.x}
+                      y2={layout.marker.y}
+                      stroke={DIAGRAM_FOCUS}
+                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
+                      strokeLinecap="round"
+                      pointerEvents="none"
+                    />
+                  ) : null}
                   <line
                     className="external-identifier-path"
                     x1={layout.markerStemStart.x}
@@ -4380,6 +4511,19 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                     strokeLinecap="round"
+                  />
+                  </>
+                ) : null}
+                {externalIdentifierSelected ? (
+                  <circle
+                    className="external-identifier-focus-ring"
+                    cx={layout.marker.x}
+                    cy={layout.marker.y}
+                    r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS + 4}
+                    fill="none"
+                    stroke={DIAGRAM_FOCUS}
+                    strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
+                    pointerEvents="none"
                   />
                 ) : null}
                 <circle

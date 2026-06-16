@@ -43,6 +43,8 @@ const NEW_I18N_SECTIONS = [
   "toolbar.commands.select.label",
   "toolbar.commands.pan.aria",
   "toolbar.commands.compositeId.sameEntity",
+  "toolbar.commands.externalIdUnified.label",
+  "toolbar.commands.deleteIdentifier.label",
   "toolbar.export.diagramCode",
   "notesPanel.toolbar.bold",
   "notesPanel.toolbar.clearFormatting",
@@ -120,6 +122,22 @@ test("localized dictionaries do not contain empty visible strings", () => {
   for (const locale of SUPPORTED_LOCALES) {
     assert.deepEqual(collectEmptyStrings(locale), [], `${locale} contains empty i18n strings`);
   }
+});
+
+test("identifier toolbar labels resolve for every locale", () => {
+  const expectedExternalIdLabels: Record<Locale, string> = {
+    it: "ID esterno",
+    en: "External Id",
+    sq: "ID i jashtëm",
+  };
+
+  for (const locale of SUPPORTED_LOCALES) {
+    setCurrentLocale(locale);
+    assert.equal(translate("toolbar.commands.externalIdUnified.label"), expectedExternalIdLabels[locale]);
+    assert.notEqual(translate("toolbar.commands.deleteIdentifier.label"), "toolbar.commands.deleteIdentifier.label");
+  }
+
+  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("important English and Albanian UI strings are not Italian fallbacks", () => {

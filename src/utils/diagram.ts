@@ -3043,6 +3043,56 @@ export function removeExternalIdentifierFromEntity(
     : diagram;
 }
 
+export function removeInternalIdentifierFromEntity(
+  diagram: DiagramDocument,
+  entityId: string,
+  internalIdentifierId: string,
+): DiagramDocument {
+  const hostEntity = diagram.nodes.find(
+    (node): node is EntityNode => node.id === entityId && node.type === "entity",
+  );
+  const currentIdentifiers = hostEntity?.internalIdentifiers ?? [];
+  const removedIdentifier = currentIdentifiers.find((identifier) => identifier.id === internalIdentifierId);
+  if (!hostEntity || !removedIdentifier) {
+    return diagram;
+  }
+
+  const nextIdentifiers = currentIdentifiers.filter((identifier) => identifier.id !== internalIdentifierId);
+  const removedAttributeIds = new Set(removedIdentifier.attributeIds);
+  const remainingSimpleAttributeIds = new Set(
+    nextIdentifiers
+      .filter((identifier) => identifier.attributeIds.length === 1)
+      .flatMap((identifier) => identifier.attributeIds),
+  );
+  const remainingCompositeAttributeIds = new Set(
+    nextIdentifiers
+      .filter((identifier) => identifier.attributeIds.length > 1)
+      .flatMap((identifier) => identifier.attributeIds),
+  );
+
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => {
+      if (node.id === entityId && node.type === "entity") {
+        return {
+          ...node,
+          internalIdentifiers: nextIdentifiers.length > 0 ? nextIdentifiers : undefined,
+        };
+      }
+
+      if (node.type !== "attribute" || !removedAttributeIds.has(node.id)) {
+        return node;
+      }
+
+      return {
+        ...node,
+        isIdentifier: remainingSimpleAttributeIds.has(node.id),
+        isCompositeInternal: remainingCompositeAttributeIds.has(node.id),
+      };
+    }),
+  };
+}
+
 export function revalidateExternalIdentifiers(
   diagram: DiagramDocument,
 ): { diagram: DiagramDocument; invalidations: ExternalIdentifierInvalidation[] } {

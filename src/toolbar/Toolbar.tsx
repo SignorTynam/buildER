@@ -6,6 +6,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EditorMode,
+  IdentifierSelection,
   SelectionState,
   ToolKind,
   ValidationIssue,
@@ -41,16 +42,14 @@ interface ToolbarProps {
   onToggleSimpleIdentifier?: () => void;
   onOpenCompositeIdentifier?: () => void;
   onOpenMixedIdentifier?: () => void;
-  onOpenExternalIdentifier?: () => void;
   onOpenInheritanceType?: () => void;
   onRemoveFromHierarchy?: () => void;
   onRemoveExternalIdentifier?: () => void;
   onToolChange: (tool: ToolKind) => void;
-  onCopySelection: () => void;
-  onPasteSelection: () => void;
   onDuplicateSelection: () => void;
-  canPasteSelection?: boolean;
   onDeleteSelection: () => void;
+  selectedIdentifier?: IdentifierSelection | null;
+  onDeleteIdentifierSelection: () => void;
   onCreateAttributeForSelection: () => void;
   onRenameSelection: () => void;
   onOpenTranslation: () => void;
@@ -203,7 +202,8 @@ export function Toolbar(props: ToolbarProps) {
   const { t } = useI18n();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const canEdit = props.mode === "edit";
-  const hasSelection = props.selectionItemCount > 0;
+  const hasIdentifierSelection = props.selectedIdentifier != null;
+  const hasSelection = props.selectionItemCount > 0 && !hasIdentifierSelection;
   const selectedAttribute = props.selectedNode?.type === "attribute" ? props.selectedNode : undefined;
   const selectedAttributeCanHaveCardinality =
     selectedAttribute !== undefined && canAttributeHaveCardinality(props.diagram, selectedAttribute);
@@ -309,24 +309,6 @@ export function Toolbar(props: ToolbarProps) {
     ...(hasSelection
       ? [
           {
-            key: "copy",
-            label: t("toolbar.commands.copy.label"),
-            icon: <StudioIcon name="copy" />,
-            onClick: props.onCopySelection,
-          } satisfies ToolbarCommand,
-        ]
-      : []),
-    {
-      key: "paste",
-      label: t("toolbar.commands.paste.label"),
-      icon: <StudioIcon name="paste" />,
-      onClick: props.onPasteSelection,
-      disabled: !canEdit || !props.canPasteSelection,
-      title: props.canPasteSelection ? t("toolbar.commands.paste.titleReady") : t("toolbar.commands.paste.titleEmpty"),
-    },
-    ...(hasSelection
-      ? [
-          {
             key: "duplicate",
             label: t("common.actions.duplicate"),
             icon: <StudioIcon name="duplicate" />,
@@ -348,6 +330,18 @@ export function Toolbar(props: ToolbarProps) {
     props.selectedNode !== undefined;
   const editCommands: ToolbarCommand[] = [
     ...historyClipboardCommands,
+    ...(hasIdentifierSelection
+      ? [
+          {
+            key: "delete-identifier",
+            label: t("toolbar.commands.deleteIdentifier.label"),
+            icon: <StudioIcon name="delete" />,
+            onClick: props.onDeleteIdentifierSelection,
+            disabled: !canEdit,
+            title: t("toolbar.commands.deleteIdentifier.title"),
+          } satisfies ToolbarCommand,
+        ]
+      : []),
     ...(selectionCanRename
       ? [
           {
@@ -374,7 +368,7 @@ export function Toolbar(props: ToolbarProps) {
 
   let detailCommands: ToolbarCommand[] = [];
 
-  if (props.selectionItemCount === 0) {
+  if (hasIdentifierSelection || props.selectionItemCount === 0) {
     detailCommands = [];
   } else if (props.selection.nodeIds.length >= 2 && props.selection.edgeIds.length === 0) {
     detailCommands = [
@@ -468,18 +462,11 @@ export function Toolbar(props: ToolbarProps) {
     detailCommands = [
       {
         key: "external-id",
-        label: t("toolbar.commands.externalId.label"),
+        label: t("toolbar.commands.externalIdUnified.label"),
         icon: <StudioIcon name="externalId" />,
-        onClick: () => props.onOpenExternalIdentifier?.(),
-        disabled: !canEdit,
-      },
-      {
-        key: "mixed-id",
-        label: t("toolbar.commands.mixedId.label"),
-        icon: <StudioIcon name="compositeId" />,
         onClick: () => props.onOpenMixedIdentifier?.(),
         disabled: !canEdit || mixedDisabled,
-        title: mixedDisabled ? t("toolbar.commands.mixedId.titleCardinalityRequired") : undefined,
+        title: mixedDisabled ? t("toolbar.commands.externalIdUnified.titleCardinalityRequired") : undefined,
       },
       { key: "card", label: t("toolbar.commands.card.label"), icon: <StudioIcon name="cardinality" />, onClick: () => props.onOpenCardinality?.(), disabled: !canEdit },
       { key: "role", label: t("toolbar.commands.role.label"), icon: <StudioIcon name="role" />, onClick: () => props.onOpenRole?.(), disabled: !canEdit },
