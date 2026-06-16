@@ -1,0 +1,11 @@
+# Default owner for repository review requests
+* @SignorTynam
+
+# Documentation
+/docs/ @SignorTynam
+*.md @SignorTynam
+
+# Source and tests
+/src/ @SignorTynam
+/test/ @SignorTynam
+/tests/ @SignorTynam
