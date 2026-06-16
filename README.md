@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/builder-logo-wordmark.svg" alt="buildER logo" width="520" />
+</p>
+
 # buildER (v5.1)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG e sincronizzazione ERS live.
