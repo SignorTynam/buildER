@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Grazie per voler contribuire a ER Studio.
+Grazie per voler contribuire a buildER.
 Questo documento descrive il flusso consigliato per contribuire in modo chiaro e consistente.
 
 ## Prerequisiti
@@ -90,6 +90,8 @@ Checklist rapida PR:
 
 ## Struttura Del Progetto (Riferimento Rapido)
 
+Per la struttura completa vedere `docs/REPOSITORY_STRUCTURE.md`.
+
 - `src/components`: componenti UI
 - `src/canvas`: rendering e interazioni canvas
 - `src/inspector`: pannelli di ispezione
@@ -99,5 +101,5 @@ Checklist rapida PR:
 
 ## Sicurezza
 
-Per segnalazioni di sicurezza, segui le indicazioni in `security.md`.
+Per segnalazioni di sicurezza, segui le indicazioni in `SECURITY.md`.
 Non aprire issue pubbliche per vulnerabilita sensibili.
