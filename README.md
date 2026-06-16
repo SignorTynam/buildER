@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/builder-logo-wordmark.svg" alt="buildER logo" width="520" />
+  <img src="src/image/buildER%20no%20background.png" alt="buildER logo" width="520" />
 </p>
 
 # buildER (v5.1)
