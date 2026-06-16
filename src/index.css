@@ -9272,7 +9272,6 @@ textarea:focus-visible,
 .composite-identifier:focus-within .composite-identifier-marker,
 .composite-identifier-active .composite-identifier-marker {
   stroke: var(--studio-accent);
-  stroke-width: 2.6px;
 }
 
 .external-identifier:hover .external-identifier-marker,
@@ -9292,10 +9291,6 @@ textarea:focus-visible,
 .external-identifier-imported:focus-within .external-identifier-marker,
 .external-identifier-imported.external-identifier-active .external-identifier-marker {
   fill: var(--diagram-stroke, #1f2f2b);
-}
-
-.external-identifier-entity-frame {
-  vector-effect: non-scaling-stroke;
 }
 
 .external-identifier-edge-mask {

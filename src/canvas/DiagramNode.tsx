@@ -1,6 +1,7 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import type { DiagramHighlightKind, DiagramNode, Point } from "../types/diagram";
 import { useI18n } from "../i18n/useI18n";
+import { DIAGRAM_ATTRIBUTE_MARKER_RADIUS } from "./diagramVisualConstants";
 
 const DIAGRAM_NODE_FILL = "var(--diagram-node-fill)";
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
@@ -390,7 +391,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                   <circle
                     cx={node.x + 10}
                     cy={cy}
-                    r={7}
+                    r={DIAGRAM_ATTRIBUTE_MARKER_RADIUS}
                     fill={isGhost ? "none" : isIdentifier ? selectedStrokeColor : DIAGRAM_NODE_FILL}
                     stroke={selectedStrokeColor}
                     strokeWidth={isShapeHighlighted ? 2.4 : 2}

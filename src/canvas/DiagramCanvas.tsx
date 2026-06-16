@@ -9,6 +9,10 @@ import type {
 } from "react";
 import { DiagramEdgeView, type EdgeLabelLayoutOverride } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
+import {
+  DIAGRAM_IDENTIFIER_STROKE_WIDTH,
+  DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS,
+} from "./diagramVisualConstants";
 import { StudioIcon } from "../components/icons/StudioIcon";
 import { useI18n } from "../i18n/useI18n";
 import { getToolDefinitions } from "../utils/toolConfig";
@@ -228,11 +232,9 @@ function shouldPersistCanvasMessage(message: string): boolean {
 }
 
 const VIEWPORT_PADDING = 140;
-const COMPOSITE_INTERNAL_TERMINAL_MARKER_RADIUS = 8.5;
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
-const EXTERNAL_IDENTIFIER_IMPORTED_MARKER_RADIUS = 6.5;
 const EXTERNAL_IDENTIFIER_IMPORTED_MARKER_STEM_LENGTH = 22;
 const EXTERNAL_IDENTIFIER_IMPORTED_BRACKET_LENGTH = 24;
 const EXTERNAL_IDENTIFIER_IMPORTED_HIT_STROKE_WIDTH = 22;
@@ -242,7 +244,6 @@ const EXTERNAL_IDENTIFIER_LOCAL_MARKER_CURVE = 18;
 const EXTERNAL_IDENTIFIER_ENTITY_FRAME_OFFSET = 16;
 const EXTERNAL_IDENTIFIER_FRAME_LANE_GAP = 16;
 const EXTERNAL_IDENTIFIER_ROUTE_TERMINAL_EXTENSION = 16;
-const EXTERNAL_IDENTIFIER_TERMINAL_MARKER_RADIUS = 6.5;
 
 interface CompositeIdentifierMember {
   attributeId: string;
@@ -1212,7 +1213,7 @@ function renderExternalIdentifierFrame(layout: ExternalIdentifierFrameLayout) {
         d={layout.pathData}
         fill="none"
         stroke={DIAGRAM_STROKE}
-        strokeWidth={2}
+        strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
         strokeLinecap="round"
         strokeLinejoin="round"
         pointerEvents="none"
@@ -1222,10 +1223,10 @@ function renderExternalIdentifierFrame(layout: ExternalIdentifierFrameLayout) {
           className="external-identifier-terminal-marker"
           cx={layout.terminalMarker.x}
           cy={layout.terminalMarker.y}
-          r={EXTERNAL_IDENTIFIER_TERMINAL_MARKER_RADIUS}
+          r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
           fill={DIAGRAM_STROKE}
           stroke={DIAGRAM_STROKE}
-          strokeWidth={2}
+          strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
           pointerEvents="none"
         />
       ) : null}
@@ -4145,7 +4146,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 d={layout.pathData}
                 fill="none"
                 stroke={DIAGRAM_STROKE}
-                strokeWidth={2}
+                strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 pointerEvents="none"
@@ -4168,10 +4169,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   className="composite-identifier-marker"
                   cx={layout.terminalMarker.x}
                   cy={layout.terminalMarker.y}
-                  r={COMPOSITE_INTERNAL_TERMINAL_MARKER_RADIUS}
+                  r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
                   fill={DIAGRAM_STROKE}
                   stroke={DIAGRAM_STROKE}
-                  strokeWidth={2}
+                  strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                   pointerEvents="none"
                 />
               ) : null}
@@ -4280,7 +4281,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     d={markerPath}
                     fill="none"
                     stroke={DIAGRAM_STROKE}
-                    strokeWidth={2}
+                    strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -4292,7 +4293,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                       x2={layout.bracketEnd.x}
                       y2={layout.bracketEnd.y}
                       stroke={DIAGRAM_STROKE}
-                      strokeWidth={2}
+                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                       strokeLinecap="round"
                     />
                   ) : null}
@@ -4309,7 +4310,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     className="external-identifier-marker"
                     cx={layout.marker.x}
                     cy={layout.marker.y}
-                    r={EXTERNAL_IDENTIFIER_IMPORTED_MARKER_RADIUS}
+                    r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
                     fill={DIAGRAM_STROKE}
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={1.8}
@@ -4343,7 +4344,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   d={pathData}
                   fill="none"
                   stroke={DIAGRAM_STROKE}
-                  strokeWidth={2}
+                  strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
@@ -4377,7 +4378,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     x2={layout.marker.x}
                     y2={layout.marker.y}
                     stroke={DIAGRAM_STROKE}
-                    strokeWidth={2}
+                    strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                     strokeLinecap="round"
                   />
                 ) : null}
@@ -4385,7 +4386,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   className="external-identifier-marker"
                   cx={layout.marker.x}
                   cy={layout.marker.y}
-                  r={6.5}
+                  r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
                   fill="var(--diagram-canvas-fill)"
                   stroke={DIAGRAM_STROKE}
                   strokeWidth={1.8}
