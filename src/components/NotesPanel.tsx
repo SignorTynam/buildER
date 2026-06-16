@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import type { MessageKey } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
 
@@ -10,25 +11,25 @@ interface NotesPanelProps {
   embedded?: boolean;
 }
 
-const FORMAT_BUTTONS: Array<{ label: string; command: string; value?: string }> = [
-  { label: "B", command: "bold" },
-  { label: "I", command: "italic" },
-  { label: "U", command: "underline" },
-  { label: "S", command: "strikeThrough" },
-  { label: "Quote", command: "formatBlock", value: "blockquote" },
-  { label: "Code", command: "formatBlock", value: "pre" },
-  { label: "H1", command: "formatBlock", value: "h1" },
-  { label: "H2", command: "formatBlock", value: "h2" },
-  { label: "P", command: "formatBlock", value: "p" },
-  { label: "1.", command: "insertOrderedList" },
-  { label: "•", command: "insertUnorderedList" },
-  { label: "x₂", command: "subscript" },
-  { label: "x²", command: "superscript" },
-  { label: "L", command: "justifyLeft" },
-  { label: "C", command: "justifyCenter" },
-  { label: "R", command: "justifyRight" },
-  { label: "Clear", command: "removeFormat" },
-];
+const FORMAT_BUTTONS = [
+  { label: "B", ariaKey: "notesPanel.toolbar.bold", command: "bold" },
+  { label: "I", ariaKey: "notesPanel.toolbar.italic", command: "italic" },
+  { label: "U", ariaKey: "notesPanel.toolbar.underline", command: "underline" },
+  { label: "S", ariaKey: "notesPanel.toolbar.strike", command: "strikeThrough" },
+  { label: "Quote", ariaKey: "notesPanel.toolbar.quote", command: "formatBlock", value: "blockquote" },
+  { label: "Code", ariaKey: "notesPanel.toolbar.codeBlock", command: "formatBlock", value: "pre" },
+  { label: "H1", ariaKey: "notesPanel.toolbar.heading1", command: "formatBlock", value: "h1" },
+  { label: "H2", ariaKey: "notesPanel.toolbar.heading2", command: "formatBlock", value: "h2" },
+  { label: "P", ariaKey: "notesPanel.toolbar.paragraph", command: "formatBlock", value: "p" },
+  { label: "1.", ariaKey: "notesPanel.toolbar.orderedList", command: "insertOrderedList" },
+  { label: "•", ariaKey: "notesPanel.toolbar.unorderedList", command: "insertUnorderedList" },
+  { label: "x₂", ariaKey: "notesPanel.toolbar.subscript", command: "subscript" },
+  { label: "x²", ariaKey: "notesPanel.toolbar.superscript", command: "superscript" },
+  { label: "L", ariaKey: "notesPanel.toolbar.alignLeft", command: "justifyLeft" },
+  { label: "C", ariaKey: "notesPanel.toolbar.alignCenter", command: "justifyCenter" },
+  { label: "R", ariaKey: "notesPanel.toolbar.alignRight", command: "justifyRight" },
+  { label: "Clear", ariaKey: "notesPanel.toolbar.clearFormatting", command: "removeFormat" },
+] satisfies Array<{ label: string; ariaKey: MessageKey; command: string; value?: string }>;
 
 function sanitizeNotesHtml(value: string): string {
   if (!value.trim()) {
@@ -97,7 +98,7 @@ export function NotesPanel(props: NotesPanelProps) {
   }
 
   function insertLink() {
-    const url = window.prompt("URL");
+    const url = window.prompt(t("notesPanel.prompts.linkUrl"));
     if (!url || url.trim().toLowerCase().startsWith("javascript:")) {
       return;
     }
@@ -105,7 +106,7 @@ export function NotesPanel(props: NotesPanelProps) {
   }
 
   function insertImage() {
-    const url = window.prompt("Image URL");
+    const url = window.prompt(t("notesPanel.prompts.imageUrl"));
     if (!url || url.trim().toLowerCase().startsWith("javascript:")) {
       return;
     }
@@ -116,16 +117,26 @@ export function NotesPanel(props: NotesPanelProps) {
     <aside className="designer-notes-overlay diagram-notes-panel" aria-label={t("notesPanel.shellAria")}>
       <div className="designer-notes-toolbar">
         {FORMAT_BUTTONS.map((button) => (
-          <button key={`${button.command}-${button.value ?? ""}`} type="button" onClick={() => runCommand(button.command, button.value)}>
+          <button
+            key={`${button.command}-${button.value ?? ""}`}
+            type="button"
+            onClick={() => runCommand(button.command, button.value)}
+            aria-label={t(button.ariaKey)}
+            title={t(button.ariaKey)}
+          >
             {button.label}
           </button>
         ))}
-        <button type="button" onClick={insertLink}>Link</button>
-        <button type="button" onClick={insertImage}>Image</button>
+        <button type="button" onClick={insertLink} aria-label={t("notesPanel.toolbar.link")} title={t("notesPanel.toolbar.link")}>
+          {t("notesPanel.toolbar.link")}
+        </button>
+        <button type="button" onClick={insertImage} aria-label={t("notesPanel.toolbar.image")} title={t("notesPanel.toolbar.image")}>
+          {t("notesPanel.toolbar.image")}
+        </button>
         {props.onClose ? (
-          <button type="button" className="designer-notes-hide" onClick={props.onClose}>
+          <button type="button" className="designer-notes-hide" onClick={props.onClose} aria-label={t("notesPanel.toolbar.hide")} title={t("notesPanel.toolbar.hide")}>
             <StudioIcon name="close" aria-hidden="true" />
-            Hide
+            {t("notesPanel.toolbar.hide")}
           </button>
         ) : null}
       </div>

@@ -32,6 +32,35 @@ const IMPORTANT_LOCALIZED_KEYS = [
   "loading.tipLabel",
   "logical.noItemsThisStep",
   "translation.restructuring.stageLabel",
+  "toolbar.commands.select.label",
+  "notesPanel.toolbar.image",
+  "cardinalityModal.title",
+  "sqlReverse.input.analyze",
+  "logical.entityKeyModal.title",
+  "canvas.externalIdentifier.importsFrom",
+] as const;
+const NEW_I18N_SECTIONS = [
+  "toolbar.commands.select.label",
+  "toolbar.commands.pan.aria",
+  "toolbar.commands.compositeId.sameEntity",
+  "toolbar.export.diagramCode",
+  "notesPanel.toolbar.bold",
+  "notesPanel.toolbar.clearFormatting",
+  "notesPanel.prompts.imageUrl",
+  "codePanel.closeAria",
+  "cardinalityModal.primary.createConnector",
+  "cardinalityModal.presets.requiredMany",
+  "cardinalityModal.subtitle.editConnector",
+  "sqlReverse.input.warningSummary",
+  "sqlReverse.input.tablesCount",
+  "sqlReverse.preview.logicalTitle",
+  "sqlReverse.app.importedTables",
+  "logical.toolbars.translationTools",
+  "logical.export.project",
+  "logical.entityKeyModal.applyFixEntities",
+  "errors.structured.template",
+  "connection.errors.invalidConnector",
+  "canvas.externalIdentifier.importsFrom",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -110,6 +139,16 @@ test("plural and interpolation paths work for every locale", () => {
     assert.match(translate("app.versionLabel", { version: "5.0" }, locale), /5\.0/);
     assert.match(translate("commandMenu.visibleCount", { count: 1 }, locale), /1/);
     assert.match(translate("commandMenu.visibleCount", { count: 2 }, locale), /2/);
+  }
+});
+
+test("new localized UI sections resolve for every locale", () => {
+  for (const locale of SUPPORTED_LOCALES) {
+    for (const key of NEW_I18N_SECTIONS) {
+      const value = translate(key, { count: 2, current: 1, total: 3, sourceKind: "A", targetKind: "B", attributes: "id", entity: "User" }, locale);
+      assert.notEqual(value, key, `${locale}.${key} was not resolved`);
+      assert.notEqual(value.trim(), "", `${locale}.${key} resolved to an empty string`);
+    }
   }
 });
 

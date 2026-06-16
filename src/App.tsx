@@ -23,7 +23,7 @@ import { StudioIcon } from "./components/icons/StudioIcon";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { useI18n } from "./i18n/useI18n";
-import type { MessageKey, TranslationParams } from "./i18n";
+import { translate, type MessageKey, type TranslationParams } from "./i18n";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
 import { TranslationWorkspace } from "./translation/TranslationWorkspace";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -393,20 +393,6 @@ interface WorkspaceSessionBootstrap {
   restored: boolean;
 }
 
-const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
-const CANCELLATION_PATTERNS = [/annullat[oa]/i, /rimoss[oa]/i, /eliminat[oa]/i, /cancellat[oa]/i] as const;
-const WARNING_PATTERNS = [
-  /gia presente/i,
-  /^nessun/i,
-  /^nessuna/i,
-  /^sorgente selezionata:/i,
-  /seleziona almeno/i,
-  /seleziona la destinazione/i,
-  /apri la vista/i,
-  /gia allineati/i,
-  /non disponibile/i,
-] as const;
-const SUCCESS_PATTERNS = [/aggiunt[oa]/i, /creat[oa]/i, /caricat[oa]/i, /salvat[oa]/i, /esportat[oa]/i, /rigenerat[oa]/i] as const;
 const NOTICE_DURATION_MS = {
   success: 3200,
   warning: 4400,
@@ -748,66 +734,57 @@ function lowerCaseFirst(value: string): string {
   return `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
 }
 
-function buildStructuredErrorMessage(what: string, why: string, how: string): string {
-  const normalizedWhat = normalizeMessagePart(what) || "operazione non completata";
-  const normalizedWhy = normalizeMessagePart(why) || "si e verificato un problema non specificato";
-  const normalizedHow = normalizeMessagePart(how) || "controlla i dati e riprova";
-  return `Errore: ${normalizedWhat} perche ${lowerCaseFirst(normalizedWhy)}; per risolvere ${lowerCaseFirst(normalizedHow)}.`;
+function buildStructuredErrorMessage(what: string, why: string, how: string, t: AppTranslator = translate): string {
+  const normalizedWhat = normalizeMessagePart(what) || t("errors.structured.defaultWhat");
+  const normalizedWhy = normalizeMessagePart(why) || t("errors.structured.defaultWhy");
+  const normalizedHow = normalizeMessagePart(how) || t("errors.structured.defaultHow");
+  return t("errors.structured.template", {
+    what: normalizedWhat,
+    why: lowerCaseFirst(normalizedWhy),
+    how: lowerCaseFirst(normalizedHow),
+  });
 }
 
-function formatErrorFromRawMessage(message: string, fallbackHow = "controlla i dati inseriti e riprova"): string {
+function formatErrorFromRawMessage(message: string, t: AppTranslator = translate, fallbackHow = t("errors.rawFallbackHow")): string {
   const normalizedMessage = message.trim();
   if (!normalizedMessage) {
     return buildStructuredErrorMessage(
-      "operazione non completata",
-      "si e verificato un problema non specificato",
+      t("errors.structured.defaultWhat"),
+      t("errors.structured.defaultWhy"),
       fallbackHow,
+      t,
     );
   }
 
-  const alreadyStructured = /^errore:\s.+\sperche\s.+;\sper risolvere\s.+\.$/i.test(normalizedMessage);
+  const alreadyStructured = /^(errore|error|gabim):\s.+\s.+;\s.+\.$/i.test(normalizedMessage);
   if (alreadyStructured) {
     return normalizedMessage;
   }
 
-  const isCancellationMessage =
-    CANCELLATION_PATTERNS.some((pattern) => pattern.test(normalizedMessage)) &&
-    !ERROR_PATTERNS.some((pattern) => pattern.test(normalizedMessage));
-  if (isCancellationMessage) {
-    return normalizedMessage;
-  }
-
   const reason = normalizeMessagePart(normalizedMessage.replace(/^errore[:\s]*/i, ""));
-  return buildStructuredErrorMessage("operazione non completata", reason, fallbackHow);
+  return buildStructuredErrorMessage(t("errors.structured.defaultWhat"), reason, fallbackHow, t);
 }
 
-function formatErsErrorMessage(message: string): string {
-  const reason = normalizeMessagePart(message.replace(/^errore[:\s]*/i, "")) || "codice ERS non valido";
+function formatErsErrorMessage(message: string, t: AppTranslator = translate): string {
+  const reason = normalizeMessagePart(message.replace(/^errore[:\s]*/i, "")) || t("errors.ers.defaultReason");
   return buildStructuredErrorMessage(
-    "il codice ERS non e stato applicato",
+    t("errors.ers.what"),
     reason,
-    "correggi la riga indicata e riprova",
+    t("errors.ers.how"),
+    t,
   );
 }
 
-function formatProjectFileErrorMessage(error: unknown): string {
+function formatProjectFileErrorMessage(error: unknown, t: AppTranslator = translate): string {
   if (error instanceof ProjectFileError) {
-    return buildStructuredErrorMessage(error.details.what, error.details.why, error.details.how);
+    return buildStructuredErrorMessage(error.details.what, error.details.why, error.details.how, t);
   }
 
   return buildStructuredErrorMessage(
-    "il file progetto non e stato caricato",
-    "si e verificato un problema non previsto durante l'importazione",
-    "controlla il file selezionato e riprova",
-  );
-}
-
-function isSourceSelectionPendingMessage(message: string): boolean {
-  const normalized = message.trim().toLowerCase();
-  return (
-    normalized.startsWith("sorgente selezionata:") &&
-    normalized.includes("seleziona la destinazione") &&
-    normalized.includes("premi esc per annullare")
+    t("errors.projectFile.what"),
+    t("errors.projectFile.why"),
+    t("errors.projectFile.how"),
+    t,
   );
 }
 
@@ -1048,60 +1025,61 @@ function buildExternalImportPartKey(part: {
   return [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join("::");
 }
 
-function getNodeKindLabel(node: DiagramNode): string {
+function getNodeKindLabel(node: DiagramNode, t: AppTranslator = translate): string {
   if (node.type === "entity") {
-    return "entita";
+    return t("common.entities.entity");
   }
 
   if (node.type === "relationship") {
-    return "associazione";
+    return t("common.entities.relationship");
   }
 
   if (node.type === "attribute") {
-    return "attributo";
+    return t("common.entities.attribute");
   }
 
-  return "elemento";
+  return t("common.entities.element");
 }
 
 function getConnectionFailureReason(
   edgeType: "connector" | "attribute" | "inheritance",
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
+  t: AppTranslator = translate,
 ): string {
   if (sourceNode.id === targetNode.id) {
-    return "Non puoi collegare un elemento a se stesso.";
+    return t("connection.errors.self");
   }
 
-  const sourceKind = getNodeKindLabel(sourceNode);
-  const targetKind = getNodeKindLabel(targetNode);
+  const sourceKind = getNodeKindLabel(sourceNode, t);
+  const targetKind = getNodeKindLabel(targetNode, t);
 
   if (edgeType === "connector") {
     if (sourceNode.type === "entity" && targetNode.type === "entity") {
-      return "Due entita non si collegano direttamente: inserisci un'associazione tra le due.";
+      return t("connection.errors.twoEntities");
     }
 
     if (sourceNode.type === "relationship" && targetNode.type === "relationship") {
-      return "Due associazioni non si collegano direttamente con un collegamento Chen.";
+      return t("connection.errors.twoRelationships");
     }
 
     if (sourceNode.type === "attribute" || targetNode.type === "attribute") {
-      return "Per un attributo usa lo strumento Attributo, non Collegamento.";
+      return t("connection.errors.attributeNeedsAttributeTool");
     }
 
-    return `Collegamento non valido tra ${sourceKind} e ${targetKind}: il collegamento Chen richiede un'entita e un'associazione.`;
+    return t("connection.errors.invalidConnector", { sourceKind, targetKind });
   }
 
   if (edgeType === "inheritance") {
-    return `La generalizzazione richiede due entita. Hai selezionato ${sourceKind} e ${targetKind}.`;
+    return t("connection.errors.inheritanceNeedsEntities", { sourceKind, targetKind });
   }
 
   const oneIsAttribute = sourceNode.type === "attribute" || targetNode.type === "attribute";
   if (!oneIsAttribute) {
-    return `Il collegamento attributo richiede almeno un attributo. Hai selezionato ${sourceKind} e ${targetKind}.`;
+    return t("connection.errors.attributeNeedsOneAttribute", { sourceKind, targetKind });
   }
 
-  return `Un attributo puo essere collegato solo a entita, associazione o attributo. Hai selezionato ${sourceKind} e ${targetKind}.`;
+  return t("connection.errors.invalidAttributeConnection", { sourceKind, targetKind });
 }
 
 type AttributeCreationHost = Extract<DiagramNode, { type: "entity" | "relationship" | "attribute" }>;
@@ -1525,7 +1503,7 @@ export default function App() {
   }, [t, versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
-    if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {
+    if (!statusMessage) {
       return;
     }
 
@@ -2052,19 +2030,19 @@ export default function App() {
 
   function showErrorNotice(message: string) {
     showNotice({
-      message: formatErrorFromRawMessage(message),
+      message: formatErrorFromRawMessage(message, t),
       tone: "error",
     });
   }
 
-  function showWarningNotice(message: string) {
-    const sticky = isSourceSelectionPendingMessage(message);
+  function showWarningNotice(message: string, options?: { stickyType?: WorkspaceNotice["stickyType"] }) {
+    const sticky = options?.stickyType !== undefined;
     showNotice(
       {
         message,
         tone: "warning",
         sticky,
-        stickyType: sticky ? "source-selection" : undefined,
+        stickyType: options?.stickyType,
       },
       sticky ? null : NOTICE_DURATION_MS.warning,
     );
@@ -2075,30 +2053,6 @@ export default function App() {
       message,
       tone: "success",
     });
-  }
-
-  function getNoticeTone(message: string): WorkspaceNotice["tone"] | null {
-    if (!message.trim()) {
-      return null;
-    }
-
-    if (CANCELLATION_PATTERNS.some((pattern) => pattern.test(message))) {
-      return "error";
-    }
-
-    if (ERROR_PATTERNS.some((pattern) => pattern.test(message))) {
-      return "error";
-    }
-
-    if (WARNING_PATTERNS.some((pattern) => pattern.test(message))) {
-      return "warning";
-    }
-
-    if (SUCCESS_PATTERNS.some((pattern) => pattern.test(message))) {
-      return "success";
-    }
-
-    return null;
   }
 
   function markDocumentBaseline(diagram: DiagramDocument) {
@@ -2137,8 +2091,8 @@ export default function App() {
       setConfirmDialog({
         title: options.title,
         message: options.message,
-        confirmLabel: options.confirmLabel ?? "Conferma",
-        cancelLabel: options.cancelLabel ?? "Annulla",
+        confirmLabel: options.confirmLabel ?? t("common.actions.confirm"),
+        cancelLabel: options.cancelLabel ?? t("common.actions.cancel"),
       });
     });
   }
@@ -2172,10 +2126,10 @@ export default function App() {
         title: options.title,
         label: options.label,
         placeholder: options.placeholder,
-        confirmLabel: options.confirmLabel ?? "Salva",
-        cancelLabel: options.cancelLabel ?? "Annulla",
+        confirmLabel: options.confirmLabel ?? t("common.actions.save"),
+        cancelLabel: options.cancelLabel ?? t("common.actions.cancel"),
         required: options.required === true,
-        requiredMessage: options.requiredMessage ?? "Il campo non puo essere vuoto.",
+        requiredMessage: options.requiredMessage ?? t("dialogs.prompt.required"),
       });
       setPromptValue(options.initialValue);
       setPromptError("");
@@ -2202,10 +2156,10 @@ export default function App() {
     }
 
     return requestConfirmDialog({
-      title: "Modifiche non salvate",
-      message: `Ci sono modifiche non salvate. Vuoi davvero ${actionLabel}? Le modifiche non salvate andranno perse.`,
-      confirmLabel: "Continua",
-      cancelLabel: "Annulla",
+      title: t("dialogs.unsavedChanges.title"),
+      message: t("dialogs.unsavedChanges.message", { action: actionLabel }),
+      confirmLabel: t("dialogs.unsavedChanges.confirm"),
+      cancelLabel: t("dialogs.unsavedChanges.cancel"),
     });
   }
 
@@ -2247,22 +2201,6 @@ export default function App() {
       return;
     }
 
-    const tone = getNoticeTone(message);
-    if (tone === "error") {
-      showErrorNotice(message);
-      return;
-    }
-
-    if (tone === "warning") {
-      showWarningNotice(message);
-      return;
-    }
-
-    if (tone === "success") {
-      showSuccessNotice(message);
-      return;
-    }
-
     if (notices.some((notice) => notice.sticky)) {
       showNotice(
         {
@@ -2277,6 +2215,11 @@ export default function App() {
   function setStatusWarning(message: string) {
     setStatusMessage(message);
     showWarningNotice(message);
+  }
+
+  function setStatusSuccess(message: string) {
+    setStatusMessage(message);
+    showSuccessNotice(message);
   }
 
   function reportExternalIdentifierInvalidations(
@@ -2304,7 +2247,7 @@ export default function App() {
   }
 
   function setStatusError(message: string) {
-    const normalizedError = formatErrorFromRawMessage(message);
+    const normalizedError = formatErrorFromRawMessage(message, t);
     setStatusMessage(normalizedError);
     showErrorNotice(normalizedError);
   }
@@ -2347,7 +2290,8 @@ export default function App() {
     if (issue.level === "error") {
       const formattedIssue = formatErrorFromRawMessage(
         issue.message,
-        "correggi l'elemento evidenziato e valida di nuovo il diagramma",
+        t,
+        t("errors.rawFallbackHow"),
       );
       setStatusMessage(formattedIssue);
       showErrorNotice(formattedIssue);
@@ -2493,7 +2437,7 @@ export default function App() {
 
   function handleOpenSqlReverseWorkflow() {
     if (diagramView !== "er") {
-      setStatusWarning("Reverse Engineering SQL è disponibile solo nella vista ER.");
+      setStatusWarning(t("sqlReverse.app.onlyErView"));
       return;
     }
 
@@ -2507,7 +2451,7 @@ export default function App() {
 
   function handleCancelSqlReverseWorkflow() {
     setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
-    setStatusWarning("Import SQL annullato.");
+    setStatusWarning(t("sqlReverse.app.importCancelled"));
   }
 
   function handleAnalyzeSqlReverseWorkflow() {
@@ -2529,12 +2473,12 @@ export default function App() {
     }
 
     try {
-      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: "Reverse Engineering SQL" });
+      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: t("sqlReverse.input.title") });
       const hasSqlErrors = result.issues.some((issue) => issue.level === "error");
       const hasValidDiagram = result.diagram.nodes.length > 0;
 
       if (result.sqlModel.unsupportedStatements.length > 0) {
-        const message = "La beta accetta solo CREATE TABLE. Rimuovi gli statement non supportati e riprova.";
+        const message = t("sqlReverse.app.betaCreateTableOnly");
         setSqlReverseWorkflow((current) => ({
           ...current,
           sourceSql: validation.normalizedSql,
@@ -2559,10 +2503,10 @@ export default function App() {
           logicalIssues: result.logicalIssues,
           tableCount: result.sqlModel.tables.length,
           unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
-          errorMessage: "SQL non importabile: correggi gli errori indicati.",
+          errorMessage: t("sqlReverse.app.sqlNotImportable"),
           isPreviewReady: true,
         }));
-        setStatusError("SQL non importabile: correggi gli errori indicati.");
+        setStatusError(t("sqlReverse.app.sqlNotImportable"));
         return;
       }
 
@@ -2584,12 +2528,12 @@ export default function App() {
         isPreviewReady: true,
       }));
       if (result.issues.length > 0 || result.logicalIssues.some((issue) => issue.level === "warning")) {
-        setStatusWarning("SQL analizzato con warning. Preview logica pronta.");
+        setStatusWarning(t("sqlReverse.app.analyzedWithWarnings"));
       } else {
-        setStatus(`SQL analizzato: ${result.sqlModel.tables.length} tabelle riconosciute.`);
+        setStatusSuccess(t("sqlReverse.app.analyzedTables", { count: result.sqlModel.tables.length }));
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Errore durante l'analisi SQL.";
+      const message = error instanceof Error ? error.message : t("sqlReverse.app.analysisError");
       const parseIssue: SqlReverseIssue = {
         id: "sql-reverse-preview-error",
         level: "error",
@@ -2606,7 +2550,7 @@ export default function App() {
         errorMessage: message,
         isPreviewReady: true,
       }));
-      setStatusError("SQL non importabile: correggi gli errori indicati.");
+      setStatusError(t("sqlReverse.app.sqlNotImportable"));
     }
   }
 
@@ -2622,28 +2566,28 @@ export default function App() {
           }
         : current,
     );
-    setStatus("Preview ER pronta.");
+    setStatus(t("sqlReverse.preview.erReady"));
   }
 
   function handleSqlReverseBackToLogicalPreview() {
     setSqlReverseWorkflow((current) => current.result ? { ...current, step: "logical-preview" } : current);
-    setStatus("Preview logica pronta.");
+    setStatus(t("sqlReverse.app.logicalPreviewReady"));
   }
 
   async function handleSqlReverseFinalDone() {
     const preview = sqlReverseWorkflow.result;
     if (!preview) {
-      setStatusError("Preview SQL non disponibile.");
+      setStatusError(t("sqlReverse.app.previewUnavailable"));
       return;
     }
     const confirmed = await requestConfirmDialog({
-      title: "Importa diagramma da SQL",
-      message: "Il diagramma corrente verrà sostituito dal diagramma generato dallo schema SQL. Continuare?",
-      confirmLabel: "Importa",
-      cancelLabel: "Annulla",
+      title: t("sqlReverse.app.confirmImportTitle"),
+      message: t("sqlReverse.app.confirmImportMessage"),
+      confirmLabel: t("sqlReverse.app.confirmImport"),
+      cancelLabel: t("common.actions.cancel"),
     });
     if (!confirmed) {
-      setStatusWarning("Import SQL annullato.");
+      setStatusWarning(t("sqlReverse.app.importCancelled"));
       return;
     }
 
@@ -2652,8 +2596,8 @@ export default function App() {
     applyWorkspaceDocument(
       preview.diagram,
       warningCount > 0
-        ? `Diagramma ER importato da SQL con ${warningCount} warning.`
-        : `Diagramma ER importato da SQL: ${preview.sqlModel.tables.length} tabelle riconosciute.`,
+        ? t("sqlReverse.app.importedWithWarnings", { count: warningCount })
+        : t("sqlReverse.app.importedTables", { count: preview.sqlModel.tables.length }),
       {
         diagramView: "er",
         viewport: DEFAULT_VIEWPORT,
@@ -2672,18 +2616,18 @@ export default function App() {
       }));
 
       if (!text.trim()) {
-        setStatusWarning("Il file SQL caricato e vuoto.");
+        setStatusWarning(t("sqlReverse.app.emptyFile"));
         return;
       }
 
       if (!extensionOk && !/\bCREATE\s+TABLE\b/i.test(text)) {
-        setStatusWarning("File caricato: il contenuto non sembra uno schema SQL CREATE TABLE.");
+        setStatusWarning(t("sqlReverse.app.fileNotCreateTable"));
         return;
       }
 
-      setStatus(`File SQL caricato: ${fileName}.`);
+      setStatusSuccess(t("sqlReverse.app.fileLoaded", { fileName }));
     } catch (error) {
-      setStatusError(error instanceof Error ? error.message : "Impossibile leggere il file SQL.");
+      setStatusError(error instanceof Error ? error.message : t("sqlReverse.app.fileReadError"));
     }
   }
 
@@ -2692,7 +2636,7 @@ export default function App() {
       ...createInitialSqlReverseWorkflowState(""),
       step: current.step === "idle" ? "input" : current.step,
     }));
-    setStatus("Import SQL pulito.");
+    setStatus(t("sqlReverse.app.cleared"));
   }
 
   function handleOpenErStage() {
@@ -5922,11 +5866,11 @@ export default function App() {
   const sqlReversePreviewContent =
     sqlReverseWorkflow.step === "logical-preview" && sqlReverseWorkflow.result && sqlReverseLogicalPreviewWorkspace ? (
       <SqlReversePreviewFrame
-        title="Preview logica"
-        subtitle="Step 2 di 3 — Tabelle, chiavi e vincoli ricavati dal CREATE TABLE."
+        title={t("sqlReverse.preview.logicalTitle")}
+        subtitle={t("sqlReverse.preview.logicalSubtitle")}
         onDone={handleSqlReverseLogicalDone}
         onCancel={handleCancelSqlReverseWorkflow}
-        doneLabel="Avanti"
+        doneLabel={t("sqlReverse.preview.applyLogical")}
         variant="logical"
       >
         <SqlReverseLogicalPreview
@@ -5945,12 +5889,12 @@ export default function App() {
       </SqlReversePreviewFrame>
     ) : sqlReverseWorkflow.step === "er-preview" && sqlReverseWorkflow.result ? (
       <SqlReversePreviewFrame
-        title="Preview concettuale ER"
-        subtitle="Step 3 di 3 — Diagramma ER generato dallo schema SQL."
+        title={t("sqlReverse.preview.erTitle")}
+        subtitle={t("sqlReverse.preview.erSubtitle")}
         onDone={handleSqlReverseFinalDone}
         onCancel={handleCancelSqlReverseWorkflow}
         onBack={handleSqlReverseBackToLogicalPreview}
-        doneLabel="Done"
+        doneLabel={t("sqlReverse.preview.applyEr")}
         variant="er"
       >
         <SqlReverseErPreview

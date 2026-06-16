@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
 
 interface SqlReversePreviewFrameProps {
@@ -19,9 +20,10 @@ export function SqlReversePreviewFrame({
   onDone,
   onCancel,
   onBack,
-  doneLabel = "Done",
+  doneLabel,
   variant = "er",
 }: SqlReversePreviewFrameProps) {
+  const { t } = useI18n();
   const shellClassName = [
     "sql-reverse-preview-shell",
     `sql-reverse-preview-shell-${variant}`,
@@ -33,7 +35,7 @@ export function SqlReversePreviewFrame({
   return (
     <section className={shellClassName} aria-label={title}>
       <div className="sql-reverse-preview-frame">
-        <div className="sql-reverse-preview-ribbon">PREVIEW</div>
+        <div className="sql-reverse-preview-ribbon">{t("sqlReverse.preview.ribbon")}</div>
         <header className="sql-reverse-preview-header">
           <div>
             <h2 className="sql-reverse-preview-title">{title}</h2>
@@ -43,12 +45,12 @@ export function SqlReversePreviewFrame({
             {onBack ? (
               <button type="button" className="header-button" onClick={onBack}>
                 <StudioIcon name="arrowUp" aria-hidden="true" />
-                Indietro
+                {t("sqlReverse.preview.back")}
               </button>
             ) : null}
             <button type="button" className="header-button" onClick={onCancel}>
               <StudioIcon name="close" aria-hidden="true" />
-              Annulla import
+              {t("sqlReverse.preview.cancelImport")}
             </button>
           </div>
         </header>
@@ -56,7 +58,7 @@ export function SqlReversePreviewFrame({
         <div className="sql-reverse-preview-actions">
           <button type="button" className="sql-reverse-preview-done" onClick={onDone}>
             <StudioIcon name="done" aria-hidden="true" />
-            {doneLabel}
+            {doneLabel ?? t("sqlReverse.preview.done")}
           </button>
         </div>
       </div>

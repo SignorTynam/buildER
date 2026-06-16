@@ -1,5 +1,6 @@
 import { en } from "./messages/en";
 import { it } from "./messages/it";
+import { messageAdditions } from "./messages/additions";
 import { sq } from "./messages/sq";
 
 export const SUPPORTED_LOCALES = ["it", "en", "sq"] as const;
@@ -61,12 +62,11 @@ type LeafKeyOf<T> = {
         : never;
 }[keyof T & string];
 
-export type MessageKey = LeafKeyOf<Messages>;
+export type MessageKey = LeafKeyOf<Messages> | (string & {});
 
 type MessageBundle = Record<string, unknown>;
 
 const IS_DEV = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
-const rawMessagesByLocale: Record<Locale, MessageBundle> = { it, en, sq };
 const warnedMissingKeys = new Set<string>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -100,9 +100,15 @@ function mergeMessages<T extends MessageBundle>(base: T, override: unknown): T {
 }
 
 const mergedMessagesByLocale: Record<Locale, Messages> = {
-  it,
-  en: mergeMessages(it, en),
-  sq: mergeMessages(it, sq),
+  it: mergeMessages(it, messageAdditions.it),
+  en: mergeMessages(mergeMessages(it, messageAdditions.it), mergeMessages(en, messageAdditions.en)),
+  sq: mergeMessages(mergeMessages(it, messageAdditions.it), mergeMessages(sq, messageAdditions.sq)),
+};
+
+const rawMessagesByLocale: Record<Locale, MessageBundle> = {
+  it: mergedMessagesByLocale.it,
+  en: mergeMessages(en, messageAdditions.en),
+  sq: mergeMessages(sq, messageAdditions.sq),
 };
 
 function normalizeLocale(value: string | null | undefined): Locale | null {

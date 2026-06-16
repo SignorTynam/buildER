@@ -20,6 +20,9 @@ test("switches app chrome and command menu across Italian, English, and Albanian
 
   await expect(page.getByTestId("app-header-new-project")).toContainText("Nuovo progetto");
   await expect(page.getByTestId("app-header-open-project")).toContainText("Apri progetto");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Selezione");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Entit");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Esporta");
 
   await page.getByTestId("app-header-menu").click();
   await expect(page.getByTestId("command-menu")).toBeVisible();
@@ -29,6 +32,10 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await page.getByTestId("language-command-en").click();
   await expect(page.getByTestId("app-header-new-project")).toContainText("New project");
   await expect(page.getByTestId("app-header-open-project")).toContainText("Open project");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Select");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Entity");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Export");
+  await expect(page.locator(".designer-er-toolbar")).not.toContainText("Selezione");
 
   await page.getByTestId("app-header-menu").click();
   await expect(page.getByRole("dialog", { name: "Command menu" })).toBeVisible();
@@ -38,6 +45,11 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await page.getByTestId("language-command-sq").click();
   await expect(page.getByTestId("app-header-new-project")).toContainText("Projekt i ri");
   await expect(page.getByTestId("app-header-open-project")).toContainText("Hap projektin");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Përzgjedhje");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Entitet");
+  await expect(page.locator(".designer-er-toolbar")).toContainText("Eksporto");
+  await expect(page.locator(".designer-er-toolbar")).not.toContainText("Nuovo progetto");
+  await expect(page.locator(".designer-er-toolbar")).not.toContainText("Selezione");
 
   await page.getByTestId("app-header-menu").click();
   await expect(page.getByRole("dialog", { name: "Menuja e komandave" })).toBeVisible();

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { DiagramCanvas } from "../canvas/DiagramCanvas";
+import { useI18n } from "../i18n/useI18n";
 import type { DiagramDocument, SelectionState, Viewport } from "../types/diagram";
 
 interface SqlReverseErPreviewProps {
@@ -17,6 +18,7 @@ export function SqlReverseErPreview({
   onViewportChange,
   onSelectionChange,
 }: SqlReverseErPreviewProps) {
+  const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement>(null);
 
   return (
@@ -27,7 +29,7 @@ export function SqlReverseErPreview({
       mode="edit"
       viewport={viewport}
       issues={[]}
-      statusMessage="Preview ER pronta."
+      statusMessage={t("sqlReverse.preview.erReady")}
       svgRef={svgRef}
       readOnly
       onViewportChange={onViewportChange}
@@ -35,11 +37,11 @@ export function SqlReverseErPreview({
       onPreviewDiagram={() => undefined}
       onCommitDiagram={() => undefined}
       onCreateNode={() => ""}
-      onCreateEdge={() => ({ success: false, message: "Preview read-only." })}
+      onCreateEdge={() => ({ success: false, message: t("sqlReverse.preview.readOnly") })}
       onOpenCardinality={() => undefined}
       onOpenInheritanceType={() => undefined}
       onToolChange={() => undefined}
-      onCreateExternalIdentifier={() => ({ success: false, message: "Preview read-only." })}
+      onCreateExternalIdentifier={() => ({ success: false, message: t("sqlReverse.preview.readOnly") })}
       onDeleteNode={() => undefined}
       onDeleteEdge={() => undefined}
       onDeleteSelection={() => undefined}

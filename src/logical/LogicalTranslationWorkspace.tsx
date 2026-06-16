@@ -509,7 +509,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   function renderTranslationToolbar() {
     const itemIsSelected = selectedTranslationItem != null;
     return (
-      <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label="Logical translation tools">
+      <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.translationTools")}>
         {renderCommonLeadButtons()}
         {itemIsSelected ? (
           <>
@@ -553,7 +553,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     const typeLocked = selectedColumn ? isColumnTypeLockedByReference(selectedColumn) : false;
 
     return (
-      <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label="Logical schema tools">
+      <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.schemaTools")}>
         {renderCommonLeadButtons(!showEditTools)}
         {showEditTools ? (
           <>
@@ -639,25 +639,17 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     }
 
     return (
-      <div className="designer-export-popover designer-logical-export-popover" role="menu" aria-label="Export logico">
-        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportProject)}>
-          buildER Project
-        </button>
+      <div className="designer-export-popover designer-logical-export-popover" role="menu" aria-label={t("logical.export.aria")}>
+        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportProject)}>{t("logical.export.project")}</button>
         <button
           type="button"
           role="menuitem"
           disabled={!hasSql}
           title={!hasSql ? t("logical.designer.noSql") : undefined}
           onClick={() => runExportAction(() => downloadSql(sqlPreview))}
-        >
-          SQL
-        </button>
-        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportPng)}>
-          PNG
-        </button>
-        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportSvg)}>
-          SVG
-        </button>
+        >{t("logical.export.sql")}</button>
+        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportPng)}>{t("logical.export.png")}</button>
+        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportSvg)}>{t("logical.export.svg")}</button>
       </div>
     );
   }
@@ -765,23 +757,22 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               <header className="entity-key-modal-header">
                 <div>
                   <h2 id={entityKeyModalTitleId} className="entity-key-modal-title">
-                    Scegli la chiave primaria
+                    {t("logical.entityKeyModal.title")}
                   </h2>
                   <p id={entityKeyModalDescriptionId} className="entity-key-modal-description">
-                    Seleziona quale identificatore diventera la PK. Gli altri identificatori candidati saranno tradotti come UNIQUE NOT NULL.
+                    {t("logical.entityKeyModal.description")}
                   </p>
                   <span className="entity-key-modal-progress">
                     <span aria-live="polite">
-                      Entita {currentEntityKeyPage} di {entityKeySelectionTotalCount}
-                      {currentEntityKeyRequest ? ` - ${currentEntityKeyRequest.item.label}` : ""}
+                      {t("logical.entityKeyModal.page", { current: currentEntityKeyPage, total: entityKeySelectionTotalCount })}{currentEntityKeyRequest ? ` - ${currentEntityKeyRequest.item.label}` : ""}
                     </span>
-                    <span>{entityKeySelectionCompletedCount} scelte completate su {entityKeySelectionTotalCount}</span>
+                    <span>{t("logical.entityKeyModal.completed", { completed: entityKeySelectionCompletedCount, total: entityKeySelectionTotalCount })}</span>
                   </span>
                 </div>
                 <button
                   type="button"
                   className="entity-key-modal-close"
-                  aria-label="Annulla scelta chiave primaria"
+                  aria-label={t("logical.entityKeyModal.cancelChoiceAria")}
                   onClick={() => setEntityKeySelectionModal(null)}
                 ><StudioIcon name="close" aria-hidden="true" /></button>
               </header>
@@ -790,9 +781,9 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                   <>
                     <section className="entity-key-modal-choice-pane">
                       <div className="entity-key-current-entity-head">
-                        <span className="entity-key-current-entity-kicker">Entita corrente</span>
+                        <span className="entity-key-current-entity-kicker">{t("logical.entityKeyModal.currentEntity")}</span>
                         <h3>{currentEntityKeyRequest.item.label}</h3>
-                        <p>{currentEntityKeyRequest.choices.length} identificatori candidati</p>
+                        <p>{t("logical.entityKeyModal.candidateIdentifiers", { count: currentEntityKeyRequest.choices.length })}</p>
                       </div>
 
                       <div className="entity-key-option-list">
@@ -842,12 +833,12 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
                     <section className="entity-key-modal-preview-pane">
                       <div className="entity-key-preview-pane-head">
-                        <span>Risultato della scelta</span>
-                        <strong>{currentEntityKeyPreviewData?.title ?? "Nessuna alternativa"}</strong>
+                        <span>{t("logical.entityKeyModal.choiceResult")}</span>
+                        <strong>{currentEntityKeyPreviewData?.title ?? t("logical.entityKeyModal.noAlternative")}</strong>
                         <small>
                           {currentEntityKeyChoiceConfirmed
-                            ? `Questa alternativa verra applicata a ${currentEntityKeyRequest.item.label}.`
-                            : "Anteprima della prima alternativa. Seleziona una card a sinistra per confermare."}
+                            ? t("logical.entityKeyModal.appliesTo", { entity: currentEntityKeyRequest.item.label })
+                            : t("logical.entityKeyModal.previewFirst")}
                         </small>
                       </div>
                       <div className="entity-key-preview-canvas">
@@ -865,15 +856,15 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
               <footer className="entity-key-modal-footer">
                 <div className="entity-key-modal-footer-status" aria-live="polite">
-                  <strong>Entita {currentEntityKeyPage} di {entityKeySelectionTotalCount}</strong>
+                  <strong>{t("logical.entityKeyModal.page", { current: currentEntityKeyPage, total: entityKeySelectionTotalCount })}</strong>
                   <span>
                     {entityKeySelectionComplete
-                      ? "Tutte le entita sono pronte per la conversione."
+                      ? t("logical.entityKeyModal.allReady")
                       : currentEntityKeyRequest && currentEntityKeySelectedChoiceId
-                        ? `${currentEntityKeyRequest.item.label} completata.`
+                        ? t("logical.entityKeyModal.entityCompleted", { entity: currentEntityKeyRequest.item.label })
                         : currentEntityKeyRequest
-                          ? `Seleziona una chiave primaria per ${currentEntityKeyRequest.item.label}.`
-                        : "Seleziona una chiave primaria per ogni entita."}
+                          ? t("logical.entityKeyModal.selectForEntity", { entity: currentEntityKeyRequest.item.label })
+                        : t("logical.entityKeyModal.selectForEveryEntity")}
                   </span>
                 </div>
                 <div className="entity-key-modal-footer-actions">
@@ -881,9 +872,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                     type="button"
                     disabled={(entityKeySelectionModal?.currentIndex ?? 0) === 0}
                     onClick={goToPreviousEntityKeyPage}
-                  >
-                    Precedente
-                  </button>
+                  >{t("logical.entityKeyModal.previous")}</button>
                   <button
                     type="button"
                     className={
@@ -893,20 +882,14 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                     }
                     disabled={(entityKeySelectionModal?.currentIndex ?? 0) >= entityKeySelectionTotalCount - 1}
                     onClick={goToNextEntityKeyPage}
-                  >
-                    Prossima
-                  </button>
-                  <button type="button" onClick={() => setEntityKeySelectionModal(null)}>
-                    Annulla
-                  </button>
+                  >{t("logical.entityKeyModal.next")}</button>
+                  <button type="button" onClick={() => setEntityKeySelectionModal(null)}>{t("common.actions.cancel")}</button>
                   <button
                     type="button"
                     disabled={!entityKeySelectionComplete}
-                    title={!entityKeySelectionComplete ? "Completa una scelta per ogni entita." : undefined}
+                    title={!entityKeySelectionComplete ? t("logical.entityKeyModal.completeEveryChoice") : undefined}
                     onClick={confirmEntityKeySelection}
-                  >
-                    Applica Fix Entities
-                  </button>
+                  >{t("logical.entityKeyModal.applyFixEntities")}</button>
                 </div>
               </footer>
             </section>
@@ -917,10 +900,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           {sqlOpen ? (
             <aside className="designer-sql-dock" aria-label="SQL">
               <div className="designer-sql-dock-header">
-                <span>SQL</span>
+                <span>{t("logical.export.sql")}</span>
                 <div className="designer-sql-actions">
                   <select
-                    aria-label="Dialetto SQL"
+                    aria-label={t("logical.toolbars.sqlDialect")}
                     value={sqlDialect}
                     onChange={(event) => setSqlDialect(event.target.value as LogicalSqlDialect)}
                   >

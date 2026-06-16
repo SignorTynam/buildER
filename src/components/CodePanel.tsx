@@ -143,7 +143,7 @@ export function CodePanel(props: CodePanelProps) {
       <div className="designer-panel-caption">
         <span>CODE</span>
         {props.onClose ? (
-          <button type="button" className="designer-panel-close" onClick={props.onClose} aria-label="Chiudi codice ERS">
+          <button type="button" className="designer-panel-close" onClick={props.onClose} aria-label={t("codePanel.closeAria")}>
             <StudioIcon name="close" aria-hidden="true" />
           </button>
         ) : null}

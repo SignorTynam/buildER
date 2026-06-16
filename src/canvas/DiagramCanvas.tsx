@@ -10,6 +10,7 @@ import type {
 import { DiagramEdgeView, type EdgeLabelLayoutOverride } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
 import { StudioIcon } from "../components/icons/StudioIcon";
+import { useI18n } from "../i18n/useI18n";
 import { getToolDefinitions } from "../utils/toolConfig";
 import {
   expandNodeIdsForMove,
@@ -217,60 +218,13 @@ function resolveTranslationHighlight(id: string, highlights?: DiagramHighlights)
   return undefined;
 }
 
-function getCanvasMessageTone(message: string): CanvasGuidanceTone {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized) {
-    return "info";
-  }
-
-  if (
-    normalized.includes("errore") ||
-    normalized.includes("impossibile") ||
-    normalized.includes("non ") ||
-    normalized.includes("blocc")
-  ) {
-    return "error";
-  }
-
-  if (
-    normalized.includes("annull") ||
-    normalized.includes("attenzione") ||
-    normalized.includes("warning") ||
-    normalized.includes("seleziona") ||
-    normalized.includes("rimuov")
-  ) {
-    return "warning";
-  }
-
-  if (
-    normalized.includes("aggiunt") ||
-    normalized.includes("creat") ||
-    normalized.includes("aggiornat") ||
-    normalized.includes("salvat") ||
-    normalized.includes("esportat")
-  ) {
-    return "success";
-  }
-
-  return "info";
-}
-
 function shouldPersistCanvasMessage(message: string): boolean {
   const normalized = message.trim().toLowerCase();
   if (!normalized) {
     return false;
   }
 
-  const transientPatterns = [
-    /^zoom /,
-    /^viewport /,
-    /centrat/,
-    /adattat/,
-    /spostat[oa] con la tastiera/,
-    /regolat[oa] con la tastiera/,
-  ];
-
-  return !transientPatterns.some((pattern) => pattern.test(normalized));
+  return !normalized.startsWith("zoom ") && !normalized.startsWith("viewport ");
 }
 
 const VIEWPORT_PADDING = 140;
@@ -1298,6 +1252,7 @@ function renderExternalIdentifierMarker(layout: ExternalIdentifierMarkerLayout) 
 }
 
 export function DiagramIdentifierOverlay(props: { diagram: DiagramDocument }) {
+  const { t } = useI18n();
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
@@ -1351,7 +1306,7 @@ export function DiagramIdentifierOverlay(props: { diagram: DiagramDocument }) {
     const importedRelationshipIds = getExternalIdentifierImportedRelationshipIds(node);
     const localAttributeIds = getExternalIdentifierLocalAttributeIds(node);
     const sortedExternalIdentifiers = [...(node.externalIdentifiers ?? [])].sort((left, right) =>
-      buildExternalIdentifierSortKey(left).localeCompare(buildExternalIdentifierSortKey(right), "it", {
+      buildExternalIdentifierSortKey(left).localeCompare(buildExternalIdentifierSortKey(right), undefined, {
         sensitivity: "base",
       }),
     );
@@ -1406,7 +1361,7 @@ export function DiagramIdentifierOverlay(props: { diagram: DiagramDocument }) {
         const marker = getExternalIdentifierFramePoint(node, adjacentPoint, laneIndex);
         const tooltip =
           sourceEntity?.type === "entity" && sourceAttributeLabel.length > 0
-            ? `Importa ${sourceAttributeLabel} da ${sourceEntity.label}`
+            ? t("canvas.externalIdentifier.importsFrom", { attributes: sourceAttributeLabel, entity: sourceEntity.label })
             : undefined;
 
         identifierMarkerLayouts.push({
@@ -1822,6 +1777,7 @@ function buildExternalIdentifierSortKey(identifier: ExternalIdentifier): string 
 }
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const activePointersRef = useRef<Map<number, ActivePointer>>(new Map());
   const pinchStateRef = useRef<PinchState | null>(null);
@@ -2071,7 +2027,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const localAttributeIds = getExternalIdentifierLocalAttributeIds(node);
 
     const sortedExternalIdentifiers = [...(node.externalIdentifiers ?? [])].sort((left, right) =>
-      buildExternalIdentifierSortKey(left).localeCompare(buildExternalIdentifierSortKey(right), "it", {
+      buildExternalIdentifierSortKey(left).localeCompare(buildExternalIdentifierSortKey(right), undefined, {
         sensitivity: "base",
       }),
     );
@@ -2121,7 +2077,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         const marker = getExternalIdentifierFramePoint(node, adjacentPoint, laneIndex);
         const tooltip =
           sourceEntity?.type === "entity" && sourceAttributeLabel.length > 0
-            ? `Importa ${sourceAttributeLabel} da ${sourceEntity.label}`
+            ? t("canvas.externalIdentifier.importsFrom", { attributes: sourceAttributeLabel, entity: sourceEntity.label })
             : undefined;
 
         identifierMarkerLayouts.push({
@@ -2375,7 +2331,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     setPersistentMessage({
       key: props.statusMessage,
       message: props.statusMessage,
-      tone: getCanvasMessageTone(props.statusMessage),
+      tone: "info",
     });
     setDismissedMessageKey(null);
   }, [props.statusMessage]);

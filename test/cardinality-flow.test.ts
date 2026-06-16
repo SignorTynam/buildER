@@ -195,7 +195,7 @@ test("cardinality flow: parse and serialize remove connector manual offset", () 
 
 test("cardinality flow: modal primary label reflects create versus edit mode", () => {
   assert.equal(getCardinalityModalPrimaryLabel({ mode: "create-connector", createdEdgeWasTemporary: true }), "Crea collegamento");
-  assert.equal(getCardinalityModalPrimaryLabel({ mode: "edit", createdEdgeWasTemporary: false }), "Salva cardinalita");
+  assert.equal(getCardinalityModalPrimaryLabel({ mode: "edit", createdEdgeWasTemporary: false }), "Salva cardinalità");
 });
 
 test("cardinality flow: attribute cardinality labels stay empty unless explicitly set", () => {

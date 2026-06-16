@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { translate, type MessageKey, type TranslationParams } from "../i18n";
+import { useI18n } from "../i18n/useI18n";
 import type { DiagramDocument } from "../types/diagram";
 import { CONNECTOR_CARDINALITY_PRESETS } from "../utils/cardinality";
 
@@ -28,42 +30,54 @@ interface CardinalityModalProps {
   onCancel: () => void;
 }
 
-const PRESET_DESCRIPTIONS: Record<string, string> = {
-  "(0,1)": "opzionale, al massimo una",
-  "(1,1)": "obbligatoria, una sola",
-  "(0,N)": "opzionale, molte",
-  "(1,N)": "obbligatoria, molte",
+const PRESET_DESCRIPTION_KEYS: Record<string, MessageKey> = {
+  "(0,1)": "cardinalityModal.presets.optionalMaxOne",
+  "(1,1)": "cardinalityModal.presets.requiredOne",
+  "(0,N)": "cardinalityModal.presets.optionalMany",
+  "(1,N)": "cardinalityModal.presets.requiredMany",
 };
 
-export function getCardinalityModalPrimaryLabel(state: Pick<CardinalityDialogState, "createdEdgeWasTemporary" | "mode">): string {
+const translateDefaultItalian = (key: MessageKey) => translate(key, undefined, "it");
+
+export function getCardinalityModalPrimaryLabel(
+  state: Pick<CardinalityDialogState, "createdEdgeWasTemporary" | "mode">,
+  t: (key: MessageKey) => string = translateDefaultItalian,
+): string {
   return state.mode === "create-connector" || state.createdEdgeWasTemporary === true
-    ? "Crea collegamento"
-    : "Salva cardinalita";
+    ? t("cardinalityModal.primary.createConnector")
+    : t("cardinalityModal.primary.save");
 }
 
-function getSubtitle(state: CardinalityDialogState, sourceLabel?: string, targetLabel?: string, contextLabel?: string): string {
+function getSubtitle(
+  state: CardinalityDialogState,
+  t: (key: MessageKey, params?: TranslationParams) => string,
+  sourceLabel?: string,
+  targetLabel?: string,
+  contextLabel?: string,
+): string {
   if (contextLabel) {
     return contextLabel;
   }
 
   if (state.target.kind === "attribute") {
     return sourceLabel
-      ? `Imposta la cardinalita dell'attributo ${sourceLabel}`
-      : "Imposta la cardinalita dell'attributo selezionato";
+      ? t("cardinalityModal.subtitle.attributeWithLabel", { label: sourceLabel })
+      : t("cardinalityModal.subtitle.attributeSelected");
   }
 
   if (state.createdEdgeWasTemporary) {
     return sourceLabel && targetLabel
-      ? `Completa il collegamento tra ${sourceLabel} e ${targetLabel}`
-      : "Completa il nuovo collegamento";
+      ? t("cardinalityModal.subtitle.completeConnectorWithLabels", { source: sourceLabel, target: targetLabel })
+      : t("cardinalityModal.subtitle.completeConnector");
   }
 
   return sourceLabel && targetLabel
-    ? `Modifica la partecipazione di ${sourceLabel} in ${targetLabel}`
-    : "Modifica la cardinalita del collegamento";
+    ? t("cardinalityModal.subtitle.editConnectorWithLabels", { source: sourceLabel, target: targetLabel })
+    : t("cardinalityModal.subtitle.editConnector");
 }
 
 export function CardinalityModal(props: CardinalityModalProps) {
+  const { t } = useI18n();
   const { state } = props;
   const primaryButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -71,9 +85,9 @@ export function CardinalityModal(props: CardinalityModalProps) {
     primaryButtonRef.current?.focus();
   }, []);
 
-  const subtitle = getSubtitle(state, props.sourceLabel, props.targetLabel, props.contextLabel);
+  const subtitle = getSubtitle(state, t, props.sourceLabel, props.targetLabel, props.contextLabel);
   const isCustom = state.presetValue === "custom";
-  const primaryLabel = getCardinalityModalPrimaryLabel(state);
+  const primaryLabel = getCardinalityModalPrimaryLabel(state, t);
 
   return (
     <div className="designer-modal-backdrop" role="presentation" onClick={props.onCancel}>
@@ -89,10 +103,10 @@ export function CardinalityModal(props: CardinalityModalProps) {
           <div>
             <div className="designer-cardinality-modal__eyebrow">
               <span className="designer-cardinality-modal__badge">
-                {state.createdEdgeWasTemporary ? "Nuovo collegamento" : "Modifica"}
+                {state.createdEdgeWasTemporary ? t("cardinalityModal.badge.newConnector") : t("cardinalityModal.badge.edit")}
               </span>
             </div>
-            <h2 id="cardinality-dialog-title">Configura cardinalita</h2>
+            <h2 id="cardinality-dialog-title">{t("cardinalityModal.title")}</h2>
             <p id="cardinality-dialog-subtitle" className="designer-cardinality-modal__subtitle">
               {subtitle}
             </p>
@@ -108,15 +122,15 @@ export function CardinalityModal(props: CardinalityModalProps) {
         >
           {state.target.kind === "connector" ? (
             <div className="designer-cardinality-visual" aria-hidden="true">
-              <span>{props.sourceLabel ?? "Entita"}</span>
+              <span>{props.sourceLabel ?? t("cardinalityModal.visual.entityFallback")}</span>
               <i />
-              <strong>cardinalita</strong>
+              <strong>{t("cardinalityModal.visual.cardinality")}</strong>
               <i />
-              <span>{props.targetLabel ?? "Relazione"}</span>
+              <span>{props.targetLabel ?? t("cardinalityModal.visual.relationshipFallback")}</span>
             </div>
           ) : null}
 
-          <div className="designer-cardinality-grid" role="radiogroup" aria-label="Preset cardinalita">
+          <div className="designer-cardinality-grid" role="radiogroup" aria-label={t("cardinalityModal.presets.aria")}>
             {CONNECTOR_CARDINALITY_PRESETS.map((preset) => (
               <label
                 key={preset}
@@ -129,7 +143,7 @@ export function CardinalityModal(props: CardinalityModalProps) {
                   onChange={() => props.onPresetChange(preset)}
                 />
                 <span>{preset}</span>
-                <small>{PRESET_DESCRIPTIONS[preset]}</small>
+                <small>{t(PRESET_DESCRIPTION_KEYS[preset])}</small>
               </label>
             ))}
           </div>
@@ -142,23 +156,23 @@ export function CardinalityModal(props: CardinalityModalProps) {
                 checked={isCustom}
                 onChange={() => props.onPresetChange("custom")}
               />
-              Personalizzata
+              {t("cardinalityModal.custom.label")}
             </span>
             <input
               value={state.customValue}
               placeholder="0,N"
               onFocus={() => props.onPresetChange("custom")}
               onChange={(event) => props.onCustomValueChange(event.target.value)}
-              aria-label="Cardinalita personalizzata"
+              aria-label={t("cardinalityModal.custom.aria")}
             />
-            <small>Accetta forme come 0,N, (1,N) o 1..4.</small>
+            <small>{t("cardinalityModal.custom.help")}</small>
           </label>
 
           {state.error ? <p className="designer-cardinality-error">{state.error}</p> : null}
 
           <footer className="designer-cardinality-actions">
             <button type="button" className="designer-cardinality-button secondary" onClick={props.onCancel}>
-              Annulla
+              {t("cardinalityModal.cancel")}
             </button>
             <button ref={primaryButtonRef} type="submit" className="designer-cardinality-button primary">
               {primaryLabel}

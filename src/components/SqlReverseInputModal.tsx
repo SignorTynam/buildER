@@ -1,4 +1,5 @@
 import type { ChangeEvent } from "react";
+import { useI18n } from "../i18n/useI18n";
 import type { LogicalIssue } from "../types/logical";
 import type { SqlReverseIssue } from "../types/sqlReverse";
 import { StudioIcon } from "./icons/StudioIcon";
@@ -58,6 +59,7 @@ export function SqlReverseInputModal({
   onClear,
   onCancel,
 }: SqlReverseInputModalProps) {
+  const { t } = useI18n();
   const visibleSqlIssues = issues.slice(0, MAX_VISIBLE_ISSUES);
   const visibleLogicalIssues = logicalIssues.slice(0, MAX_VISIBLE_ISSUES);
   const warningCount = issues.filter((issue) => issue.level === "warning").length + logicalIssues.filter((issue) => issue.level === "warning").length;
@@ -82,26 +84,26 @@ export function SqlReverseInputModal({
         <div className="studio-modal__header sql-reverse-modal__header">
           <div>
             <div className="sql-reverse-modal__title-row">
-              <h2 id="sql-reverse-modal-title" className="studio-modal__title">Reverse Engineering SQL</h2>
-              <span className="sql-reverse-beta-note">Beta</span>
+              <h2 id="sql-reverse-modal-title" className="studio-modal__title">{t("sqlReverse.input.title")}</h2>
+              <span className="sql-reverse-beta-note">{t("sqlReverse.input.betaBadge")}</span>
             </div>
             <p className="studio-modal__subtitle sql-reverse-modal__subtitle">
-              Questa feature è in beta. Al momento supporta solo istruzioni CREATE TABLE. Altri costrutti SQL saranno supportati nella versione finale.
+              {t("sqlReverse.input.betaDescription")}
             </p>
           </div>
-          <button type="button" className="studio-modal__close" onClick={onCancel} aria-label="Chiudi workflow SQL reverse">
+          <button type="button" className="studio-modal__close" onClick={onCancel} aria-label={t("sqlReverse.input.closeAria")}>
             <StudioIcon name="close" aria-hidden="true" />
           </button>
         </div>
 
         <div className="studio-modal__body sql-reverse-modal__body">
           <label className="sql-reverse-modal__label" htmlFor="sql-reverse-workflow-source">
-            Schema SQL
+            {t("sqlReverse.input.sourceLabel")}
           </label>
           <textarea
             id="sql-reverse-workflow-source"
             className="sql-reverse-modal__textarea"
-            aria-label="Schema SQL CREATE TABLE"
+            aria-label={t("sqlReverse.input.sourceAria")}
             value={sql}
             onChange={(event) => onSqlChange(event.target.value)}
             placeholder={"CREATE TABLE Student (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL\n);"}
@@ -110,28 +112,28 @@ export function SqlReverseInputModal({
           />
 
           {errorMessage ? (
-            <SqlReverseFeedbackCard tone="error" title="Errore">
+            <SqlReverseFeedbackCard tone="error" title={t("sqlReverse.input.errorTitle")}>
               {errorMessage}
             </SqlReverseFeedbackCard>
           ) : null}
 
           {isPreviewReady && warningCount > 0 && !errorMessage ? (
-            <SqlReverseFeedbackCard tone="warning" title="Warning">
-              {`SQL analizzato con ${warningCount} warning non bloccanti.`}
+            <SqlReverseFeedbackCard tone="warning" title={t("sqlReverse.input.warningTitle")}>
+              {t("sqlReverse.input.warningSummary", { count: warningCount })}
             </SqlReverseFeedbackCard>
           ) : null}
 
           {isPreviewReady && !errorMessage ? (
-            <div className="sql-reverse-modal__summary" aria-label="Riepilogo analisi SQL">
-              <span><strong>{tableCount}</strong> tabelle</span>
-              <span><strong>{unsupportedStatementCount}</strong> statement non supportati</span>
-              <span><strong>{issues.length}</strong> issue SQL</span>
-              <span><strong>{logicalIssues.length}</strong> issue logiche</span>
+            <div className="sql-reverse-modal__summary" aria-label={t("sqlReverse.input.summaryAria")}>
+              <span><strong>{tableCount}</strong> {t("sqlReverse.input.tablesCount", { count: tableCount })}</span>
+              <span><strong>{unsupportedStatementCount}</strong> {t("sqlReverse.input.unsupportedStatementsCount", { count: unsupportedStatementCount })}</span>
+              <span><strong>{issues.length}</strong> {t("sqlReverse.input.sqlIssuesCount", { count: issues.length })}</span>
+              <span><strong>{logicalIssues.length}</strong> {t("sqlReverse.input.logicalIssuesCount", { count: logicalIssues.length })}</span>
             </div>
           ) : null}
 
           {visibleSqlIssues.length > 0 ? (
-            <div className="sql-reverse-modal__issues" aria-label="Issue SQL">
+            <div className="sql-reverse-modal__issues" aria-label={t("sqlReverse.input.sqlIssuesAria")}>
               {visibleSqlIssues.map((issue) => (
                 <SqlReverseFeedbackCard key={issue.id} tone={issue.level} title={formatIssue(issue)}>
                   {issue.message}
@@ -141,7 +143,7 @@ export function SqlReverseInputModal({
           ) : null}
 
           {visibleLogicalIssues.length > 0 ? (
-            <div className="sql-reverse-modal__issues" aria-label="Issue logiche">
+            <div className="sql-reverse-modal__issues" aria-label={t("sqlReverse.input.logicalIssuesAria")}>
               {visibleLogicalIssues.map((issue) => (
                 <SqlReverseFeedbackCard key={issue.id} tone={issue.level} title={formatIssue(issue)}>
                   {issue.message}
@@ -155,27 +157,27 @@ export function SqlReverseInputModal({
           <div className="sql-reverse-modal__action-group sql-reverse-modal__action-group-secondary">
             <label className="header-button sql-reverse-modal__file-button">
               <StudioIcon name="upload" aria-hidden="true" />
-              Carica .sql
+              {t("sqlReverse.input.loadSql")}
               <input
                 type="file"
                 accept=".sql,text/plain,application/sql"
                 className="sql-reverse-file-input"
-                aria-label="Carica file SQL"
+                aria-label={t("sqlReverse.input.loadSqlAria")}
                 onChange={handleFileChange}
               />
             </label>
             <button type="button" className="header-button" onClick={onClear}>
               <StudioIcon name="reset" aria-hidden="true" />
-              Pulisci
+              {t("sqlReverse.input.clear")}
             </button>
           </div>
           <div className="sql-reverse-modal__action-group sql-reverse-modal__action-group-primary">
             <button type="button" className="header-button" onClick={onCancel}>
-              Annulla
+              {t("sqlReverse.input.cancel")}
             </button>
             <button type="button" className="mode-button active" onClick={onAnalyze}>
               <StudioIcon name="databaseReverse" aria-hidden="true" />
-              Analizza SQL
+              {t("sqlReverse.input.analyze")}
             </button>
           </div>
         </div>
