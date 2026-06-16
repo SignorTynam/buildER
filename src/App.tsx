@@ -29,6 +29,7 @@ import { TranslationWorkspace } from "./translation/TranslationWorkspace";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
   AttributeNode,
+  Bounds,
   DiagramDocument,
   DiagramEdge,
   DiagramNode,
@@ -39,6 +40,7 @@ import type {
   IsaCompleteness,
   IsaDisjointness,
   Point,
+  RelationshipNode,
   SelectionState,
   ToolKind,
   ValidationIssue,
@@ -109,8 +111,19 @@ import {
   type DiagramClipboardPayload,
 } from "./utils/clipboard";
 import { downloadPng, downloadSvg } from "./utils/export";
-import { GRID_SIZE, snapValue } from "./utils/geometry";
-import { distributeAttributesAroundHost, placeNewAttributeAroundHost } from "./utils/attributeLayout";
+import {
+  GRID_SIZE,
+  clipPointToNodePerimeter,
+  getNodeCenter,
+  getNodeConnectionSide,
+  snapValue,
+} from "./utils/geometry";
+import {
+  distributeAttributesAroundHost,
+  placeNewAttributeAroundHost,
+  type AttributeLayoutOptions,
+  type AttributeLayoutSide,
+} from "./utils/attributeLayout";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
 import {
   applyErTranslationChoice,
@@ -1084,6 +1097,78 @@ function getConnectionFailureReason(
 
 type AttributeCreationHost = Extract<DiagramNode, { type: "entity" | "relationship" | "attribute" }>;
 type AttributeNodeDraft = Extract<DiagramNode, { type: "attribute" }>;
+type DirectAttributeLayoutHost = EntityNode | RelationshipNode;
+
+function padBounds(bounds: Bounds, padding: number): Bounds {
+  return {
+    x: bounds.x - padding,
+    y: bounds.y - padding,
+    width: bounds.width + padding * 2,
+    height: bounds.height + padding * 2,
+  };
+}
+
+function buildConnectorCorridor(start: Point, end: Point, padding: number): Bounds {
+  return {
+    x: Math.min(start.x, end.x) - padding,
+    y: Math.min(start.y, end.y) - padding,
+    width: Math.abs(end.x - start.x) + padding * 2,
+    height: Math.abs(end.y - start.y) + padding * 2,
+  };
+}
+
+function buildAttributeLayoutOptionsForHost(
+  diagram: DiagramDocument,
+  hostNode: DirectAttributeLayoutHost,
+  attributeIdsBeingLaidOut: string[],
+): AttributeLayoutOptions {
+  const layoutAttributeIds = new Set(attributeIdsBeingLaidOut);
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const occupiedBounds: Bounds[] = [];
+  const sidePenalties: Partial<Record<AttributeLayoutSide, number>> = {};
+  const nodePadding = 14;
+  const connectorPadding = 28;
+
+  diagram.nodes.forEach((node) => {
+    if (node.id === hostNode.id) {
+      return;
+    }
+
+    if (node.type === "attribute" && layoutAttributeIds.has(node.id)) {
+      return;
+    }
+
+    if (node.type === "entity" || node.type === "relationship" || node.type === "attribute") {
+      occupiedBounds.push(padBounds(node, nodePadding));
+    }
+  });
+
+  diagram.edges.forEach((edge) => {
+    if (edge.type !== "connector" || (edge.sourceId !== hostNode.id && edge.targetId !== hostNode.id)) {
+      return;
+    }
+
+    const otherNode = nodeById.get(edge.sourceId === hostNode.id ? edge.targetId : edge.sourceId);
+    if (!otherNode) {
+      return;
+    }
+
+    const otherCenter = getNodeCenter(otherNode);
+    const side = getNodeConnectionSide(hostNode, otherCenter) as AttributeLayoutSide;
+    sidePenalties[side] = (sidePenalties[side] ?? 0) + 12000;
+
+    const hostEndpoint = clipPointToNodePerimeter(hostNode, otherCenter);
+    const otherEndpoint = clipPointToNodePerimeter(otherNode, getNodeCenter(hostNode));
+    occupiedBounds.push(buildConnectorCorridor(hostEndpoint, otherEndpoint, connectorPadding));
+  });
+
+  return {
+    occupiedBounds,
+    sidePenalties,
+    preferredSides: ["left", "right", "top", "bottom"],
+    preserveInputOrder: true,
+  };
+}
 
 function findDirectHostedAttributes(
   diagram: DiagramDocument,
@@ -1138,7 +1223,16 @@ function getNextAttributePosition(
     };
   }
 
-  const positionedNextAttribute = placeNewAttributeAroundHost(hostNode, hostedAttributes, nextAttribute);
+  const positionedNextAttribute = placeNewAttributeAroundHost(
+    hostNode,
+    hostedAttributes,
+    nextAttribute,
+    buildAttributeLayoutOptionsForHost(
+      diagram,
+      hostNode,
+      hostedAttributes.map((attribute) => attribute.id),
+    ),
+  );
 
   return {
     x: positionedNextAttribute.x,
@@ -1159,7 +1253,11 @@ function layoutDirectAttributesAroundHost(
   const attributes = diagram.nodes
     .filter((node): node is AttributeNode => node.type === "attribute" && idSet.has(node.id))
     .sort((left, right) => attributeIds.indexOf(left.id) - attributeIds.indexOf(right.id));
-  const positionedAttributes = distributeAttributesAroundHost(hostNode, attributes);
+  const positionedAttributes = distributeAttributesAroundHost(
+    hostNode,
+    attributes,
+    buildAttributeLayoutOptionsForHost(diagram, hostNode, attributeIds),
+  );
   const positions = new Map<string, Point>(
     positionedAttributes.map((attribute) => [
       attribute.id,
