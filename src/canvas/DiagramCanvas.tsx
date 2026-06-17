@@ -12,6 +12,8 @@ import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
 import {
   DIAGRAM_IDENTIFIER_STROKE_WIDTH,
   DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS,
+  getIdentifierStroke,
+  getIdentifierTerminalMarkerStroke,
 } from "./diagramVisualConstants";
 import { StudioIcon } from "../components/icons/StudioIcon";
 import { useI18n } from "../i18n/useI18n";
@@ -3337,6 +3339,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       props.selectedIdentifier?.kind === "external" &&
       props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
       props.selectedIdentifier.externalIdentifierId === layout.externalIdentifierId;
+    const identifierStroke = getIdentifierStroke(externalIdentifierSelected);
+    const terminalMarkerStroke = getIdentifierTerminalMarkerStroke(externalIdentifierSelected);
 
     return (
       <g
@@ -3366,23 +3370,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           strokeWidth={18}
           pointerEvents="stroke"
         />
-        {externalIdentifierSelected ? (
-          <path
-            className="external-identifier-focus-ring"
-            d={layout.pathData}
-            fill="none"
-            stroke={DIAGRAM_FOCUS}
-            strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            pointerEvents="none"
-          />
-        ) : null}
         <path
           className="external-identifier-entity-frame"
           d={layout.pathData}
           fill="none"
-          stroke={DIAGRAM_STROKE}
+          stroke={identifierStroke}
           strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -3398,25 +3390,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               fill="transparent"
               pointerEvents="fill"
             />
-            {externalIdentifierSelected ? (
-              <circle
-                className="external-identifier-focus-ring"
-                cx={layout.terminalMarker.x}
-                cy={layout.terminalMarker.y}
-                r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS + 4}
-                fill="none"
-                stroke={DIAGRAM_FOCUS}
-                strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
-                pointerEvents="none"
-              />
-            ) : null}
             <circle
               className="external-identifier-terminal-marker"
               cx={layout.terminalMarker.x}
               cy={layout.terminalMarker.y}
               r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
               fill={DIAGRAM_STROKE}
-              stroke={DIAGRAM_STROKE}
+              stroke={terminalMarkerStroke}
               strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
               pointerEvents="none"
             />
@@ -3431,6 +3411,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       props.selectedIdentifier?.kind === "external" &&
       props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
       props.selectedIdentifier.externalIdentifierId === layout.externalIdentifierId;
+    const markerStroke = getIdentifierTerminalMarkerStroke(externalIdentifierSelected);
 
     return (
       <g
@@ -3460,25 +3441,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           fill="transparent"
           pointerEvents="fill"
         />
-        {externalIdentifierSelected ? (
-          <circle
-            className="external-identifier-focus-ring"
-            cx={layout.marker.x}
-            cy={layout.marker.y}
-            r={9.4}
-            fill="none"
-            stroke={DIAGRAM_FOCUS}
-            strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
-            pointerEvents="none"
-          />
-        ) : null}
         <circle
           className={`external-identifier-marker external-identifier-marker-${layout.kind}`}
           cx={layout.marker.x}
           cy={layout.marker.y}
           r={5.4}
           fill={DIAGRAM_STROKE}
-          stroke={DIAGRAM_STROKE}
+          stroke={markerStroke}
           strokeWidth={1.2}
           pointerEvents="none"
         >
@@ -4412,6 +4381,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               props.selectedIdentifier?.kind === "internal" &&
               props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
               props.selectedIdentifier.internalIdentifierId === layout.internalIdentifierId;
+            const identifierStroke = getIdentifierStroke(compositeIdentifierSelected);
+            const terminalMarkerStroke = getIdentifierTerminalMarkerStroke(compositeIdentifierSelected);
             return (
             <g
               key={`composite-id-${layout.groupKey}`}
@@ -4427,23 +4398,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   : undefined
               }
             >
-              {compositeIdentifierSelected ? (
-                <path
-                  className="composite-identifier-focus-ring"
-                  d={layout.pathData}
-                  fill="none"
-                  stroke={DIAGRAM_FOCUS}
-                  strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  pointerEvents="none"
-                />
-              ) : null}
               <path
                 className="composite-identifier-path"
                 d={layout.pathData}
                 fill="none"
-                stroke={DIAGRAM_STROKE}
+                stroke={identifierStroke}
                 strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -4464,23 +4423,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               ))}
               {layout.terminalMarker ? (
                 <>
-                {compositeIdentifierSelected ? (
-                  <circle
-                    className="composite-identifier-focus-ring"
-                    cx={layout.terminalMarker.x}
-                    cy={layout.terminalMarker.y}
-                    r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS + 4}
-                    fill={DIAGRAM_FOCUS}
-                    pointerEvents="none"
-                  />
-                ) : null}
                 <circle
                   className="composite-identifier-marker"
                   cx={layout.terminalMarker.x}
                   cy={layout.terminalMarker.y}
                   r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
                   fill={DIAGRAM_STROKE}
-                  stroke={DIAGRAM_STROKE}
+                  stroke={terminalMarkerStroke}
                   strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                   pointerEvents="none"
                 />
@@ -4537,6 +4486,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 props.selectedIdentifier?.kind === "external" &&
                 props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
                 props.selectedIdentifier.externalIdentifierId === layout.externalIdentifierId;
+              const identifierStroke = getIdentifierStroke(externalIdentifierSelected);
+              const terminalMarkerStroke = getIdentifierTerminalMarkerStroke(externalIdentifierSelected);
               return (
                 <g
                   key={`external-id-${layout.externalIdentifierId}`}
@@ -4597,36 +4548,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                       pointerEvents="stroke"
                     />
                   ) : null}
-                  {externalIdentifierSelected ? (
-                    <path
-                      className="external-identifier-focus-ring"
-                      d={markerPath}
-                      fill="none"
-                      stroke={DIAGRAM_FOCUS}
-                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      pointerEvents="none"
-                    />
-                  ) : null}
-                  {externalIdentifierSelected && layout.bracketStart && layout.bracketEnd ? (
-                    <line
-                      className="external-identifier-focus-ring"
-                      x1={layout.bracketStart.x}
-                      y1={layout.bracketStart.y}
-                      x2={layout.bracketEnd.x}
-                      y2={layout.bracketEnd.y}
-                      stroke={DIAGRAM_FOCUS}
-                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
-                      strokeLinecap="round"
-                      pointerEvents="none"
-                    />
-                  ) : null}
                   <path
                     className="external-identifier-path"
                     d={markerPath}
                     fill="none"
-                    stroke={DIAGRAM_STROKE}
+                    stroke={identifierStroke}
                     strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -4639,7 +4565,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                       y1={layout.bracketStart.y}
                       x2={layout.bracketEnd.x}
                       y2={layout.bracketEnd.y}
-                      stroke={DIAGRAM_STROKE}
+                      stroke={identifierStroke}
                       strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                       strokeLinecap="round"
                       pointerEvents="none"
@@ -4669,22 +4595,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     cy={layout.marker.y}
                     r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
                     fill={DIAGRAM_STROKE}
-                    stroke={DIAGRAM_STROKE}
+                    stroke={terminalMarkerStroke}
                     strokeWidth={1.8}
                     pointerEvents="none"
                   />
-                  {externalIdentifierSelected ? (
-                    <circle
-                      className="external-identifier-focus-ring"
-                      cx={layout.marker.x}
-                      cy={layout.marker.y}
-                      r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS + 4}
-                      fill="none"
-                      stroke={DIAGRAM_FOCUS}
-                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
-                      pointerEvents="none"
-                    />
-                  ) : null}
                 </g>
               );
             }
@@ -4694,6 +4608,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               props.selectedIdentifier?.kind === "external" &&
               props.selectedIdentifier.hostEntityId === layout.hostEntityId &&
               props.selectedIdentifier.externalIdentifierId === layout.externalIdentifierId;
+            const identifierStroke = getIdentifierStroke(externalIdentifierSelected);
+            const terminalMarkerStroke = getIdentifierTerminalMarkerStroke(externalIdentifierSelected);
 
             return (
               <g
@@ -4723,23 +4639,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   strokeWidth={18}
                   pointerEvents="stroke"
                 />
-                {externalIdentifierSelected ? (
-                  <path
-                    className="external-identifier-focus-ring"
-                    d={pathData}
-                    fill="none"
-                    stroke={DIAGRAM_FOCUS}
-                    strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    pointerEvents="none"
-                  />
-                ) : null}
                 <path
                   className="external-identifier-path"
                   d={pathData}
                   fill="none"
-                  stroke={DIAGRAM_STROKE}
+                  stroke={identifierStroke}
                   strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -4771,43 +4675,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 ) : null}
                 {layout.markerStemStart ? (
                   <>
-                  {externalIdentifierSelected ? (
-                    <line
-                      className="external-identifier-focus-ring"
-                      x1={layout.markerStemStart.x}
-                      y1={layout.markerStemStart.y}
-                      x2={layout.marker.x}
-                      y2={layout.marker.y}
-                      stroke={DIAGRAM_FOCUS}
-                      strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH + 4}
-                      strokeLinecap="round"
-                      pointerEvents="none"
-                    />
-                  ) : null}
                   <line
                     className="external-identifier-path"
                     x1={layout.markerStemStart.x}
                     y1={layout.markerStemStart.y}
                     x2={layout.marker.x}
                     y2={layout.marker.y}
-                    stroke={DIAGRAM_STROKE}
+                    stroke={identifierStroke}
                     strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
                     strokeLinecap="round"
                     pointerEvents="none"
                   />
                   </>
-                ) : null}
-                {externalIdentifierSelected ? (
-                  <circle
-                    className="external-identifier-focus-ring"
-                    cx={layout.marker.x}
-                    cy={layout.marker.y}
-                    r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS + 4}
-                    fill="none"
-                    stroke={DIAGRAM_FOCUS}
-                    strokeWidth={DIAGRAM_IDENTIFIER_STROKE_WIDTH}
-                    pointerEvents="none"
-                  />
                 ) : null}
                 <circle
                   className="external-identifier-marker"
@@ -4815,7 +4694,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   cy={layout.marker.y}
                   r={DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS}
                   fill="var(--diagram-canvas-fill)"
-                  stroke={DIAGRAM_STROKE}
+                  stroke={terminalMarkerStroke}
                   strokeWidth={1.8}
                   pointerEvents="none"
                 />
