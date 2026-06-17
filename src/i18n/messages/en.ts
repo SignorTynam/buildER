@@ -438,6 +438,7 @@ export const en: DeepPartialMessages = {
     internalIdentifierRemoved: "Internal identifier removed.",
     externalIdentifierRemoved: "External identifier removed.",
     noIdentifierSelected: "No identifier selected.",
+    identifierAlreadyExistsUseDelete: "This attribute is already an identifier. Use Delete Id to remove the identifier.",
     noExternalIdentifierToRemove: "No external identifier to remove on the selected entity.",
     externalIdentifierDialog: {
       title: "External Id",

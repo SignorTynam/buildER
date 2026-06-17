@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AttributeNode, DiagramDocument, EntityNode } from "../src/types/diagram.ts";
-import { removeInternalIdentifierFromEntity } from "../src/utils/diagram.ts";
+import { createSimpleInternalIdentifierForAttribute, removeInternalIdentifierFromEntity } from "../src/utils/diagram.ts";
 
 function entity(overrides: Partial<EntityNode> = {}): EntityNode {
   return {
@@ -98,4 +98,64 @@ test("removeInternalIdentifierFromEntity preserves other internal identifiers", 
     "attr-2",
     "attr-3",
   ]);
+});
+
+test("removeInternalIdentifierFromEntity removes a simple identifier without deleting a composite identifier", () => {
+  const source: DiagramDocument = {
+    ...diagramWithCompositeIdentifier(),
+    nodes: [
+      entity({
+        internalIdentifiers: [
+          { id: "identifier-simple", attributeIds: ["attr-3"] },
+          { id: "identifier-composite", attributeIds: ["attr-1", "attr-2"] },
+        ],
+      }),
+      attribute("attr-1"),
+      attribute("attr-2"),
+      attribute("attr-3", { isIdentifier: true, isCompositeInternal: false }),
+    ],
+    edges: [
+      { id: "edge-1", type: "attribute", sourceId: "entity-1", targetId: "attr-1", label: "", lineStyle: "solid" },
+      { id: "edge-2", type: "attribute", sourceId: "entity-1", targetId: "attr-2", label: "", lineStyle: "solid" },
+      { id: "edge-3", type: "attribute", sourceId: "entity-1", targetId: "attr-3", label: "", lineStyle: "solid" },
+    ],
+  };
+
+  const updated = removeInternalIdentifierFromEntity(source, "entity-1", "identifier-simple");
+  const updatedEntity = updated.nodes.find((node): node is EntityNode => node.id === "entity-1" && node.type === "entity");
+  const simpleAttribute = updated.nodes.find((node): node is AttributeNode => node.id === "attr-3" && node.type === "attribute");
+
+  assert.deepEqual(updatedEntity?.internalIdentifiers, [
+    { id: "identifier-composite", attributeIds: ["attr-1", "attr-2"] },
+  ]);
+  assert.deepEqual(updated.nodes.filter((node) => node.type === "attribute").map((node) => node.id).sort(), [
+    "attr-1",
+    "attr-2",
+    "attr-3",
+  ]);
+  assert.deepEqual(updated.edges.map((edge) => edge.id).sort(), ["edge-1", "edge-2", "edge-3"]);
+  assert.equal(simpleAttribute?.isIdentifier, false);
+  assert.equal(simpleAttribute?.isCompositeInternal, false);
+});
+
+test("createSimpleInternalIdentifierForAttribute does not remove an existing identifier", () => {
+  const source: DiagramDocument = {
+    ...diagramWithCompositeIdentifier(),
+    nodes: [
+      entity({
+        internalIdentifiers: [{ id: "identifier-simple", attributeIds: ["attr-1"] }],
+      }),
+      attribute("attr-1", { isIdentifier: true, isCompositeInternal: false }),
+      attribute("attr-2", { isCompositeInternal: false }),
+    ],
+  };
+
+  const result = createSimpleInternalIdentifierForAttribute(source, "attr-1");
+
+  assert.equal(result.status, "already-exists");
+  assert.equal(result.diagram, source);
+  const updatedEntity = result.diagram.nodes.find(
+    (node): node is EntityNode => node.id === "entity-1" && node.type === "entity",
+  );
+  assert.deepEqual(updatedEntity?.internalIdentifiers, [{ id: "identifier-simple", attributeIds: ["attr-1"] }]);
 });

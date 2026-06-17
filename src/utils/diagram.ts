@@ -3008,6 +3008,110 @@ export function isExternalIdentifierStillValid(
   return validateExternalIdentifier(diagram, hostEntity, externalIdentifier).valid;
 }
 
+export type CreateSimpleInternalIdentifierResult =
+  | {
+      status: "created";
+      diagram: DiagramDocument;
+      hostEntityId: string;
+      internalIdentifierId: string;
+    }
+  | {
+      status: "already-exists" | "not-eligible";
+      diagram: DiagramDocument;
+      hostEntityId?: string;
+      internalIdentifierId?: string;
+    };
+
+export function createSimpleInternalIdentifierForAttribute(
+  diagram: DiagramDocument,
+  attributeId: string,
+): CreateSimpleInternalIdentifierResult {
+  const attribute = diagram.nodes.find(
+    (node): node is AttributeNode => node.id === attributeId && node.type === "attribute",
+  );
+  if (!attribute || attribute.isMultivalued === true) {
+    return { status: "not-eligible", diagram };
+  }
+
+  let hostEntity: EntityNode | undefined;
+  for (const edge of diagram.edges) {
+    if (edge.type !== "attribute") {
+      continue;
+    }
+
+    const otherId = edge.sourceId === attributeId ? edge.targetId : edge.targetId === attributeId ? edge.sourceId : "";
+    const candidate = diagram.nodes.find((node): node is EntityNode => node.id === otherId && node.type === "entity");
+    if (candidate) {
+      hostEntity = candidate;
+      break;
+    }
+  }
+
+  if (!hostEntity) {
+    return { status: "not-eligible", diagram };
+  }
+
+  const existing = (hostEntity.internalIdentifiers ?? []).find((identifier) =>
+    identifier.attributeIds.includes(attributeId),
+  );
+  if (existing) {
+    return {
+      status: "already-exists",
+      diagram,
+      hostEntityId: hostEntity.id,
+      internalIdentifierId: existing.id,
+    };
+  }
+
+  const usedExternalAttributeIds = new Set(
+    (hostEntity.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds),
+  );
+  if (
+    attribute.isIdentifier === true ||
+    attribute.isCompositeInternal === true ||
+    usedExternalAttributeIds.has(attributeId)
+  ) {
+    return { status: "not-eligible", diagram, hostEntityId: hostEntity.id };
+  }
+
+  const internalIdentifierId = `internalIdentifier-simple-${attributeId}`;
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.id === hostEntity.id && node.type === "entity") {
+      return {
+        ...node,
+        internalIdentifiers: [
+          ...(node.internalIdentifiers ?? []),
+          {
+            id: internalIdentifierId,
+            attributeIds: [attributeId],
+          },
+        ],
+      };
+    }
+
+    if (node.id === attributeId && node.type === "attribute") {
+      return {
+        ...node,
+        isIdentifier: true,
+        isCompositeInternal: false,
+        cardinality: undefined,
+      };
+    }
+
+    return node;
+  });
+
+  return {
+    status: "created",
+    diagram: {
+      ...diagram,
+      nodes: nextNodes,
+    },
+    hostEntityId: hostEntity.id,
+    internalIdentifierId,
+  };
+}
+
 export function removeExternalIdentifierFromEntity(
   diagram: DiagramDocument,
   entityId: string,

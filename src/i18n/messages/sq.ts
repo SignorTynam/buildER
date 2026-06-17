@@ -438,6 +438,7 @@ export const sq: DeepPartialMessages = {
     internalIdentifierRemoved: "Identifikuesi i brendshem u hoq.",
     externalIdentifierRemoved: "Identifikuesi i jashtem u hoq.",
     noIdentifierSelected: "Nuk ka identifikues te zgjedhur.",
+    identifierAlreadyExistsUseDelete: "Ky atribut eshte tashme identifikues. Perdorni Fshi ID per te hequr identifikuesin.",
     noExternalIdentifierToRemove: "Nuk ka identifikues te jashtem per t'u hequr ne entitetin e zgjedhur.",
     externalIdentifierDialog: {
       title: "ID i jashtem",

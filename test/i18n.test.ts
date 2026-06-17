@@ -45,6 +45,8 @@ const NEW_I18N_SECTIONS = [
   "toolbar.commands.compositeId.sameEntity",
   "toolbar.commands.externalIdUnified.label",
   "toolbar.commands.deleteIdentifier.label",
+  "toolbar.commands.deleteIdentifier.title",
+  "workspace.identifierAlreadyExistsUseDelete",
   "toolbar.export.diagramCode",
   "notesPanel.toolbar.bold",
   "notesPanel.toolbar.clearFormatting",
@@ -130,11 +132,21 @@ test("identifier toolbar labels resolve for every locale", () => {
     en: "External Id",
     sq: "ID i jashtëm",
   };
+  const expectedDeleteIdentifierTitles: Record<Locale, string> = {
+    it: "Elimina l'identificatore selezionato senza cancellare i suoi attributi",
+    en: "Delete the selected identifier without deleting its attributes",
+    sq: "Fshin identifikuesin e zgjedhur pa fshirë atributet e tij",
+  };
 
   for (const locale of SUPPORTED_LOCALES) {
     setCurrentLocale(locale);
     assert.equal(translate("toolbar.commands.externalIdUnified.label"), expectedExternalIdLabels[locale]);
     assert.notEqual(translate("toolbar.commands.deleteIdentifier.label"), "toolbar.commands.deleteIdentifier.label");
+    assert.equal(translate("toolbar.commands.deleteIdentifier.title"), expectedDeleteIdentifierTitles[locale]);
+    assert.notEqual(
+      translate("workspace.identifierAlreadyExistsUseDelete"),
+      "workspace.identifierAlreadyExistsUseDelete",
+    );
   }
 
   setCurrentLocale(DEFAULT_LOCALE);

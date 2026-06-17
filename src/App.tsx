@@ -70,6 +70,7 @@ import {
   canConnect,
   canAttributeHaveCardinality,
   canAttributeBecomeComposite,
+  createSimpleInternalIdentifierForAttribute,
   createEdge,
   createEmptyDiagram,
   createGeneralizationGroupForInheritanceEdge,
@@ -810,6 +811,51 @@ function downloadTextFile(content: string, fileName: string, mimeType = "text/pl
   URL.revokeObjectURL(url);
 }
 
+function getSimpleIdentifierSelectionForAttribute(
+  diagram: DiagramDocument,
+  attributeId: string,
+): IdentifierSelection | null {
+  for (const node of diagram.nodes) {
+    if (node.type !== "entity") {
+      continue;
+    }
+
+    const identifier = (node.internalIdentifiers ?? []).find(
+      (candidate) => candidate.attributeIds.length === 1 && candidate.attributeIds[0] === attributeId,
+    );
+
+    if (identifier) {
+      return {
+        kind: "internal",
+        hostEntityId: node.id,
+        internalIdentifierId: identifier.id,
+        attributeIds: [attributeId],
+      };
+    }
+  }
+
+  return null;
+}
+
+function identifierSelectionExists(diagram: DiagramDocument, selection: IdentifierSelection): boolean {
+  const hostEntity = diagram.nodes.find(
+    (node): node is EntityNode => node.id === selection.hostEntityId && node.type === "entity",
+  );
+  if (!hostEntity) {
+    return false;
+  }
+
+  if (selection.kind === "internal") {
+    return (hostEntity.internalIdentifiers ?? []).some(
+      (identifier) => identifier.id === selection.internalIdentifierId,
+    );
+  }
+
+  return (hostEntity.externalIdentifiers ?? []).some(
+    (identifier) => identifier.id === selection.externalIdentifierId,
+  );
+}
+
 function readOnboardingCompleted(): boolean {
   if (typeof window === "undefined") {
     return false;
@@ -1306,6 +1352,17 @@ export default function App() {
     selection.edgeIds.length === 1 && selection.nodeIds.length === 0
       ? history.present.edges.find((edge) => edge.id === selection.edgeIds[0])
       : undefined;
+
+  useEffect(() => {
+    if (!identifierSelection) {
+      return;
+    }
+
+    if (!identifierSelectionExists(history.present, identifierSelection)) {
+      setIdentifierSelection(null);
+    }
+  }, [history.present, identifierSelection]);
+
   const selectedWarningIssue =
     selectedNode
       ? issues.find(
@@ -2288,6 +2345,22 @@ export default function App() {
     setStatus(message);
   }
 
+  function handleErSelectionChange(nextSelection: SelectionState) {
+    setSelection(nextSelection);
+
+    if (nextSelection.nodeIds.length === 1 && nextSelection.edgeIds.length === 0) {
+      setIdentifierSelection(getSimpleIdentifierSelectionForAttribute(history.present, nextSelection.nodeIds[0]));
+      return;
+    }
+
+    setIdentifierSelection(null);
+  }
+
+  function handleToolChange(nextTool: ToolKind) {
+    setTool(nextTool);
+    setIdentifierSelection(null);
+  }
+
   function handleIssueNotice(issue: ValidationIssue) {
     if (issue.level === "error") {
       const formattedIssue = formatErrorFromRawMessage(
@@ -2804,6 +2877,7 @@ export default function App() {
     syncCodeDraftWithDiagram(normalizedIncoming.diagram);
     markDocumentBaseline(normalizedIncoming.diagram);
     setSelection({ nodeIds: [], edgeIds: [] });
+    setIdentifierSelection(null);
     setViewport(options?.viewport ? { ...options.viewport } : { ...DEFAULT_VIEWPORT });
     setTool("select");
     setStatus(status);
@@ -3030,7 +3104,7 @@ export default function App() {
 
         if (nextTool) {
           event.preventDefault();
-          setTool(nextTool);
+          handleToolChange(nextTool);
           setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
           return;
         }
@@ -3660,13 +3734,14 @@ export default function App() {
     };
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [nextNode.id], edgeIds: [] });
+    setIdentifierSelection(null);
     setTool("select");
     setStatus(`${nextNode.label} aggiunto.`);
     return nextNode.id;
   }
 
   function handleCreateNodeFromToolbar(nodeType: Extract<ToolKind, "entity" | "relationship">) {
-    setTool(nodeType);
+    handleToolChange(nodeType);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus(nodeType === "entity" ? "Clicca nel workspace per posizionare la nuova entita." : "Clicca nel workspace per posizionare la nuova associazione.");
   }
@@ -3776,6 +3851,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [edgeToSelect.id] });
+    setIdentifierSelection(null);
     setTool("select");
     if (shouldRequestConnectorCardinality) {
       setCardinalityDialog({
@@ -4177,23 +4253,26 @@ export default function App() {
       return;
     }
 
-    const existing = context.entity.internalIdentifiers?.find((identifier) =>
-      identifier.attributeIds.includes(context.attribute.id),
-    );
-    const nextIdentifiers = existing
-      ? (context.entity.internalIdentifiers ?? []).filter((identifier) => identifier.id !== existing.id)
-      : [
-          ...(context.entity.internalIdentifiers ?? []),
-          {
-            id: `internalIdentifier-simple-${context.attribute.id}`,
-            attributeIds: [context.attribute.id],
-          },
-        ];
-    handleEntityInternalIdentifiersChange(
-      context.entity.id,
-      { internalIdentifiers: nextIdentifiers },
-      { [context.attribute.id]: { isIdentifier: !existing, isCompositeInternal: false, cardinality: undefined } },
-    );
+    const result = createSimpleInternalIdentifierForAttribute(history.present, context.attribute.id);
+    if (result.status === "already-exists") {
+      setStatusWarning(t("workspace.identifierAlreadyExistsUseDelete"));
+      return;
+    }
+
+    if (result.status !== "created") {
+      setStatusWarning("Simple Id e disponibile solo per attributi semplici non usati in altri identificatori.");
+      return;
+    }
+
+    commitDiagram(result.diagram);
+    setSelection({ nodeIds: [context.attribute.id], edgeIds: [] });
+    setIdentifierSelection({
+      kind: "internal",
+      hostEntityId: result.hostEntityId,
+      internalIdentifierId: result.internalIdentifierId,
+      attributeIds: [context.attribute.id],
+    });
+    setStatus("Identificatore interno semplice creato.");
   }
 
   function handleCreateCompositeIdentifierFromSelection() {
@@ -6123,7 +6202,7 @@ export default function App() {
                   onOpenInheritanceType={handleOpenInheritanceTypeControl}
                   onRemoveFromHierarchy={handleRemoveSelectedEntityFromHierarchy}
                   onRemoveExternalIdentifier={handleRemoveSelectedExternalIdentifier}
-                  onToolChange={setTool}
+                  onToolChange={handleToolChange}
                   onDuplicateSelection={handleDuplicateSelection}
                   onDeleteSelection={handleDeleteSelection}
                   selectedIdentifier={identifierSelection}
@@ -6152,10 +6231,7 @@ export default function App() {
                   statusMessage={statusMessage}
                   svgRef={svgRef}
                   onViewportChange={setViewport}
-                  onSelectionChange={(nextSelection) => {
-                    setSelection(nextSelection);
-                    setIdentifierSelection(null);
-                  }}
+                  onSelectionChange={handleErSelectionChange}
                   selectedIdentifier={identifierSelection}
                   onIdentifierSelectionChange={setIdentifierSelection}
                   onPreviewDiagram={handlePreviewDiagram}
@@ -6164,7 +6240,7 @@ export default function App() {
                   onCreateEdge={handleCreateEdge}
                   onOpenCardinality={handleOpenCardinalityControl}
                   onOpenInheritanceType={handleOpenInheritanceTypeControl}
-                  onToolChange={setTool}
+                  onToolChange={handleToolChange}
                   onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
                   onDeleteNode={handleDeleteNodeById}
                   onDeleteEdge={handleDeleteEdgeById}

@@ -90,6 +90,30 @@ function findAttributeHost(diagram: DiagramDocument, attributeId: string): Diagr
   return nodeMap.get(edge.sourceId === attributeId ? edge.targetId : edge.sourceId);
 }
 
+export function findSimpleInternalIdentifierForAttribute(
+  diagram: DiagramDocument,
+  attributeId: string,
+): { hostEntityId: string; internalIdentifierId: string } | null {
+  for (const node of diagram.nodes) {
+    if (node.type !== "entity") {
+      continue;
+    }
+
+    const identifier = (node.internalIdentifiers ?? []).find(
+      (candidate) => candidate.attributeIds.length === 1 && candidate.attributeIds[0] === attributeId,
+    );
+
+    if (identifier) {
+      return {
+        hostEntityId: node.id,
+        internalIdentifierId: identifier.id,
+      };
+    }
+  }
+
+  return null;
+}
+
 function getAttributeContext(diagram: DiagramDocument, attribute: AttributeNode) {
   const host = findAttributeHost(diagram, attribute.id);
   const isMultivalueElement = host?.type === "attribute" && host.isMultivalued === true;
@@ -103,9 +127,12 @@ function getAttributeContext(diagram: DiagramDocument, attribute: AttributeNode)
   const eligibleForInternalId =
     host?.type === "entity" &&
     attribute.isMultivalued !== true &&
+    attribute.isIdentifier !== true &&
+    attribute.isCompositeInternal !== true &&
     !isMultivalueElement &&
+    !usedInternalAttributeIds.has(attribute.id) &&
     !usedExternalAttributeIds.has(attribute.id) &&
-    (!usedInternalAttributeIds.has(attribute.id) || attribute.isIdentifier === true);
+    findSimpleInternalIdentifierForAttribute(diagram, attribute.id) === null;
 
   return {
     host,
@@ -210,6 +237,10 @@ export function Toolbar(props: ToolbarProps) {
   const selectedAttributeCanCreateSubattribute =
     selectedAttribute !== undefined && canAttributeBecomeComposite(props.diagram, selectedAttribute);
   const attributeContext = selectedAttribute ? getAttributeContext(props.diagram, selectedAttribute) : undefined;
+  const selectedSimpleIdentifier = selectedAttribute
+    ? findSimpleInternalIdentifierForAttribute(props.diagram, selectedAttribute.id)
+    : null;
+  const hasSelectedSimpleIdentifier = selectedSimpleIdentifier !== null;
   const compositeSelection = getCompositeSelectionContext(props.diagram, props.selection, t);
   const selectedEntityIsInHierarchy =
     canEdit &&
@@ -221,8 +252,6 @@ export function Toolbar(props: ToolbarProps) {
         group.supertypeId === props.selectedNode?.id ||
         group.subtypeIds.includes(props.selectedNode?.id ?? ""),
     );
-  const selectedEntityHasExternalIdentifier =
-    props.selectedNode?.type === "entity" && (props.selectedNode.externalIdentifiers ?? []).length > 0;
   const hasNoSelection = props.selectionItemCount === 0;
   const hasSingleNodeSelection =
     props.selectionItemCount === 1 &&
@@ -306,6 +335,18 @@ export function Toolbar(props: ToolbarProps) {
   const historyClipboardCommands: ToolbarCommand[] = [
     { key: "undo", label: t("common.actions.undo"), icon: <StudioIcon name="undo" />, onClick: () => props.onUndo?.(), disabled: !props.canUndo },
     { key: "redo", label: t("common.actions.redo"), icon: <StudioIcon name="redo" />, onClick: () => props.onRedo?.(), disabled: !props.canRedo },
+    ...(hasIdentifierSelection || hasSelectedSimpleIdentifier
+      ? [
+          {
+            key: "delete-identifier",
+            label: t("toolbar.commands.deleteIdentifier.label"),
+            icon: <StudioIcon name="delete" />,
+            onClick: props.onDeleteIdentifierSelection,
+            disabled: !canEdit,
+            title: t("toolbar.commands.deleteIdentifier.title"),
+          } satisfies ToolbarCommand,
+        ]
+      : []),
     ...(hasSelection
       ? [
           {
@@ -330,18 +371,6 @@ export function Toolbar(props: ToolbarProps) {
     props.selectedNode !== undefined;
   const editCommands: ToolbarCommand[] = [
     ...historyClipboardCommands,
-    ...(hasIdentifierSelection
-      ? [
-          {
-            key: "delete-identifier",
-            label: t("toolbar.commands.deleteIdentifier.label"),
-            icon: <StudioIcon name="delete" />,
-            onClick: props.onDeleteIdentifierSelection,
-            disabled: !canEdit,
-            title: t("toolbar.commands.deleteIdentifier.title"),
-          } satisfies ToolbarCommand,
-        ]
-      : []),
     ...(selectionCanRename
       ? [
           {
@@ -395,18 +424,6 @@ export function Toolbar(props: ToolbarProps) {
             } satisfies ToolbarCommand,
           ]
         : []),
-      ...(selectedEntityHasExternalIdentifier
-        ? [
-            {
-              key: "remove-external-id",
-              label: t("toolbar.commands.removeExternalId.label"),
-              icon: <StudioIcon name="externalId" />,
-              onClick: () => props.onRemoveExternalIdentifier?.(),
-              disabled: !canEdit,
-              title: t("toolbar.commands.removeExternalId.title"),
-            } satisfies ToolbarCommand,
-          ]
-        : []),
     ];
   } else if (props.selectedNode?.type === "relationship") {
     detailCommands = [];
@@ -429,14 +446,18 @@ export function Toolbar(props: ToolbarProps) {
             } satisfies ToolbarCommand,
           ]
         : []),
-      {
-        key: "simple-id",
-        label: t("toolbar.commands.simpleId.label"),
-        icon: <StudioIcon name="simpleId" />,
-        onClick: () => props.onToggleSimpleIdentifier?.(),
-        disabled: !canEdit || !attributeContext?.eligibleForInternalId,
-        title: idDisabledTitle,
-      },
+      ...(hasSelectedSimpleIdentifier
+        ? []
+        : [
+            {
+              key: "simple-id",
+              label: t("toolbar.commands.simpleId.label"),
+              icon: <StudioIcon name="simpleId" />,
+              onClick: () => props.onToggleSimpleIdentifier?.(),
+              disabled: !canEdit || !attributeContext?.eligibleForInternalId,
+              title: idDisabledTitle,
+            } satisfies ToolbarCommand,
+          ]),
       {
         key: "composite-id",
         label: t("toolbar.commands.compositeId.label"),

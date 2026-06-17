@@ -436,6 +436,7 @@ export const it = {
     internalIdentifierRemoved: "Identificatore interno rimosso.",
     externalIdentifierRemoved: "Identificatore esterno rimosso.",
     noIdentifierSelected: "Nessun identificatore selezionato.",
+    identifierAlreadyExistsUseDelete: "Questo attributo e gia un identificatore. Usa Delete Id per rimuovere l'identificatore.",
     noExternalIdentifierToRemove: "Nessun identificatore esterno da rimuovere sull'entità selezionata.",
     externalIdentifierDialog: {
       title: "Identificatore esterno",
