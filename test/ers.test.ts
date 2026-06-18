@@ -8,6 +8,7 @@ import {
   canAttributeBecomeComposite,
   cleanupGeneralizationReferences,
   createGeneralizationGroupForInheritanceEdge,
+  getPreferredNodeSizeForLabel,
   mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
   removeEntityFromGeneralizationHierarchy,
@@ -20,6 +21,7 @@ import {
   updateGeneralizationGroupConstraint,
   validateDiagram,
   validateExternalIdentifier,
+  withPreferredNodeSizeForLabel,
 } from "../src/utils/diagram.ts";
 import { computeClassicIsaGroupLayout } from "../src/utils/geometry.ts";
 import { buildInheritanceGroups, getInheritanceGroupLayout } from "../src/utils/inheritanceLayout.ts";
@@ -54,6 +56,47 @@ function findDirectAttribute(
       ),
   );
 }
+
+test("relationship preferred size stays close to base for a short label", () => {
+  const size = getPreferredNodeSizeForLabel("relationship", "RELAZIONE1");
+
+  assert.ok(size.width >= 130);
+  assert.ok(size.width <= 150);
+  assert.ok(size.height >= 78);
+  assert.ok(size.height <= 90);
+});
+
+test("relationship preferred size grows wide but not very tall for a long label", () => {
+  const shortSize = getPreferredNodeSizeForLabel("relationship", "RELAZIONE1");
+  const longSize = getPreferredNodeSizeForLabel("relationship", `RELAZIONE1${"W".repeat(30)}`);
+
+  assert.ok(longSize.width > shortSize.width);
+  assert.ok(longSize.height > shortSize.height);
+  assert.ok(longSize.height <= 120);
+});
+
+test("relationship preferred resize after rename shrinks and preserves center", () => {
+  const node: Extract<DiagramNode, { type: "relationship" }> = {
+    id: "RELAZIONE1",
+    type: "relationship",
+    label: "RELAZIONE1",
+    x: 100,
+    y: 80,
+    width: 560,
+    height: 220,
+  };
+  const center = {
+    x: node.x + node.width / 2,
+    y: node.y + node.height / 2,
+  };
+
+  const resized = withPreferredNodeSizeForLabel(node);
+
+  assert.ok(resized.width < node.width);
+  assert.ok(resized.height < node.height);
+  assert.equal(resized.x + resized.width / 2, center.x);
+  assert.equal(resized.y + resized.height / 2, center.y);
+});
 
 function createCodeLayoutFixture(): DiagramDocument {
   return {

@@ -36,6 +36,7 @@ import { LOGICAL_SQL_DIALECT_OPTIONS, generateLogicalSql, type LogicalSqlDialect
 import { EntityKeyChoicePreview } from "./EntityKeyChoicePreview";
 import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } from "./LogicalTransformationCanvas";
 import { StudioIcon } from "../components/icons/StudioIcon";
+import { FloatingExportMenu } from "../components/FloatingExportMenu";
 
 type LogicalBulkStep = Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">;
 type ColumnMoveDirection = "up" | "down" | "top" | "bottom";
@@ -261,10 +262,14 @@ function ToolbarButton(props: {
   active?: boolean;
   title?: string;
   onClick?: () => void;
+  buttonRef?: RefObject<HTMLButtonElement>;
+  ariaHasPopup?: "menu";
+  ariaExpanded?: boolean;
 }) {
   return (
     <button
       type="button"
+      ref={props.buttonRef}
       className={[
         "designer-toolbar-button",
         props.active ? "active" : "",
@@ -275,6 +280,8 @@ function ToolbarButton(props: {
       disabled={props.disabled}
       title={props.title}
       onClick={props.onClick}
+      aria-haspopup={props.ariaHasPopup}
+      aria-expanded={props.ariaExpanded}
     >
       <span className="designer-toolbar-icon" aria-hidden="true">
         {props.icon}
@@ -312,6 +319,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const [fixMenuOpen, setFixMenuOpen] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportButtonRef = useRef<HTMLButtonElement | null>(null);
   const [entityKeySelectionModal, setEntityKeySelectionModal] = useState<{
     requests: LogicalEntityKeySelectionRequest[];
     selectedChoiceIdsByTargetKey: Record<string, string>;
@@ -356,10 +364,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     currentEntityKeyRequest && currentEntityKeySelectedChoiceId === currentEntityKeyPreviewChoice?.id,
   );
 
-  function runExportAction(action: () => void): void {
-    setExportMenuOpen(false);
-    action();
-  }
   const currentEntityKeyPreviewData = currentEntityKeyRequest
     ? buildEntityKeyChoicePreviewData({
         diagram: props.sourceDiagram,
@@ -539,7 +543,15 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           title={doneDisabled ? t("logical.designer.completeBeforeSchema") : undefined}
           onClick={props.onDone}
         />
-        <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
+        <ToolbarButton
+          label={t("translation.restructuring.export")}
+          icon={<StudioIcon name="export" />}
+          active={exportMenuOpen}
+          onClick={() => setExportMenuOpen((current) => !current)}
+          buttonRef={exportButtonRef}
+          ariaHasPopup="menu"
+          ariaExpanded={exportMenuOpen}
+        />
       </div>
     );
   }
@@ -626,30 +638,17 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               onClick={() => nextBulkStep && handleBulkFixClick(nextBulkStep)}
             />
             <ToolbarButton label={t("translation.restructuring.design")} icon={<StudioIcon name="design" />} onClick={props.onOpenDesign} />
-            <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} active={exportMenuOpen} onClick={() => setExportMenuOpen((current) => !current)} />
+            <ToolbarButton
+              label={t("translation.restructuring.export")}
+              icon={<StudioIcon name="export" />}
+              active={exportMenuOpen}
+              onClick={() => setExportMenuOpen((current) => !current)}
+              buttonRef={exportButtonRef}
+              ariaHasPopup="menu"
+              ariaExpanded={exportMenuOpen}
+            />
           </>
         ) : null}
-      </div>
-    );
-  }
-
-  function renderExportMenu() {
-    if (!exportMenuOpen) {
-      return null;
-    }
-
-    return (
-      <div className="designer-export-popover designer-logical-export-popover" role="menu" aria-label={t("logical.export.aria")}>
-        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportProject)}>{t("logical.export.project")}</button>
-        <button
-          type="button"
-          role="menuitem"
-          disabled={!hasSql}
-          title={!hasSql ? t("logical.designer.noSql") : undefined}
-          onClick={() => runExportAction(() => downloadSql(sqlPreview))}
-        >{t("logical.export.sql")}</button>
-        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportPng)}>{t("logical.export.png")}</button>
-        <button type="button" role="menuitem" onClick={() => runExportAction(props.onExportSvg)}>{t("logical.export.svg")}</button>
       </div>
     );
   }
@@ -686,7 +685,24 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ) : null}
 
         {props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()}
-        {renderExportMenu()}
+        <FloatingExportMenu
+          open={exportMenuOpen}
+          anchorRef={exportButtonRef}
+          ariaLabel={t("logical.export.aria")}
+          onClose={() => setExportMenuOpen(false)}
+          items={[
+            { key: "project", label: t("logical.export.project"), onClick: props.onExportProject },
+            {
+              key: "sql",
+              label: t("logical.export.sql"),
+              onClick: () => downloadSql(sqlPreview),
+              disabled: !hasSql,
+              title: !hasSql ? t("logical.designer.noSql") : undefined,
+            },
+            { key: "png", label: t("logical.export.png"), onClick: props.onExportPng },
+            { key: "svg", label: t("logical.export.svg"), onClick: props.onExportSvg },
+          ]}
+        />
 
         {fixMenuOpen && selectedTranslationItem ? (
           <div className="designer-fix-popover designer-logical-fix-popover">

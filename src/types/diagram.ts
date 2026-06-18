@@ -157,6 +157,19 @@ export interface SelectionState {
   edgeIds: string[];
 }
 
+export type IdentifierSelection =
+  | {
+      kind: "internal";
+      hostEntityId: string;
+      internalIdentifierId: string;
+      attributeIds: string[];
+    }
+  | {
+      kind: "external";
+      hostEntityId: string;
+      externalIdentifierId: string;
+    };
+
 export interface ValidationIssue {
   id: string;
   level: "warning" | "error";

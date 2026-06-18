@@ -219,13 +219,11 @@ body {
   border-bottom: 0;
 }
 
-.designer-export-popover {
-  position: absolute;
-  z-index: 24;
-  left: calc(100% + 8px);
-  bottom: 8px;
+.floating-export-popover {
+  position: fixed;
+  z-index: 1000;
   display: grid;
-  min-width: 178px;
+  min-width: 180px;
   border: 1px solid var(--studio-border, #cfd4d1);
   border-radius: var(--studio-radius-md, 8px);
   background: var(--studio-surface-strong, #f8f9f7);
@@ -233,7 +231,7 @@ body {
   overflow: hidden;
 }
 
-.designer-export-popover button {
+.floating-export-popover button {
   min-height: 38px;
   border: 0;
   border-bottom: 1px solid #e0e4e1;
@@ -245,17 +243,18 @@ body {
   font-weight: 700;
 }
 
-.designer-export-popover button:last-child {
+.floating-export-popover button:last-child {
   border-bottom: 0;
 }
 
-.designer-export-popover button:hover:not(:disabled),
-.designer-export-popover button:focus-visible {
+.floating-export-popover button:hover:not(:disabled),
+.floating-export-popover button:focus-visible {
   background: rgba(47, 57, 51, 0.07);
 }
 
-.designer-export-popover button:disabled {
+.floating-export-popover button:disabled {
   color: #9da29f;
+  cursor: not-allowed;
 }
 
 .designer-toolbar-button:disabled {

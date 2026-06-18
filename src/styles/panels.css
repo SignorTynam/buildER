@@ -3817,7 +3817,6 @@ textarea {
     margin: 4px 2px;
   }
 
-  .designer-export-popover,
   .designer-fix-popover,
   .designer-logical-fix-popover,
   .designer-logical-move-popover {
@@ -4537,7 +4536,6 @@ textarea {
     left: auto !important;
   }
 
-  .designer-export-popover,
   .designer-fix-popover,
   .designer-logical-fix-popover,
   .designer-logical-move-popover {
