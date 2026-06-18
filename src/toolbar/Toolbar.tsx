@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { ReactNode } from "react";
+import { useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -12,6 +12,7 @@ import type {
   ValidationIssue,
 } from "../types/diagram";
 import { StudioIcon } from "../components/icons/StudioIcon";
+import { FloatingExportMenu } from "../components/FloatingExportMenu";
 import type { MessageKey } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import { getConnectorParticipation, getConnectorParticipationContext } from "../utils/cardinality";
@@ -74,6 +75,9 @@ type ToolbarCommand = {
   active?: boolean;
   className?: string;
   ariaLabel?: string;
+  buttonRef?: RefObject<HTMLButtonElement>;
+  ariaHasPopup?: "menu";
+  ariaExpanded?: boolean;
 };
 
 function findAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
@@ -214,10 +218,13 @@ function CommandButton({ command }: { command: ToolbarCommand }) {
     <button
       type="button"
       className={className}
+      ref={command.buttonRef}
       onClick={command.onClick}
       disabled={command.disabled}
       title={command.title ?? command.label}
       aria-label={command.ariaLabel ?? command.label}
+      aria-haspopup={command.ariaHasPopup}
+      aria-expanded={command.ariaExpanded}
     >
       <span className="designer-toolbar-icon" aria-hidden="true">{command.icon}</span>
       <span className="designer-toolbar-label">{command.label}</span>
@@ -228,6 +235,7 @@ function CommandButton({ command }: { command: ToolbarCommand }) {
 export function Toolbar(props: ToolbarProps) {
   const { t } = useI18n();
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportButtonRef = useRef<HTMLButtonElement | null>(null);
   const canEdit = props.mode === "edit";
   const hasIdentifierSelection = props.selectedIdentifier != null;
   const hasSelection = props.selectionItemCount > 0 && !hasIdentifierSelection;
@@ -362,7 +370,16 @@ export function Toolbar(props: ToolbarProps) {
 
   const workflowCommands: ToolbarCommand[] = [
     { key: "translate", label: t("toolbar.commands.translate.label"), icon: <StudioIcon name="translate" />, onClick: props.onOpenTranslation },
-    { key: "export", label: t("toolbar.commands.export.label"), icon: <StudioIcon name="export" />, onClick: () => setExportMenuOpen((current) => !current) },
+    {
+      key: "export",
+      label: t("toolbar.commands.export.label"),
+      icon: <StudioIcon name="export" />,
+      onClick: () => setExportMenuOpen((current) => !current),
+      active: exportMenuOpen,
+      buttonRef: exportButtonRef,
+      ariaHasPopup: "menu",
+      ariaExpanded: exportMenuOpen,
+    },
   ];
 
   const selectionCanRename =
@@ -515,46 +532,56 @@ export function Toolbar(props: ToolbarProps) {
     commands.map((command) => <CommandButton key={`${groupKey}-${command.key}`} command={command} />);
 
   return (
-    <nav className="designer-context-toolbar designer-er-toolbar" aria-label={t("toolbar.commands.aria")}>
-      {renderCommands("navigate", navigateCommands)}
-      {createCommands.length > 0 ? (
-        <>
-          <span className="designer-toolbar-separator" aria-hidden="true" />
-          {renderCommands("create", createCommands)}
-        </>
-      ) : null}
-      {connectCommands.length > 0 ? (
-        <>
-          <span className="designer-toolbar-separator" aria-hidden="true" />
-          {renderCommands("connect", connectCommands)}
-        </>
-      ) : null}
-      <span className="designer-toolbar-separator" aria-hidden="true" />
-      {renderCommands("edit", editCommands)}
-      {detailCommands.length > 0 ? (
-        <>
-          <span className="designer-toolbar-separator" aria-hidden="true" />
-          {renderCommands("details", detailCommands)}
-        </>
-      ) : null}
-      <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
-      {renderCommands("workflow", workflowCommands)}
-      {exportMenuOpen ? (
-        <div className="designer-export-popover" role="menu" aria-label={t("toolbar.export.aria")}>
-          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveProject?.(); }}>
-            {t("toolbar.export.project")}
-          </button>
-          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onSaveErs?.(); }}>
-            {t("toolbar.export.diagramCode")}
-          </button>
-          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onExportPng(); }}>
-            {t("toolbar.export.png")}
-          </button>
-          <button type="button" role="menuitem" onClick={() => { setExportMenuOpen(false); props.onExportSvg(); }}>
-            {t("toolbar.export.svg")}
-          </button>
-        </div>
-      ) : null}
-    </nav>
+    <>
+      <nav className="designer-context-toolbar designer-er-toolbar" aria-label={t("toolbar.commands.aria")}>
+        {renderCommands("navigate", navigateCommands)}
+        {createCommands.length > 0 ? (
+          <>
+            <span className="designer-toolbar-separator" aria-hidden="true" />
+            {renderCommands("create", createCommands)}
+          </>
+        ) : null}
+        {connectCommands.length > 0 ? (
+          <>
+            <span className="designer-toolbar-separator" aria-hidden="true" />
+            {renderCommands("connect", connectCommands)}
+          </>
+        ) : null}
+        <span className="designer-toolbar-separator" aria-hidden="true" />
+        {renderCommands("edit", editCommands)}
+        {detailCommands.length > 0 ? (
+          <>
+            <span className="designer-toolbar-separator" aria-hidden="true" />
+            {renderCommands("details", detailCommands)}
+          </>
+        ) : null}
+        <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
+        {renderCommands("workflow", workflowCommands)}
+      </nav>
+      <FloatingExportMenu
+        open={exportMenuOpen}
+        anchorRef={exportButtonRef}
+        ariaLabel={t("toolbar.export.aria")}
+        onClose={() => setExportMenuOpen(false)}
+        items={[
+          {
+            key: "project",
+            label: t("toolbar.export.project"),
+            onClick: () => props.onSaveProject?.(),
+            disabled: !props.onSaveProject,
+            title: !props.onSaveProject ? "Export progetto non disponibile." : undefined,
+          },
+          {
+            key: "diagram-code",
+            label: t("toolbar.export.diagramCode"),
+            onClick: () => props.onSaveErs?.(),
+            disabled: !props.onSaveErs,
+            title: !props.onSaveErs ? "Export ERS non disponibile." : undefined,
+          },
+          { key: "png", label: t("toolbar.export.png"), onClick: props.onExportPng },
+          { key: "svg", label: t("toolbar.export.svg"), onClick: props.onExportSvg },
+        ]}
+      />
+    </>
   );
 }
