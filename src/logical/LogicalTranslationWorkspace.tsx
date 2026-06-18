@@ -261,6 +261,8 @@ function ToolbarButton(props: {
   disabled?: boolean;
   active?: boolean;
   title?: string;
+  ariaLabel?: string;
+  ariaPressed?: boolean;
   onClick?: () => void;
   buttonRef?: RefObject<HTMLButtonElement>;
   ariaHasPopup?: "menu";
@@ -279,6 +281,8 @@ function ToolbarButton(props: {
         .join(" ")}
       disabled={props.disabled}
       title={props.title}
+      aria-label={props.ariaLabel}
+      aria-pressed={props.ariaPressed}
       onClick={props.onClick}
       aria-haspopup={props.ariaHasPopup}
       aria-expanded={props.ariaExpanded}
@@ -566,6 +570,26 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
     return (
       <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.schemaTools")}>
+        <ToolbarButton
+          label={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
+          icon={<StudioIcon name="show" />}
+          active={sqlOpen}
+          title={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
+          ariaLabel={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
+          onClick={toggleSql}
+        />
+        {props.onToggleNotesPanel ? (
+          <ToolbarButton
+            label={t("notesPanel.title")}
+            icon={<StudioIcon name="notes" />}
+            active={props.notesPanelOpen}
+            title={props.notesPanelOpen ? t("notesPanel.closeAria") : t("notesPanel.openAria")}
+            ariaLabel={props.notesPanelOpen ? t("notesPanel.closeAria") : t("notesPanel.openAria")}
+            ariaPressed={props.notesPanelOpen}
+            onClick={props.onToggleNotesPanel}
+          />
+        ) : null}
+        <span className="designer-toolbar-separator" aria-hidden="true" />
         {renderCommonLeadButtons(!showEditTools)}
         {showEditTools ? (
           <>
@@ -656,34 +680,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   return (
     <div className={["designer-workspace", "designer-logical-view", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
       <div className={["designer-canvas-region", "designer-logical-canvas", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
-        {props.logicalStage === "schema" ? (
-          <div className="designer-side-toggle-group designer-side-toggle-left designer-logical-schema-toggles" aria-label="Pannelli logici">
-            <button
-              type="button"
-              className={["designer-side-toggle", sqlOpen ? "active" : ""].filter(Boolean).join(" ")}
-              onClick={toggleSql}
-              title={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
-            >
-              <span aria-hidden="true">
-                <StudioIcon name="show" />
-              </span>
-              {sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
-            </button>
-          </div>
-        ) : null}
-
-        {props.logicalStage === "schema" && props.onToggleNotesPanel ? (
-          <button
-            type="button"
-            className="designer-side-toggle designer-side-toggle-right designer-logical-notes-toggle"
-            onClick={props.onToggleNotesPanel}
-            title={props.notesPanelOpen ? "Chiudi note" : "Apri note"}
-          >
-            <StudioIcon name="notes" aria-hidden="true" />
-            {props.notesPanelOpen ? "Hide" : "Notes"}
-          </button>
-        ) : null}
-
         {props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()}
         <FloatingExportMenu
           open={exportMenuOpen}

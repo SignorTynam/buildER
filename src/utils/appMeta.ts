@@ -65,7 +65,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Aggiornato `index.html` per usare il nuovo favicon dell'app.",
       "Rimosso il tutorial legacy della modalita Code, ormai sostituito dai flussi moderni dell'app.",
       "Estesa la localizzazione di header, command menu, keyboard shortcuts e app chrome in italiano, inglese e albanese.",
-      "Localizzati testi, aria-label, tooltip e stati di Toolbar, NotesPanel, CodePanel, CardinalityModal, SQL Reverse e Logical Translation workspace.",
+      "Localizzati testi, aria-label, tooltip e stati di Toolbar, Notes, CodePanel, CardinalityModal, SQL Reverse e Logical Translation workspace.",
       "Aggiunte chiavi i18n per errori strutturati, messaggi di connessione, SQL Reverse, canvas e modal di scelta PK logica.",
       "Rimosse diverse classificazioni basate su pattern testuali italiani nei messaggi dell'app, sostituendole con percorsi espliciti e localizzabili.",
       "Aggiornati i dizionari `it`, `en` e `sq` e aggiunto un layer di integrazione per nuove sezioni localizzate.",

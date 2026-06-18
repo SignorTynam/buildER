@@ -125,6 +125,27 @@ test("il formato .ersp conserva cardinalita custom e note HTML", () => {
   );
 });
 
+test("il formato .ersp preserva le notes del progetto", () => {
+  const diagram = createEmptyDiagram("Progetto con note");
+  diagram.notes = "<p>Nota importante</p>";
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+
+  const parsed = parseProjectFile(serializeProjectFile({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "er",
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+  }));
+
+  assert.equal(parsed.state.diagram.notes, "<p>Nota importante</p>");
+});
+
 test("i vecchi project file JSON version 2 vengono migrati nel formato .ersp", () => {
   const diagram = createEmptyDiagram("Legacy project");
   const translationWorkspace = createEmptyErTranslationWorkspace(diagram);

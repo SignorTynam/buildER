@@ -387,8 +387,22 @@ export const en: DeepPartialMessages = {
   notesPanel: {
     shellAria: "Diagram notes",
     title: "Notes",
+    description: "Personal project notes. They are not part of the ERS code.",
+    openAria: "Open Notes",
+    closeAria: "Close Notes",
     editorAria: "Notes editor",
     placeholder: "Add notes, design decisions, and reminders here",
+    unsavedConfirm: "There are unsaved changes in Notes. Close without saving?",
+    toolbar: {
+      aria: "Notes formatting",
+      normal: "Normal text",
+      bold: "Bold",
+      italic: "Italic",
+      underline: "Underline",
+      unorderedList: "Bulleted list",
+      orderedList: "Numbered list",
+      clearFormatting: "Clear formatting",
+    },
   },
   onboarding: {
     dialogAria: "Guided onboarding",

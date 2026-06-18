@@ -12,7 +12,7 @@ import {
   type CardinalityDialogTarget,
 } from "./components/CardinalityModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
-import { NotesPanel } from "./components/NotesPanel";
+import { NotesModal } from "./components/NotesModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
 import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
@@ -2587,12 +2587,7 @@ export default function App() {
   }
 
   function handleToggleNotesPanel() {
-    if (notesPanelOpen) {
-      closeTechnicalPanel();
-      return;
-    }
-
-    openTechnicalPanelTab("notes");
+    setNotesPanelOpen((current) => !current);
   }
 
   function handleSqlReverseSourceChange(value: string) {
@@ -6281,7 +6276,7 @@ export default function App() {
                     className={["designer-side-toggle", notesPanelOpen ? "active" : ""].filter(Boolean).join(" ")}
                     onClick={handleToggleNotesPanel}
                     title={notesPanelOpen ? "Chiudi note" : "Apri note"}
-                    aria-label={notesPanelOpen ? "Chiudi pannello Notes" : "Apri pannello Notes"}
+                    aria-label={notesPanelOpen ? "Chiudi Notes" : "Apri Notes"}
                     aria-pressed={notesPanelOpen}
                   >
                     <span className="designer-side-toggle-icon" aria-hidden="true">
@@ -6369,15 +6364,6 @@ export default function App() {
                   onStatusMessageChange={handleCanvasStatusMessage}
                 />
 
-                {notesPanelOpen ? (
-                  <NotesPanel
-                    embedded
-                    notes={history.present.notes}
-                    editable={mode === "edit"}
-                    onChange={handleNotesChange}
-                    onClose={handleToggleNotesPanel}
-                  />
-                ) : null}
               </div>
             </div>
           ) : diagramView === "translation" ? (
@@ -6469,6 +6455,14 @@ export default function App() {
         type="file"
         accept=".ers,text/plain"
         onChange={handleLoadErsFile}
+      />
+
+      <NotesModal
+        open={notesPanelOpen}
+        notes={history.present.notes}
+        editable={mode === "edit"}
+        onSave={handleNotesChange}
+        onClose={() => setNotesPanelOpen(false)}
       />
 
       {sqlReverseWorkflow.step === "input" ? (
@@ -7039,7 +7033,7 @@ export default function App() {
                 <ul className="studio-modal__list-text help-list">
                   <li>Con Entita, Relazione o Attributo: clic sul canvas per inserire l'elemento; dopo l'inserimento il tool torna su Selezione.</li>
                   <li>Collegamenti: scegli Collegamento o Generalizzazione, clicca il nodo sorgente e poi il nodo destinazione.</li>
-                  <li>Le Notes del diagramma si gestiscono dal pannello Notes sulla destra e vengono salvate insieme al modello.</li>
+                  <li>Le Notes del diagramma si gestiscono dal modal Notes e vengono salvate insieme al progetto, senza entrare nel codice ERS.</li>
                 </ul>
               </details>
 

@@ -1,5 +1,4 @@
 import { CodePanel } from "./CodePanel";
-import { NotesPanel } from "./NotesPanel";
 import { InspectorPanel } from "../inspector/InspectorPanel";
 import { PanelShell, PanelTabs } from "./panels";
 import type {
@@ -129,7 +128,7 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
             placeholder="Inserisci il codice ERS"
           />
         ) : (
-          <NotesPanel notes={props.notes} editable={props.mode === "edit"} onChange={props.onNotesChange} />
+          <div className="technical-empty-note">{props.notes || "Le Notes si aprono dal modal Notes."}</div>
         )}
       </div>
     </PanelShell>

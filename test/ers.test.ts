@@ -27,6 +27,7 @@ import { computeClassicIsaGroupLayout } from "../src/utils/geometry.ts";
 import { buildInheritanceGroups, getInheritanceGroupLayout } from "../src/utils/inheritanceLayout.ts";
 import { parseErsDiagram, serializeDiagramToErs } from "../src/utils/ers.ts";
 import { normalizeCardinalityInput } from "../src/utils/cardinality.ts";
+import { serializeDiagramForCodePanel } from "../src/utils/codePanelSerializer.ts";
 
 function findEntity(diagram: DiagramDocument, label: string): Extract<DiagramNode, { type: "entity" }> | undefined {
   return diagram.nodes.find(
@@ -96,6 +97,36 @@ test("relationship preferred resize after rename shrinks and preserves center", 
   assert.ok(resized.height < node.height);
   assert.equal(resized.x + resized.width / 2, center.x);
   assert.equal(resized.y + resized.height / 2, center.y);
+});
+
+test("ERS serialization does not emit project notes", () => {
+  const diagram = createCodeLayoutFixture();
+  diagram.notes = "Test notes";
+
+  const serialized = serializeDiagramToErs(diagram);
+
+  assert.doesNotMatch(serialized, /\bnotes\b/i);
+  assert.equal(serialized.includes("Test notes"), false);
+});
+
+test("legacy ERS notes parse but are not serialized again", () => {
+  const parsed = parseErsDiagram(`notes "Test notes"
+entity ENTITA1 {}`);
+
+  assert.equal(parsed.notes, "Test notes");
+  const serialized = serializeDiagramToErs(parsed);
+  assert.doesNotMatch(serialized, /\bnotes\b/i);
+  assert.equal(serialized.includes("Test notes"), false);
+});
+
+test("code panel serialization does not show project notes", () => {
+  const diagram = createCodeLayoutFixture();
+  diagram.notes = "Test notes";
+
+  const code = serializeDiagramForCodePanel(diagram);
+
+  assert.doesNotMatch(code, /\bnotes\b/i);
+  assert.equal(code.includes("Test notes"), false);
 });
 
 function createCodeLayoutFixture(): DiagramDocument {

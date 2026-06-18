@@ -385,8 +385,22 @@ export const it = {
   notesPanel: {
     shellAria: "Note del diagramma",
     title: "Notes",
+    description: "Appunti personali del progetto. Non fanno parte del codice ERS.",
+    openAria: "Apri Notes",
+    closeAria: "Chiudi Notes",
     editorAria: "Editor note",
     placeholder: "Aggiungi qui note, decisioni progettuali e promemoria del diagramma",
+    unsavedConfirm: "Ci sono modifiche non salvate nelle Notes. Vuoi chiuderle senza salvare?",
+    toolbar: {
+      aria: "Formattazione Notes",
+      normal: "Testo normale",
+      bold: "Grassetto",
+      italic: "Corsivo",
+      underline: "Sottolineato",
+      unorderedList: "Lista puntata",
+      orderedList: "Lista numerata",
+      clearFormatting: "Pulisci formattazione",
+    },
   },
   onboarding: {
     dialogAria: "Onboarding guidato",

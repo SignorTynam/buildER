@@ -2742,8 +2742,6 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     .sort(compareNodes)
     .map((attribute) => buildStandaloneAttributeLine(attribute, aliasByNodeId.get(attribute.id) ?? attribute.id));
   const nestedAttributeLines: string[] = [];
-  const notesContent = normalizeNotesContent(normalizedDiagram.notes);
-  const notesLines = notesContent.length > 0 ? [`notes ${quoteValue(notesContent)}`] : [];
   const explicitGeneralizationGroups = normalizedDiagram.generalizationGroups ?? [];
   const inheritanceGroups = new Map<
     string,
@@ -2808,11 +2806,11 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     }
     sections.push("/* Generalizations */", ...inheritanceLines, ...unassignedInheritanceLines);
   }
-  if (orphanAttributeLines.length > 0 || nestedAttributeLines.length > 0 || notesLines.length > 0) {
+  if (orphanAttributeLines.length > 0 || nestedAttributeLines.length > 0) {
     if (sections.length > 0) {
       sections.push("");
     }
-    sections.push(...orphanAttributeLines, ...nestedAttributeLines, ...notesLines);
+    sections.push(...orphanAttributeLines, ...nestedAttributeLines);
   }
 
   return sections.join("\n");

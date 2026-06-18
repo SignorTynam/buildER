@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { CodePanel } from "./CodePanel";
-import { NotesPanel } from "./NotesPanel";
 import { PanelHeader, PanelShell, PanelTabs } from "./panels";
 
 export type TechnicalPanelTab = "review" | "code" | "notes";
@@ -13,7 +12,7 @@ interface CodePanelConfig {
   onCodeChange?: (value: string) => void;
 }
 
-interface NotesPanelConfig {
+interface NotesConfig {
   notes: string;
   editable?: boolean;
   onChange?: (value: string) => void;
@@ -23,7 +22,7 @@ interface TechnicalDockPanelProps {
   activeTab: TechnicalPanelTab;
   availableTabs: TechnicalPanelTab[];
   code?: CodePanelConfig;
-  notes?: NotesPanelConfig;
+  notes?: NotesConfig;
   review?: ReactNode;
   onTabChange: (tab: TechnicalPanelTab) => void;
   onClose: () => void;
@@ -77,12 +76,7 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
         {activeTab === "code" && !props.code ? emptyTabState : null}
 
         {activeTab === "notes" && props.notes ? (
-          <NotesPanel
-            notes={props.notes.notes}
-            editable={props.notes.editable}
-            onChange={props.notes.onChange}
-            embedded
-          />
+          <div className="technical-empty-note">{props.notes.notes || EMPTY_TAB_LABELS.notes}</div>
         ) : null}
         {activeTab === "notes" && !props.notes ? emptyTabState : null}
 

@@ -3682,51 +3682,14 @@ textarea {
     overflow: auto;
   }
 
-  .designer-notes-overlay {
-    position: fixed;
-    z-index: 72;
-    inset: auto 0 0 0;
-    width: auto;
-    min-width: 0;
-    height: min(68dvh, 620px);
-    padding-bottom: env(safe-area-inset-bottom);
-    border-right: 0;
-    border-left: 0;
-    box-shadow: 0 -14px 34px rgba(12, 18, 15, 0.16);
-  }
-
-  .designer-notes-toolbar {
-    min-height: 52px;
-    max-height: 112px;
-    overflow: auto;
-    padding: 8px 10px;
-  }
-
-  .designer-notes-toolbar button {
-    min-width: 44px;
-    min-height: 44px;
-    height: 44px;
-  }
-
-  .designer-notes-editor {
-    height: calc(100% - 72px);
-    padding-bottom: max(14px, env(safe-area-inset-bottom));
-  }
-
   .designer-side-toggle-group.designer-side-toggle-left,
-  .designer-quick-actions-bar,
-  .designer-logical-schema-toggles {
+  .designer-quick-actions-bar {
     top: auto;
     right: 8px;
     bottom: max(8px, env(safe-area-inset-bottom));
     left: 8px;
     max-width: calc(100vw - 16px);
     overflow-x: auto;
-  }
-
-  .designer-side-toggle-group.designer-logical-schema-toggles {
-    right: 82px;
-    max-width: calc(100vw - 98px);
   }
 
   .designer-side-toggle-group .designer-side-toggle {
@@ -3747,8 +3710,7 @@ textarea {
   }
 
   .designer-side-toggle-right,
-  .designer-translation-notes-toggle,
-  .designer-logical-notes-toggle {
+  .designer-translation-notes-toggle {
     top: auto;
     right: 8px;
     bottom: max(8px, env(safe-area-inset-bottom));
@@ -3915,11 +3877,6 @@ textarea {
     min-height: 40px;
   }
 
-  .designer-logical-canvas.sql-open .designer-logical-schema-toggles,
-  .designer-logical-canvas.sql-open .designer-logical-notes-toggle {
-    bottom: calc(36dvh + 8px + env(safe-area-inset-bottom));
-  }
-
   .designer-logical-canvas.sql-open .designer-logical-toolbar {
     right: 8px;
     bottom: calc(36dvh + 64px + env(safe-area-inset-bottom));
@@ -4058,8 +4015,7 @@ textarea {
     bottom: calc(146px + env(safe-area-inset-bottom)) !important;
   }
 
-  .designer-code-dock,
-  .designer-notes-overlay {
+  .designer-code-dock {
     height: min(70dvh, 620px);
   }
 
@@ -4483,7 +4439,6 @@ textarea {
 .header-button .studio-icon,
 .mode-button .studio-icon,
 .sql-reverse-preview-done .studio-icon,
-.designer-notes-hide .studio-icon,
 .designer-fix-choice-icon .studio-icon,
 .designer-fix-option .studio-icon {
   width: 1rem;
@@ -4502,8 +4457,7 @@ textarea {
 
 @media (max-width: 899px) {
 .designer-quick-actions-bar,
-  .designer-side-toggle-group.designer-side-toggle-left,
-  .designer-logical-schema-toggles {
+  .designer-side-toggle-group.designer-side-toggle-left {
     z-index: 30;
     top: auto;
     right: 8px;
@@ -4513,8 +4467,7 @@ textarea {
   }
 
   .designer-side-toggle-right,
-  .designer-translation-notes-toggle,
-  .designer-logical-notes-toggle {
+  .designer-translation-notes-toggle {
     z-index: 31;
     bottom: calc(84px + env(safe-area-inset-bottom));
   }
@@ -4540,11 +4493,6 @@ textarea {
   .designer-logical-fix-popover,
   .designer-logical-move-popover {
     bottom: calc(150px + env(safe-area-inset-bottom));
-  }
-
-  .designer-logical-canvas.sql-open .designer-logical-schema-toggles,
-  .designer-logical-canvas.sql-open .designer-logical-notes-toggle {
-    bottom: calc(36dvh + 84px + env(safe-area-inset-bottom));
   }
 
   .designer-logical-canvas.sql-open .designer-logical-toolbar {
@@ -4772,8 +4720,7 @@ textarea {
 
 @media (min-width: 641px) and (max-width: 899px) {
 .designer-quick-actions-bar,
-  .designer-side-toggle-group.designer-side-toggle-left,
-  .designer-logical-schema-toggles {
+  .designer-side-toggle-group.designer-side-toggle-left {
     top: auto;
     right: 8px;
     bottom: calc(84px + env(safe-area-inset-bottom));
@@ -4783,8 +4730,7 @@ textarea {
   }
 
   .designer-side-toggle-right,
-  .designer-translation-notes-toggle,
-  .designer-logical-notes-toggle {
+  .designer-translation-notes-toggle {
     bottom: calc(84px + env(safe-area-inset-bottom));
     z-index: 31;
   }
@@ -4808,8 +4754,7 @@ textarea {
     z-index: 20;
   }
 
-  .designer-code-dock,
-  .designer-notes-overlay {
+  .designer-code-dock {
     bottom: calc(214px + env(safe-area-inset-bottom));
     height: min(42dvh, 420px);
     max-height: calc(100dvh - 310px);
@@ -4817,8 +4762,7 @@ textarea {
 }
 
 @media (max-width: 899px) {
-.designer-code-dock,
-  .designer-notes-overlay {
+  .designer-code-dock {
     bottom: calc(214px + env(safe-area-inset-bottom));
     height: min(42dvh, 420px);
     max-height: calc(100dvh - 310px);

@@ -387,8 +387,22 @@ export const sq: DeepPartialMessages = {
   notesPanel: {
     shellAria: "Shenimet e diagramit",
     title: "Shenime",
+    description: "Shenime personale te projektit. Nuk jane pjese e kodit ERS.",
+    openAria: "Hap Shenime",
+    closeAria: "Mbyll Shenime",
     editorAria: "Editori i shenimeve",
     placeholder: "Shto ketu shenime, vendime projekti dhe kujtues",
+    unsavedConfirm: "Ka ndryshime te paruajtura ne Shenime. Te mbyllen pa ruajtur?",
+    toolbar: {
+      aria: "Formatimi i shenimeve",
+      normal: "Tekst normal",
+      bold: "Trash",
+      italic: "Kursiv",
+      underline: "Nenvizuar",
+      unorderedList: "Liste me pika",
+      orderedList: "Liste me numra",
+      clearFormatting: "Pastro formatimin",
+    },
   },
   onboarding: {
     dialogAria: "Onboarding i udhehequr",
