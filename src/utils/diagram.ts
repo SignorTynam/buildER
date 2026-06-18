@@ -34,6 +34,10 @@ const MULTIVALUED_ATTRIBUTE_CHAR_WIDTH = 8;
 const ENTITY_TEXT_HORIZONTAL_PADDING = 52;
 const RELATIONSHIP_TEXT_HORIZONTAL_PADDING = 70;
 const SHAPE_LABEL_CHAR_WIDTH = 9;
+const RELATIONSHIP_WIDE_LABEL_CHAR_WIDTH = 11;
+const RELATIONSHIP_LABEL_CHAR_WIDTH = 8;
+const RELATIONSHIP_MAX_AUTO_EXTRA_HEIGHT = 32;
+const RELATIONSHIP_AUTO_HEIGHT_RATIO = 0.08;
 
 type RelationshipNode = Extract<DiagramNode, { type: "relationship" }>;
 type AttributeNode = Extract<DiagramNode, { type: "attribute" }>;
@@ -819,6 +823,56 @@ function getNodeSize(nodeType: NodeKind) {
   }
 }
 
+function estimateRelationshipTextWidth(label: string): number {
+  const normalizedLabel = label.trim();
+  if (normalizedLabel.length === 0) {
+    return RELATIONSHIP_LABEL_CHAR_WIDTH;
+  }
+
+  return Array.from(normalizedLabel).reduce((width, character) => {
+    const upperCharacter = character.toUpperCase();
+    const characterWidth =
+      upperCharacter === "W" || upperCharacter === "M"
+        ? RELATIONSHIP_WIDE_LABEL_CHAR_WIDTH
+        : RELATIONSHIP_LABEL_CHAR_WIDTH;
+    return width + characterWidth;
+  }, 0);
+}
+
+export function getPreferredNodeSizeForLabel(
+  nodeType: NodeKind,
+  label: string,
+): { width: number; height: number } {
+  const baseSize = getNodeSize(nodeType);
+
+  if (nodeType === "entity") {
+    const estimatedTextWidth = Math.max(1, label.trim().length) * SHAPE_LABEL_CHAR_WIDTH;
+    return {
+      width: Math.max(baseSize.width, snapValue(estimatedTextWidth + ENTITY_TEXT_HORIZONTAL_PADDING, 10)),
+      height: baseSize.height,
+    };
+  }
+
+  if (nodeType === "relationship") {
+    const estimatedTextWidth = estimateRelationshipTextWidth(label);
+    const width = Math.max(
+      baseSize.width,
+      snapValue(estimatedTextWidth + RELATIONSHIP_TEXT_HORIZONTAL_PADDING, 10),
+    );
+    const extraHeight = clamp(
+      (width - baseSize.width) * RELATIONSHIP_AUTO_HEIGHT_RATIO,
+      0,
+      RELATIONSHIP_MAX_AUTO_EXTRA_HEIGHT,
+    );
+    return {
+      width,
+      height: baseSize.height + snapValue(extraHeight, 10),
+    };
+  }
+
+  return baseSize;
+}
+
 export function getMinimumNodeSizeForLabel(
   nodeType: NodeKind,
   label: string,
@@ -834,11 +888,7 @@ export function getMinimumNodeSizeForLabel(
   }
 
   if (nodeType === "relationship") {
-    const width = Math.max(baseSize.width, snapValue(estimatedTextWidth + RELATIONSHIP_TEXT_HORIZONTAL_PADDING, 10));
-    return {
-      width,
-      height: Math.max(baseSize.height, snapValue(width * 0.58, 10)),
-    };
+    return getPreferredNodeSizeForLabel(nodeType, label);
   }
 
   return baseSize;
@@ -858,6 +908,24 @@ export function withMinimumNodeSizeForLabel(node: DiagramNode): DiagramNode {
     ...node,
     width: Math.max(node.width, minimumSize.width),
     height: Math.max(node.height, minimumSize.height),
+  };
+}
+
+export function withPreferredNodeSizeForLabel(node: DiagramNode, center?: Point): DiagramNode {
+  if (node.type !== "entity" && node.type !== "relationship") {
+    return node;
+  }
+
+  const preferredSize = getPreferredNodeSizeForLabel(node.type, node.label);
+  const centerX = center?.x ?? node.x + node.width / 2;
+  const centerY = center?.y ?? node.y + node.height / 2;
+
+  return {
+    ...node,
+    x: centerX - preferredSize.width / 2,
+    y: centerY - preferredSize.height / 2,
+    width: preferredSize.width,
+    height: preferredSize.height,
   };
 }
 

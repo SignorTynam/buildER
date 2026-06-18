@@ -101,6 +101,7 @@ import {
   synchronizeInternalIdentifiers,
   validateDiagram,
   withMinimumNodeSizeForLabel,
+  withPreferredNodeSizeForLabel,
 } from "./utils/diagram";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { shouldSyncCodeDraftFromDiagram } from "./utils/codeEditor";
@@ -5040,6 +5041,7 @@ export default function App() {
     let workingDiagram = history.present;
     let workingNodeId = nodeId;
     let workingPatch: Partial<DiagramNode> = patch;
+    let relationshipRenameCenter: Point | null = null;
 
     if (typeof patch.label === "string") {
       const currentNode = history.present.nodes.find((node) => node.id === nodeId);
@@ -5081,6 +5083,13 @@ export default function App() {
         }
 
         return;
+      }
+
+      if (currentNode.type === "relationship") {
+        relationshipRenameCenter = {
+          x: currentNode.x + currentNode.width / 2,
+          y: currentNode.y + currentNode.height / 2,
+        };
       }
 
       const identityRenamed = renameNodeAsNameIdentity(history.present, nodeId, patch.label);
@@ -5245,6 +5254,16 @@ export default function App() {
           : workingPatch;
 
     let nextDiagram = updateNodeInDiagram(workingDiagram, workingNodeId, nextPatch);
+    if (relationshipRenameCenter) {
+      nextDiagram = {
+        ...nextDiagram,
+        nodes: nextDiagram.nodes.map((node) =>
+          node.id === workingNodeId && node.type === "relationship"
+            ? withPreferredNodeSizeForLabel(node, relationshipRenameCenter)
+            : node,
+        ),
+      };
+    }
 
     if (
       currentNode?.type === "attribute" &&
