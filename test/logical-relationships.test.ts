@@ -7,9 +7,11 @@ import {
   clampLogicalTransformationZoom,
   getDesignerLogicalColumnNameLabel,
   getDesignerLogicalColumnTypeLabel,
+  getDesignerLogicalForeignKeyLabel,
   getDesignerLogicalTableDimensions,
   getLogicalTransformationFitFrame,
   getLogicalTransformationCanvasVisibility,
+  shouldRenderDesignerLogicalEdgeLabel,
   toSyntheticDiagramNode,
 } from "../src/logical/LogicalTransformationCanvas.tsx";
 import { getLogicalCanvasViewMode } from "../src/logical/LogicalTranslationWorkspace.tsx";
@@ -49,6 +51,125 @@ test("logical table dimensions include long foreign key type labels", () => {
   assert.equal(getDesignerLogicalColumnNameLabel(fkColumn), "FK NN U PASSEGGERO_codPasseggero");
   assert.equal(getDesignerLogicalColumnTypeLabel(fkColumn), "VARCHAR(100)");
   assert.ok(compact.width > 390);
+});
+
+test("logical foreign key edge label visibility keeps contextual behavior and supports force visible", () => {
+  assert.equal(shouldRenderDesignerLogicalEdgeLabel(false, false, false), false);
+  assert.equal(shouldRenderDesignerLogicalEdgeLabel(true, false, false), true);
+  assert.equal(shouldRenderDesignerLogicalEdgeLabel(false, true, false), true);
+  assert.equal(shouldRenderDesignerLogicalEdgeLabel(false, false, true), true);
+});
+
+test("logical foreign key edge label falls back to the edge label when model data is unavailable", () => {
+  const model = {
+    meta: { name: "Test", generatedAt: "2026-06-19T00:00:00.000Z", sourceDiagramVersion: 1, sourceSignature: "test" },
+    tables: [],
+    foreignKeys: [],
+    uniqueConstraints: [],
+    edges: [],
+    issues: [],
+  } satisfies LogicalModel;
+
+  const label = getDesignerLogicalForeignKeyLabel(
+    {
+      foreignKeyId: "missing-fk",
+      label: "FK_ORDER_USER",
+    },
+    model,
+  );
+
+  assert.equal(label.fullLabel, "FK_ORDER_USER");
+  assert.equal(label.displayLabel, "FK_ORDER_USER");
+});
+
+test("logical foreign key edge label uses mapped table and column names when available", () => {
+  const model = {
+    meta: { name: "Test", generatedAt: "2026-06-19T00:00:00.000Z", sourceDiagramVersion: 1, sourceSignature: "test" },
+    tables: [
+      {
+        id: "table-order",
+        name: "ORDER",
+        kind: "entity",
+        columns: [
+          {
+            id: "col-order-id",
+            name: "id",
+            isPrimaryKey: true,
+            isForeignKey: false,
+            isUnique: false,
+            isNullable: false,
+            dataType: "INTEGER",
+            references: [],
+          },
+          {
+            id: "col-order-user-id",
+            name: "user_id",
+            isPrimaryKey: false,
+            isForeignKey: true,
+            isUnique: false,
+            isNullable: false,
+            dataType: "INTEGER",
+            references: [
+              {
+                foreignKeyId: "fk-order-user",
+                targetTableId: "table-user",
+                targetColumnId: "col-user-id",
+              },
+            ],
+          },
+        ],
+        x: 0,
+        y: 0,
+        width: 180,
+        height: 104,
+      },
+      {
+        id: "table-user",
+        name: "USER",
+        kind: "entity",
+        columns: [
+          {
+            id: "col-user-id",
+            name: "id",
+            isPrimaryKey: true,
+            isForeignKey: false,
+            isUnique: false,
+            isNullable: false,
+            dataType: "INTEGER",
+            references: [],
+          },
+        ],
+        x: 260,
+        y: 0,
+        width: 180,
+        height: 70,
+      },
+    ],
+    foreignKeys: [
+      {
+        id: "fk-order-user",
+        name: "FK_ORDER_USER",
+        fromTableId: "table-order",
+        toTableId: "table-user",
+        mappings: [{ fromColumnId: "col-order-user-id", toColumnId: "col-user-id" }],
+        required: true,
+      },
+    ],
+    uniqueConstraints: [],
+    edges: [],
+    issues: [],
+  } satisfies LogicalModel;
+
+  const label = getDesignerLogicalForeignKeyLabel(
+    {
+      foreignKeyId: "fk-order-user",
+      label: "FK_ORDER_USER",
+    },
+    model,
+  );
+
+  assert.equal(label.fullLabel, "user_id -> USER.id");
+  assert.equal(label.displayLabel, "user_id -> USER.id");
 });
 
 test("logical canvas transformation mode keeps only unresolved ER context while schema mode shows only tables", () => {

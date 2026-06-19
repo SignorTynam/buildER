@@ -31,6 +31,7 @@ export function SqlReverseLogicalPreview({
       selection={selection}
       viewport={viewport}
       svgRef={svgRef}
+      showForeignKeyLabels={false}
       typeMode={false}
       fitRequestToken={fitRequestToken}
       autoFitOnMount

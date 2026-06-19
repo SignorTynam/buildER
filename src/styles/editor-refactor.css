@@ -5859,6 +5859,48 @@ textarea:disabled {
   --logical-edge-stroke: var(--diagram-focus);
 }
 
+.designer-logical-view .logical-edge-label-chip {
+  cursor: pointer;
+}
+
+.designer-logical-view .logical-edge-label-chip-bg {
+  fill: #fbfcfa;
+  stroke: #707a73;
+  stroke-width: 1.2px;
+  filter: drop-shadow(0 1px 2px rgba(16, 21, 18, 0.18));
+}
+
+.designer-logical-view .logical-edge-label-chip-badge {
+  fill: var(--diagram-focus, #3f5d52);
+}
+
+.designer-logical-view .logical-edge-label-chip-badge-text {
+  fill: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.designer-logical-view .logical-edge-label-chip-text {
+  fill: var(--diagram-text, #101513);
+  font-size: 12.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.designer-logical-view .logical-edge-label-chip.selected .logical-edge-label-chip-bg {
+  fill: #eef5f0;
+  stroke: var(--diagram-selection-stroke, #243d34);
+  stroke-width: 1.7px;
+}
+
+.designer-logical-view .logical-edge-label-chip.highlighted .logical-edge-label-chip-bg,
+.designer-logical-view .logical-edge-label-chip.focus-highlight .logical-edge-label-chip-bg {
+  fill: #f3f8f5;
+  stroke: var(--diagram-focus, #243d34);
+  stroke-width: 1.5px;
+}
+
 .designer-logical-view .logical-type-editor {
   display: none !important;
 }

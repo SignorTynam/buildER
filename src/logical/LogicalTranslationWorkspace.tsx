@@ -324,6 +324,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const [fixMenuOpen, setFixMenuOpen] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [showForeignKeyLabels, setShowForeignKeyLabels] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement | null>(null);
   const [entityKeySelectionModal, setEntityKeySelectionModal] = useState<{
     requests: LogicalEntityKeySelectionRequest[];
@@ -568,6 +569,9 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     const showEditTools = showColumnTools || showTableTools;
     const uniqueLocked = selectedColumn?.isPrimaryKey === true;
     const typeLocked = selectedColumn ? isColumnTypeLockedByReference(selectedColumn) : false;
+    const foreignKeyLabelsTitle = showForeignKeyLabels
+      ? t("logical.designer.hideForeignKeyLabelsTitle")
+      : t("logical.designer.showForeignKeyLabelsTitle");
 
     return (
       <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.schemaTools")}>
@@ -578,6 +582,15 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           title={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
           ariaLabel={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
           onClick={toggleSql}
+        />
+        <ToolbarButton
+          label={showForeignKeyLabels ? t("logical.designer.hideForeignKeys") : t("logical.designer.showForeignKeys")}
+          icon={<StudioIcon name={showForeignKeyLabels ? "viewOff" : "viewOn"} />}
+          active={showForeignKeyLabels}
+          title={foreignKeyLabelsTitle}
+          ariaLabel={foreignKeyLabelsTitle}
+          ariaPressed={showForeignKeyLabels}
+          onClick={() => setShowForeignKeyLabels((current) => !current)}
         />
         {props.onToggleNotesPanel ? (
           <ToolbarButton
@@ -949,6 +962,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               selection={props.selection}
               viewport={props.viewport}
               svgRef={props.svgRef}
+              showForeignKeyLabels={showForeignKeyLabels}
               typeMode={props.logicalStage === "schema" ? props.typeMode : false}
               fitRequestToken={props.fitRequestToken}
               autoFitOnMount={props.logicalStage === "schema"}
