@@ -33,7 +33,7 @@ const IMPORTANT_LOCALIZED_KEYS = [
   "logical.noItemsThisStep",
   "translation.restructuring.stageLabel",
   "toolbar.commands.select.label",
-  "notesPanel.toolbar.image",
+  "notesPanel.description",
   "cardinalityModal.title",
   "sqlReverse.input.analyze",
   "logical.entityKeyModal.title",
@@ -43,10 +43,16 @@ const NEW_I18N_SECTIONS = [
   "toolbar.commands.select.label",
   "toolbar.commands.pan.aria",
   "toolbar.commands.compositeId.sameEntity",
+  "toolbar.commands.externalIdUnified.label",
+  "toolbar.commands.deleteIdentifier.label",
+  "toolbar.commands.deleteIdentifier.title",
+  "workspace.identifierAlreadyExistsUseDelete",
   "toolbar.export.diagramCode",
+  "toolbar.export.jpeg",
+  "commandMenu.commands.fileExportJpeg.label",
   "notesPanel.toolbar.bold",
+  "notesPanel.toolbar.orderedList",
   "notesPanel.toolbar.clearFormatting",
-  "notesPanel.prompts.imageUrl",
   "codePanel.closeAria",
   "cardinalityModal.primary.createConnector",
   "cardinalityModal.presets.requiredMany",
@@ -57,6 +63,11 @@ const NEW_I18N_SECTIONS = [
   "sqlReverse.app.importedTables",
   "logical.toolbars.translationTools",
   "logical.export.project",
+  "logical.export.jpeg",
+  "logical.designer.showForeignKeys",
+  "logical.designer.hideForeignKeys",
+  "logical.designer.showForeignKeyLabelsTitle",
+  "logical.designer.hideForeignKeyLabelsTitle",
   "logical.entityKeyModal.applyFixEntities",
   "errors.structured.template",
   "connection.errors.invalidConnector",
@@ -120,6 +131,32 @@ test("localized dictionaries do not contain empty visible strings", () => {
   for (const locale of SUPPORTED_LOCALES) {
     assert.deepEqual(collectEmptyStrings(locale), [], `${locale} contains empty i18n strings`);
   }
+});
+
+test("identifier toolbar labels resolve for every locale", () => {
+  const expectedExternalIdLabels: Record<Locale, string> = {
+    it: "ID esterno",
+    en: "External Id",
+    sq: "ID i jashtëm",
+  };
+  const expectedDeleteIdentifierTitles: Record<Locale, string> = {
+    it: "Elimina l'identificatore selezionato senza cancellare i suoi attributi",
+    en: "Delete the selected identifier without deleting its attributes",
+    sq: "Fshin identifikuesin e zgjedhur pa fshirë atributet e tij",
+  };
+
+  for (const locale of SUPPORTED_LOCALES) {
+    setCurrentLocale(locale);
+    assert.equal(translate("toolbar.commands.externalIdUnified.label"), expectedExternalIdLabels[locale]);
+    assert.notEqual(translate("toolbar.commands.deleteIdentifier.label"), "toolbar.commands.deleteIdentifier.label");
+    assert.equal(translate("toolbar.commands.deleteIdentifier.title"), expectedDeleteIdentifierTitles[locale]);
+    assert.notEqual(
+      translate("workspace.identifierAlreadyExistsUseDelete"),
+      "workspace.identifierAlreadyExistsUseDelete",
+    );
+  }
+
+  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("important English and Albanian UI strings are not Italian fallbacks", () => {

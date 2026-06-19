@@ -41,6 +41,7 @@ interface CommandMenuModalProps {
   onLoadProject: () => void;
   onLoadErs: () => void;
   onExportPng: () => void;
+  onExportJpeg: () => void;
   onExportSvg: () => void;
   onResetErs: () => void;
   onAbout: () => void;
@@ -371,6 +372,13 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
         label: t("commandMenu.commands.fileExportPng.label"),
         icon: "image",
         action: props.onExportPng,
+      },
+      {
+        id: "file-export-jpeg",
+        category: "file",
+        label: t("commandMenu.commands.fileExportJpeg.label"),
+        icon: "image",
+        action: props.onExportJpeg,
       },
       {
         id: "file-export-svg",

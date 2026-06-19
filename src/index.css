@@ -6535,6 +6535,52 @@ textarea.diagram-notes-editor::placeholder {
   stroke-width: 4px;
 }
 
+.logical-edge-label-layer {
+  pointer-events: visiblePainted;
+}
+
+.logical-edge-label-chip {
+  cursor: pointer;
+}
+
+.logical-edge-label-chip-bg {
+  fill: #fbfcfa;
+  stroke: #707a73;
+  stroke-width: 1.1px;
+}
+
+.logical-edge-label-chip-badge {
+  fill: var(--editor-accent, #35564f);
+}
+
+.logical-edge-label-chip-badge-text {
+  fill: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.logical-edge-label-chip-text {
+  fill: var(--editor-text-strong, var(--diagram-text, #0e1612));
+  font-size: 11.5px;
+  font-weight: 650;
+  pointer-events: none;
+}
+
+.logical-edge-label-chip.selected .logical-edge-label-chip-bg {
+  fill: #eef5f0;
+  stroke: var(--diagram-selection-stroke, #243d34);
+  stroke-width: 1.7px;
+}
+
+.logical-edge-label-chip.highlighted .logical-edge-label-chip-bg,
+.logical-edge-label-chip.focus-highlight .logical-edge-label-chip-bg {
+  fill: #f3f8f5;
+  stroke: var(--diagram-focus, #243d34);
+  stroke-width: 1.5px;
+}
+
 .logical-edge path {
   transition:
     stroke 130ms ease,
@@ -9233,69 +9279,14 @@ textarea:focus-visible,
 }
 
 .external-identifier,
+.external-identifier-frame,
+.external-identifier-marker-target,
 .composite-identifier {
-  transition: opacity 130ms ease, filter 130ms ease;
+  cursor: pointer;
 }
 
-.external-identifier-path,
-.external-identifier-entity-frame,
-.external-identifier-marker,
-.composite-identifier-path,
-.composite-identifier-marker,
-.composite-identifier-junction {
-  transition:
-    stroke 130ms ease,
-    stroke-width 130ms ease,
-    fill 130ms ease,
-    r 130ms ease;
-}
-
-.external-identifier:hover,
-.external-identifier:focus-within,
-.external-identifier-active,
-.composite-identifier:hover,
-.composite-identifier:focus-within,
-.composite-identifier-active {
-  filter: drop-shadow(0 4px 10px rgba(44, 90, 83, 0.14));
-}
-
-.external-identifier:hover .external-identifier-path,
-.external-identifier:focus-within .external-identifier-path,
-.external-identifier-active .external-identifier-path,
-.external-identifier:hover .external-identifier-marker,
-.external-identifier:focus-within .external-identifier-marker,
-.external-identifier-active .external-identifier-marker,
-.composite-identifier:hover .composite-identifier-path,
-.composite-identifier:focus-within .composite-identifier-path,
-.composite-identifier-active .composite-identifier-path,
-.composite-identifier:hover .composite-identifier-marker,
-.composite-identifier:focus-within .composite-identifier-marker,
-.composite-identifier-active .composite-identifier-marker {
-  stroke: var(--studio-accent);
-  stroke-width: 2.6px;
-}
-
-.external-identifier:hover .external-identifier-marker,
-.external-identifier:focus-within .external-identifier-marker,
-.external-identifier-active .external-identifier-marker,
-.composite-identifier:hover .composite-identifier-marker,
-.composite-identifier:focus-within .composite-identifier-marker,
-.composite-identifier-active .composite-identifier-marker,
-.composite-identifier:hover .composite-identifier-junction,
-.composite-identifier:focus-within .composite-identifier-junction,
-.composite-identifier-active .composite-identifier-junction {
-  fill: rgba(48, 95, 88, 0.16);
-}
-
-.external-identifier-imported .external-identifier-marker,
-.external-identifier-imported:hover .external-identifier-marker,
-.external-identifier-imported:focus-within .external-identifier-marker,
-.external-identifier-imported.external-identifier-active .external-identifier-marker {
+.external-identifier-imported .external-identifier-marker {
   fill: var(--diagram-stroke, #1f2f2b);
-}
-
-.external-identifier-entity-frame {
-  vector-effect: non-scaling-stroke;
 }
 
 .external-identifier-edge-mask {

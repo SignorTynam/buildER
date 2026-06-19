@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AttributeNode, DiagramDocument, DiagramEdge, EntityNode, RelationshipNode } from "../src/types/diagram.ts";
-import { getCardinalityModalPrimaryLabel } from "../src/components/CardinalityModal.tsx";
+import {
+  getCardinalityModalPrimaryLabel,
+  shouldCancelCardinalityModalFromKeyboard,
+  shouldConfirmCardinalityModalFromKeyboard,
+} from "../src/components/CardinalityModal.tsx";
 import {
   applyConnectorCardinalityToDiagram,
   ensureConnectorParticipation,
@@ -112,6 +116,25 @@ test("cardinality flow: new connector between entity and relationship opens card
   assert.equal(shouldOpenCardinalityDialogAfterEdgeCreation("connector", relationshipNode, entityNode), true);
   assert.equal(shouldOpenCardinalityDialogAfterEdgeCreation("attribute", entityNode, attributeNode), false);
   assert.equal(shouldOpenCardinalityDialogAfterEdgeCreation("inheritance", entityNode, relationshipNode), false);
+});
+
+test("cardinality flow: modal Enter shortcut confirms immediately", () => {
+  assert.equal(shouldConfirmCardinalityModalFromKeyboard({ key: "Enter" }), true);
+});
+
+test("cardinality flow: modal Enter shortcut ignores modified or repeated events", () => {
+  assert.equal(shouldConfirmCardinalityModalFromKeyboard({ key: "Enter", repeat: true }), false);
+  assert.equal(shouldConfirmCardinalityModalFromKeyboard({ key: "Enter", ctrlKey: true }), false);
+  assert.equal(shouldConfirmCardinalityModalFromKeyboard({ key: "Enter", metaKey: true }), false);
+  assert.equal(shouldConfirmCardinalityModalFromKeyboard({ key: "Enter", altKey: true }), false);
+  assert.equal(shouldConfirmCardinalityModalFromKeyboard({ key: "Enter", isComposing: true }), false);
+  assert.equal(shouldConfirmCardinalityModalFromKeyboard({ key: "Enter", defaultPrevented: true }), false);
+});
+
+test("cardinality flow: modal Escape shortcut cancels", () => {
+  assert.equal(shouldCancelCardinalityModalFromKeyboard({ key: "Escape" }), true);
+  assert.equal(shouldCancelCardinalityModalFromKeyboard({ key: "Enter" }), false);
+  assert.equal(shouldCancelCardinalityModalFromKeyboard({ key: "Escape", isComposing: true }), false);
 });
 
 test("cardinality flow: cancel removes temporary connector and its participation only", () => {

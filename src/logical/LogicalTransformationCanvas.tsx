@@ -10,7 +10,7 @@ import { DiagramIdentifierOverlay } from "../canvas/DiagramCanvas";
 import { DiagramEdgeView } from "../canvas/DiagramEdge";
 import { DiagramNodeView } from "../canvas/DiagramNode";
 import { StudioIcon } from "../components/icons/StudioIcon";
-import type { DiagramDocument, DiagramEdge, DiagramNode, Point, Viewport } from "../types/diagram";
+import type { Bounds, DiagramDocument, DiagramEdge, DiagramNode, Point, Viewport } from "../types/diagram";
 import type {
   LogicalColumn,
   LogicalSelection,
@@ -27,6 +27,11 @@ import {
   isColumnTypeLockedByReference,
   type LogicalColumnSqlPatch,
 } from "../utils/logicalSqlMetadata";
+import {
+  chooseLogicalForeignKeyLabelPlacement,
+  type LogicalFkLabelPlacement,
+  type LogicalFkLabelReservedBox,
+} from "../utils/logicalForeignKeyLabelLayout";
 
 interface LogicalTransformationCanvasProps {
   sourceDiagram: DiagramDocument;
@@ -34,6 +39,7 @@ interface LogicalTransformationCanvasProps {
   selection: LogicalSelection;
   viewport: Viewport;
   svgRef?: RefObject<SVGSVGElement>;
+  showForeignKeyLabels: boolean;
   typeMode: boolean;
   fitRequestToken: number;
   autoFitOnMount?: boolean;
@@ -89,9 +95,6 @@ const LOGICAL_FIT_LEFT_INSET = 150;
 const LOGICAL_FIT_RIGHT_INSET = 72;
 const LOGICAL_FIT_VERTICAL_INSET = 72;
 const EDGE_BOUNDS_PADDING = 24;
-const EDGE_LABEL_HALF_WIDTH = 56;
-const EDGE_LABEL_HALF_HEIGHT = 12;
-const EDGE_LABEL_VERTICAL_OFFSET = 6;
 const DESIGNER_TABLE_MIN_WIDTH = 180;
 const DESIGNER_TABLE_MAX_WIDTH = 860;
 const DESIGNER_TABLE_HEADER_HEIGHT = 36;
@@ -101,6 +104,13 @@ const DESIGNER_TABLE_INLINE_EDITOR_TOP = 6;
 const DESIGNER_EDGE_DEFAULT_STROKE_WIDTH = 1.2;
 const DESIGNER_EDGE_ACTIVE_STROKE_WIDTH = 1.45;
 const DESIGNER_EDGE_SELECTED_STROKE_WIDTH = 1.7;
+const DESIGNER_FK_LABEL_MIN_HEIGHT = 26;
+const DESIGNER_FK_LABEL_LINE_HEIGHT = 13;
+const DESIGNER_FK_LABEL_MAX_WIDTH = 240;
+const DESIGNER_FK_LABEL_PADDING_X = 9;
+const DESIGNER_FK_LABEL_BADGE_WIDTH = 28;
+const DESIGNER_FK_LABEL_BADGE_GAP = 8;
+const DESIGNER_FK_LABEL_BADGE_HEIGHT = 18;
 const DESIGNER_COLUMN_TYPE_GAP = 32;
 const DESIGNER_QUALIFIER_BADGE_HEIGHT = 18;
 const DESIGNER_QUALIFIER_BADGE_PADDING_X = 6;
@@ -407,8 +417,56 @@ function renderDesignerLogicalColumnLabel(column: LogicalColumn, x: number, y: n
   );
 }
 
-function shouldRenderDesignerLogicalEdgeLabel(selected: boolean, focusHighlighted: boolean): boolean {
-  return selected || focusHighlighted;
+export interface DesignerLogicalForeignKeyLabel {
+  fullLabel: string;
+  displayLabel: string;
+}
+
+export function getDesignerLogicalForeignKeyLabel(
+  edge: Pick<LogicalTransformationEdge, "foreignKeyId" | "label">,
+  model: LogicalWorkspaceDocument["model"],
+): DesignerLogicalForeignKeyLabel {
+  const fallback = edge.label.trim();
+  const foreignKey = edge.foreignKeyId
+    ? model.foreignKeys.find((candidate) => candidate.id === edge.foreignKeyId)
+    : undefined;
+
+  if (!foreignKey) {
+    return { fullLabel: fallback, displayLabel: fallback };
+  }
+
+  const fromTable = model.tables.find((table) => table.id === foreignKey.fromTableId);
+  const toTable = model.tables.find((table) => table.id === foreignKey.toTableId);
+  if (!fromTable || !toTable) {
+    return { fullLabel: fallback, displayLabel: fallback };
+  }
+
+  const pairs = foreignKey.mappings.flatMap((mapping) => {
+    const fromColumn = fromTable.columns.find((column) => column.id === mapping.fromColumnId);
+    const toColumn = toTable.columns.find((column) => column.id === mapping.toColumnId);
+    return fromColumn && toColumn ? [{ fromColumn, toColumn }] : [];
+  });
+
+  if (pairs.length === 0) {
+    return { fullLabel: fallback, displayLabel: fallback };
+  }
+
+  const fullLabel =
+    pairs.length === 1
+      ? `${pairs[0].fromColumn.name} -> ${toTable.name}.${pairs[0].toColumn.name}`
+      : `${pairs.map((pair) => pair.fromColumn.name).join(", ")} -> ${toTable.name}(${pairs
+          .map((pair) => pair.toColumn.name)
+          .join(", ")})`;
+
+  return { fullLabel, displayLabel: fullLabel };
+}
+
+export function shouldRenderDesignerLogicalEdgeLabel(
+  selected: boolean,
+  focusHighlighted: boolean,
+  forceVisible: boolean,
+): boolean {
+  return forceVisible || selected || focusHighlighted;
 }
 
 function getDesignerLogicalEdgeStrokeWidth(
@@ -595,7 +653,7 @@ function getRoute(
   };
 }
 
-function getBoundsForNodes(nodes: LogicalTransformationNode[]): { x: number; y: number; width: number; height: number } | null {
+function getBoundsForNodes(nodes: LogicalTransformationNode[]): Bounds | null {
   if (nodes.length === 0) {
     return null;
   }
@@ -615,7 +673,8 @@ function getBoundsForNodes(nodes: LogicalTransformationNode[]): { x: number; y: 
 function getBoundsForVisibleContent(
   nodes: LogicalTransformationNode[],
   routes: EdgeRoute[],
-): { x: number; y: number; width: number; height: number } | null {
+  labelBounds: Bounds[] = [],
+): Bounds | null {
   const nodeBounds = getBoundsForNodes(nodes);
 
   let minX = nodeBounds ? nodeBounds.x : Number.POSITIVE_INFINITY;
@@ -632,13 +691,17 @@ function getBoundsForVisibleContent(
 
   routes.forEach((route) => {
     route.points.forEach(includePoint);
+  });
 
-    const labelX = route.labelPoint.x;
-    const labelY = route.labelPoint.y - EDGE_LABEL_VERTICAL_OFFSET;
-    minX = Math.min(minX, labelX - EDGE_LABEL_HALF_WIDTH);
-    minY = Math.min(minY, labelY - EDGE_LABEL_HALF_HEIGHT);
-    maxX = Math.max(maxX, labelX + EDGE_LABEL_HALF_WIDTH);
-    maxY = Math.max(maxY, labelY + EDGE_LABEL_HALF_HEIGHT);
+  function includeBounds(bounds: Bounds) {
+    minX = Math.min(minX, bounds.x);
+    minY = Math.min(minY, bounds.y);
+    maxX = Math.max(maxX, bounds.x + bounds.width);
+    maxY = Math.max(maxY, bounds.y + bounds.height);
+  }
+
+  labelBounds.forEach((bounds) => {
+    includeBounds(bounds);
   });
 
   if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
@@ -651,6 +714,20 @@ function getBoundsForVisibleContent(
     width: Math.max(1, maxX - minX + EDGE_BOUNDS_PADDING * 2),
     height: Math.max(1, maxY - minY + EDGE_BOUNDS_PADDING * 2),
   };
+}
+
+export function buildLogicalFkLabelReservedBoxes(
+  nodes: LogicalTransformationNode[],
+  padding = 12,
+): LogicalFkLabelReservedBox[] {
+  return nodes.map((node) => ({
+    id: node.id,
+    kind: node.kind === "logical-table" ? "table" : "shape",
+    x: node.x - padding,
+    y: node.y - padding,
+    width: node.width + padding * 2,
+    height: node.height + padding * 2,
+  }));
 }
 
 function getRowWorldPoint(tableNode: LogicalTransformationNode, rowIndex: number): Point {
@@ -867,6 +944,67 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     return routes;
   }, [fkEdges, nodeById, laneByEdgeId]);
 
+  const foreignKeyLabelPlacementByEdgeId = useMemo(() => {
+    const placements = new Map<string, LogicalFkLabelPlacement>();
+    const reservedBoxes = buildLogicalFkLabelReservedBoxes(visibleRenderedNodes, 12);
+    const alreadyPlacedBoxes: LogicalFkLabelReservedBox[] = [];
+
+    fkEdges.forEach((edge) => {
+      const route = routeByEdgeId.get(edge.id);
+      if (!route) {
+        return;
+      }
+
+      const selected = props.selection.edgeId === edge.id;
+      const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
+      const edgeLabel = getDesignerLogicalForeignKeyLabel(edge, props.workspace.model);
+      const shouldShow =
+        edgeLabel.fullLabel.trim().length > 0 &&
+        shouldRenderDesignerLogicalEdgeLabel(selected, focusHighlighted, props.showForeignKeyLabels);
+
+      if (!shouldShow) {
+        return;
+      }
+
+      const placement = chooseLogicalForeignKeyLabelPlacement({
+        edgeId: edge.id,
+        routePoints: route.points,
+        defaultPoint: route.labelPoint,
+        fullLabel: edgeLabel.fullLabel,
+        reservedBoxes,
+        alreadyPlacedBoxes,
+        maxWidth: DESIGNER_FK_LABEL_MAX_WIDTH,
+        maxLines: edgeLabel.fullLabel.length > 48 ? 3 : 2,
+      });
+
+      placements.set(edge.id, placement);
+      alreadyPlacedBoxes.push({
+        id: `${edge.id}:fk-label`,
+        kind: "label",
+        ...placement.bounds,
+        x: placement.bounds.x - 6,
+        y: placement.bounds.y - 6,
+        width: placement.bounds.width + 12,
+        height: placement.bounds.height + 12,
+      });
+    });
+
+    return placements;
+  }, [
+    fkEdges,
+    routeByEdgeId,
+    visibleRenderedNodes,
+    props.selection.edgeId,
+    props.focusedTargetKey,
+    props.showForeignKeyLabels,
+    props.workspace.model,
+  ]);
+
+  const visibleFkLabelBounds = useMemo(
+    () => [...foreignKeyLabelPlacementByEdgeId.values()].map((placement) => placement.bounds),
+    [foreignKeyLabelPlacementByEdgeId],
+  );
+
   const attributeDirectionByNodeId = useMemo(() => buildAttributeDirectionMap(nodeById, erEdges), [nodeById, erEdges]);
 
   useEffect(() => {
@@ -913,7 +1051,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return false;
     }
 
-    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()]);
+    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()], visibleFkLabelBounds);
     if (!bounds) {
       return false;
     }
@@ -1007,7 +1145,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
-    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()]);
+    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()], visibleFkLabelBounds);
     if (!bounds) {
       return;
     }
@@ -1028,7 +1166,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
-    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()]);
+    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()], visibleFkLabelBounds);
     if (!bounds) {
       props.onViewportChange({
         x: getLogicalTransformationFitFrame(rect).x + getLogicalTransformationFitFrame(rect).width / 2,
@@ -1367,8 +1505,9 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
           </marker>
         </defs>
 
-        <g transform={`translate(${props.viewport.x}, ${props.viewport.y}) scale(${props.viewport.zoom})`}>
+        <g data-export-world="true" transform={`translate(${props.viewport.x}, ${props.viewport.y}) scale(${props.viewport.zoom})`}>
           <rect
+            data-export-background="true"
             x={-WORLD_EXTENT / 2}
             y={-WORLD_EXTENT / 2}
             width={WORLD_EXTENT}
@@ -1453,70 +1592,59 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
             );
           })}
 
-          {fkEdges.map((edge) => {
-            const route = routeByEdgeId.get(edge.id);
-            if (!route) {
-              return null;
-            }
+          <g className="logical-edge-path-layer">
+            {fkEdges.map((edge) => {
+              const route = routeByEdgeId.get(edge.id);
+              if (!route) {
+                return null;
+              }
 
-            const selected = props.selection.edgeId === edge.id;
-            const stepHighlighted = hasAnyTargetKey(edge, props.activeTargetKeys);
-            const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
-            const edgePath = pathFromOrthogonalPoints(route.points);
-            const edgeStrokeWidth = getDesignerLogicalEdgeStrokeWidth(
-              selected,
-              stepHighlighted,
-              focusHighlighted,
-            );
-            const showEdgeLabel =
-              edge.label.trim().length > 0 &&
-              shouldRenderDesignerLogicalEdgeLabel(selected, focusHighlighted);
+              const selected = props.selection.edgeId === edge.id;
+              const stepHighlighted = hasAnyTargetKey(edge, props.activeTargetKeys);
+              const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
+              const edgePath = pathFromOrthogonalPoints(route.points);
+              const edgeStrokeWidth = getDesignerLogicalEdgeStrokeWidth(
+                selected,
+                stepHighlighted,
+                focusHighlighted,
+              );
 
-            return (
-              <g
-                key={edge.id}
-                className={[
-                  "logical-edge",
-                  selected ? "selected" : "",
-                  stepHighlighted ? "highlighted" : "",
-                  focusHighlighted ? "focus-highlight" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                onPointerDown={(event) => handleLogicalEdgePointerDown(event, edge)}
-              >
-                <path
-                  d={edgePath}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth={12}
-                  strokeLinecap="square"
-                  strokeLinejoin="miter"
-                  vectorEffect="non-scaling-stroke"
-                />
-                <path
-                  d={edgePath}
-                  fill="none"
-                  stroke="var(--logical-edge-stroke)"
-                  strokeWidth={edgeStrokeWidth}
-                  markerEnd="url(#logical-arrow)"
-                  strokeLinecap="square"
-                  strokeLinejoin="miter"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {showEdgeLabel ? (
-                  <text
-                    x={route.labelPoint.x}
-                    y={route.labelPoint.y - 8}
-                    textAnchor="middle"
-                    className="logical-edge-label"
-                  >
-                    {edge.label}
-                  </text>
-                ) : null}
-              </g>
-            );
-          })}
+              return (
+                <g
+                  key={edge.id}
+                  className={[
+                    "logical-edge",
+                    selected ? "selected" : "",
+                    stepHighlighted ? "highlighted" : "",
+                    focusHighlighted ? "focus-highlight" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onPointerDown={(event) => handleLogicalEdgePointerDown(event, edge)}
+                >
+                  <path
+                    d={edgePath}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={12}
+                    strokeLinecap="square"
+                    strokeLinejoin="miter"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <path
+                    d={edgePath}
+                    fill="none"
+                    stroke="var(--logical-edge-stroke)"
+                    strokeWidth={edgeStrokeWidth}
+                    markerEnd="url(#logical-arrow)"
+                    strokeLinecap="square"
+                    strokeLinejoin="miter"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </g>
+              );
+            })}
+          </g>
 
           {erNodes.map((node) => {
             const selected = props.selection.nodeId === node.id;
@@ -1692,6 +1820,95 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
               </g>
             );
           })}
+
+          <g className="logical-edge-label-layer">
+            {fkEdges.map((edge) => {
+              const placement = foreignKeyLabelPlacementByEdgeId.get(edge.id);
+              if (!placement) {
+                return null;
+              }
+
+              const selected = props.selection.edgeId === edge.id;
+              const stepHighlighted = hasAnyTargetKey(edge, props.activeTargetKeys);
+              const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
+              const chipX = placement.bounds.x;
+              const chipY = placement.bounds.y;
+              const chipHeight = Math.max(DESIGNER_FK_LABEL_MIN_HEIGHT, placement.height);
+              const badgeY = chipY + (chipHeight - DESIGNER_FK_LABEL_BADGE_HEIGHT) / 2;
+              const textX =
+                chipX +
+                DESIGNER_FK_LABEL_PADDING_X +
+                DESIGNER_FK_LABEL_BADGE_WIDTH +
+                DESIGNER_FK_LABEL_BADGE_GAP;
+              const firstLineY =
+                chipY +
+                chipHeight / 2 -
+                ((placement.lines.length - 1) * DESIGNER_FK_LABEL_LINE_HEIGHT) / 2;
+
+              return (
+                <g
+                  key={`${edge.id}:fk-label`}
+                  className={[
+                    "logical-edge-label-chip",
+                    selected ? "selected" : "",
+                    stepHighlighted ? "highlighted" : "",
+                    focusHighlighted ? "focus-highlight" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-label={`Foreign key ${placement.fullLabel}`}
+                  onPointerDown={(event) => handleLogicalEdgePointerDown(event, edge)}
+                >
+                  <title>{placement.fullLabel}</title>
+                  <rect
+                    x={chipX}
+                    y={chipY}
+                    width={placement.width}
+                    height={chipHeight}
+                    rx={8}
+                    ry={8}
+                    className="logical-edge-label-chip-bg"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <rect
+                    x={chipX + DESIGNER_FK_LABEL_PADDING_X}
+                    y={badgeY}
+                    width={DESIGNER_FK_LABEL_BADGE_WIDTH}
+                    height={DESIGNER_FK_LABEL_BADGE_HEIGHT}
+                    rx={6}
+                    ry={6}
+                    className="logical-edge-label-chip-badge"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <text
+                    x={chipX + DESIGNER_FK_LABEL_PADDING_X + DESIGNER_FK_LABEL_BADGE_WIDTH / 2}
+                    y={chipY + chipHeight / 2}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="logical-edge-label-chip-badge-text"
+                  >
+                    FK
+                  </text>
+                  <text
+                    x={textX}
+                    y={firstLineY}
+                    dominantBaseline="middle"
+                    className="logical-edge-label-chip-text"
+                  >
+                    {placement.lines.map((line, index) => (
+                      <tspan
+                        key={`${edge.id}-line-${index}`}
+                        x={textX}
+                        dy={index === 0 ? 0 : DESIGNER_FK_LABEL_LINE_HEIGHT}
+                      >
+                        {line}
+                      </tspan>
+                    ))}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
         </g>
       </svg>
 

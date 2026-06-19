@@ -34,6 +34,10 @@ const MULTIVALUED_ATTRIBUTE_CHAR_WIDTH = 8;
 const ENTITY_TEXT_HORIZONTAL_PADDING = 52;
 const RELATIONSHIP_TEXT_HORIZONTAL_PADDING = 70;
 const SHAPE_LABEL_CHAR_WIDTH = 9;
+const RELATIONSHIP_WIDE_LABEL_CHAR_WIDTH = 11;
+const RELATIONSHIP_LABEL_CHAR_WIDTH = 8;
+const RELATIONSHIP_MAX_AUTO_EXTRA_HEIGHT = 32;
+const RELATIONSHIP_AUTO_HEIGHT_RATIO = 0.08;
 
 type RelationshipNode = Extract<DiagramNode, { type: "relationship" }>;
 type AttributeNode = Extract<DiagramNode, { type: "attribute" }>;
@@ -819,6 +823,56 @@ function getNodeSize(nodeType: NodeKind) {
   }
 }
 
+function estimateRelationshipTextWidth(label: string): number {
+  const normalizedLabel = label.trim();
+  if (normalizedLabel.length === 0) {
+    return RELATIONSHIP_LABEL_CHAR_WIDTH;
+  }
+
+  return Array.from(normalizedLabel).reduce((width, character) => {
+    const upperCharacter = character.toUpperCase();
+    const characterWidth =
+      upperCharacter === "W" || upperCharacter === "M"
+        ? RELATIONSHIP_WIDE_LABEL_CHAR_WIDTH
+        : RELATIONSHIP_LABEL_CHAR_WIDTH;
+    return width + characterWidth;
+  }, 0);
+}
+
+export function getPreferredNodeSizeForLabel(
+  nodeType: NodeKind,
+  label: string,
+): { width: number; height: number } {
+  const baseSize = getNodeSize(nodeType);
+
+  if (nodeType === "entity") {
+    const estimatedTextWidth = Math.max(1, label.trim().length) * SHAPE_LABEL_CHAR_WIDTH;
+    return {
+      width: Math.max(baseSize.width, snapValue(estimatedTextWidth + ENTITY_TEXT_HORIZONTAL_PADDING, 10)),
+      height: baseSize.height,
+    };
+  }
+
+  if (nodeType === "relationship") {
+    const estimatedTextWidth = estimateRelationshipTextWidth(label);
+    const width = Math.max(
+      baseSize.width,
+      snapValue(estimatedTextWidth + RELATIONSHIP_TEXT_HORIZONTAL_PADDING, 10),
+    );
+    const extraHeight = clamp(
+      (width - baseSize.width) * RELATIONSHIP_AUTO_HEIGHT_RATIO,
+      0,
+      RELATIONSHIP_MAX_AUTO_EXTRA_HEIGHT,
+    );
+    return {
+      width,
+      height: baseSize.height + snapValue(extraHeight, 10),
+    };
+  }
+
+  return baseSize;
+}
+
 export function getMinimumNodeSizeForLabel(
   nodeType: NodeKind,
   label: string,
@@ -834,11 +888,7 @@ export function getMinimumNodeSizeForLabel(
   }
 
   if (nodeType === "relationship") {
-    const width = Math.max(baseSize.width, snapValue(estimatedTextWidth + RELATIONSHIP_TEXT_HORIZONTAL_PADDING, 10));
-    return {
-      width,
-      height: Math.max(baseSize.height, snapValue(width * 0.58, 10)),
-    };
+    return getPreferredNodeSizeForLabel(nodeType, label);
   }
 
   return baseSize;
@@ -858,6 +908,24 @@ export function withMinimumNodeSizeForLabel(node: DiagramNode): DiagramNode {
     ...node,
     width: Math.max(node.width, minimumSize.width),
     height: Math.max(node.height, minimumSize.height),
+  };
+}
+
+export function withPreferredNodeSizeForLabel(node: DiagramNode, center?: Point): DiagramNode {
+  if (node.type !== "entity" && node.type !== "relationship") {
+    return node;
+  }
+
+  const preferredSize = getPreferredNodeSizeForLabel(node.type, node.label);
+  const centerX = center?.x ?? node.x + node.width / 2;
+  const centerY = center?.y ?? node.y + node.height / 2;
+
+  return {
+    ...node,
+    x: centerX - preferredSize.width / 2,
+    y: centerY - preferredSize.height / 2,
+    width: preferredSize.width,
+    height: preferredSize.height,
   };
 }
 
@@ -3008,6 +3076,110 @@ export function isExternalIdentifierStillValid(
   return validateExternalIdentifier(diagram, hostEntity, externalIdentifier).valid;
 }
 
+export type CreateSimpleInternalIdentifierResult =
+  | {
+      status: "created";
+      diagram: DiagramDocument;
+      hostEntityId: string;
+      internalIdentifierId: string;
+    }
+  | {
+      status: "already-exists" | "not-eligible";
+      diagram: DiagramDocument;
+      hostEntityId?: string;
+      internalIdentifierId?: string;
+    };
+
+export function createSimpleInternalIdentifierForAttribute(
+  diagram: DiagramDocument,
+  attributeId: string,
+): CreateSimpleInternalIdentifierResult {
+  const attribute = diagram.nodes.find(
+    (node): node is AttributeNode => node.id === attributeId && node.type === "attribute",
+  );
+  if (!attribute || attribute.isMultivalued === true) {
+    return { status: "not-eligible", diagram };
+  }
+
+  let hostEntity: EntityNode | undefined;
+  for (const edge of diagram.edges) {
+    if (edge.type !== "attribute") {
+      continue;
+    }
+
+    const otherId = edge.sourceId === attributeId ? edge.targetId : edge.targetId === attributeId ? edge.sourceId : "";
+    const candidate = diagram.nodes.find((node): node is EntityNode => node.id === otherId && node.type === "entity");
+    if (candidate) {
+      hostEntity = candidate;
+      break;
+    }
+  }
+
+  if (!hostEntity) {
+    return { status: "not-eligible", diagram };
+  }
+
+  const existing = (hostEntity.internalIdentifiers ?? []).find((identifier) =>
+    identifier.attributeIds.includes(attributeId),
+  );
+  if (existing) {
+    return {
+      status: "already-exists",
+      diagram,
+      hostEntityId: hostEntity.id,
+      internalIdentifierId: existing.id,
+    };
+  }
+
+  const usedExternalAttributeIds = new Set(
+    (hostEntity.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds),
+  );
+  if (
+    attribute.isIdentifier === true ||
+    attribute.isCompositeInternal === true ||
+    usedExternalAttributeIds.has(attributeId)
+  ) {
+    return { status: "not-eligible", diagram, hostEntityId: hostEntity.id };
+  }
+
+  const internalIdentifierId = `internalIdentifier-simple-${attributeId}`;
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.id === hostEntity.id && node.type === "entity") {
+      return {
+        ...node,
+        internalIdentifiers: [
+          ...(node.internalIdentifiers ?? []),
+          {
+            id: internalIdentifierId,
+            attributeIds: [attributeId],
+          },
+        ],
+      };
+    }
+
+    if (node.id === attributeId && node.type === "attribute") {
+      return {
+        ...node,
+        isIdentifier: true,
+        isCompositeInternal: false,
+        cardinality: undefined,
+      };
+    }
+
+    return node;
+  });
+
+  return {
+    status: "created",
+    diagram: {
+      ...diagram,
+      nodes: nextNodes,
+    },
+    hostEntityId: hostEntity.id,
+    internalIdentifierId,
+  };
+}
+
 export function removeExternalIdentifierFromEntity(
   diagram: DiagramDocument,
   entityId: string,
@@ -3041,6 +3213,56 @@ export function removeExternalIdentifierFromEntity(
         nodes: nextNodes,
       }
     : diagram;
+}
+
+export function removeInternalIdentifierFromEntity(
+  diagram: DiagramDocument,
+  entityId: string,
+  internalIdentifierId: string,
+): DiagramDocument {
+  const hostEntity = diagram.nodes.find(
+    (node): node is EntityNode => node.id === entityId && node.type === "entity",
+  );
+  const currentIdentifiers = hostEntity?.internalIdentifiers ?? [];
+  const removedIdentifier = currentIdentifiers.find((identifier) => identifier.id === internalIdentifierId);
+  if (!hostEntity || !removedIdentifier) {
+    return diagram;
+  }
+
+  const nextIdentifiers = currentIdentifiers.filter((identifier) => identifier.id !== internalIdentifierId);
+  const removedAttributeIds = new Set(removedIdentifier.attributeIds);
+  const remainingSimpleAttributeIds = new Set(
+    nextIdentifiers
+      .filter((identifier) => identifier.attributeIds.length === 1)
+      .flatMap((identifier) => identifier.attributeIds),
+  );
+  const remainingCompositeAttributeIds = new Set(
+    nextIdentifiers
+      .filter((identifier) => identifier.attributeIds.length > 1)
+      .flatMap((identifier) => identifier.attributeIds),
+  );
+
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => {
+      if (node.id === entityId && node.type === "entity") {
+        return {
+          ...node,
+          internalIdentifiers: nextIdentifiers.length > 0 ? nextIdentifiers : undefined,
+        };
+      }
+
+      if (node.type !== "attribute" || !removedAttributeIds.has(node.id)) {
+        return node;
+      }
+
+      return {
+        ...node,
+        isIdentifier: remainingSimpleAttributeIds.has(node.id),
+        isCompositeInternal: remainingCompositeAttributeIds.has(node.id),
+      };
+    }),
+  };
 }
 
 export function revalidateExternalIdentifiers(

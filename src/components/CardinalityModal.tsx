@@ -30,6 +30,40 @@ interface CardinalityModalProps {
   onCancel: () => void;
 }
 
+export interface CardinalityModalKeyboardEventLike {
+  key: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  isComposing?: boolean;
+  repeat?: boolean;
+  defaultPrevented?: boolean;
+}
+
+export function shouldConfirmCardinalityModalFromKeyboard(
+  event: CardinalityModalKeyboardEventLike,
+): boolean {
+  return (
+    event.key === "Enter" &&
+    event.defaultPrevented !== true &&
+    event.isComposing !== true &&
+    event.repeat !== true &&
+    event.ctrlKey !== true &&
+    event.metaKey !== true &&
+    event.altKey !== true
+  );
+}
+
+export function shouldCancelCardinalityModalFromKeyboard(
+  event: CardinalityModalKeyboardEventLike,
+): boolean {
+  return (
+    event.key === "Escape" &&
+    event.defaultPrevented !== true &&
+    event.isComposing !== true
+  );
+}
+
 const PRESET_DESCRIPTION_KEYS: Record<string, MessageKey> = {
   "(0,1)": "cardinalityModal.presets.optionalMaxOne",
   "(1,1)": "cardinalityModal.presets.requiredOne",
@@ -82,8 +116,42 @@ export function CardinalityModal(props: CardinalityModalProps) {
   const primaryButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    primaryButtonRef.current?.focus();
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      primaryButtonRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    function handleDocumentKeyDown(event: KeyboardEvent) {
+      if (shouldConfirmCardinalityModalFromKeyboard(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        props.onSubmit();
+        return;
+      }
+
+      if (shouldCancelCardinalityModalFromKeyboard(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        props.onCancel();
+      }
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown, true);
+    return () => document.removeEventListener("keydown", handleDocumentKeyDown, true);
+  }, [props.onSubmit, props.onCancel]);
 
   const subtitle = getSubtitle(state, t, props.sourceLabel, props.targetLabel, props.contextLabel);
   const isCustom = state.presetValue === "custom";

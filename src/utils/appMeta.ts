@@ -1,5 +1,5 @@
 export const APP_NAME = "buildER";
-export const APP_VERSION = "5.1";
+export const APP_VERSION = "5.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,61 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "5.2",
+    date: "2026-06-19",
+    impact: "patch",
+    headline: "buildER 5.2: export immagini e label FK piu leggibili",
+    summary:
+      "buildER 5.2 e un update fix della 5.1: corregge l'export PNG/SVG, aggiunge JPEG, rende le label delle foreign key piu leggibili e sistema il footer del modal Notes.",
+    hero: {
+      eyebrow: "Fix 5.2",
+      title: "buildER 5.2",
+      subtitle:
+        "Un aggiornamento mirato per esportare diagrammi piu puliti e lavorare meglio sulle foreign key nella vista Schema Logica.",
+    },
+    highlights: [
+      {
+        title: "Export immagini corretto",
+        description: "PNG, SVG e JPEG esportano solo lo schema, con crop stretto, font e stili coerenti anche nella vista Logica.",
+        tag: "Export",
+      },
+      {
+        title: "Foreign key leggibili",
+        description: "La vista Schema Logica mostra label FK opzionali con chip, badge FK e posizionamento anti-collisione.",
+        tag: "Schema",
+      },
+      {
+        title: "UI Notes rifinita",
+        description: "I pulsanti del modal Notes ora hanno stile coerente e azioni chiare nel footer.",
+        tag: "UI",
+      },
+    ],
+    updates: [
+      "Versione applicativa aggiornata a buildER 5.2 con package, lockfile, metadati UI e changelog allineati come update fix.",
+      "Export PNG corretto con sfondo trasparente, senza fill bianco/grigio del canvas e senza esportare spazio vuoto del viewport.",
+      "Export SVG corretto con sfondo trasparente, crop stretto sul contenuto reale e output standalone apribile nel browser.",
+      "Aggiunto export JPEG con sfondo bianco, MIME `image/jpeg`, estensione `.jpeg` e qualita alta per l'output raster.",
+      "Gli export ER e Logica ora usano bounding box reale dello schema con padding minimo anti-clipping, indipendente da pan e zoom correnti.",
+      "Gli elementi di sfondo/canvas vengono esclusi dall'export tramite marker dedicati, evitando rettangoli infiniti o canvas esportati.",
+      "Il font dell'export viene risolto dallo stile dell'app e applicato allo SVG serializzato.",
+      "Gli stili calcolati essenziali e le variabili del canvas logico vengono copiati nell'export, evitando rettangoli neri o stili mancanti fuori dall'app.",
+      "Toolbar, command menu e workspace logico espongono il nuovo comando JPEG; la voce UI usa la label compatta `JPEG`.",
+      "Aggiunti test source-level per export immagine: niente minimi 1280x720, PNG trasparente, JPEG bianco, SVG trasparente e variabili logiche preservate.",
+      "Aggiunto il toggle `Mostra FK` / `Nascondi FK` nella toolbar della vista Schema Logica per rendere permanenti le label delle foreign key.",
+      "Toggle FK labels retrocompatibile: quando e spento, le label restano visibili solo su selezione o focus come nella 5.1.",
+      "Le label FK sono state ridisegnate come chip SVG leggibili con badge `FK`, bordo, background chiaro e stato selezionato/highlight coerente.",
+      "Il testo delle label FK usa i dati reali del modello quando disponibili, con fallback sicuro alla label dell'edge.",
+      "Aggiunto wrapping multilinea delle label FK lunghe su 2/3 righe, con ellissi solo quando necessario e testo completo mantenuto nel title.",
+      "Implementato layout intelligente delle label FK con reserved boxes, candidate positions e scoring deterministico per evitare tabelle e altre label.",
+      "Le linee FK e le label FK ora sono su layer separati: le linee restano sotto le tabelle, le label restano sopra e cliccabili.",
+      "Click sul chip FK seleziona la foreign key corretta senza bloccare la selezione esistente di linee e colonne.",
+      "Adatta, Centra, Reset e gli export includono i bounds reali delle label FK visibili, evitando tagli quando il toggle e attivo o una FK e selezionata.",
+      "Aggiunti test dedicati al wrapping FK, collision avoidance, fallback deterministico e presenza dei layer separati con `tspan` multilinea.",
+      "Rifiniti gli stili CSS dei chip FK per garantire leggibilita, colori non neri e compatibilita con export SVG/PNG/JPEG.",
+      "Corretto il footer del modal Notes: i pulsanti `Cancel` e `Save` ora hanno stile coerente, focus visibile e dimensioni da pulsanti reali.",
+    ],
+  },
   {
     version: "5.1",
     date: "2026-06-16",
@@ -65,7 +120,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Aggiornato `index.html` per usare il nuovo favicon dell'app.",
       "Rimosso il tutorial legacy della modalita Code, ormai sostituito dai flussi moderni dell'app.",
       "Estesa la localizzazione di header, command menu, keyboard shortcuts e app chrome in italiano, inglese e albanese.",
-      "Localizzati testi, aria-label, tooltip e stati di Toolbar, NotesPanel, CodePanel, CardinalityModal, SQL Reverse e Logical Translation workspace.",
+      "Localizzati testi, aria-label, tooltip e stati di Toolbar, Notes, CodePanel, CardinalityModal, SQL Reverse e Logical Translation workspace.",
       "Aggiunte chiavi i18n per errori strutturati, messaggi di connessione, SQL Reverse, canvas e modal di scelta PK logica.",
       "Rimosse diverse classificazioni basate su pattern testuali italiani nei messaggi dell'app, sostituendole con percorsi espliciti e localizzabili.",
       "Aggiornati i dizionari `it`, `en` e `sq` e aggiunto un layer di integrazione per nuove sezioni localizzate.",

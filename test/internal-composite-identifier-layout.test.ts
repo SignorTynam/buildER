@@ -36,7 +36,7 @@ function isPointOnSegment(pointToCheck: Point, start: Point, end: Point): boolea
 }
 
 test("internal composite identifier: top + right attributes use an open routed frame", () => {
-  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
+  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", "id", hostBounds, hostCenter, [
     member("ATTRIBUTO1", point(200, 40), point(200, 100)),
     member("ATTRIBUTO2", point(390, 140), point(300, 140)),
   ]);
@@ -53,7 +53,7 @@ test("internal composite identifier: top + right attributes use an open routed f
 test("internal composite identifier: diagonal attribute marker sits on the edge-frame intersection", () => {
   const hostAnchor = point(300, 180);
   const attributeCenter = point(390, 260);
-  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
+  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", "id", hostBounds, hostCenter, [
     member("ATTRIBUTO_DIAGONAL", attributeCenter, hostAnchor),
     member("ATTRIBUTO_TOP", point(200, 40), point(200, 100)),
   ]);
@@ -70,7 +70,7 @@ test("internal composite identifier: diagonal attribute marker sits on the edge-
 });
 
 test("internal composite identifier: left + top + right attributes skip unnecessary empty sides", () => {
-  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
+  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", "id", hostBounds, hostCenter, [
     member("ATTRIBUTO_LEFT", point(20, 140), point(100, 140)),
     member("ATTRIBUTO_TOP", point(200, 40), point(200, 100)),
     member("ATTRIBUTO_RIGHT", point(390, 140), point(300, 140)),
@@ -84,11 +84,11 @@ test("internal composite identifier: left + top + right attributes skip unnecess
 });
 
 test("internal composite identifier: marker remains anchored near host frame when attribute moves farther", () => {
-  const nearLayout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
+  const nearLayout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", "id", hostBounds, hostCenter, [
     member("ATTRIBUTO_TOP", point(200, 40), point(200, 100)),
     member("ATTRIBUTO_RIGHT", point(390, 140), point(300, 140)),
   ]);
-  const farLayout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
+  const farLayout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", "id", hostBounds, hostCenter, [
     member("ATTRIBUTO_TOP", point(200, 40), point(200, 100)),
     member("ATTRIBUTO_RIGHT", point(860, 140), point(300, 140)),
   ]);
@@ -102,11 +102,11 @@ test("internal composite identifier: marker remains anchored near host frame whe
 });
 
 test("internal composite identifier: multiple identifiers on same entity use different lanes", () => {
-  const firstLayout = buildCompositeIdentifierLayout("ENTITA1::id-a", "ENTITA1", hostBounds, hostCenter, [
+  const firstLayout = buildCompositeIdentifierLayout("ENTITA1::id-a", "ENTITA1", "id-a", hostBounds, hostCenter, [
     member("A1", point(200, 40), point(200, 100)),
     member("A2", point(390, 140), point(300, 140)),
   ], 0);
-  const secondLayout = buildCompositeIdentifierLayout("ENTITA1::id-b", "ENTITA1", hostBounds, hostCenter, [
+  const secondLayout = buildCompositeIdentifierLayout("ENTITA1::id-b", "ENTITA1", "id-b", hostBounds, hostCenter, [
     member("B1", point(210, 40), point(210, 100)),
     member("B2", point(390, 150), point(300, 150)),
   ], 1);
@@ -122,7 +122,7 @@ test("internal composite identifier: multiple identifiers on same entity use dif
 });
 
 test("internal composite identifier: render path uses rounded/corner path helper", () => {
-  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", hostBounds, hostCenter, [
+  const layout = buildCompositeIdentifierLayout("ENTITA1::id", "ENTITA1", "id", hostBounds, hostCenter, [
     member("ATTRIBUTO1", point(200, 40), point(200, 100)),
     member("ATTRIBUTO2", point(390, 140), point(300, 140)),
   ]);

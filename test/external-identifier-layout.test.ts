@@ -13,12 +13,97 @@ import type { AttributeNode, Bounds, DiagramDocument, EntityNode, Point } from "
 import {
   getEligibleLocalExternalIdentifierAttributes,
   getEligibleImportedIdentifierParts,
+  removeExternalIdentifierFromEntity,
   synchronizeExternalIdentifiers,
   validateDiagram,
 } from "../src/utils/diagram.ts";
 
 function point(x: number, y: number): Point {
   return { x, y };
+}
+
+function buildExternalIdentifierRemovalDiagram(): DiagramDocument {
+  return {
+    meta: { name: "Remove external id", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "source-1",
+        type: "entity",
+        label: "SOURCE1",
+        x: 80,
+        y: 80,
+        width: 140,
+        height: 64,
+        internalIdentifiers: [{ id: "source-1-id", attributeIds: ["source-attr-1"] }],
+        relationshipParticipations: [{ id: "source-1-r1", relationshipId: "rel-1", cardinality: "(1,N)" }],
+      },
+      {
+        id: "source-2",
+        type: "entity",
+        label: "SOURCE2",
+        x: 80,
+        y: 260,
+        width: 140,
+        height: 64,
+        internalIdentifiers: [{ id: "source-2-id", attributeIds: ["source-attr-2"] }],
+        relationshipParticipations: [{ id: "source-2-r2", relationshipId: "rel-2", cardinality: "(1,N)" }],
+      },
+      {
+        id: "host",
+        type: "entity",
+        label: "HOST",
+        x: 360,
+        y: 160,
+        width: 140,
+        height: 64,
+        relationshipParticipations: [
+          { id: "host-r1", relationshipId: "rel-1", cardinality: "(1,1)" },
+          { id: "host-r2", relationshipId: "rel-2", cardinality: "(1,1)" },
+        ],
+        externalIdentifiers: [
+          {
+            id: "external-1",
+            importedParts: [
+              {
+                id: "external-1-part",
+                relationshipId: "rel-1",
+                sourceEntityId: "source-1",
+                importedIdentifierId: "source-1-id",
+              },
+            ],
+            localAttributeIds: [],
+          },
+          {
+            id: "external-2",
+            importedParts: [
+              {
+                id: "external-2-part",
+                relationshipId: "rel-2",
+                sourceEntityId: "source-2",
+                importedIdentifierId: "source-2-id",
+              },
+            ],
+            localAttributeIds: ["local-attr"],
+          },
+        ],
+      },
+      { id: "rel-1", type: "relationship", label: "REL1", x: 250, y: 120, width: 130, height: 78 },
+      { id: "rel-2", type: "relationship", label: "REL2", x: 250, y: 300, width: 130, height: 78 },
+      { id: "source-attr-1", type: "attribute", label: "ID1", x: 70, y: 20, width: 120, height: 32 },
+      { id: "source-attr-2", type: "attribute", label: "ID2", x: 70, y: 380, width: 120, height: 32 },
+      { id: "local-attr", type: "attribute", label: "LOCAL", x: 380, y: 260, width: 120, height: 32 },
+    ],
+    edges: [
+      { id: "source-attr-edge-1", type: "attribute", sourceId: "source-1", targetId: "source-attr-1", label: "", lineStyle: "solid" },
+      { id: "source-attr-edge-2", type: "attribute", sourceId: "source-2", targetId: "source-attr-2", label: "", lineStyle: "solid" },
+      { id: "local-attr-edge", type: "attribute", sourceId: "host", targetId: "local-attr", label: "", lineStyle: "solid" },
+      { id: "connector-1", type: "connector", sourceId: "source-1", targetId: "rel-1", label: "", lineStyle: "solid", participationId: "source-1-r1" },
+      { id: "connector-2", type: "connector", sourceId: "host", targetId: "rel-1", label: "", lineStyle: "solid", participationId: "host-r1" },
+      { id: "connector-3", type: "connector", sourceId: "source-2", targetId: "rel-2", label: "", lineStyle: "solid", participationId: "source-2-r2" },
+      { id: "connector-4", type: "connector", sourceId: "host", targetId: "rel-2", label: "", lineStyle: "solid", participationId: "host-r2" },
+    ],
+  };
 }
 
 function buildSharedLocalExternalIdentifierDiagram(): DiagramDocument {
@@ -529,4 +614,17 @@ test("mixed external identifier options include multiple mandatory unique source
   );
 
   assert.deepEqual(labels, ["BANCA via PRODUCE: IdBanca", "PERSONA via POSSIEDE: CF"]);
+});
+
+test("removeExternalIdentifierFromEntity removes only the selected external identifier", () => {
+  const source = buildExternalIdentifierRemovalDiagram();
+  const updated = removeExternalIdentifierFromEntity(source, "host", "external-1");
+  const updatedHost = updated.nodes.find((node): node is EntityNode => node.id === "host" && node.type === "entity");
+
+  assert.deepEqual(updatedHost?.externalIdentifiers?.map((identifier) => identifier.id), ["external-2"]);
+  assert.equal(updated.nodes.some((node) => node.id === "local-attr" && node.type === "attribute"), true);
+  assert.equal(updated.nodes.some((node) => node.id === "rel-1" && node.type === "relationship"), true);
+  assert.equal(updated.nodes.some((node) => node.id === "rel-2" && node.type === "relationship"), true);
+  assert.equal(updated.edges.some((edge) => edge.id === "connector-1"), true);
+  assert.equal(updated.edges.some((edge) => edge.id === "connector-4"), true);
 });
