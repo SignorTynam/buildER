@@ -1367,8 +1367,9 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
           </marker>
         </defs>
 
-        <g transform={`translate(${props.viewport.x}, ${props.viewport.y}) scale(${props.viewport.zoom})`}>
+        <g data-export-world="true" transform={`translate(${props.viewport.x}, ${props.viewport.y}) scale(${props.viewport.zoom})`}>
           <rect
+            data-export-background="true"
             x={-WORLD_EXTENT / 2}
             y={-WORLD_EXTENT / 2}
             width={WORLD_EXTENT}

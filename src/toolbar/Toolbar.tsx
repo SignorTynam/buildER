@@ -38,6 +38,7 @@ interface ToolbarProps {
   onSaveProject?: () => void;
   onSaveErs?: () => void;
   onExportPng: () => void;
+  onExportJpeg: () => void;
   onOpenCardinality?: () => void;
   onOpenRole?: () => void;
   onToggleSimpleIdentifier?: () => void;
@@ -579,6 +580,7 @@ export function Toolbar(props: ToolbarProps) {
             title: !props.onSaveErs ? "Export ERS non disponibile." : undefined,
           },
           { key: "png", label: t("toolbar.export.png"), onClick: props.onExportPng },
+          { key: "jpeg", label: t("toolbar.export.jpeg"), onClick: props.onExportJpeg },
           { key: "svg", label: t("toolbar.export.svg"), onClick: props.onExportSvg },
         ]}
       />

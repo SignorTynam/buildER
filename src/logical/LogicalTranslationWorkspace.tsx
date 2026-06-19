@@ -73,6 +73,7 @@ interface LogicalTranslationWorkspaceProps {
   onExportProject: () => void;
   onSaveSql: () => void;
   onExportPng: () => void;
+  onExportJpeg: () => void;
   onExportSvg: () => void;
   svgRef?: RefObject<SVGSVGElement>;
   onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
@@ -696,6 +697,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               title: !hasSql ? t("logical.designer.noSql") : undefined,
             },
             { key: "png", label: t("logical.export.png"), onClick: props.onExportPng },
+            { key: "jpeg", label: t("logical.export.jpeg"), onClick: props.onExportJpeg },
             { key: "svg", label: t("logical.export.svg"), onClick: props.onExportSvg },
           ]}
         />

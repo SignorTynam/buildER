@@ -114,7 +114,7 @@ import {
   serializeDiagramClipboardPayload,
   type DiagramClipboardPayload,
 } from "./utils/clipboard";
-import { downloadPng, downloadSvg } from "./utils/export";
+import { downloadJpeg, downloadPng, downloadSvg } from "./utils/export";
 import {
   GRID_SIZE,
   clipPointToNodePerimeter,
@@ -5969,6 +5969,27 @@ export default function App() {
     }
   }
 
+  async function handleExportJpeg() {
+    if (!svgRef.current) {
+      setStatusWarning("Canvas non disponibile per esportare il JPEG.");
+      return;
+    }
+
+    try {
+      await downloadJpeg(svgRef.current, "builder-diagram.jpeg");
+      setStatus("JPEG esportato.");
+    } catch (error) {
+      console.error(error);
+      setStatusError(
+        buildStructuredErrorMessage(
+          "il JPEG non e stato esportato",
+          "il canvas non e stato convertito correttamente in immagine",
+          "riprova l'esportazione e verifica che il diagramma sia visibile",
+        ),
+      );
+    }
+  }
+
   function handleExportSvg() {
     if (!svgRef.current) {
       setStatusWarning("Canvas non disponibile per esportare l'SVG.");
@@ -6306,6 +6327,7 @@ export default function App() {
                   onSaveProject={handleSaveProject}
                   onSaveErs={handleSaveErs}
                   onExportPng={handleExportPng}
+                  onExportJpeg={handleExportJpeg}
                   onOpenCardinality={handleOpenCardinalityControl}
                   onOpenRole={handleOpenConnectorRoleControl}
                   onToggleSimpleIdentifier={handleToggleSimpleIdentifierFromSelection}
@@ -6428,6 +6450,7 @@ export default function App() {
               onExportProject={handleSaveProject}
               onSaveSql={handleSaveLogicalSql}
               onExportPng={handleExportPng}
+              onExportJpeg={handleExportJpeg}
               onExportSvg={handleExportSvg}
               svgRef={svgRef}
               onPreviewModel={previewLogicalModel}
@@ -6520,6 +6543,7 @@ export default function App() {
           onLoadProject={handleLoadProjectRequest}
           onLoadErs={handleLoadErsRequest}
           onExportPng={handleExportPng}
+          onExportJpeg={handleExportJpeg}
           onExportSvg={handleExportSvg}
           onResetErs={handleResetCodeFromDiagram}
           onAbout={() => {

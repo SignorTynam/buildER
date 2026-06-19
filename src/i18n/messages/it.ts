@@ -191,6 +191,7 @@ export const it = {
       fileSaveProject: { label: "Salva progetto" },
       fileDownloadErs: { label: "Scarica ERS" },
       fileExportPng: { label: "Export PNG" },
+      fileExportJpeg: { label: "JPEG" },
       fileExportSvg: { label: "Export SVG" },
       fileResetErs: { label: "Rigenera sorgente ERS" },
       helpShortcuts: { label: "Scorciatoie tastiera", detail: "Comandi supportati" },

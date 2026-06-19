@@ -193,6 +193,7 @@ export const sq: DeepPartialMessages = {
       fileSaveProject: { label: "Ruaj projektin" },
       fileDownloadErs: { label: "Shkarko ERS" },
       fileExportPng: { label: "Eksporto PNG" },
+      fileExportJpeg: { label: "JPEG" },
       fileExportSvg: { label: "Eksporto SVG" },
       fileResetErs: { label: "Rigjenero burimin ERS" },
       helpShortcuts: { label: "Shkurtesat e tastierës", detail: "Komandat e mbështetura" },

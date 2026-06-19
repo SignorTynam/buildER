@@ -61,6 +61,7 @@ function renderToolbar(diagram: DiagramDocument, selection: SelectionState, sele
         issues={[]}
         selectedNode={selectedNode}
         onExportPng={() => undefined}
+        onExportJpeg={() => undefined}
         onToolChange={() => undefined}
         onDuplicateSelection={() => undefined}
         onDeleteSelection={() => undefined}

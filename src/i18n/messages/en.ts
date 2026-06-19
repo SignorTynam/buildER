@@ -193,6 +193,7 @@ export const en: DeepPartialMessages = {
       fileSaveProject: { label: "Save project" },
       fileDownloadErs: { label: "Download ERS" },
       fileExportPng: { label: "Export PNG" },
+      fileExportJpeg: { label: "JPEG" },
       fileExportSvg: { label: "Export SVG" },
       fileResetErs: { label: "Regenerate ERS source" },
       helpShortcuts: { label: "Keyboard shortcuts", detail: "Supported commands" },
