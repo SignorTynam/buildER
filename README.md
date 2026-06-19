@@ -2,9 +2,9 @@
   <img src="src/image/buildER%20no%20background.png" alt="buildER logo" width="520" />
 </p>
 
-# buildER (v5.1)
+# buildER (v5.2)
 
-Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG e sincronizzazione ERS live.
+Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG/JPEG e sincronizzazione ERS live.
 
 ## Stato del progetto
 
@@ -16,7 +16,7 @@ buildER è la nuova evoluzione di ER Studio. La versione 5.x consolida rebrand, 
 - Canvas SVG con drag-and-drop, snap to grid, zoom, pan, selezione multipla, duplicazione e allineamento.
 - Undo/redo, validazioni, cardinalità, vincoli ISA e controlli sugli identificatori.
 - Salvataggio/caricamento progetto `.ersp`.
-- Export PNG/SVG.
+- Export PNG/SVG/JPEG con crop stretto del contenuto e sfondi coerenti per raster e vettoriale.
 - Sorgente ERS con sincronizzazione live.
 - Reverse engineering SQL con preview logica e preview ER.
 - UI responsive per desktop, tablet e telefono.

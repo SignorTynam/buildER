@@ -173,7 +173,7 @@ test("important English and Albanian UI strings are not Italian fallbacks", () =
 
 test("plural and interpolation paths work for every locale", () => {
   for (const locale of SUPPORTED_LOCALES) {
-    assert.match(translate("app.versionLabel", { version: "5.1" }, locale), /5\.1/);
+    assert.match(translate("app.versionLabel", { version: "5.2" }, locale), /5\.2/);
     assert.match(translate("commandMenu.visibleCount", { count: 1 }, locale), /1/);
     assert.match(translate("commandMenu.visibleCount", { count: 2 }, locale), /2/);
   }

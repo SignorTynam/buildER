@@ -15,6 +15,36 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [5.2] - 2026-06-19
+
+### Added
+- Aggiunto export JPEG con sfondo bianco, MIME `image/jpeg`, estensione `.jpeg` e qualita alta per l'output raster.
+- Aggiunto il comando `JPEG` nella UI di export per toolbar, command menu e workspace logico.
+- Aggiunto il toggle `Mostra FK` / `Nascondi FK` nella toolbar della vista Schema Logica.
+- Aggiunti chip SVG leggibili per le label FK, con badge `FK`, testo multilinea e stati selezionato/highlight coerenti.
+- Aggiunto layout intelligente per le label FK con reserved boxes, candidate positions e scoring deterministico.
+- Aggiunti test dedicati a export immagine, wrapping FK, collision avoidance, fallback deterministico e layer FK separati.
+
+### Changed
+- Versione applicativa aggiornata a buildER 5.2 con `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README e changelog allineati come update fix.
+- Export PNG e SVG aggiornati per usare bounding box reale dello schema, padding minimo anti-clipping e crop indipendente da pan/zoom.
+- Export PNG reso sempre trasparente, senza fill bianco o grigio del canvas.
+- Export SVG reso trasparente e standalone, con font dell'app e stili calcolati essenziali copiati nel file serializzato.
+- Export ER e Logica aggiornati per escludere sfondi/canvas e non esportare rettangoli infiniti o spazio del viewport.
+- Vista Schema Logica aggiornata per mostrare le label FK permanenti solo quando il nuovo toggle e attivo, mantenendo il comportamento contestuale quando e spento.
+- Label FK lunghe mandate su 2/3 righe prima di applicare ellissi controllata, con testo completo mantenuto nel `title`.
+- Linee FK e label FK separate in layer diversi: le linee restano sotto le tabelle, le label restano sopra e cliccabili.
+- `Adatta`, `Centra`, `Reset` ed export includono i bounds reali delle label FK visibili.
+- Stili CSS dei chip FK rifiniti per leggibilita, export e assenza di rettangoli neri.
+
+### Fixed
+- Corretto l'export Logica che poteva generare rettangoli neri o stili mancanti fuori dall'app.
+- Corretto l'eccesso di spazio vuoto negli export PNG/SVG quando lo schema era piccolo rispetto al viewport.
+- Corretto il comportamento del PNG che prima poteva avere sfondo bianco invece di trasparente.
+- Corrette sovrapposizioni delle label FK con tabelle e altre label nelle viste dense.
+- Corretto il click sui chip FK: seleziona la foreign key corretta senza bloccare selezione, highlight o click sulle linee.
+- Corretto il footer del modal Notes: i pulsanti `Cancel` e `Save` ora hanno stile coerente, focus visibile e dimensioni da pulsanti reali.
+
 ## [5.1] - 2026-06-16
 
 ### Added
