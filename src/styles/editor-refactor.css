@@ -5859,6 +5859,10 @@ textarea:disabled {
   --logical-edge-stroke: var(--diagram-focus);
 }
 
+.designer-logical-view .logical-edge-label-layer {
+  pointer-events: visiblePainted;
+}
+
 .designer-logical-view .logical-edge-label-chip {
   cursor: pointer;
 }
@@ -5866,25 +5870,25 @@ textarea:disabled {
 .designer-logical-view .logical-edge-label-chip-bg {
   fill: #fbfcfa;
   stroke: #707a73;
-  stroke-width: 1.2px;
-  filter: drop-shadow(0 1px 2px rgba(16, 21, 18, 0.18));
+  stroke-width: 1.1px;
 }
 
 .designer-logical-view .logical-edge-label-chip-badge {
-  fill: var(--diagram-focus, #3f5d52);
+  fill: var(--editor-accent, #35564f);
 }
 
 .designer-logical-view .logical-edge-label-chip-badge-text {
   fill: #ffffff;
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   pointer-events: none;
 }
 
 .designer-logical-view .logical-edge-label-chip-text {
-  fill: var(--diagram-text, #101513);
-  font-size: 12.5px;
-  font-weight: 600;
+  fill: var(--editor-text-strong, var(--diagram-text, #0e1612));
+  font-size: 11.5px;
+  font-weight: 650;
   pointer-events: none;
 }
 
