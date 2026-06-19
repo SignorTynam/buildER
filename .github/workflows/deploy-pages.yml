@@ -29,10 +29,14 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=dev
+        env:
+          NODE_ENV: development
 
       - name: Build
         run: npm run build -- --base=/${{ github.event.repository.name }}/
+        env:
+          NODE_ENV: production
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
