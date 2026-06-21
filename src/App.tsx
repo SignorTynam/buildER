@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, ChangeEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
@@ -18,10 +18,12 @@ import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
 import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
 import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
 import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
-import type { TechnicalPanelTab } from "./components/TechnicalDockPanel";
 import { StudioIcon } from "./components/icons/StudioIcon";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
+import { useAppDialogs } from "./hooks/useAppDialogs";
+import { useWorkspaceLayoutState, RESIZER_WIDTH } from "./hooks/useWorkspaceLayoutState";
+import { useWorkspaceNotices } from "./hooks/useWorkspaceNotices";
 import { useI18n } from "./i18n/useI18n";
 import { translate, type MessageKey, type TranslationParams } from "./i18n";
 import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
@@ -50,21 +52,29 @@ import type {
 import { EMPTY_LOGICAL_SELECTION } from "./types/logical";
 import type {
   LogicalIssue,
-  LogicalModel,
   LogicalSelection,
   LogicalStage,
   LogicalTranslationChoice,
   LogicalTranslationItem,
-  LogicalTranslationState,
+  LogicalModel,
   LogicalWorkspaceDocument,
 } from "./types/logical";
 import type {
   ErTranslationChoice,
   ErTranslationItem,
-  ErTranslationState,
   ErTranslationWorkspaceDocument,
   WorkspaceView,
 } from "./types/translation";
+import {
+  DEFAULT_VIEWPORT,
+  WORKSPACE_SESSION_SAVE_DEBOUNCE_MS,
+  clampValue,
+  readWorkspaceSessionBootstrap,
+  saveWorkspaceSessionSnapshot,
+  serializeWorkspaceSessionSnapshot,
+  type WorkspaceSessionBootstrap,
+  type WorkspaceSessionSnapshot,
+} from "./features/workspace/workspaceSession";
 import {
   alignNodes,
   assignInheritanceEdgeToGeneralizationGroup,
@@ -88,7 +98,6 @@ import {
   normalizeGeneralizationGroups,
   renameNodeAsNameIdentity,
   revalidateExternalIdentifiers,
-  parseDiagram,
   removeEntityFromGeneralizationHierarchy,
   removeExternalIdentifierFromEntity,
   removeInternalIdentifierFromEntity,
@@ -190,12 +199,6 @@ import {
   rememberVersionAnnouncementSeen,
 } from "./utils/versionAnnouncementStorage";
 
-const DEFAULT_VIEWPORT: Viewport = {
-  x: 180,
-  y: 110,
-  zoom: 1,
-};
-
 type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
 type AppTranslator = (key: MessageKey, params?: TranslationParams) => string;
 
@@ -248,32 +251,6 @@ function createInitialSqlReverseWorkflowState(sourceSql = ""): SqlReverseWorkflo
     previewToken: 0,
     isPreviewReady: false,
   };
-}
-
-interface WorkspaceNotice {
-  id: number;
-  message: string;
-  tone: "success" | "warning" | "error";
-  sticky?: boolean;
-  stickyType?: "source-selection" | "selection-warning";
-  targetId?: string;
-}
-
-interface ConfirmDialogState {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  cancelLabel: string;
-}
-
-interface PromptDialogState {
-  title: string;
-  label: string;
-  placeholder?: string;
-  confirmLabel: string;
-  cancelLabel: string;
-  required: boolean;
-  requiredMessage: string;
 }
 
 interface MixedIdentifierDialogState {
@@ -349,395 +326,11 @@ interface SqlReverseWorkflowState {
   isPreviewReady: boolean;
 }
 
-interface WorkspaceSessionSnapshot {
-  version: 4;
-  savedAt: string;
-  diagram: DiagramDocument;
-  translationWorkspace: ErTranslationWorkspaceDocument;
-  logicalWorkspace: LogicalWorkspaceDocument;
-  logicalGenerated: boolean;
-  logicalStage: LogicalStage;
-  diagramView: WorkspaceView;
-  tool: ToolKind;
-  mode: EditorMode;
-  viewport: Viewport;
-  selection: SelectionState;
-  translationViewport: Viewport;
-  translationSelection: SelectionState;
-  logicalViewport: Viewport;
-  logicalSelection: LogicalSelection;
-  codeDraft: string;
-  codeDirty: boolean;
-  technicalPanelOpen: boolean;
-  technicalPanelTab: TechnicalPanelTab;
-  codePanelOpen: boolean;
-  codePanelWidth: number;
-  notesPanelOpen: boolean;
-  notesPanelWidth: number;
-  toolbarCollapsed: boolean;
-  focusMode: boolean;
-  toolbarWidth: number;
-  showDiagnostics: boolean;
-}
-
-interface WorkspaceSessionBootstrap {
-  diagram: DiagramDocument;
-  translationWorkspace: ErTranslationWorkspaceDocument;
-  logicalWorkspace: LogicalWorkspaceDocument;
-  logicalGenerated: boolean;
-  logicalStage: LogicalStage;
-  diagramView: WorkspaceView;
-  tool: ToolKind;
-  mode: EditorMode;
-  viewport: Viewport;
-  selection: SelectionState;
-  translationViewport: Viewport;
-  translationSelection: SelectionState;
-  logicalViewport: Viewport;
-  logicalSelection: LogicalSelection;
-  codeDraft: string;
-  codeDirty: boolean;
-  technicalPanelOpen: boolean;
-  technicalPanelTab: TechnicalPanelTab;
-  codePanelOpen: boolean;
-  codePanelWidth: number;
-  notesPanelOpen: boolean;
-  notesPanelWidth: number;
-  toolbarCollapsed: boolean;
-  focusMode: boolean;
-  toolbarWidth: number;
-  showDiagnostics: boolean;
-  restored: boolean;
-}
-
-const NOTICE_DURATION_MS = {
-  success: 3200,
-  warning: 4400,
-  error: 6200,
-} as const;
-const STATUS_FOLLOWUP_NOTICE_MS = 2600;
 const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
 const COMPOSITE_CHILD_VERTICAL_GAP = 80;
 const COMPOSITE_CHILD_VERTICAL_STEP = 44;
-const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
-const TOOLBAR_COLLAPSED_WIDTH = 56;
-const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 220 : 208;
-const MIN_TOOLBAR_WIDTH = 188;
-const MAX_TOOLBAR_WIDTH = 240;
-const DEFAULT_CODE_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.24), 330, 360);
-const MIN_CODE_PANEL_WIDTH = 320;
-const MAX_CODE_PANEL_WIDTH = 420;
-const DEFAULT_NOTES_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.22), 320, 360);
-const MIN_NOTES_PANEL_WIDTH = 300;
-const MAX_NOTES_PANEL_WIDTH = 400;
-const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
-const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v4";
-const WORKSPACE_SESSION_SAVE_DEBOUNCE_MS = 420;
 const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 1200);
-const TOOL_KIND_VALUES: ToolKind[] = [
-  "move",
-  "select",
-  "delete",
-  "entity",
-  "relationship",
-  "attribute",
-  "connector",
-  "inheritance",
-];
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function sanitizeViewport(value: unknown, fallback: Viewport): Viewport {
-  if (!isRecord(value)) {
-    return { ...fallback };
-  }
-
-  const x = typeof value.x === "number" && Number.isFinite(value.x) ? value.x : fallback.x;
-  const y = typeof value.y === "number" && Number.isFinite(value.y) ? value.y : fallback.y;
-  const zoom = typeof value.zoom === "number" && Number.isFinite(value.zoom) && value.zoom > 0 ? value.zoom : fallback.zoom;
-  return { x, y, zoom };
-}
-
-function sanitizeSelectionState(value: unknown): SelectionState {
-  if (!isRecord(value)) {
-    return { nodeIds: [], edgeIds: [] };
-  }
-
-  const nodeIds = Array.isArray(value.nodeIds) ? value.nodeIds.filter((nodeId): nodeId is string => typeof nodeId === "string") : [];
-  const edgeIds = Array.isArray(value.edgeIds) ? value.edgeIds.filter((edgeId): edgeId is string => typeof edgeId === "string") : [];
-  return { nodeIds, edgeIds };
-}
-
-function sanitizeLogicalSelectionState(value: unknown): LogicalSelection {
-  if (!isRecord(value)) {
-    return { ...EMPTY_LOGICAL_SELECTION };
-  }
-
-  return {
-    nodeId:
-      typeof value.nodeId === "string"
-        ? value.nodeId
-        : typeof value.tableId === "string"
-          ? value.tableId
-          : null,
-    columnId: typeof value.columnId === "string" ? value.columnId : null,
-    edgeId: typeof value.edgeId === "string" ? value.edgeId : null,
-  };
-}
-
-function sanitizeToolKind(value: unknown): ToolKind {
-  if (typeof value === "string" && TOOL_KIND_VALUES.includes(value as ToolKind)) {
-    return value as ToolKind;
-  }
-
-  return "select";
-}
-
-function sanitizeLogicalModel(value: unknown): LogicalModel {
-  const fallback = createEmptyLogicalModel("modello-logico");
-  if (!isRecord(value)) {
-    return fallback;
-  }
-
-  const candidate = value as Partial<LogicalModel>;
-  const meta = candidate.meta;
-  if (
-    !isRecord(meta) ||
-    typeof meta.name !== "string" ||
-    typeof meta.generatedAt !== "string" ||
-    typeof meta.sourceDiagramVersion !== "number" ||
-    typeof meta.sourceSignature !== "string" ||
-    !Array.isArray(candidate.tables) ||
-    !Array.isArray(candidate.foreignKeys) ||
-    ("uniqueConstraints" in candidate && !Array.isArray(candidate.uniqueConstraints)) ||
-    !Array.isArray(candidate.edges) ||
-    !Array.isArray(candidate.issues)
-  ) {
-    return fallback;
-  }
-
-  return {
-    ...candidate,
-    uniqueConstraints: Array.isArray(candidate.uniqueConstraints) ? candidate.uniqueConstraints : [],
-  } as LogicalModel;
-}
-
-function sanitizeErTranslationWorkspace(value: unknown, diagram: DiagramDocument): ErTranslationWorkspaceDocument {
-  const fallback = createEmptyErTranslationWorkspace(diagram);
-  if (!isRecord(value) || !isRecord(value.translation)) {
-    return fallback;
-  }
-
-  const translation = value.translation as Partial<ErTranslationState>;
-  const meta = translation.meta;
-  if (
-    !isRecord(meta) ||
-    typeof meta.createdAt !== "string" ||
-    typeof meta.updatedAt !== "string" ||
-    typeof meta.sourceSignature !== "string" ||
-    !Array.isArray(translation.decisions) ||
-    !Array.isArray(translation.mappings) ||
-    !Array.isArray(translation.conflicts)
-  ) {
-    return fallback;
-  }
-
-  try {
-    return refreshErTranslationWorkspace(diagram, {
-      sourceDiagram: diagram,
-      translatedDiagram: isRecord(value.translatedDiagram) ? parseDiagram(JSON.stringify(value.translatedDiagram)) : diagram,
-      translation: translation as ErTranslationState,
-    });
-  } catch {
-    return fallback;
-  }
-}
-
-function sanitizeLogicalTranslationState(
-  value: unknown,
-  fallback: LogicalTranslationState,
-): LogicalTranslationState {
-  if (!isRecord(value)) {
-    return fallback;
-  }
-
-  const meta = value.meta;
-  if (
-    !isRecord(meta) ||
-    typeof meta.createdAt !== "string" ||
-    typeof meta.updatedAt !== "string" ||
-    typeof meta.sourceSignature !== "string" ||
-    !Array.isArray(value.decisions) ||
-    !Array.isArray(value.mappings) ||
-    !Array.isArray(value.conflicts)
-  ) {
-    return fallback;
-  }
-
-  return {
-    meta: {
-      ...fallback.meta,
-      createdAt: meta.createdAt,
-      updatedAt: meta.updatedAt,
-      sourceSignature: meta.sourceSignature,
-    },
-    decisions: value.decisions as LogicalTranslationState["decisions"],
-    mappings: value.mappings as LogicalTranslationState["mappings"],
-    conflicts: value.conflicts as LogicalTranslationState["conflicts"],
-  };
-}
-
-function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): LogicalWorkspaceDocument {
-  const fallback = createEmptyLogicalWorkspace(diagram);
-  if (!isRecord(value) || !isRecord(value.model)) {
-    return fallback;
-  }
-
-  try {
-    const translation = sanitizeLogicalTranslationState(value.translation, fallback.translation);
-    return refreshLogicalWorkspace(diagram, {
-      ...fallback,
-      model: sanitizeLogicalModel(value.model),
-      translation,
-      transformation: fallback.transformation,
-    });
-  } catch {
-    return fallback;
-  }
-}
-
-function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
-  const diagram = synchronizeNodeNameIdentity(createEmptyDiagram("Nuovo diagramma")).diagram;
-  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
-  return {
-    diagram,
-    translationWorkspace,
-    logicalWorkspace: createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
-    logicalGenerated: false,
-    logicalStage: "translation",
-    diagramView: "er",
-    tool: "select",
-    mode: "edit",
-    viewport: { ...DEFAULT_VIEWPORT },
-    selection: { nodeIds: [], edgeIds: [] },
-    translationViewport: { ...DEFAULT_VIEWPORT },
-    translationSelection: { nodeIds: [], edgeIds: [] },
-    logicalViewport: { ...DEFAULT_VIEWPORT },
-    logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
-    codeDraft: serializeDiagramToErs(diagram),
-    codeDirty: false,
-    technicalPanelOpen: false,
-    technicalPanelTab: "review",
-    codePanelOpen: false,
-    codePanelWidth: DEFAULT_CODE_PANEL_WIDTH,
-    notesPanelOpen: false,
-    notesPanelWidth: DEFAULT_NOTES_PANEL_WIDTH,
-    toolbarCollapsed: INITIAL_WINDOW_WIDTH < 1460,
-    focusMode: false,
-    toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
-    showDiagnostics: true,
-    restored: false,
-  };
-}
-
-function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
-  const fallback = createDefaultWorkspaceSessionBootstrap();
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(WORKSPACE_SESSION_STORAGE_KEY);
-    if (!raw) {
-      return fallback;
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4)) {
-      return fallback;
-    }
-
-    const storedDiagram = parseDiagram(JSON.stringify(parsed.diagram));
-    const storedViewport = sanitizeViewport(parsed.viewport, DEFAULT_VIEWPORT);
-    const storedTranslationViewport = sanitizeViewport(parsed.translationViewport, DEFAULT_VIEWPORT);
-    const storedLogicalViewport = sanitizeViewport(parsed.logicalViewport, DEFAULT_VIEWPORT);
-    const storedSelection = sanitizeSelectionState(parsed.selection);
-    const storedTranslationSelection = sanitizeSelectionState(parsed.translationSelection);
-    const storedLogicalSelection = sanitizeLogicalSelectionState(parsed.logicalSelection);
-    const storedDiagramView: WorkspaceView =
-      parsed.diagramView === "logical" ? "logical" : parsed.diagramView === "translation" ? "translation" : "er";
-    const storedTool = sanitizeToolKind(parsed.tool);
-    const storedCodeDraft =
-      typeof parsed.codeDraft === "string" && parsed.codeDraft.trim().length > 0
-        ? parsed.codeDraft
-        : serializeDiagramToErs(storedDiagram);
-    const storedNotesPanelOpen = parsed.notesPanelOpen === true;
-    const storedCodePanelOpen = parsed.codePanelOpen === true;
-    const storedTechnicalPanelTab: TechnicalPanelTab =
-      parsed.technicalPanelTab === "notes"
-        ? "notes"
-        : parsed.technicalPanelTab === "code"
-          ? "code"
-          : storedNotesPanelOpen
-            ? "notes"
-            : storedCodePanelOpen
-              ? "code"
-              : "review";
-    const storedTechnicalPanelOpen = false;
-
-    const storedTranslationWorkspace =
-      parsed.version >= 3
-        ? sanitizeErTranslationWorkspace(parsed.translationWorkspace, storedDiagram)
-        : createEmptyErTranslationWorkspace(storedDiagram);
-
-    return {
-      diagram: storedDiagram,
-      translationWorkspace: storedTranslationWorkspace,
-      logicalWorkspace:
-        parsed.version >= 2
-          ? sanitizeLogicalWorkspace(parsed.logicalWorkspace, storedTranslationWorkspace.translatedDiagram)
-          : createEmptyLogicalWorkspace(storedTranslationWorkspace.translatedDiagram),
-      logicalGenerated: parsed.logicalGenerated === true,
-      logicalStage: parsed.logicalStage === "schema" ? "schema" : "translation",
-      diagramView: storedDiagramView,
-      tool: storedTool,
-      mode: "edit",
-      viewport: storedViewport,
-      selection: storedSelection,
-      translationViewport: storedTranslationViewport,
-      translationSelection: storedTranslationSelection,
-      logicalViewport: storedLogicalViewport,
-      logicalSelection: storedLogicalSelection,
-      codeDraft: storedCodeDraft,
-      codeDirty: parsed.codeDirty === true,
-      technicalPanelOpen: storedTechnicalPanelOpen,
-      technicalPanelTab: storedTechnicalPanelTab,
-      codePanelOpen: storedTechnicalPanelOpen && storedTechnicalPanelTab === "code",
-      codePanelWidth:
-        typeof parsed.codePanelWidth === "number" && Number.isFinite(parsed.codePanelWidth)
-          ? parsed.codePanelWidth
-          : fallback.codePanelWidth,
-      notesPanelOpen: storedTechnicalPanelOpen && storedTechnicalPanelTab === "notes",
-      notesPanelWidth:
-        typeof parsed.notesPanelWidth === "number" && Number.isFinite(parsed.notesPanelWidth)
-          ? parsed.notesPanelWidth
-          : fallback.notesPanelWidth,
-      toolbarCollapsed: typeof parsed.toolbarCollapsed === "boolean" ? parsed.toolbarCollapsed : fallback.toolbarCollapsed,
-      focusMode: typeof parsed.focusMode === "boolean" ? parsed.focusMode : false,
-      toolbarWidth:
-        typeof parsed.toolbarWidth === "number" && Number.isFinite(parsed.toolbarWidth)
-          ? parsed.toolbarWidth
-          : fallback.toolbarWidth,
-      showDiagnostics: typeof parsed.showDiagnostics === "boolean" ? parsed.showDiagnostics : true,
-      restored: true,
-    };
-  } catch {
-    return fallback;
-  }
-}
 
 function normalizeMessagePart(value: string): string {
   return value.trim().replace(/\s+/g, " ").replace(/[;:,.!?]+$/g, "");
@@ -810,10 +403,6 @@ function sanitizeFileNameBase(value: string): string {
 }
 
 const DEFAULT_ATTRIBUTE_SIZE = { width: 170, height: 72 };
-
-function clampValue(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 function downloadTextFile(content: string, fileName: string, mimeType = "text/plain;charset=utf-8") {
   const blob = new Blob([content], { type: mimeType });
@@ -1364,43 +953,80 @@ export default function App() {
   const [logicalPanelMode, setLogicalPanelMode] = useState<"review" | "sql">("review");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [notices, setNotices] = useState<WorkspaceNotice[]>([]);
+  const {
+    notices,
+    statusMessage,
+    setStatusMessage,
+    setStatus,
+    setStatusWarning,
+    setStatusSuccess,
+    setStatusError,
+    showErrorNotice,
+    showWarningNotice,
+    showSuccessNotice,
+    showSelectionWarningNotice,
+    removeNotice: dismissNotice,
+    dismissStickyNotices,
+  } = useWorkspaceNotices({ formatErrorMessage: (message) => formatErrorFromRawMessage(message, t) });
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [versionAnnouncement, setVersionAnnouncement] = useState<VersionAnnouncementState | null>(null);
   const [introOpen, setIntroOpen] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
-  const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null);
+  const {
+    confirmDialog,
+    promptDialog,
+    promptValue,
+    promptError,
+    promptInputRef,
+    setPromptValue,
+    setPromptError,
+    requestConfirmDialog,
+    requestPromptDialog,
+    closeConfirmDialog,
+    closePromptDialog,
+    submitPromptDialog,
+  } = useAppDialogs({
+    defaultConfirmLabel: t("common.actions.confirm"),
+    defaultCancelLabel: t("common.actions.cancel"),
+    defaultSaveLabel: t("common.actions.save"),
+    defaultRequiredMessage: t("dialogs.prompt.required"),
+  });
   const [cardinalityDialog, setCardinalityDialog] = useState<CardinalityDialogState | null>(null);
   const [mixedIdentifierDialog, setMixedIdentifierDialog] = useState<MixedIdentifierDialogState | null>(null);
   const [generalizationGroupDialog, setGeneralizationGroupDialog] = useState<GeneralizationGroupDialogState | null>(null);
   const [errorsPanelOpen, setErrorsPanelOpen] = useState(false);
-  const [promptValue, setPromptValue] = useState("");
-  const [promptError, setPromptError] = useState("");
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(sessionBootstrap.codeDirty);
   const [codeError, setCodeError] = useState("");
-  const restoredTechnicalPanelTab: TechnicalPanelTab = sessionBootstrap.technicalPanelTab;
-  const [technicalPanelOpen, setTechnicalPanelOpen] = useState(sessionBootstrap.technicalPanelOpen);
-  const [technicalPanelTab, setTechnicalPanelTab] = useState<TechnicalPanelTab>(restoredTechnicalPanelTab);
-  const [codePanelOpen, setCodePanelOpen] = useState(
-    sessionBootstrap.codePanelOpen && restoredTechnicalPanelTab === "code",
-  );
-  const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
-  const [notesPanelOpen, setNotesPanelOpen] = useState(
-    sessionBootstrap.notesPanelOpen && restoredTechnicalPanelTab === "notes",
-  );
+  const {
+    technicalPanelOpen,
+    technicalPanelTab,
+    codePanelOpen,
+    codePanelWidth,
+    notesPanelOpen,
+    setNotesPanelOpen,
+    notesPanelWidth,
+    toolbarCollapsed,
+    focusMode,
+    setFocusMode,
+    toolbarWidth,
+    effectiveToolbarCollapsed,
+    visibleToolbarWidth,
+    visibleTechnicalPanelWidth,
+    technicalPanelVisible,
+    structuredSidePanelHidden,
+    handleToggleToolRail,
+    closeTechnicalPanel,
+    handleToggleCodePanel,
+    handleToggleNotesPanel,
+    handlePanelResizeStart,
+    resetPanelWidth,
+  } = useWorkspaceLayoutState(sessionBootstrap);
   const [sqlReverseWorkflow, setSqlReverseWorkflow] = useState<SqlReverseWorkflowState>(() =>
     createInitialSqlReverseWorkflowState(),
   );
-  const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
-  const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
-  const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
-  const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
-  const [toolbarWidth, setToolbarWidth] = useState(sessionBootstrap.toolbarWidth);
   const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
@@ -1426,16 +1052,6 @@ export default function App() {
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
   const hasUnsavedChangesRef = useRef(false);
-  const nextNoticeIdRef = useRef(1);
-  const noticeTimeoutsRef = useRef(new Map<number, number>());
-  const confirmDialogResolverRef = useRef<((confirmed: boolean) => void) | null>(null);
-  const promptDialogResolverRef = useRef<((value: string | null) => void) | null>(null);
-  const promptInputRef = useRef<HTMLInputElement | null>(null);
-  const panelResizeRef = useRef<{
-    panel: "toolbar" | "code" | "notes";
-    startClientX: number;
-    startWidth: number;
-  } | null>(null);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
   const restoredSessionNoticeShownRef = useRef(false);
@@ -1495,37 +1111,10 @@ export default function App() {
   const logicalPendingCount = getLogicalTranslationOpenItemCount(logicalTranslationOverview);
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
-  const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
   const activeCanUndo =
     diagramView === "er" ? history.canUndo : diagramView === "translation" ? translationHistory.canUndo : logicalHistory.canUndo;
   const activeCanRedo =
     diagramView === "er" ? history.canRedo : diagramView === "translation" ? translationHistory.canRedo : logicalHistory.canRedo;
-  const toolbarResizeBounds = {
-    min: MIN_TOOLBAR_WIDTH,
-    max: clampValue(Math.floor(windowWidth * 0.22), 168, MAX_TOOLBAR_WIDTH),
-  };
-  const codePanelResizeBounds = {
-    min: clampValue(Math.floor(windowWidth * 0.18), MIN_CODE_PANEL_WIDTH, 340),
-    max: clampValue(Math.floor(windowWidth * 0.32), 360, MAX_CODE_PANEL_WIDTH),
-  };
-  const notesPanelResizeBounds = {
-    min: clampValue(Math.floor(windowWidth * 0.17), MIN_NOTES_PANEL_WIDTH, 320),
-    max: clampValue(Math.floor(windowWidth * 0.3), 340, MAX_NOTES_PANEL_WIDTH),
-  };
-  const visibleToolbarWidth = focusMode
-    ? 0
-    : effectiveToolbarCollapsed
-      ? TOOLBAR_COLLAPSED_WIDTH
-      : clampValue(toolbarWidth, toolbarResizeBounds.min, toolbarResizeBounds.max);
-  const technicalPanelResizeBounds = technicalPanelTab === "notes" ? notesPanelResizeBounds : codePanelResizeBounds;
-  const technicalPanelWidth = technicalPanelTab === "notes" ? notesPanelWidth : codePanelWidth;
-  const visibleTechnicalPanelWidth = clampValue(
-    technicalPanelWidth,
-    technicalPanelResizeBounds.min,
-    technicalPanelResizeBounds.max,
-  );
-  const technicalPanelVisible = false;
-  const structuredSidePanelHidden = false;
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -1598,11 +1187,7 @@ export default function App() {
       return;
     }
 
-    try {
-      window.localStorage.setItem(WORKSPACE_SESSION_STORAGE_KEY, JSON.stringify(snapshot));
-    } catch {
-      // Ignore storage errors and keep the app usable.
-    }
+    saveWorkspaceSessionSnapshot(snapshot);
   }
 
   useEffect(() => {
@@ -1661,18 +1246,6 @@ export default function App() {
   }, [t, versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
-    if (!statusMessage) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setStatusMessage("");
-    }, 2600);
-
-    return () => window.clearTimeout(timeout);
-  }, [statusMessage]);
-
-  useEffect(() => {
     if (!sessionBootstrap.restored || restoredSessionNoticeShownRef.current) {
       return;
     }
@@ -1698,9 +1271,7 @@ export default function App() {
   }, [history.present, codeDraft]);
 
   useEffect(() => {
-    latestSessionSnapshotRef.current = {
-      version: 4,
-      savedAt: new Date().toISOString(),
+    latestSessionSnapshotRef.current = serializeWorkspaceSessionSnapshot({
       diagram: history.present,
       translationWorkspace: translationHistory.present,
       logicalWorkspace: logicalHistory.present,
@@ -1733,7 +1304,7 @@ export default function App() {
       focusMode,
       toolbarWidth,
       showDiagnostics,
-    };
+    });
   }, [
     codeDraft,
     codeDirty,
@@ -1901,33 +1472,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    function handleResize() {
-      setWindowWidth(window.innerWidth);
-    }
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (windowWidth < 1460) {
-      setToolbarCollapsed(true);
-    }
-  }, [windowWidth]);
-
-  useEffect(() => {
-    setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));
-  }, [toolbarResizeBounds.max, toolbarResizeBounds.min]);
-
-  useEffect(() => {
-    setCodePanelWidth((current) => clampValue(current, codePanelResizeBounds.min, codePanelResizeBounds.max));
-  }, [codePanelResizeBounds.max, codePanelResizeBounds.min]);
-
-  useEffect(() => {
-    setNotesPanelWidth((current) => clampValue(current, notesPanelResizeBounds.min, notesPanelResizeBounds.max));
-  }, [notesPanelResizeBounds.max, notesPanelResizeBounds.min]);
-
-  useEffect(() => {
     if (diagramView !== "er") {
       return;
     }
@@ -2018,201 +1562,6 @@ export default function App() {
     showSuccessNotice("Tour chiuso. Ora puoi modellare liberamente.");
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
-  useEffect(() => {
-    if (!promptDialog) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      promptInputRef.current?.focus();
-      promptInputRef.current?.select();
-    }, 0);
-
-    return () => window.clearTimeout(timeout);
-  }, [promptDialog]);
-
-  useEffect(() => {
-    return () => {
-      if (confirmDialogResolverRef.current) {
-        confirmDialogResolverRef.current(false);
-        confirmDialogResolverRef.current = null;
-      }
-
-      if (promptDialogResolverRef.current) {
-        promptDialogResolverRef.current(null);
-        promptDialogResolverRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    function handleResizePointerMove(event: PointerEvent) {
-      const currentResize = panelResizeRef.current;
-      if (!currentResize) {
-        return;
-      }
-
-      if (currentResize.panel === "toolbar") {
-        const nextWidth = currentResize.startWidth + (event.clientX - currentResize.startClientX);
-        setToolbarWidth(clampValue(nextWidth, toolbarResizeBounds.min, toolbarResizeBounds.max));
-        return;
-      }
-
-      const nextWidth = currentResize.startWidth - (event.clientX - currentResize.startClientX);
-      if (currentResize.panel === "code") {
-        setCodePanelWidth(clampValue(nextWidth, codePanelResizeBounds.min, codePanelResizeBounds.max));
-        return;
-      }
-
-      setNotesPanelWidth(clampValue(nextWidth, notesPanelResizeBounds.min, notesPanelResizeBounds.max));
-    }
-
-    function stopResize() {
-      if (!panelResizeRef.current) {
-        return;
-      }
-
-      panelResizeRef.current = null;
-      document.body.classList.remove("workspace-resizing");
-    }
-
-    window.addEventListener("pointermove", handleResizePointerMove);
-    window.addEventListener("pointerup", stopResize);
-
-    return () => {
-      window.removeEventListener("pointermove", handleResizePointerMove);
-      window.removeEventListener("pointerup", stopResize);
-      document.body.classList.remove("workspace-resizing");
-    };
-  }, [
-    codePanelResizeBounds.max,
-    codePanelResizeBounds.min,
-    notesPanelResizeBounds.max,
-    notesPanelResizeBounds.min,
-    toolbarResizeBounds.max,
-    toolbarResizeBounds.min,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      noticeTimeoutsRef.current.forEach((timeoutId) => {
-        window.clearTimeout(timeoutId);
-      });
-      noticeTimeoutsRef.current.clear();
-    };
-  }, []);
-
-  function clearNoticeTimer(noticeId: number) {
-    const timeoutId = noticeTimeoutsRef.current.get(noticeId);
-    if (timeoutId === undefined) {
-      return;
-    }
-
-    window.clearTimeout(timeoutId);
-    noticeTimeoutsRef.current.delete(noticeId);
-  }
-
-  function dismissNotice(noticeId: number) {
-    clearNoticeTimer(noticeId);
-    setNotices((current) => current.filter((notice) => notice.id !== noticeId));
-  }
-
-  function dismissStickyNotices(stickyType?: WorkspaceNotice["stickyType"]) {
-    setNotices((current) => {
-      const stickyNotices = current.filter(
-        (notice) => notice.sticky && (stickyType === undefined || notice.stickyType === stickyType),
-      );
-      if (stickyNotices.length === 0) {
-        return current;
-      }
-
-      stickyNotices.forEach((notice) => clearNoticeTimer(notice.id));
-      return current.filter((notice) => !stickyNotices.some((stickyNotice) => stickyNotice.id === notice.id));
-    });
-  }
-
-  function showSelectionWarningNotice(issue: ValidationIssue) {
-    if (issue.level !== "warning") {
-      return;
-    }
-
-    setNotices((current) => {
-      const existing = current.find((notice) => notice.stickyType === "selection-warning");
-      if (existing && existing.targetId === issue.targetId && existing.message === issue.message) {
-        return current;
-      }
-
-      const selectionWarningNotices = current.filter((notice) => notice.stickyType === "selection-warning");
-      selectionWarningNotices.forEach((notice) => clearNoticeTimer(notice.id));
-
-      const retained = current.filter((notice) => notice.stickyType !== "selection-warning");
-      return [
-        {
-          id: nextNoticeIdRef.current++,
-          message: issue.message,
-          tone: "warning",
-          sticky: true,
-          stickyType: "selection-warning",
-          targetId: issue.targetId,
-        },
-        ...retained,
-      ];
-    });
-  }
-
-  function showNotice(notice: Omit<WorkspaceNotice, "id">, duration: number | null = NOTICE_DURATION_MS[notice.tone]) {
-    const id = nextNoticeIdRef.current++;
-
-    setNotices((current) => {
-      const preservedSelectionWarningNotices =
-        notice.stickyType === "selection-warning"
-          ? []
-          : current.filter((item) => item.stickyType === "selection-warning");
-      const retained = current.filter((item) => item.message !== notice.message && !item.sticky).slice(0, 1);
-      const removed = current.filter(
-        (item) =>
-          !retained.some((kept) => kept.id === item.id) &&
-          !preservedSelectionWarningNotices.some((kept) => kept.id === item.id),
-      );
-      removed.forEach((item) => clearNoticeTimer(item.id));
-      return [{ id, ...notice }, ...preservedSelectionWarningNotices, ...retained];
-    });
-
-    if (duration !== null) {
-      const timeoutId = window.setTimeout(() => {
-        dismissNotice(id);
-      }, duration);
-      noticeTimeoutsRef.current.set(id, timeoutId);
-    }
-  }
-
-  function showErrorNotice(message: string) {
-    showNotice({
-      message: formatErrorFromRawMessage(message, t),
-      tone: "error",
-    });
-  }
-
-  function showWarningNotice(message: string, options?: { stickyType?: WorkspaceNotice["stickyType"] }) {
-    const sticky = options?.stickyType !== undefined;
-    showNotice(
-      {
-        message,
-        tone: "warning",
-        sticky,
-        stickyType: options?.stickyType,
-      },
-      sticky ? null : NOTICE_DURATION_MS.warning,
-    );
-  }
-
-  function showSuccessNotice(message: string) {
-    showNotice({
-      message,
-      tone: "success",
-    });
-  }
-
   function markDocumentBaseline(diagram: DiagramDocument) {
     lastSavedDiagramRef.current = serializeDiagram(diagram);
     lastSavedCodeRef.current = serializeDiagramToErs(diagram);
@@ -2225,87 +1574,6 @@ export default function App() {
 
   function markCodeSaved(code: string) {
     lastSavedCodeRef.current = code;
-  }
-
-  function closeConfirmDialog(confirmed: boolean) {
-    const resolve = confirmDialogResolverRef.current;
-    confirmDialogResolverRef.current = null;
-    setConfirmDialog(null);
-    resolve?.(confirmed);
-  }
-
-  function requestConfirmDialog(options: {
-    title: string;
-    message: string;
-    confirmLabel?: string;
-    cancelLabel?: string;
-  }): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (confirmDialogResolverRef.current) {
-        confirmDialogResolverRef.current(false);
-      }
-
-      confirmDialogResolverRef.current = resolve;
-      setConfirmDialog({
-        title: options.title,
-        message: options.message,
-        confirmLabel: options.confirmLabel ?? t("common.actions.confirm"),
-        cancelLabel: options.cancelLabel ?? t("common.actions.cancel"),
-      });
-    });
-  }
-
-  function closePromptDialog(value: string | null) {
-    const resolve = promptDialogResolverRef.current;
-    promptDialogResolverRef.current = null;
-    setPromptDialog(null);
-    setPromptValue("");
-    setPromptError("");
-    resolve?.(value);
-  }
-
-  function requestPromptDialog(options: {
-    title: string;
-    label: string;
-    initialValue: string;
-    placeholder?: string;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    required?: boolean;
-    requiredMessage?: string;
-  }): Promise<string | null> {
-    return new Promise((resolve) => {
-      if (promptDialogResolverRef.current) {
-        promptDialogResolverRef.current(null);
-      }
-
-      promptDialogResolverRef.current = resolve;
-      setPromptDialog({
-        title: options.title,
-        label: options.label,
-        placeholder: options.placeholder,
-        confirmLabel: options.confirmLabel ?? t("common.actions.save"),
-        cancelLabel: options.cancelLabel ?? t("common.actions.cancel"),
-        required: options.required === true,
-        requiredMessage: options.requiredMessage ?? t("dialogs.prompt.required"),
-      });
-      setPromptValue(options.initialValue);
-      setPromptError("");
-    });
-  }
-
-  function submitPromptDialog() {
-    if (!promptDialog) {
-      return;
-    }
-
-    const normalized = promptValue.trim();
-    if (promptDialog.required && !normalized) {
-      setPromptError(promptDialog.requiredMessage);
-      return;
-    }
-
-    closePromptDialog(normalized);
   }
 
   async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
@@ -2352,34 +1620,6 @@ export default function App() {
     setWhatsNewOpen(true);
   }
 
-  function setStatus(message: string) {
-    setStatusMessage(message);
-    if (!message.trim()) {
-      dismissStickyNotices("source-selection");
-      return;
-    }
-
-    if (notices.some((notice) => notice.sticky)) {
-      showNotice(
-        {
-          message,
-          tone: "success",
-        },
-        STATUS_FOLLOWUP_NOTICE_MS,
-      );
-    }
-  }
-
-  function setStatusWarning(message: string) {
-    setStatusMessage(message);
-    showWarningNotice(message);
-  }
-
-  function setStatusSuccess(message: string) {
-    setStatusMessage(message);
-    showSuccessNotice(message);
-  }
-
   function reportExternalIdentifierInvalidations(
     invalidations: ExternalIdentifierInvalidation[],
     mode: "status" | "notice",
@@ -2402,12 +1642,6 @@ export default function App() {
         `${invalidations.length - 1} identificator${invalidations.length - 1 === 1 ? "e esterno e stato" : "i esterni sono stati"} invalidat${invalidations.length - 1 === 1 ? "o" : "i"} automaticamente.`,
       );
     }
-  }
-
-  function setStatusError(message: string) {
-    const normalizedError = formatErrorFromRawMessage(message, t);
-    setStatusMessage(normalizedError);
-    showErrorNotice(normalizedError);
   }
 
   function handleSkipOnboarding() {
@@ -2548,10 +1782,6 @@ export default function App() {
     return true;
   }
 
-  function handleToggleToolRail() {
-    setToolbarCollapsed((current) => !current);
-  }
-
   function handleToggleFocusMode() {
     setFocusMode((current) => {
       const next = !current;
@@ -2560,34 +1790,8 @@ export default function App() {
     });
   }
 
-  function openTechnicalPanelTab(nextTab: TechnicalPanelTab) {
-    setTechnicalPanelTab(nextTab);
-    setTechnicalPanelOpen(false);
-    setCodePanelOpen(nextTab === "code");
-    setNotesPanelOpen(nextTab === "notes");
-  }
-
-  function closeTechnicalPanel() {
-    setTechnicalPanelOpen(false);
-    setCodePanelOpen(false);
-    setNotesPanelOpen(false);
-  }
-
-  function handleToggleCodePanel() {
-    if (codePanelOpen) {
-      closeTechnicalPanel();
-      return;
-    }
-
-    openTechnicalPanelTab("code");
-  }
-
   function handleToggleDiagnosticsVisibility() {
     setShowDiagnostics((current) => !current);
-  }
-
-  function handleToggleNotesPanel() {
-    setNotesPanelOpen((current) => !current);
   }
 
   function handleSqlReverseSourceChange(value: string) {
@@ -2866,37 +2070,6 @@ export default function App() {
       { suppressExternalIdentifierWarnings: true },
     );
     setStatus("Nome progetto aggiornato.");
-  }
-
-  function handlePanelResizeStart(
-    panel: "toolbar" | "code" | "notes",
-    event: ReactPointerEvent<HTMLButtonElement>,
-  ) {
-    if (event.button !== 0) {
-      return;
-    }
-
-    event.preventDefault();
-    panelResizeRef.current = {
-      panel,
-      startClientX: event.clientX,
-      startWidth: panel === "toolbar" ? toolbarWidth : panel === "code" ? codePanelWidth : notesPanelWidth,
-    };
-    document.body.classList.add("workspace-resizing");
-  }
-
-  function resetPanelWidth(panel: "toolbar" | "code" | "notes") {
-    if (panel === "toolbar") {
-      setToolbarWidth(clampValue(DEFAULT_TOOLBAR_WIDTH, toolbarResizeBounds.min, toolbarResizeBounds.max));
-      return;
-    }
-
-    if (panel === "code") {
-      setCodePanelWidth(clampValue(DEFAULT_CODE_PANEL_WIDTH, codePanelResizeBounds.min, codePanelResizeBounds.max));
-      return;
-    }
-
-    setNotesPanelWidth(clampValue(DEFAULT_NOTES_PANEL_WIDTH, notesPanelResizeBounds.min, notesPanelResizeBounds.max));
   }
 
   function replaceCodeDraft(nextCode: string) {
@@ -4780,210 +3953,6 @@ export default function App() {
     setStatus(`Nuovo gruppo ISA ${name} creato.`);
   }
 
-  function handleCreateExternalIdentifierFromSelection(sourceAttributeId: string, targetId: string) {
-    const sourceAttribute = history.present.nodes.find((node) => node.id === sourceAttributeId);
-    if (sourceAttribute?.type !== "attribute") {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          "non hai selezionato un attributo sorgente valido",
-          "seleziona prima un attributo identificatore e poi il target",
-        ),
-      };
-    }
-
-    const sourceEntity = findEntityHostForAttribute(history.present, sourceAttributeId);
-    if (!sourceEntity) {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          "l'attributo sorgente non appartiene a nessuna entita",
-          "collega l'attributo sorgente a un'entita e riprova",
-        ),
-      };
-    }
-
-    const importedIdentifierId = findInternalIdentifierContainingAttribute(sourceEntity, sourceAttribute.id);
-    if (!importedIdentifierId) {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          `l'attributo sorgente "${sourceAttribute.label}" non appartiene a nessun identificatore interno disponibile`,
-          "seleziona un attributo che faccia parte di un identificatore interno della sorgente",
-        ),
-      };
-    }
-
-    const targetNode = history.present.nodes.find((node) => node.id === targetId);
-    if (!targetNode) {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          "la destinazione selezionata non e valida",
-          "seleziona un'entita o un attributo di destinazione valido",
-        ),
-      };
-    }
-
-    let targetEntity: EntityNode | undefined;
-    let localAttributeIds: string[] = [];
-
-    if (targetNode.type === "attribute") {
-      if (
-        targetNode.isIdentifier === true ||
-        targetNode.isCompositeInternal === true ||
-        targetNode.isMultivalued === true
-      ) {
-        return {
-          success: false,
-          message: buildStructuredErrorMessage(
-            "l'identificatore esterno non e stato creato",
-            "l'attributo locale selezionato non e eleggibile",
-            "usa solo attributi semplici locali non composti e non gia identificatori",
-          ),
-        };
-      }
-
-      targetEntity = findEntityHostForAttribute(history.present, targetNode.id);
-      if (!targetEntity || targetEntity.type !== "entity") {
-        return {
-          success: false,
-          message: buildStructuredErrorMessage(
-            "l'identificatore esterno non e stato creato",
-            "l'attributo di destinazione non appartiene a nessuna entita",
-            "collega l'attributo target a un'entita e riprova",
-          ),
-        };
-      }
-
-      if (
-        (targetEntity.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.includes(targetNode.id))
-      ) {
-        return {
-          success: false,
-          message: buildStructuredErrorMessage(
-            "l'identificatore esterno non e stato creato",
-            `l'attributo locale "${targetNode.label}" e gia occupato da un identificatore interno`,
-            "scegli un attributo locale semplice non gia usato come identificatore",
-          ),
-        };
-      }
-
-      localAttributeIds = [targetNode.id];
-    } else if (targetNode.type === "entity") {
-      targetEntity = targetNode;
-    } else {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          "la destinazione non e un'entita o un attributo valido",
-          "seleziona un'entita o un attributo come target",
-        ),
-      };
-    }
-
-    if (targetEntity.id === sourceEntity.id) {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          "origine e destinazione appartengono alla stessa entita",
-          "scegli una destinazione su un'entita diversa",
-        ),
-      };
-    }
-
-    const relationship = findRelationshipBetweenEntities(history.present, sourceEntity.id, targetEntity.id);
-    if (!relationship || relationship.type !== "relationship") {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          "non esiste una relazione valida tra le due entita selezionate",
-          "crea prima la relazione tra le entita e poi riprova",
-        ),
-      };
-    }
-
-    const nextExternalIdentifier: ExternalIdentifier = {
-      id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `externalIdentifier-${Math.random().toString(36).slice(2, 11)}`,
-      importedParts: [
-        {
-          id:
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? crypto.randomUUID()
-              : `externalIdentifierPart-${Math.random().toString(36).slice(2, 11)}`,
-          relationshipId: relationship.id,
-          sourceEntityId: sourceEntity.id,
-          importedIdentifierId,
-        },
-      ],
-      localAttributeIds,
-    };
-    const buildIdentifierSignature = (identifier: ExternalIdentifier) =>
-      [
-        identifier.importedParts
-          .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join(":"))
-          .sort()
-          .join("|"),
-        [...identifier.localAttributeIds].sort().join("|"),
-      ].join("||");
-    const duplicateExists = (targetEntity.externalIdentifiers ?? []).some(
-      (identifier) => buildIdentifierSignature(identifier) === buildIdentifierSignature(nextExternalIdentifier),
-    );
-    if (duplicateExists) {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          "esiste gia un identificatore esterno con la stessa parte importata e gli stessi attributi locali",
-          "modifica l'identificatore esistente oppure scegli una combinazione diversa",
-        ),
-      };
-    }
-
-    const nextDiagram = updateNodeInDiagram(history.present, targetEntity.id, {
-      externalIdentifiers: [...(targetEntity.externalIdentifiers ?? []), nextExternalIdentifier],
-    } as Partial<DiagramNode>);
-
-    const externalIdentifierCheck = revalidateExternalIdentifiers(
-      synchronizeExternalIdentifiers(
-        synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(nextDiagram)),
-      ),
-    );
-    const blockedInvalidation = externalIdentifierCheck.invalidations.find(
-      (invalidation) => invalidation.externalIdentifierId === nextExternalIdentifier.id,
-    );
-    if (blockedInvalidation) {
-      return {
-        success: false,
-        message: buildStructuredErrorMessage(
-          "l'identificatore esterno non e stato creato",
-          blockedInvalidation.reason,
-          "ripristina i prerequisiti identificanti e riprova",
-        ),
-      };
-    }
-
-    commitDiagram(nextDiagram);
-    setSelection({ nodeIds: [targetEntity.id], edgeIds: [] });
-    return {
-      success: true,
-      message:
-        localAttributeIds.length > 0
-          ? "Identificatore esterno misto creato. Verifica cardinalita (1,1) sul lato host."
-          : "Identificatore esterno importato creato. Verifica cardinalita (1,1) sul lato host.",
-      };
-  }
-
   function handleCreateAttributeFromSelection() {
     if (selection.nodeIds.length !== 1 || selection.edgeIds.length > 0) {
       setStatusWarning("Seleziona prima un'entita o una relazione.");
@@ -6375,7 +5344,6 @@ export default function App() {
                   onOpenCardinality={handleOpenCardinalityControl}
                   onOpenInheritanceType={handleOpenInheritanceTypeControl}
                   onToolChange={handleToolChange}
-                  onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
                   onDeleteNode={handleDeleteNodeById}
                   onDeleteEdge={handleDeleteEdgeById}
                   onDeleteSelection={handleDeleteSelection}
