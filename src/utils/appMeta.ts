@@ -1,5 +1,5 @@
 export const APP_NAME = "buildER";
-export const APP_VERSION = "5.2";
+export const APP_VERSION = "5.3";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -28,7 +28,54 @@ export interface AppChangelogEntry {
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
   {
+    version: "5.3",
+    date: "2026-06-21",
+    impact: "fix",
+    headline: "buildER 5.3: localizzazione completa e architettura più pulita",
+    summary:
+      "buildER 5.3 è un update fix della 5.2: completa la localizzazione in italiano, inglese e albanese su tutti i componenti principali, introduce il selettore lingua integrato nell'header, raffina la gestione della sessione workspace, rimuove logica obsoleta degli identificatori esterni e corregge la sanitizzazione della vista diagramma.",
+    hero: {
+      eyebrow: "Fix 5.3",
+      title: "buildER 5.3",
+      subtitle:
+        "Un aggiornamento mirato che completa la localizzazione, porta il selettore lingua nell'header e ripulisce l'architettura interna.",
+    },
+    highlights: [
+      {
+        title: "Selettore lingua in header",
+        description: "Il menu lingua è ora direttamente nell'AppHeader: cambia italiano, inglese e albanese senza aprire impostazioni separate.",
+        tag: "i18n",
+      },
+      {
+        title: "Localizzazione estesa",
+        description: "DiagramCanvas, BottomStatusBar, ChangelogModal, ErWorkspaceSidebar, TechnicalDockPanel e VersionAnnouncement usano ora chiavi i18n al posto di stringhe statiche.",
+        tag: "i18n",
+      },
+      {
+        title: "Architettura workspace",
+        description: "La sessione workspace è stata estratta in hook dedicati (useWorkspaceLayoutState, useWorkspaceNotices, useAppDialogs) e in un modulo features/workspace.",
+        tag: "Refactor",
+      },
+    ],
+    updates: [
+      "Versione applicativa aggiornata a buildER 5.3 con package.json, package-lock.json, src/utils/appMeta.ts, README e changelog allineati come update fix.",
+      "Aggiunto selettore lingua nell'AppHeader: menu a tendina con italiano, inglese e albanese, gestione stato locale e accessibilità da tastiera.",
+      "Aggiornati i messaggi i18n di `en.ts`, `it.ts` e `sq.ts` con le chiavi necessarie al selettore lingua e ai nuovi componenti localizzati.",
+      "Localizzati DiagramCanvas, BottomStatusBar, ChangelogModal, ErWorkspaceSidebar, TechnicalDockPanel e VersionAnnouncement: tutte le stringhe hardcoded sono state sostituite con funzioni di traduzione.",
+      "Aggiunti stili CSS dedicati al menu lingua nell'header (`src/styles/panels.css`).",
+      "Introdotto il modulo `src/features/workspace/workspaceSession.ts` per la serializzazione e il ripristino della sessione workspace.",
+      "Introdotti gli hook `useWorkspaceLayoutState`, `useWorkspaceNotices` e `useAppDialogs` per separare le responsabilità di `App.tsx`.",
+      "Refactoring di `App.tsx`: ridotto significativamente tramite integrazione dei nuovi hook e rimozione delle logiche di session/layout inline.",
+      "Rimossa la funzione `onCreateExternalIdentifier` da `DiagramCanvas`, `SqlReverseErPreview` e `TranslationWorkspace`: la logica è stata eliminata perché obsoleta.",
+      "Corretta la funzione `sanitizeDiagramView` in `src/utils/projectFile.ts` per accettare `'er'` come valore valido della vista diagramma.",
+      "Aggiornata la configurazione TypeScript (`tsconfig.app.json` e `tsconfig.node.json`) per usare `bundler` come strategia di risoluzione dei moduli.",
+      "Aggiornato il workflow CI (`deploy-pages.yml`) per installare le dipendenze di sviluppo durante il build GitHub Pages.",
+      "Aggiunti test per selettore lingua AppHeader, sessione workspace, vista diagramma `'er'` e nuove chiavi i18n.",
+    ],
+  },
+  {
     version: "5.2",
+
     date: "2026-06-19",
     impact: "patch",
     headline: "buildER 5.2: export immagini e label FK piu leggibili",

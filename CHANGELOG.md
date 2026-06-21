@@ -15,6 +15,27 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [5.3] - 2026-06-21
+
+### Added
+- Aggiunto selettore lingua direttamente nell'AppHeader: menu a tendina con italiano, inglese e albanese, gestione stato locale e accessibilità da tastiera.
+- Aggiunti stili CSS dedicati al menu lingua nell'header (`src/styles/panels.css`).
+- Introdotto il modulo `src/features/workspace/workspaceSession.ts` per la serializzazione e il ripristino della sessione workspace.
+- Introdotti gli hook `useWorkspaceLayoutState`, `useWorkspaceNotices` e `useAppDialogs` per separare le responsabilità di `App.tsx`.
+- Aggiunti test per selettore lingua AppHeader, sessione workspace (serializzazione, ripristino, compatibilità versioni precedenti e gestione dati invalidi), vista diagramma `'er'` e nuove chiavi i18n.
+
+### Changed
+- Versione applicativa aggiornata a buildER 5.3 con `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README e changelog allineati come update fix.
+- Aggiornati i messaggi i18n di `en.ts`, `it.ts` e `sq.ts` con le chiavi necessarie al selettore lingua e ai nuovi componenti localizzati.
+- Localizzati DiagramCanvas, BottomStatusBar, ChangelogModal, ErWorkspaceSidebar, TechnicalDockPanel e VersionAnnouncement: tutte le stringhe hardcoded sono state sostituite con funzioni di traduzione.
+- Refactoring di `App.tsx`: dimensioni ridotte significativamente tramite integrazione dei nuovi hook e rimozione delle logiche di session/layout inline.
+- Aggiornata la configurazione TypeScript (`tsconfig.app.json` e `tsconfig.node.json`) per usare `bundler` come strategia di risoluzione dei moduli.
+- Aggiornato il workflow CI (`deploy-pages.yml`) per installare le dipendenze di sviluppo durante il build GitHub Pages.
+
+### Fixed
+- Rimossa la funzione `onCreateExternalIdentifier` da `DiagramCanvas`, `SqlReverseErPreview` e `TranslationWorkspace`: la logica obsoleta è stata eliminata e i relativi messaggi di guidance ripuliti.
+- Corretta la funzione `sanitizeDiagramView` in `src/utils/projectFile.ts` per accettare `'er'` come valore valido della vista diagramma nei file `.ersp`.
+
 ## [5.2] - 2026-06-19
 
 ### Added
