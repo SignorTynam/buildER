@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { useI18n } from "../i18n/useI18n";
 
 function joinClasses(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -267,8 +268,16 @@ interface WarningCardProps {
 }
 
 export function WarningCard({ children, type, level, className, onClick }: WarningCardProps) {
+  const { t } = useI18n();
   const tone = type ?? level ?? "warning";
-  const label = tone === "error" ? "Errore" : tone === "success" ? "OK" : tone === "info" ? "Info" : "Warning";
+  const label =
+    tone === "error"
+      ? t("common.status.error")
+      : tone === "success"
+        ? t("common.status.success")
+        : tone === "info"
+          ? t("common.status.info")
+          : t("common.status.warning");
   const content = (
     <>
       <span className="warning-card-label">{label}</span>

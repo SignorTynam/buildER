@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CodePanel } from "./CodePanel";
+import { useI18n } from "../i18n/useI18n";
 import { PanelHeader, PanelShell, PanelTabs } from "./panels";
 
 export type TechnicalPanelTab = "review" | "code" | "notes";
@@ -28,28 +29,27 @@ interface TechnicalDockPanelProps {
   onClose: () => void;
 }
 
-const TAB_LABELS: Record<TechnicalPanelTab, string> = {
-  review: "Review",
-  code: "ER Code",
-  notes: "Notes",
-};
-
-const EMPTY_TAB_LABELS: Record<TechnicalPanelTab, string> = {
-  review: "Nessun elemento da mostrare.",
-  code: "Nessun codice disponibile.",
-  notes: "Nessuna nota.",
-};
-
 export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
+  const { t } = useI18n();
   const activeTab = props.availableTabs.includes(props.activeTab) ? props.activeTab : props.availableTabs[0] ?? "review";
-  const tabs = props.availableTabs.map((tab) => ({ id: tab, label: TAB_LABELS[tab] }));
-  const emptyTabState = <div className="technical-empty-note">{EMPTY_TAB_LABELS[activeTab]}</div>;
+  const tabLabels: Record<TechnicalPanelTab, string> = {
+    review: t("technicalDock.tabs.review"),
+    code: t("technicalDock.tabs.code"),
+    notes: t("technicalDock.tabs.notes"),
+  };
+  const emptyTabLabels: Record<TechnicalPanelTab, string> = {
+    review: t("technicalDock.empty.review"),
+    code: t("technicalDock.empty.code"),
+    notes: t("technicalDock.empty.notes"),
+  };
+  const tabs = props.availableTabs.map((tab) => ({ id: tab, label: tabLabels[tab] }));
+  const emptyTabState = <div className="technical-empty-note">{emptyTabLabels[activeTab]}</div>;
 
   return (
-    <PanelShell className={`technical-dock-panel technical-dock-panel-${activeTab}`} ariaLabel="Pannello tecnico">
+    <PanelShell className={`technical-dock-panel technical-dock-panel-${activeTab}`} ariaLabel={t("technicalDock.aria")}>
       <PanelHeader
-        title={TAB_LABELS[activeTab]}
-        actionLabel="Nascondi"
+        title={tabLabels[activeTab]}
+        actionLabel={t("common.actions.hide")}
         onAction={props.onClose}
         className="technical-dock-head technical-dock-head-compact"
       >
@@ -57,7 +57,7 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
           activeTab={activeTab}
           tabs={tabs}
           className="technical-dock-tabs"
-          ariaLabel="Sezioni pannello tecnico"
+          ariaLabel={t("technicalDock.tabsAria")}
           onTabChange={props.onTabChange}
         />
       </PanelHeader>
@@ -76,7 +76,7 @@ export function TechnicalDockPanel(props: TechnicalDockPanelProps) {
         {activeTab === "code" && !props.code ? emptyTabState : null}
 
         {activeTab === "notes" && props.notes ? (
-          <div className="technical-empty-note">{props.notes.notes || EMPTY_TAB_LABELS.notes}</div>
+          <div className="technical-empty-note">{props.notes.notes || emptyTabLabels.notes}</div>
         ) : null}
         {activeTab === "notes" && !props.notes ? emptyTabState : null}
 

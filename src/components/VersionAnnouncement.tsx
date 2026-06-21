@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 
+import { useI18n } from "../i18n/useI18n";
 import type { AppChangelogEntry, AppChangelogFeature } from "../utils/appMeta";
 
 type VersionAnnouncementKind = "patch" | "minor" | "major";
@@ -15,23 +16,25 @@ interface VersionAnnouncementProps {
   onOpenFullChangelog?: () => void;
 }
 
-function getUpdateLabel(updateKind: VersionAnnouncementKind): string {
+type Translate = ReturnType<typeof useI18n>["t"];
+
+function getUpdateLabel(updateKind: VersionAnnouncementKind, t: Translate): string {
   if (updateKind === "major") {
-    return "Major Update";
+    return t("versionAnnouncement.updateKind.major");
   }
 
   if (updateKind === "minor") {
-    return "Important Update";
+    return t("versionAnnouncement.updateKind.minor");
   }
 
-  return "Fix";
+  return t("versionAnnouncement.updateKind.patch");
 }
 
-function getFallbackHighlights(entry: AppChangelogEntry): AppChangelogFeature[] {
+function getFallbackHighlights(entry: AppChangelogEntry, t: Translate): AppChangelogFeature[] {
   return entry.updates.slice(0, 3).map((update, index) => ({
-    title: `Novita ${index + 1}`,
+    title: t("versionAnnouncement.fallbackHighlightTitle", { index: index + 1 }),
     description: update,
-    tag: "Update",
+    tag: t("versionAnnouncement.fallbackHighlightTag"),
   }));
 }
 
@@ -44,26 +47,27 @@ export function VersionAnnouncement({
   onClose,
   onOpenFullChangelog,
 }: VersionAnnouncementProps) {
+  const { t } = useI18n();
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const isWowUpdate = updateKind === "minor" || updateKind === "major";
-  const updateLabel = changelogEntry.hero?.eyebrow ?? getUpdateLabel(updateKind);
+  const updateLabel = changelogEntry.hero?.eyebrow ?? getUpdateLabel(updateKind, t);
   const versionRoute = previousVersion ? `v${previousVersion} -> v${currentVersion}` : `v${currentVersion}`;
   const highlights = useMemo(
     () => (changelogEntry.highlights && changelogEntry.highlights.length > 0
       ? changelogEntry.highlights
-      : getFallbackHighlights(changelogEntry)),
-    [changelogEntry],
+      : getFallbackHighlights(changelogEntry, t)),
+    [changelogEntry, t],
   );
   const updates = changelogEntry.updates.slice(0, isWowUpdate ? 6 : 4);
   const title = isWowUpdate
     ? changelogEntry.hero?.title ??
       (updateKind === "major"
-        ? `Benvenuto nella nuova generazione di ${appName}`
-        : `${appName} ${currentVersion} e arrivato`)
-    : `${appName} ha ricevuto un fix`;
+        ? t("versionAnnouncement.majorTitle", { appName })
+        : t("versionAnnouncement.minorTitle", { appName, version: currentVersion }))
+    : t("versionAnnouncement.patchTitle", { appName });
   const subtitle = isWowUpdate
-    ? changelogEntry.hero?.subtitle ?? changelogEntry.summary ?? "Scopri le principali novita di questa release."
-    : "Abbiamo corretto bug e migliorato la stabilita.";
+    ? changelogEntry.hero?.subtitle ?? changelogEntry.summary ?? t("versionAnnouncement.defaultWowSubtitle")
+    : t("versionAnnouncement.patchSubtitle");
 
   useEffect(() => {
     primaryActionRef.current?.focus();
@@ -109,8 +113,8 @@ export function VersionAnnouncement({
                 <span className="version-announcement__eyebrow">{updateLabel}</span>
                 <h2 id="version-announcement-title" className="version-announcement__title">{title}</h2>
                 <p id="version-announcement-subtitle" className="version-announcement__subtitle">{subtitle}</p>
-                <div className="version-announcement__route" aria-label="Cambio versione">
-                  <span>{previousVersion ? `v${previousVersion}` : "Versione precedente"}</span>
+                <div className="version-announcement__route" aria-label={t("versionAnnouncement.versionRouteAria")}>
+                  <span>{previousVersion ? `v${previousVersion}` : t("versionAnnouncement.previousVersion")}</span>
                   <strong>{"->"}</strong>
                   <span>v{currentVersion}</span>
                 </div>
@@ -118,7 +122,7 @@ export function VersionAnnouncement({
               <div className="version-announcement__version-showcase" aria-hidden="true">
                 <span>Release</span>
                 <strong>v{currentVersion}</strong>
-                <small>{updateKind === "major" ? "Major" : "Minor"} release</small>
+                <small>{updateKind === "major" ? t("versionAnnouncement.majorRelease") : t("versionAnnouncement.minorRelease")}</small>
               </div>
             </header>
 
@@ -137,8 +141,8 @@ export function VersionAnnouncement({
             </div>
 
             {updates.length > 0 ? (
-              <section className="version-announcement__updates" aria-label="Altre novita">
-                <div className="version-announcement__updates-title">Altre novita</div>
+              <section className="version-announcement__updates" aria-label={t("versionAnnouncement.moreUpdates")}>
+                <div className="version-announcement__updates-title">{t("versionAnnouncement.moreUpdates")}</div>
                 <ul>
                   {updates.map((update) => (
                     <li key={update}>{update}</li>
@@ -150,11 +154,11 @@ export function VersionAnnouncement({
             <footer className="version-announcement__actions">
               {onOpenFullChangelog ? (
                 <button type="button" className="version-announcement__secondary" onClick={onOpenFullChangelog}>
-                  Vedi changelog completo
+                  {t("versionAnnouncement.openFullChangelog")}
                 </button>
               ) : null}
               <button type="button" className="version-announcement__primary" onClick={onClose} ref={primaryActionRef}>
-                Inizia
+                {t("common.actions.start")}
               </button>
             </footer>
           </>
@@ -178,11 +182,11 @@ export function VersionAnnouncement({
             <footer className="version-announcement__actions">
               {onOpenFullChangelog ? (
                 <button type="button" className="version-announcement__secondary" onClick={onOpenFullChangelog}>
-                  Vedi dettagli
+                  {t("versionAnnouncement.viewDetails")}
                 </button>
               ) : null}
               <button type="button" className="version-announcement__primary" onClick={onClose} ref={primaryActionRef}>
-                Ho capito
+                {t("versionAnnouncement.gotIt")}
               </button>
             </footer>
           </>

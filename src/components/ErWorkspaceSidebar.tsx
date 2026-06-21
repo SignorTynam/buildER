@@ -1,5 +1,6 @@
 import { CodePanel } from "./CodePanel";
 import { InspectorPanel } from "../inspector/InspectorPanel";
+import { useI18n } from "../i18n/useI18n";
 import { PanelShell, PanelTabs } from "./panels";
 import type {
   AttributeNode,
@@ -45,38 +46,43 @@ interface ErWorkspaceSidebarProps {
   onIssueSelect: (issue: ValidationIssue) => void;
 }
 
-function getSidebarHeading(tab: ErWorkspaceSidebarTab, parseError?: string) {
+type Translate = ReturnType<typeof useI18n>["t"];
+
+function getSidebarHeading(tab: ErWorkspaceSidebarTab, t: Translate, parseError?: string) {
   if (tab === "code") {
     return {
-      title: "Sorgente ERS",
-      description: parseError ? "Correggi il sorgente ERS per riallineare canvas e codice." : "Modifica la rappresentazione testuale del diagramma.",
-      status: parseError ? "Errore ERS" : "ERS live",
+      title: t("erWorkspaceSidebar.code.title"),
+      description: parseError
+        ? t("erWorkspaceSidebar.code.descriptionWithError")
+        : t("erWorkspaceSidebar.code.description"),
+      status: parseError ? t("erWorkspaceSidebar.code.errorStatus") : t("erWorkspaceSidebar.code.liveStatus"),
       tone: parseError ? "warning" : "neutral",
     };
   }
 
   if (tab === "notes") {
     return {
-      title: "Note",
-      description: "Annotazioni non strutturali e promemoria di lavoro.",
-      status: "Appunti",
+      title: t("erWorkspaceSidebar.notes.title"),
+      description: t("erWorkspaceSidebar.notes.description"),
+      status: t("erWorkspaceSidebar.notes.status"),
       tone: "neutral",
     };
   }
 
   return {
-    title: "Inspector ER",
-    description: "Proprieta, regole e warning dell'elemento selezionato.",
-    status: "Regole ER",
+    title: t("erWorkspaceSidebar.properties.title"),
+    description: t("erWorkspaceSidebar.properties.description"),
+    status: t("erWorkspaceSidebar.properties.status"),
     tone: "success",
   };
 }
 
 export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
-  const heading = getSidebarHeading(props.activeTab, props.codeError);
+  const { t } = useI18n();
+  const heading = getSidebarHeading(props.activeTab, t, props.codeError);
 
   return (
-    <PanelShell className={`workspace-side-panel workspace-side-panel-${props.activeTab}`} ariaLabel="Pannello laterale ER">
+    <PanelShell className={`workspace-side-panel workspace-side-panel-${props.activeTab}`} ariaLabel={t("erWorkspaceSidebar.aria")}>
       <header className="workspace-side-panel-head">
         <div className="workspace-side-panel-topline">
           <h2>{heading.title}</h2>
@@ -87,12 +93,12 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
         <PanelTabs
           activeTab={props.activeTab}
           tabs={[
-            { id: "properties", label: "Inspector ER" },
-            { id: "code", label: "Sorgente ERS" },
-            { id: "notes", label: "Note" },
+            { id: "properties", label: t("erWorkspaceSidebar.properties.tab") },
+            { id: "code", label: t("erWorkspaceSidebar.code.tab") },
+            { id: "notes", label: t("erWorkspaceSidebar.notes.tab") },
           ]}
           className="workspace-side-panel-tabs"
-          ariaLabel="Selettore sezione pannello laterale"
+          ariaLabel={t("erWorkspaceSidebar.tabsAria")}
           onTabChange={props.onSelectTab}
         />
       </header>
@@ -125,10 +131,10 @@ export function ErWorkspaceSidebar(props: ErWorkspaceSidebarProps) {
             editable={props.mode === "edit"}
             parseError={props.codeError}
             onCodeChange={props.onCodeChange}
-            placeholder="Inserisci il codice ERS"
+            placeholder={t("erWorkspaceSidebar.code.placeholder")}
           />
         ) : (
-          <div className="technical-empty-note">{props.notes || "Le Notes si aprono dal modal Notes."}</div>
+          <div className="technical-empty-note">{props.notes || t("erWorkspaceSidebar.notes.empty")}</div>
         )}
       </div>
     </PanelShell>

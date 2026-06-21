@@ -73,6 +73,77 @@ const NEW_I18N_SECTIONS = [
   "errors.structured.template",
   "connection.errors.invalidConnector",
   "canvas.externalIdentifier.importsFrom",
+  "erWorkspaceSidebar.aria",
+  "erWorkspaceSidebar.tabsAria",
+  "erWorkspaceSidebar.properties.title",
+  "erWorkspaceSidebar.properties.tab",
+  "erWorkspaceSidebar.properties.description",
+  "erWorkspaceSidebar.properties.status",
+  "erWorkspaceSidebar.code.title",
+  "erWorkspaceSidebar.code.tab",
+  "erWorkspaceSidebar.code.description",
+  "erWorkspaceSidebar.code.descriptionWithError",
+  "erWorkspaceSidebar.code.errorStatus",
+  "erWorkspaceSidebar.code.liveStatus",
+  "erWorkspaceSidebar.code.placeholder",
+  "erWorkspaceSidebar.notes.title",
+  "erWorkspaceSidebar.notes.tab",
+  "erWorkspaceSidebar.notes.description",
+  "erWorkspaceSidebar.notes.status",
+  "erWorkspaceSidebar.notes.empty",
+  "common.status.info",
+  "technicalDock.aria",
+  "technicalDock.tabsAria",
+  "technicalDock.tabs.review",
+  "technicalDock.tabs.code",
+  "technicalDock.tabs.notes",
+  "technicalDock.empty.review",
+  "technicalDock.empty.code",
+  "technicalDock.empty.notes",
+  "bottomStatus.workspaceLabel",
+  "bottomStatus.dismissNotice",
+  "bottomStatus.workspace.translation",
+  "bottomStatus.workspace.schemaSql",
+  "bottomStatus.workspace.schema",
+  "bottomStatus.workspace.model",
+  "bottomStatus.panels.code",
+  "bottomStatus.panels.notes",
+  "bottomStatus.validationErrors",
+  "bottomStatus.validationWarnings",
+  "bottomStatus.selected",
+  "bottomStatus.warnings",
+  "bottomStatus.errors",
+  "changelog.eyebrow",
+  "changelog.title",
+  "changelog.subtitle",
+  "changelog.closeAria",
+  "changelog.current",
+  "changelog.defaultSummary",
+  "changelog.highlightsAria",
+  "changelog.impact.major",
+  "changelog.impact.minor",
+  "changelog.impact.fix",
+  "versionAnnouncement.updateKind.major",
+  "versionAnnouncement.updateKind.minor",
+  "versionAnnouncement.updateKind.patch",
+  "versionAnnouncement.fallbackHighlightTitle",
+  "versionAnnouncement.fallbackHighlightTag",
+  "versionAnnouncement.majorTitle",
+  "versionAnnouncement.minorTitle",
+  "versionAnnouncement.patchTitle",
+  "versionAnnouncement.defaultWowSubtitle",
+  "versionAnnouncement.patchSubtitle",
+  "versionAnnouncement.versionRouteAria",
+  "versionAnnouncement.previousVersion",
+  "versionAnnouncement.majorRelease",
+  "versionAnnouncement.minorRelease",
+  "versionAnnouncement.moreUpdates",
+  "versionAnnouncement.openFullChangelog",
+  "versionAnnouncement.viewDetails",
+  "versionAnnouncement.gotIt",
+  "translation.restructuring.openNotes",
+  "translation.restructuring.closeNotes",
+  "translation.restructuring.notes",
 ] as const;
 const CANVAS_I18N_KEYS = [
   "canvas.aria.zoomOut",
@@ -207,6 +278,47 @@ const CANVAS_HARDCODED_ITALIAN_PHRASES = [
   "Identificatore esterno selezionato",
   "Controlli viewport",
   "Spazio + drag per pan",
+  "Sorgente fissata",
+  "Seleziona ora la destinazione",
+  "Flusso ISA",
+  "Esc annulla",
+  "Click target completa",
+] as const;
+const ER_WORKSPACE_SIDEBAR_HARDCODED_ITALIAN_PHRASES = [
+  "Sorgente ERS",
+  "Correggi il sorgente ERS",
+  "Modifica la rappresentazione testuale",
+  "Errore ERS",
+  "Pannello laterale ER",
+  "Selettore sezione pannello laterale",
+  "Inserisci il codice ERS",
+  "Le Notes si aprono dal modal Notes",
+  "Annotazioni non strutturali",
+  "Appunti",
+  "Regole ER",
+] as const;
+const CONNECTED_COMPONENT_HARDCODED_ITALIAN_PHRASES = [
+  "Chiudi note",
+  "Apri note",
+  "Nessun elemento da mostrare",
+  "Nessun codice disponibile",
+  "Nessuna nota",
+  "Pannello tecnico",
+  "Sezioni pannello tecnico",
+  "Chiudi notifica",
+  "errori di validazione richiedono attenzione",
+  "warning di validazione nel workspace corrente",
+  "selezionati",
+  "Novita",
+  "Storico aggiornamenti",
+  "Chiudi novita",
+  "Corrente",
+  "Aggiornamenti e miglioramenti della release",
+  "Vedi changelog completo",
+  "Vedi dettagli",
+  "Ho capito",
+  "Altre novita",
+  "Versione precedente",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -353,6 +465,29 @@ test("missing keys still fall back to a readable placeholder", () => {
 test("DiagramCanvas does not keep known Italian UI phrases hardcoded", () => {
   const source = readFileSync(new URL("../src/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
   const remaining = CANVAS_HARDCODED_ITALIAN_PHRASES.filter((phrase) => source.includes(phrase));
+
+  assert.deepEqual(remaining, []);
+});
+
+test("ER workspace sidebar does not keep known Italian UI phrases hardcoded", () => {
+  const source = readFileSync(new URL("../src/components/ErWorkspaceSidebar.tsx", import.meta.url), "utf8");
+  const remaining = ER_WORKSPACE_SIDEBAR_HARDCODED_ITALIAN_PHRASES.filter((phrase) => source.includes(phrase));
+
+  assert.deepEqual(remaining, []);
+});
+
+test("canvas-connected components do not keep known Italian UI phrases hardcoded", () => {
+  const source = [
+    "../src/translation/TranslationWorkspace.tsx",
+    "../src/components/TechnicalDockPanel.tsx",
+    "../src/components/BottomStatusBar.tsx",
+    "../src/components/ChangelogModal.tsx",
+    "../src/components/VersionAnnouncement.tsx",
+    "../src/components/panels.tsx",
+  ]
+    .map((file) => readFileSync(new URL(file, import.meta.url), "utf8"))
+    .join("\n");
+  const remaining = CONNECTED_COMPONENT_HARDCODED_ITALIAN_PHRASES.filter((phrase) => source.includes(phrase));
 
   assert.deepEqual(remaining, []);
 });

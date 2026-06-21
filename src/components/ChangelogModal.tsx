@@ -1,5 +1,6 @@
 import { useRef } from "react";
 
+import { useI18n } from "../i18n/useI18n";
 import type { AppChangelogEntry, AppChangelogImpact } from "../utils/appMeta";
 import { StudioIcon } from "./icons/StudioIcon";
 
@@ -10,16 +11,18 @@ interface ChangelogModalProps {
   onClose: () => void;
 }
 
-function getImpactLabel(impact: AppChangelogImpact | undefined): string {
+type Translate = ReturnType<typeof useI18n>["t"];
+
+function getImpactLabel(impact: AppChangelogImpact | undefined, t: Translate): string {
   if (impact === "major") {
-    return "Major";
+    return t("changelog.impact.major");
   }
 
   if (impact === "minor") {
-    return "Important";
+    return t("changelog.impact.minor");
   }
 
-  return "Fix";
+  return t("changelog.impact.fix");
 }
 
 function getImpactClassName(impact: AppChangelogImpact | undefined): string {
@@ -35,6 +38,7 @@ function getImpactClassName(impact: AppChangelogImpact | undefined): string {
 }
 
 export function ChangelogModal({ appName, currentVersion, entries, onClose }: ChangelogModalProps) {
+  const { t } = useI18n();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -48,17 +52,17 @@ export function ChangelogModal({ appName, currentVersion, entries, onClose }: Ch
       >
         <header className="studio-modal__header changelog-modal-modern__header">
           <div>
-            <span className="changelog-modal-modern__eyebrow">{appName} release notes</span>
-            <h2 id="changelog-modal-title" className="studio-modal__title">Novita</h2>
+            <span className="changelog-modal-modern__eyebrow">{t("changelog.eyebrow", { appName })}</span>
+            <h2 id="changelog-modal-title" className="studio-modal__title">{t("changelog.title")}</h2>
             <p className="studio-modal__subtitle">
-              Storico aggiornamenti, fix e release importanti. Versione corrente v{currentVersion}.
+              {t("changelog.subtitle", { version: currentVersion })}
             </p>
           </div>
           <button
             type="button"
             className="studio-modal__close"
             onClick={onClose}
-            aria-label="Chiudi novita"
+            aria-label={t("changelog.closeAria")}
             autoFocus
             ref={closeButtonRef}
           >
@@ -83,18 +87,18 @@ export function ChangelogModal({ appName, currentVersion, entries, onClose }: Ch
                   <div>
                     <div className="changelog-release-card__title-row">
                       <h3>{appName} {entry.version}</h3>
-                      {isCurrentVersion ? <span className="changelog-current-badge">Corrente</span> : null}
+                      {isCurrentVersion ? <span className="changelog-current-badge">{t("changelog.current")}</span> : null}
                     </div>
-                    <p>{entry.headline ?? entry.summary ?? "Aggiornamenti e miglioramenti della release."}</p>
+                    <p>{entry.headline ?? entry.summary ?? t("changelog.defaultSummary")}</p>
                   </div>
                   <div className="changelog-release-card__meta">
-                    <span className={getImpactClassName(entry.impact)}>{getImpactLabel(entry.impact)}</span>
+                    <span className={getImpactClassName(entry.impact)}>{getImpactLabel(entry.impact, t)}</span>
                     <time dateTime={entry.date}>{entry.date}</time>
                   </div>
                 </header>
 
                 {entry.highlights && entry.highlights.length > 0 ? (
-                  <div className="changelog-release-card__highlights" aria-label="Highlights">
+                  <div className="changelog-release-card__highlights" aria-label={t("changelog.highlightsAria")}>
                     {entry.highlights.slice(0, 3).map((highlight) => (
                       <span key={`${entry.version}-${highlight.title}`}>
                         {highlight.tag ? <strong>{highlight.tag}</strong> : null}

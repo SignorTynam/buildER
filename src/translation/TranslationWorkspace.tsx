@@ -211,10 +211,10 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           type="button"
           className="designer-side-toggle designer-side-toggle-right designer-translation-notes-toggle"
           onClick={props.onToggleNotesPanel}
-          title={props.notesPanelOpen ? "Chiudi note" : "Apri note"}
+          title={props.notesPanelOpen ? t("translation.restructuring.closeNotes") : t("translation.restructuring.openNotes")}
         >
           <StudioIcon name="notes" aria-hidden="true" />
-          {props.notesPanelOpen ? "Hide" : "Notes"}
+          {props.notesPanelOpen ? t("common.actions.hide") : t("translation.restructuring.notes")}
         </button>
 
         {fixOpen && selectedItem ? (

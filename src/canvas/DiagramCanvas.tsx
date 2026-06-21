@@ -3969,10 +3969,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     ];
   } else if (pendingConnectionSource && pendingSourceNode) {
     guidanceState = "selecting-target";
-    guidanceStateLabel = "Selecting target";
-    guidanceTitle = props.tool === "inheritance" ? "Flusso ISA" : "Flusso source -> target";
-    guidanceMessage = `Sorgente fissata su ${pendingSourceNode.label}. Seleziona ora la destinazione compatibile nel canvas.`;
-    guidanceShortcuts = ["Esc annulla", "Click target completa"];
+    guidanceStateLabel = t("canvas.guidance.states.selectingTarget");
+    guidanceTitle =
+      props.tool === "inheritance" ? t("canvas.guidance.isaFlowTitle") : t("canvas.guidance.sourceTargetFlowTitle");
+    guidanceMessage = t("canvas.guidance.pendingSourceMessage", { label: pendingSourceNode.label });
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.escCancel"),
+      t("canvas.guidance.shortcuts.clickTargetComplete"),
+    ];
   } else if (props.tool === "connector" || props.tool === "inheritance") {
     guidanceState = "selecting-source";
     guidanceStateLabel = t("canvas.guidance.states.selectingSource");
