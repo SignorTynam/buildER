@@ -116,15 +116,6 @@ type InteractionState =
       baseSelection: SelectionState;
     }
   | {
-      kind: "edge-drag";
-      pointerId: number;
-      startClient: Point;
-      originalDiagram: DiagramDocument;
-      edgeId: string;
-      startOffset: number;
-      axis: "x" | "y";
-    }
-  | {
       kind: "external-id-drag";
       pointerId: number;
       startClient: Point;
@@ -2312,9 +2303,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       ? interaction.originalDiagram.edges.filter(
           (edge) => dragGhostNodeIds.has(edge.sourceId) || dragGhostNodeIds.has(edge.targetId),
         )
-      : interaction.kind === "edge-drag"
-        ? interaction.originalDiagram.edges.filter((edge) => edge.id === interaction.edgeId)
-        : [];
+      : [];
   const dragGhostNodeMap =
     interaction.kind === "drag"
       ? new Map(interaction.originalDiagram.nodes.map((node) => [node.id, node]))
@@ -3549,29 +3538,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (interaction.kind === "edge-drag") {
-      const draggedEdge = interaction.originalDiagram.edges.find((edge) => edge.id === interaction.edgeId);
-      if (!draggedEdge || !canEdgeUseManualRouting(draggedEdge)) {
-        return;
-      }
-
-      const pointerDelta =
-        interaction.axis === "x"
-          ? event.clientX - interaction.startClient.x
-          : event.clientY - interaction.startClient.y;
-      const nextOffset = Math.round((interaction.startOffset + pointerDelta / props.viewport.zoom) / 2) * 2;
-
-      const nextEdges = interaction.originalDiagram.edges.map((edge) =>
-        edge.id === interaction.edgeId ? { ...edge, manualOffset: nextOffset } : edge,
-      );
-
-      props.onPreviewDiagram({
-        ...interaction.originalDiagram,
-        edges: nextEdges,
-      });
-      return;
-    }
-
     if (interaction.kind === "external-id-drag") {
       const deltaX = (event.clientX - interaction.startClient.x) / props.viewport.zoom;
       const deltaY = (event.clientY - interaction.startClient.y) / props.viewport.zoom;
@@ -3640,15 +3606,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       });
       setInteraction({ kind: "idle" });
       props.onStatusMessageChange(t("canvas.status.internalIdentifierSelected"));
-      return;
-    }
-
-    if (interaction.kind === "edge-drag") {
-      const draggedEdge = interaction.originalDiagram.edges.find((edge) => edge.id === interaction.edgeId);
-      if (draggedEdge && canEdgeUseManualRouting(draggedEdge)) {
-        props.onCommitDiagram(props.diagram, interaction.originalDiagram);
-      }
-      setInteraction({ kind: "idle" });
       return;
     }
 
@@ -3935,23 +3892,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       t("canvas.guidance.shortcuts.enterSave"),
       t("canvas.guidance.shortcuts.clickOutsideConfirm"),
     ];
-  } else if (
-    interaction.kind === "edge-drag" ||
-    interaction.kind === "external-id-drag" ||
-    activeCompositeGroupKey
-  ) {
+  } else if (interaction.kind === "external-id-drag" || activeCompositeGroupKey) {
     guidanceState = "dragging-routing";
     guidanceStateLabel = t("canvas.guidance.states.draggingRouting");
     guidanceTitle =
-      interaction.kind === "edge-drag"
-        ? t("canvas.guidance.routingConnectorTitle")
-        : interaction.kind === "external-id-drag"
+      interaction.kind === "external-id-drag"
           ? t("canvas.guidance.externalIdentifierTitle")
           : t("canvas.guidance.compositeIdentifierTitle");
     guidanceMessage =
-      interaction.kind === "edge-drag"
-        ? t("canvas.guidance.routingConnectorMessage")
-        : interaction.kind === "external-id-drag"
+      interaction.kind === "external-id-drag"
           ? t("canvas.guidance.externalIdentifierRoutingMessage")
           : t("canvas.guidance.compositeIdentifierRoutingMessage");
     guidanceShortcuts = [
@@ -4299,7 +4248,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 compositeAttributeIds={compositeAttributeIds}
                 labelLayoutOverride={edgeLabelLayoutOverrides.get(edge.id)}
                 selected={props.selection.edgeIds.includes(edge.id)}
-                dragging={interaction.kind === "edge-drag" && interaction.edgeId === edge.id}
+                dragging={false}
                 validationLevel={edgeIssueMap.get(edge.id)?.level}
                 validationCount={edgeIssueMap.get(edge.id)?.count}
                 translationHighlight={resolveTranslationHighlight(edge.id, props.translationHighlights)}

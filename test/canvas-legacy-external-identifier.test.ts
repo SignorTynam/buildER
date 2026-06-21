@@ -13,3 +13,11 @@ test("DiagramCanvas does not expose the legacy implicit external identifier clic
   assert.equal(diagramCanvasSource.includes("externalIdentifierFlowActive"), false);
   assert.equal(diagramCanvasSource.includes("Step 2 di 2 - Identificatore esterno"), false);
 });
+
+test("DiagramCanvas does not keep legacy edge pointer-drag interaction code", () => {
+  const legacyInteractionKind = ["edge", "drag"].join("-");
+
+  assert.equal(diagramCanvasSource.includes(`"${legacyInteractionKind}"`), false);
+  assert.equal(diagramCanvasSource.includes(`interaction.kind === "${legacyInteractionKind}"`), false);
+  assert.equal(diagramCanvasSource.includes(`kind: "${legacyInteractionKind}"`), false);
+});
