@@ -52,6 +52,65 @@ test("il formato .ersp salva e ripristina vista corrente e viewport del progetto
   assert.equal(parsed.state.translationWorkspace.translatedDiagram.meta.name, "Progetto completo");
 });
 
+test("il formato .ersp preserva la vista ER anche quando il fallback e logical", () => {
+  const diagram = createEmptyDiagram("Vista ER");
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+
+  const serialized = serializeProjectFile({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated: true,
+    logicalStage: "schema",
+    diagramView: "er",
+    viewport: { x: 12, y: 34, zoom: 1.25 },
+    translationViewport: { x: 56, y: 78, zoom: 0.9 },
+    logicalViewport: { x: -20, y: 15, zoom: 0.75 },
+    savedAt: "2026-06-21T10:00:00.000Z",
+  });
+
+  const parsed = parseProjectFile(serialized, {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "logical",
+  });
+
+  assert.equal(parsed.source, "project-file");
+  assert.equal(parsed.document.view.current, "er");
+  assert.equal(parsed.state.diagramView, "er");
+  assert.deepEqual(parsed.state.viewport, { x: 12, y: 34, zoom: 1.25 });
+  assert.deepEqual(parsed.state.translationViewport, { x: 56, y: 78, zoom: 0.9 });
+  assert.deepEqual(parsed.state.logicalViewport, { x: -20, y: 15, zoom: 0.75 });
+});
+
+test("il formato .ersp usa il fallback quando la vista salvata non e valida", () => {
+  const diagram = createEmptyDiagram("Vista invalida");
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+
+  const serialized = serializeProjectFile({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated: true,
+    logicalStage: "schema",
+    diagramView: "er",
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+  });
+  const document = JSON.parse(serialized);
+  document.view.current = "invalid-view";
+
+  const parsed = parseProjectFile(JSON.stringify(document), {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "translation",
+  });
+
+  assert.equal(parsed.document.view.current, "translation");
+  assert.equal(parsed.state.diagramView, "translation");
+});
+
 test("il formato .ersp conserva cardinalita custom e note HTML", () => {
   const diagram = createEmptyDiagram("Cardinalita custom");
   diagram.notes = "<h1>Note</h1><p>Test</p>";

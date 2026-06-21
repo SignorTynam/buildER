@@ -122,7 +122,7 @@ function sanitizeViewport(value: unknown, fallback: Viewport): Viewport {
 }
 
 function sanitizeDiagramView(value: unknown, fallback: ProjectFileWorkspaceView): ProjectFileWorkspaceView {
-  if (value === "logical" || value === "translation") {
+  if (value === "er" || value === "logical" || value === "translation") {
     return value;
   }
 
