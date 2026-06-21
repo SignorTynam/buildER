@@ -598,7 +598,6 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     date: "2026-03-13",
     updates: [
       "Nuovo strumento Cancella (shortcut X): elimina con click diretto nodi e collegamenti.",
-      "Flusso guidato per identificatore esterno: si crea selezionando identificatore sorgente e poi entita/attributo destinazione.",
       "Rendering identificatore esterno migliorato: linea coerente, routing anti-collisione e rispetto della posizione relativa degli elementi.",
       "Interazione completa identificatore esterno: trascinamento linea e pallina con offset persistenti.",
       "Rimozione identificatore esterno dedicata: con Delete sul simbolo oppure dal pulsante nell'Inspector, senza eliminare attributi.",

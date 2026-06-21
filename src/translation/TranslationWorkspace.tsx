@@ -270,7 +270,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           onOpenCardinality={() => {}}
           onOpenInheritanceType={() => {}}
           onToolChange={() => {}}
-          onCreateExternalIdentifier={() => ({ success: false, message: unavailableMessage })}
           onDeleteNode={() => {}}
           onDeleteEdge={() => {}}
           onDeleteSelection={() => {}}

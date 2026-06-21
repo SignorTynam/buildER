@@ -41,7 +41,6 @@ export function SqlReverseErPreview({
       onOpenCardinality={() => undefined}
       onOpenInheritanceType={() => undefined}
       onToolChange={() => undefined}
-      onCreateExternalIdentifier={() => ({ success: false, message: t("sqlReverse.preview.readOnly") })}
       onDeleteNode={() => undefined}
       onDeleteEdge={() => undefined}
       onDeleteSelection={() => undefined}

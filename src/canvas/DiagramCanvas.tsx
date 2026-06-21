@@ -212,10 +212,6 @@ interface DiagramCanvasProps {
   onOpenCardinality: (edgeId?: string) => void;
   onOpenInheritanceType: (edgeId?: string) => void;
   onToolChange: (tool: ToolKind) => void;
-  onCreateExternalIdentifier: (
-    sourceAttributeId: string,
-    targetId: string,
-  ) => { success: boolean; message: string };
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
   onDeleteSelection: () => void;
@@ -3149,34 +3145,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (props.selection.nodeIds.length === 1 && props.selection.edgeIds.length === 0) {
-      const sourceNode = nodeMap.get(props.selection.nodeIds[0]);
-      const sourceEntity =
-        sourceNode?.type === "attribute"
-          ? props.diagram.nodes.find(
-              (node) =>
-                node.type === "entity" &&
-                (node.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.includes(sourceNode.id)),
-            )
-          : undefined;
-      const canStartExternalIdentifier =
-        sourceNode?.type === "attribute" &&
-        sourceEntity?.type === "entity" &&
-        sourceNode.id !== node.id;
-
-      const validTarget =
-        node.type === "entity" ||
-        (node.type === "attribute" &&
-          node.isIdentifier !== true &&
-          node.isCompositeInternal !== true &&
-          node.isMultivalued !== true);
-      if (canStartExternalIdentifier && validTarget) {
-        const result = props.onCreateExternalIdentifier(sourceNode.id, node.id);
-        props.onStatusMessageChange(result.message);
-        return;
-      }
-    }
-
     if (event.shiftKey || event.ctrlKey || event.metaKey) {
       props.onSelectionChange(addToSelection(props.selection, node.id));
       return;
@@ -3920,19 +3888,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.selection.nodeIds.length === 1 && props.selection.edgeIds.length === 0
       ? nodeMap.get(props.selection.nodeIds[0])
       : undefined;
-  const internalIdentifierHost =
-    selectedNode?.type === "attribute"
-      ? props.diagram.nodes.find(
-          (node) =>
-            node.type === "entity" &&
-            (node.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.includes(selectedNode.id)),
-        )
-      : undefined;
-  const externalIdentifierFlowActive =
-    props.mode === "edit" &&
-    props.tool === "select" &&
-    selectedNode?.type === "attribute" &&
-    internalIdentifierHost?.type === "entity";
   const activeCompositeGroupKey =
     interaction.kind === "drag"
       ? compositeIdentifierLayouts.find((layout) =>
@@ -4005,12 +3960,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     guidanceTitle = props.tool === "inheritance" ? "Flusso ISA" : "Flusso source -> target";
     guidanceMessage = `Sorgente fissata su ${pendingSourceNode.label}. Seleziona ora la destinazione compatibile nel canvas.`;
     guidanceShortcuts = ["Esc annulla", "Click target completa"];
-  } else if (externalIdentifierFlowActive && selectedNode?.type === "attribute" && internalIdentifierHost) {
-    guidanceState = "selecting-target";
-    guidanceStateLabel = "Selecting target";
-    guidanceTitle = "External identifier";
-    guidanceMessage = `Seleziona l'entita target o un attributo compatibile per creare l'identificatore esterno di ${selectedNode.label}.`;
-    guidanceShortcuts = ["Click target crea", "Tab mette a fuoco i nodi"];
   } else if (props.tool === "connector" || props.tool === "inheritance") {
     guidanceState = "selecting-source";
     guidanceStateLabel = "Selecting source";
@@ -4054,16 +4003,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             props.onStatusMessageChange("Creazione collegamento annullata.");
           },
         }
-      : externalIdentifierFlowActive && selectedNode?.type === "attribute" && internalIdentifierHost
-        ? {
-            title: "Step 2 di 2 - Identificatore esterno",
-            body: `Sorgente: ${selectedNode.label} da ${internalIdentifierHost.label}. Ora scegli l'entita host o un attributo compatibile come target.`,
-            dismissLabel: "Deseleziona",
-            onDismiss: () => {
-              props.onSelectionChange({ nodeIds: [], edgeIds: [] });
-            },
-          }
-        : null;
+      : null;
 
   const advancedAffordances =
     props.tool === "select"
