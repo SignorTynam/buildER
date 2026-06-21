@@ -845,6 +845,7 @@ export const en: DeepPartialMessages = {
       rename: "Rename",
       renameColumn: "Rename column",
       renameTable: "Rename table",
+      renameUnavailable: "Apply a fix before renaming the logical element.",
       primaryKeyUnique: "A primary key is already unique.",
       typeInherited: "The type is inherited from the referenced column.",
       completeBeforeSchema: "Complete entities, weak entities and relationships first.",

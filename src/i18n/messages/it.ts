@@ -843,6 +843,7 @@ export const it = {
       rename: "Rinomina",
       renameColumn: "Rinomina colonna",
       renameTable: "Rinomina tabella",
+      renameUnavailable: "Applica prima un fix per poter rinominare l'elemento logico.",
       primaryKeyUnique: "Una chiave primaria è già unica.",
       typeInherited: "Il tipo è ereditato dalla colonna referenziata.",
       completeBeforeSchema: "Completa prima entità, entità deboli e relazioni.",

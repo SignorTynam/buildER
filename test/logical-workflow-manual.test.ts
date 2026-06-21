@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { DiagramDocument, DiagramEdge, DiagramNode } from "../src/types/diagram.ts";
+import type {
+  LogicalSelection,
+  LogicalTranslationArtifactKind,
+  LogicalTranslationItem,
+  LogicalWorkspaceDocument,
+} from "../src/types/logical.ts";
+import { findTranslationRenameTarget } from "../src/logical/LogicalTranslationWorkspace.tsx";
 import {
   LOGICAL_TRANSLATION_STEPS,
   applyBulkLogicalFix,
@@ -13,6 +21,117 @@ import {
   getLogicalTranslationChoicesForItem,
   refreshLogicalWorkspace,
 } from "../src/utils/logicalTranslation.ts";
+
+const EMPTY_LOGICAL_SELECTION_FOR_TEST: LogicalSelection = {
+  nodeId: null,
+  columnId: null,
+  edgeId: null,
+};
+
+function createTranslationItem(overrides: Partial<LogicalTranslationItem> = {}): LogicalTranslationItem {
+  return {
+    id: "entity-student",
+    targetType: "entity",
+    step: "entities",
+    label: "Student",
+    description: "Student entity",
+    status: "applied",
+    currentDecisionId: "decision-1",
+    choiceIds: [],
+    conflictMessages: [],
+    ...overrides,
+  };
+}
+
+function createRenameWorkspace(
+  options: {
+    transformationNodeTableId?: string;
+    mappingArtifacts?: { kind: LogicalTranslationArtifactKind; id: string; label?: string }[];
+  } = {},
+): LogicalWorkspaceDocument {
+  return {
+    model: {
+      meta: {
+        name: "Logical rename target",
+        generatedAt: new Date(0).toISOString(),
+        sourceDiagramVersion: 1,
+        sourceSignature: "rename-target",
+      },
+      tables: [
+        {
+          id: "table-student",
+          name: "student",
+          kind: "entity",
+          columns: [
+            {
+              id: "column-name",
+              name: "name",
+              isPrimaryKey: false,
+              isForeignKey: false,
+              isNullable: false,
+              references: [],
+            },
+          ],
+          x: 0,
+          y: 0,
+          width: 220,
+          height: 120,
+        },
+      ],
+      foreignKeys: [],
+      uniqueConstraints: [],
+      edges: [],
+      issues: [],
+    },
+    translation: {
+      meta: {
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString(),
+        sourceSignature: "rename-target",
+      },
+      decisions: [],
+      mappings: options.mappingArtifacts
+        ? [
+            {
+              decisionId: "decision-1",
+              targetType: "entity",
+              targetId: "entity-student",
+              summary: "Applied",
+              artifacts: options.mappingArtifacts.map((artifact) => ({
+                kind: artifact.kind,
+                id: artifact.id,
+                label: artifact.label ?? artifact.id,
+              })),
+            },
+          ]
+        : [],
+      conflicts: [],
+    },
+    transformation: {
+      meta: {
+        updatedAt: new Date(0).toISOString(),
+        sourceSignature: "rename-target",
+      },
+      nodes: [
+        {
+          id: "transformation-node-student",
+          kind: "logical-table",
+          renderType: "table",
+          label: "student",
+          x: 0,
+          y: 0,
+          width: 220,
+          height: 120,
+          status: "transformed",
+          tableId: options.transformationNodeTableId,
+          generatedByDecisionIds: ["decision-1"],
+          relatedTargetKeys: ["entity:entity-student"],
+        },
+      ],
+      edges: [],
+    },
+  };
+}
 
 function createEntityWithIdentifier(
   entityId: string,
@@ -277,4 +396,111 @@ test("refresh su sorgente aggiornato riallinea decisioni senza conversione total
   const resetWorkspace = createEmptyLogicalWorkspace(updatedSource, refreshed);
   assert.equal(resetWorkspace.model.tables.length, 0);
   assert.equal(resetWorkspace.translation.decisions.length, 0);
+});
+
+test("translation rename target: colonna selezionata direttamente", () => {
+  const target = findTranslationRenameTarget(
+    createRenameWorkspace(),
+    { ...EMPTY_LOGICAL_SELECTION_FOR_TEST, columnId: "column-name" },
+    null,
+  );
+
+  assert.deepEqual(target, {
+    kind: "column",
+    tableId: "table-student",
+    columnId: "column-name",
+    currentName: "name",
+  });
+});
+
+test("translation rename target: tabella selezionata direttamente", () => {
+  const target = findTranslationRenameTarget(
+    createRenameWorkspace(),
+    { ...EMPTY_LOGICAL_SELECTION_FOR_TEST, nodeId: "table-student" },
+    null,
+  );
+
+  assert.deepEqual(target, {
+    kind: "table",
+    tableId: "table-student",
+    currentName: "student",
+  });
+});
+
+test("translation rename target: nodo di trasformazione con tableId", () => {
+  const target = findTranslationRenameTarget(
+    createRenameWorkspace({ transformationNodeTableId: "table-student" }),
+    { ...EMPTY_LOGICAL_SELECTION_FOR_TEST, nodeId: "transformation-node-student" },
+    null,
+  );
+
+  assert.deepEqual(target, {
+    kind: "table",
+    tableId: "table-student",
+    currentName: "student",
+  });
+});
+
+test("translation rename target: mapping applicato con artifact table", () => {
+  const target = findTranslationRenameTarget(
+    createRenameWorkspace({ mappingArtifacts: [{ kind: "table", id: "table-student" }] }),
+    EMPTY_LOGICAL_SELECTION_FOR_TEST,
+    createTranslationItem(),
+  );
+
+  assert.deepEqual(target, {
+    kind: "table",
+    tableId: "table-student",
+    currentName: "student",
+  });
+});
+
+test("translation rename target: mapping applicato con artifact column", () => {
+  const target = findTranslationRenameTarget(
+    createRenameWorkspace({ mappingArtifacts: [{ kind: "column", id: "column-name" }] }),
+    EMPTY_LOGICAL_SELECTION_FOR_TEST,
+    createTranslationItem(),
+  );
+
+  assert.deepEqual(target, {
+    kind: "column",
+    tableId: "table-student",
+    columnId: "column-name",
+    currentName: "name",
+  });
+});
+
+test("translation rename target: elemento pending senza artifact concreto", () => {
+  const target = findTranslationRenameTarget(
+    createRenameWorkspace(),
+    EMPTY_LOGICAL_SELECTION_FOR_TEST,
+    createTranslationItem({ status: "pending", currentDecisionId: undefined }),
+  );
+
+  assert.equal(target, null);
+});
+
+test("translation rename target: mapping con artifact non rinominabile", () => {
+  for (const kind of ["foreignKey", "uniqueConstraint", "edge"] as const) {
+    const target = findTranslationRenameTarget(
+      createRenameWorkspace({ mappingArtifacts: [{ kind, id: `${kind}-1` }] }),
+      EMPTY_LOGICAL_SELECTION_FOR_TEST,
+      createTranslationItem(),
+    );
+
+    assert.equal(target, null, `${kind} should not be renameable`);
+  }
+});
+
+test("LogicalTranslationWorkspace translation toolbar no longer wires Rename to a no-op", () => {
+  const source = readFileSync(
+    new URL("../src/logical/LogicalTranslationWorkspace.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(
+    source.includes('renameWithPrompt(t("logical.designer.rename"), selectedTranslationItem.label, () => undefined)'),
+    false,
+  );
+  assert.equal(source.includes("onClick={() => selectedTranslationItem && renameWithPrompt"), false);
 });

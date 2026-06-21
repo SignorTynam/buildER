@@ -164,6 +164,102 @@ function findSelectedTable(workspace: LogicalWorkspaceDocument, selection: Logic
   return workspace.model.tables.find((table) => table.id === selection.nodeId) ?? null;
 }
 
+export type TranslationRenameTarget =
+  | {
+      kind: "table";
+      tableId: string;
+      currentName: string;
+    }
+  | {
+      kind: "column";
+      tableId: string;
+      columnId: string;
+      currentName: string;
+    };
+
+function findColumnRenameTarget(
+  workspace: LogicalWorkspaceDocument,
+  columnId: string,
+): Extract<TranslationRenameTarget, { kind: "column" }> | null {
+  for (const table of workspace.model.tables) {
+    const column = table.columns.find((candidate) => candidate.id === columnId);
+    if (column) {
+      return {
+        kind: "column",
+        tableId: table.id,
+        columnId: column.id,
+        currentName: column.name,
+      };
+    }
+  }
+
+  return null;
+}
+
+function findTableRenameTarget(
+  workspace: LogicalWorkspaceDocument,
+  tableId: string,
+): Extract<TranslationRenameTarget, { kind: "table" }> | null {
+  const table = workspace.model.tables.find((candidate) => candidate.id === tableId);
+  return table
+    ? {
+        kind: "table",
+        tableId: table.id,
+        currentName: table.name,
+      }
+    : null;
+}
+
+export function findTranslationRenameTarget(
+  workspace: LogicalWorkspaceDocument,
+  selection: LogicalSelection,
+  selectedTranslationItem: LogicalTranslationItem | null,
+): TranslationRenameTarget | null {
+  if (selection.columnId) {
+    const columnTarget = findColumnRenameTarget(workspace, selection.columnId);
+    if (columnTarget) {
+      return columnTarget;
+    }
+  }
+
+  if (selection.nodeId) {
+    const selectedTableTarget = findTableRenameTarget(workspace, selection.nodeId);
+    if (selectedTableTarget) {
+      return selectedTableTarget;
+    }
+
+    const transformationNode = workspace.transformation.nodes.find((node) => node.id === selection.nodeId);
+    if (transformationNode?.tableId) {
+      const transformationTableTarget = findTableRenameTarget(workspace, transformationNode.tableId);
+      if (transformationTableTarget) {
+        return transformationTableTarget;
+      }
+    }
+  }
+
+  if (!selectedTranslationItem?.currentDecisionId) {
+    return null;
+  }
+
+  const mapping = workspace.translation.mappings.find(
+    (candidate) => candidate.decisionId === selectedTranslationItem.currentDecisionId,
+  );
+  if (!mapping) {
+    return null;
+  }
+
+  const tableArtifact = mapping.artifacts.find((artifact) => artifact.kind === "table");
+  if (tableArtifact) {
+    const tableTarget = findTableRenameTarget(workspace, tableArtifact.id);
+    if (tableTarget) {
+      return tableTarget;
+    }
+  }
+
+  const columnArtifact = mapping.artifacts.find((artifact) => artifact.kind === "column");
+  return columnArtifact ? findColumnRenameTarget(workspace, columnArtifact.id) : null;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -314,6 +410,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const selectedTranslationItem = useMemo(
     () => findItemForSelection(props.workspace, overview, props.selection),
     [overview, props.selection, props.workspace],
+  );
+  const translationRenameTarget = useMemo(
+    () => findTranslationRenameTarget(props.workspace, props.selection, selectedTranslationItem),
+    [props.workspace, props.selection, selectedTranslationItem],
   );
   const [sqlDialect, setSqlDialect] = useState<LogicalSqlDialect>("generic");
   const sqlPreview = useMemo(
@@ -479,6 +579,23 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     setEntityKeySelectionModal(null);
   }
 
+  function handleTranslationRename(): void {
+    if (!translationRenameTarget) {
+      return;
+    }
+
+    if (translationRenameTarget.kind === "column") {
+      renameWithPrompt(t("logical.designer.renameColumn"), translationRenameTarget.currentName, (nextName) =>
+        props.onRenameColumn(translationRenameTarget.tableId, translationRenameTarget.columnId, nextName),
+      );
+      return;
+    }
+
+    renameWithPrompt(t("logical.designer.renameTable"), translationRenameTarget.currentName, (nextName) =>
+      props.onRenameTable(translationRenameTarget.tableId, nextName),
+    );
+  }
+
   function goToPreviousEntityKeyPage(): void {
     setEntityKeySelectionModal((current) =>
       current ? { ...current, currentIndex: getPreviousEntityKeyModalIndex(current.currentIndex) } : current,
@@ -518,23 +635,28 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
   function renderTranslationToolbar() {
     const itemIsSelected = selectedTranslationItem != null;
+    const showItemTools = itemIsSelected || translationRenameTarget != null;
     return (
       <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.translationTools")}>
         {renderCommonLeadButtons()}
-        {itemIsSelected ? (
+        {showItemTools ? (
           <>
-            <ToolbarButton
-              label={t("logical.designer.fix")}
-              icon={<StudioIcon name="fix" />}
-              active={fixMenuOpen}
-              disabled={!preferredChoice}
-              title={!preferredChoice ? t("logical.designer.notFixable") : undefined}
-              onClick={applySingleFix}
-            />
+            {itemIsSelected ? (
+              <ToolbarButton
+                label={t("logical.designer.fix")}
+                icon={<StudioIcon name="fix" />}
+                active={fixMenuOpen}
+                disabled={!preferredChoice}
+                title={!preferredChoice ? t("logical.designer.notFixable") : undefined}
+                onClick={applySingleFix}
+              />
+            ) : null}
             <ToolbarButton
               label={t("logical.designer.rename")}
               icon={<StudioIcon name="rename" />}
-              onClick={() => selectedTranslationItem && renameWithPrompt(t("logical.designer.rename"), selectedTranslationItem.label, () => undefined)}
+              disabled={!translationRenameTarget}
+              title={!translationRenameTarget ? t("logical.designer.renameUnavailable") : undefined}
+              onClick={handleTranslationRename}
             />
           </>
         ) : null}

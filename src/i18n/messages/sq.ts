@@ -845,6 +845,7 @@ export const sq: DeepPartialMessages = {
       rename: "Riemërto",
       renameColumn: "Riemërto kolonën",
       renameTable: "Riemërto tabelën",
+      renameUnavailable: "Apliko më parë një rregullim për të riemërtuar elementin logjik.",
       primaryKeyUnique: "Çelësi primar është tashmë unik.",
       typeInherited: "Tipi trashëgohet nga kolona e referuar.",
       completeBeforeSchema: "Plotëso më parë entitetet, entitetet e dobëta dhe marrëdhëniet.",
