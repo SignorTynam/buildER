@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "lucide-react": "^1.18.0",
-    "playwright": "^1.61.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -22,6 +21,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.0.2",
+    "playwright": "^1.61.0",
     "tsx": "^4.22.4",
     "typescript": "^5.6.3",
     "vite": "^8.0.16"
