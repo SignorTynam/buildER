@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Informazioni su buildER — Editor ER online</title>
+    <meta
+      name="description"
+      content="buildER è un editor web per creare diagrammi Entity-Relationship, progettare modelli ER, lavorare con viste logiche, SQL Reverse ed esportare diagrammi dal browser."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://signortynam.github.io/buildER/about.html" />
+    <meta property="og:title" content="Informazioni su buildER" />
+    <meta
+      property="og:description"
+      content="Scopri buildER, un editor online per diagrammi Entity-Relationship, modellazione concettuale, viste logiche e SQL Reverse."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://signortynam.github.io/buildER/about.html" />
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: #0f1115;
+        color: #f5f7fb;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        background:
+          radial-gradient(circle at top left, rgba(58, 134, 255, 0.18), transparent 34rem),
+          #0f1115;
+      }
+
+      main {
+        max-width: 860px;
+        padding: 42px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 24px;
+        background: rgba(18, 21, 28, 0.86);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      }
+
+      h1 {
+        margin: 0 0 16px;
+        font-size: clamp(2.2rem, 5vw, 4rem);
+        letter-spacing: -0.05em;
+      }
+
+      p {
+        color: #d6dbea;
+        font-size: 1.05rem;
+        line-height: 1.75;
+      }
+
+      ul {
+        color: #d6dbea;
+        line-height: 1.8;
+      }
+
+      a {
+        color: #8ab4ff;
+        font-weight: 700;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        background: #f5f7fb;
+        color: #10131a;
+        text-decoration: none;
+      }
+
+      .button.secondary {
+        background: transparent;
+        color: #f5f7fb;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>buildER</h1>
+      <p>
+        buildER è un editor web per creare diagrammi Entity-Relationship secondo la notazione Chen. Permette di progettare modelli concettuali per basi di dati direttamente dal browser, senza installazioni locali.
+      </p>
+      <p>
+        L'applicazione supporta entità, relazioni, attributi, cardinalità, generalizzazioni ISA, viste logiche, traduzione verso modelli relazionali, SQL Reverse ed esportazione dei diagrammi.
+      </p>
+      <ul>
+        <li>Editor visuale per diagrammi ER.</li>
+        <li>Supporto a progetti salvabili e riapribili.</li>
+        <li>Esportazione in formati immagine e SVG.</li>
+        <li>Interfaccia multilingua in italiano, inglese e albanese.</li>
+      </ul>
+      <div class="actions">
+        <a class="button" href="/buildER/">Apri buildER</a>
+        <a class="button secondary" href="https://github.com/SignorTynam/buildER">Repository GitHub</a>
+      </div>
+    </main>
+  </body>
+</html>
