@@ -392,7 +392,7 @@ export const en: DeepPartialMessages = {
   notesPanel: {
     shellAria: "Diagram notes",
     title: "Notes",
-    description: "Personal project notes. They are not part of the ERS code.",
+    description: "Personal project notes.",
     openAria: "Open Notes",
     closeAria: "Close Notes",
     editorAria: "Notes editor",

@@ -392,7 +392,7 @@ export const sq: DeepPartialMessages = {
   notesPanel: {
     shellAria: "Shenimet e diagramit",
     title: "Shenime",
-    description: "Shenime personale te projektit. Nuk jane pjese e kodit ERS.",
+    description: "Shenime personale te projektit.",
     openAria: "Hap Shenime",
     closeAria: "Mbyll Shenime",
     editorAria: "Editori i shenimeve",

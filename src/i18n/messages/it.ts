@@ -390,7 +390,7 @@ export const it = {
   notesPanel: {
     shellAria: "Note del diagramma",
     title: "Notes",
-    description: "Appunti personali del progetto. Non fanno parte del codice ERS.",
+    description: "Appunti personali del progetto.",
     openAria: "Apri Notes",
     closeAria: "Chiudi Notes",
     editorAria: "Editor note",
