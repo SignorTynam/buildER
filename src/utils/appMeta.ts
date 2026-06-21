@@ -30,7 +30,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
   {
     version: "5.3",
     date: "2026-06-21",
-    impact: "fix",
+    impact: "minor",
     headline: "buildER 5.3: localizzazione completa e architettura più pulita",
     summary:
       "buildER 5.3 è un update fix della 5.2: completa la localizzazione in italiano, inglese e albanese su tutti i componenti principali, introduce il selettore lingua integrato nell'header, raffina la gestione della sessione workspace, rimuove logica obsoleta degli identificatori esterni e corregge la sanitizzazione della vista diagramma.",
