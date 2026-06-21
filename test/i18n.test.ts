@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -73,6 +74,140 @@ const NEW_I18N_SECTIONS = [
   "connection.errors.invalidConnector",
   "canvas.externalIdentifier.importsFrom",
 ] as const;
+const CANVAS_I18N_KEYS = [
+  "canvas.aria.zoomOut",
+  "canvas.aria.resetZoom",
+  "canvas.aria.zoomIn",
+  "canvas.aria.fitContent",
+  "canvas.aria.centerDiagram",
+  "canvas.aria.resetViewport",
+  "canvas.preview.entity",
+  "canvas.preview.relationship",
+  "canvas.status.sourceSelectedInheritance",
+  "canvas.status.sourceSelectedConnector",
+  "canvas.status.sourceSelectedDestination",
+  "canvas.status.viewportCentered",
+  "canvas.status.selectionFitted",
+  "canvas.status.diagramFitted",
+  "canvas.status.selectionCentered",
+  "canvas.status.diagramCentered",
+  "canvas.status.viewportReset",
+  "canvas.status.zoom",
+  "canvas.status.selectionMovedWithKeyboard",
+  "canvas.status.connectorRoutingAutomatic",
+  "canvas.status.externalIdentifierConnectorLocked",
+  "canvas.status.connectorAdjustedWithKeyboard",
+  "canvas.status.connectionCreationCancelled",
+  "canvas.status.placementCancelled",
+  "canvas.status.selectEntityOrRelationshipFirst",
+  "canvas.status.internalIdentifierSelected",
+  "canvas.status.externalIdentifierSelected",
+  "canvas.status.compositeIdentifierDrag",
+  "canvas.status.externalIdentifierRoutingDrag",
+  "canvas.guidance.defaultMessage",
+  "canvas.guidance.renameNodeTitle",
+  "canvas.guidance.editIsaLabelTitle",
+  "canvas.guidance.editingMessage",
+  "canvas.guidance.routingConnectorTitle",
+  "canvas.guidance.externalIdentifierTitle",
+  "canvas.guidance.compositeIdentifierTitle",
+  "canvas.guidance.routingConnectorMessage",
+  "canvas.guidance.externalIdentifierRoutingMessage",
+  "canvas.guidance.compositeIdentifierRoutingMessage",
+  "canvas.guidance.placeEntityTitle",
+  "canvas.guidance.placeRelationshipTitle",
+  "canvas.guidance.placementMessage",
+  "canvas.guidance.isaFlowTitle",
+  "canvas.guidance.sourceTargetFlowTitle",
+  "canvas.guidance.pendingSourceMessage",
+  "canvas.guidance.externalIdentifierTargetMessage",
+  "canvas.guidance.inheritanceTitle",
+  "canvas.guidance.connectorTitle",
+  "canvas.guidance.inheritanceSourceMessage",
+  "canvas.guidance.connectorSourceMessage",
+  "canvas.guidance.erCheckTitle",
+  "canvas.guidance.moveMessage",
+  "canvas.guidance.activeSelectionTitle",
+  "canvas.guidance.activeSelectionMessage",
+  "canvas.guidance.selectionTitle",
+  "canvas.guidance.selectionMessage",
+  "canvas.guidance.states.editingLabel",
+  "canvas.guidance.states.draggingRouting",
+  "canvas.guidance.states.placing",
+  "canvas.guidance.states.selectingTarget",
+  "canvas.guidance.states.selectingSource",
+  "canvas.guidance.states.invalidAction",
+  "canvas.guidance.shortcuts.homeCenter",
+  "canvas.guidance.shortcuts.fit",
+  "canvas.guidance.shortcuts.reset",
+  "canvas.guidance.shortcuts.enterSave",
+  "canvas.guidance.shortcuts.clickOutsideConfirm",
+  "canvas.guidance.shortcuts.releaseToSave",
+  "canvas.guidance.shortcuts.shiftArrowsWide",
+  "canvas.guidance.shortcuts.escCancel",
+  "canvas.guidance.shortcuts.clickCreate",
+  "canvas.guidance.shortcuts.clickTargetComplete",
+  "canvas.guidance.shortcuts.clickTargetCreate",
+  "canvas.guidance.shortcuts.tabFocusNodes",
+  "canvas.guidance.shortcuts.keepToolActive",
+  "canvas.guidance.shortcuts.fixSelection",
+  "canvas.guidance.shortcuts.checkRulesRail",
+  "canvas.guidance.shortcuts.spaceDragPan",
+  "canvas.guidance.shortcuts.zoom",
+  "canvas.guidance.shortcuts.enterRename",
+  "canvas.guidance.shortcuts.deleteRemove",
+  "canvas.guidance.shortcuts.arrowsMove",
+  "canvas.guidance.shortcuts.tabFocus",
+  "canvas.guidance.shortcuts.shiftDragAdd",
+  "canvas.flowPrompt.step2IsaTitle",
+  "canvas.flowPrompt.step2ConnectorTitle",
+  "canvas.flowPrompt.inheritanceBody",
+  "canvas.flowPrompt.connectorBody",
+  "canvas.flowPrompt.cancel",
+  "canvas.flowPrompt.externalIdentifierTitle",
+  "canvas.flowPrompt.externalIdentifierBody",
+  "canvas.flowPrompt.deselect",
+  "canvas.advancedAffordances.connectorLabel.label",
+  "canvas.advancedAffordances.connectorLabel.hint",
+  "canvas.advancedAffordances.externalIdentifierMarker.label",
+  "canvas.advancedAffordances.externalIdentifierMarker.hint",
+  "canvas.advancedAffordances.compositeIdentifier.label",
+  "canvas.advancedAffordances.compositeIdentifier.hint",
+  "canvas.externalIdentifier.aria",
+  "canvas.externalIdentifier.importsFrom",
+] as const;
+const EXTERNAL_IDENTIFIER_SECTION_KEYS = [
+  "inspector.externalIdentifierSection.title",
+  "inspector.externalIdentifierSection.aria",
+  "inspector.externalIdentifierSection.modalTitle",
+  "inspector.externalIdentifierSection.close",
+  "inspector.externalIdentifierSection.eligibleImportedParts",
+  "inspector.externalIdentifierSection.importedPartOption",
+  "inspector.externalIdentifierSection.noImportedParts",
+  "inspector.externalIdentifierSection.hostLocalAttributes",
+  "inspector.externalIdentifierSection.noLocalAttributes",
+  "inspector.externalIdentifierSection.resultSummary",
+  "inspector.externalIdentifierSection.cancel",
+  "inspector.externalIdentifierSection.save",
+  "inspector.externalIdentifierSection.edit",
+  "inspector.externalIdentifierSection.delete",
+  "inspector.externalIdentifierSection.empty",
+  "inspector.externalIdentifierSection.add",
+  "inspector.externalIdentifierSection.viaRelationship",
+  "inspector.externalIdentifierSection.kindImportedOnly",
+  "inspector.externalIdentifierSection.kindImportedLocal",
+  "inspector.externalIdentifierSection.kindImportedOnlyLower",
+  "inspector.externalIdentifierSection.kindImportedLocalLower",
+] as const;
+const CANVAS_HARDCODED_ITALIAN_PHRASES = [
+  "Sorgente selezionata",
+  "Seleziona prima",
+  "Viewport centrata",
+  "Diagramma adattato",
+  "Identificatore esterno selezionato",
+  "Controlli viewport",
+  "Spazio + drag per pan",
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -108,8 +243,19 @@ function getRawValue(locale: Locale, key: string): LeafValue | undefined {
 
 function collectEmptyStrings(locale: Locale): string[] {
   return [...flattenLeaves(rawMessagesByLocale[locale]).entries()]
-    .filter(([, value]) => typeof value === "string" && value.trim() === "")
-    .map(([key]) => key);
+    .flatMap(([key, value]) => {
+      if (typeof value === "string") {
+        return value.trim() === "" ? [key] : [];
+      }
+
+      if (isPluralMessage(value)) {
+        return Object.entries(value)
+          .filter(([, message]) => typeof message === "string" && message.trim() === "")
+          .map(([pluralKey]) => `${key}.${pluralKey}`);
+      }
+
+      return [];
+    });
 }
 
 test("supported locales stay explicit and stable", () => {
@@ -181,12 +327,34 @@ test("plural and interpolation paths work for every locale", () => {
 
 test("new localized UI sections resolve for every locale", () => {
   for (const locale of SUPPORTED_LOCALES) {
-    for (const key of NEW_I18N_SECTIONS) {
+    for (const key of [...NEW_I18N_SECTIONS, ...CANVAS_I18N_KEYS, ...EXTERNAL_IDENTIFIER_SECTION_KEYS]) {
       const value = translate(key, { count: 2, current: 1, total: 3, sourceKind: "A", targetKind: "B", attributes: "id", entity: "User" }, locale);
       assert.notEqual(value, key, `${locale}.${key} was not resolved`);
       assert.notEqual(value.trim(), "", `${locale}.${key} resolved to an empty string`);
     }
   }
+});
+
+test("new canvas and external identifier keys exist in every raw locale", () => {
+  for (const locale of SUPPORTED_LOCALES) {
+    for (const key of [...CANVAS_I18N_KEYS, ...EXTERNAL_IDENTIFIER_SECTION_KEYS]) {
+      assert.notEqual(getRawValue(locale, key), undefined, `${locale}.${key} is missing`);
+    }
+  }
+});
+
+test("missing keys still fall back to a readable placeholder", () => {
+  const key = "canvas.staticFallbackProbe";
+  const value = translate(key, undefined, "en");
+
+  assert.ok(value === key || value === "static Fallback Probe");
+});
+
+test("DiagramCanvas does not keep known Italian UI phrases hardcoded", () => {
+  const source = readFileSync(new URL("../src/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
+  const remaining = CANVAS_HARDCODED_ITALIAN_PHRASES.filter((phrase) => source.includes(phrase));
+
+  assert.deepEqual(remaining, []);
 });
 
 test("locale state can switch among all supported locales", () => {

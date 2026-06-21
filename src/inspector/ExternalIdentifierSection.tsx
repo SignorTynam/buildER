@@ -17,6 +17,7 @@ import {
   type ExternalIdentifierImportPartOption,
 } from "../utils/diagram";
 import { CollapsiblePanel, EmptyStateCard } from "../components/panels";
+import { useI18n } from "../i18n/useI18n";
 
 interface ExternalIdentifierSectionProps {
   entity: EntityNode;
@@ -54,6 +55,7 @@ function ExternalIdentifierModal({
   onCancel,
   onConfirm,
 }: ExternalIdentifierModalProps) {
+  const { t } = useI18n();
   const [selectedOptionKeys, setSelectedOptionKeys] = useState<Set<string>>(
     () => new Set(initialSelectionKeys),
   );
@@ -82,26 +84,35 @@ function ExternalIdentifierModal({
   }
 
   const selectedImportedCount = selectedOptionKeys.size;
-  const kindLabel = selectedLocalAttributeIds.size > 0 ? "importato + locale" : "solo importato";
+  const kindLabel =
+    selectedLocalAttributeIds.size > 0
+      ? t("inspector.externalIdentifierSection.kindImportedLocalLower")
+      : t("inspector.externalIdentifierSection.kindImportedOnlyLower");
 
   const modalContent = (
-    <div className="help-modal-backdrop" role="dialog" aria-modal="true" aria-label="Identificatore esterno">
+    <div className="help-modal-backdrop" role="dialog" aria-modal="true" aria-label={t("inspector.externalIdentifierSection.aria")}>
       <div className="help-modal action-modal">
         <div className="help-modal-head">
-          <h2>Crea o modifica identificatore esterno</h2>
+          <h2>{t("inspector.externalIdentifierSection.modalTitle")}</h2>
           <button type="button" className="help-close" onClick={onCancel}>
-            Chiudi
+            {t("inspector.externalIdentifierSection.close")}
           </button>
         </div>
 
         <div className="action-modal-content">
-          <div className="context-card-title">Parti importate eleggibili</div>
+          <div className="context-card-title">{t("inspector.externalIdentifierSection.eligibleImportedParts")}</div>
           <div className="modal-attribute-list">
             {options.map((option) => {
               const optionKey = buildOptionKey(option);
               return (
                 <label key={optionKey} className="field checkbox-field">
-                  <span>{option.sourceEntityLabel} via {option.relationshipLabel}: {option.importedIdentifierLabel}</span>
+                  <span>
+                    {t("inspector.externalIdentifierSection.importedPartOption", {
+                      source: option.sourceEntityLabel,
+                      relationship: option.relationshipLabel,
+                      identifier: option.importedIdentifierLabel,
+                    })}
+                  </span>
                   <input
                     type="checkbox"
                     checked={selectedOptionKeys.has(optionKey)}
@@ -112,12 +123,12 @@ function ExternalIdentifierModal({
             })}
             {options.length === 0 ? (
               <p className="action-hint">
-                Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.
+                {t("inspector.externalIdentifierSection.noImportedParts")}
               </p>
             ) : null}
           </div>
 
-          <div className="context-card-title">Attributi locali dell'host</div>
+          <div className="context-card-title">{t("inspector.externalIdentifierSection.hostLocalAttributes")}</div>
           <div className="modal-attribute-list">
             {localAttributes.map((attribute) => (
               <label key={attribute.id} className="field checkbox-field">
@@ -130,22 +141,27 @@ function ExternalIdentifierModal({
               </label>
             ))}
             {localAttributes.length === 0 ? (
-              <p className="action-hint">Nessun attributo locale eleggibile: puoi creare solo un identificatore importato puro.</p>
+              <p className="action-hint">{t("inspector.externalIdentifierSection.noLocalAttributes")}</p>
             ) : null}
           </div>
 
-          <p className="action-hint">Tipo risultante: {kindLabel}. Parti importate selezionate: {selectedImportedCount}.</p>
+          <p className="action-hint">
+            {t("inspector.externalIdentifierSection.resultSummary", {
+              kind: kindLabel,
+              count: selectedImportedCount,
+            })}
+          </p>
 
           <div className="action-modal-actions">
             <button type="button" onClick={onCancel}>
-              Annulla
+              {t("inspector.externalIdentifierSection.cancel")}
             </button>
             <button
               type="button"
               onClick={() => onConfirm(Array.from(selectedOptionKeys), Array.from(selectedLocalAttributeIds))}
               disabled={selectedOptionKeys.size === 0}
             >
-              Salva
+              {t("inspector.externalIdentifierSection.save")}
             </button>
           </div>
         </div>
@@ -166,14 +182,15 @@ export function ExternalIdentifierSection({
   onEntityChange,
   readOnly,
 }: ExternalIdentifierSectionProps) {
+  const { locale, t } = useI18n();
   const [modalIndex, setModalIndex] = useState<number | null>(null);
   const externalIdentifiers = entity.externalIdentifiers ?? [];
   const directAttributes = useMemo(
     () =>
       getEntityDirectAttributes(diagram, entity.id).sort((left, right) =>
-        left.label.localeCompare(right.label, "it", { sensitivity: "base" }),
+        left.label.localeCompare(right.label, locale, { sensitivity: "base" }),
       ),
-    [diagram, entity.id],
+    [diagram, entity.id, locale],
   );
   const importOptions = useMemo(() => getEligibleImportedIdentifierParts(diagram, entity.id), [diagram, entity.id]);
   const canAddExternalIdentifier = importOptions.length > 0;
@@ -199,9 +216,9 @@ export function ExternalIdentifierSection({
     });
 
     return Array.from(byId.values()).sort((left, right) =>
-      left.label.localeCompare(right.label, "it", { sensitivity: "base" }),
+      left.label.localeCompare(right.label, locale, { sensitivity: "base" }),
     );
-  }, [directAttributes, entity, externalIdentifiers, modalIndex, selectedExternalIdentifier]);
+  }, [directAttributes, entity, externalIdentifiers, locale, modalIndex, selectedExternalIdentifier]);
 
   function applyUpdate(nextIdentifiers: ExternalIdentifier[]) {
     onEntityChange(entity.id, {
@@ -271,7 +288,7 @@ export function ExternalIdentifierSection({
   }
 
   return (
-    <CollapsiblePanel title="Identificatori esterni" defaultOpen className="context-card identifier-section identifier-section-external">
+    <CollapsiblePanel title={t("inspector.externalIdentifierSection.title")} defaultOpen className="context-card identifier-section identifier-section-external">
       <div className="identifier-list">
         {externalIdentifiers.map((identifier, index) => {
           const importedAttributes = getExternalIdentifierImportedAttributes(diagram, identifier);
@@ -283,7 +300,10 @@ export function ExternalIdentifierSection({
             .map((part) => diagram.nodes.find((node) => node.id === part.relationshipId && node.type === "relationship")?.label ?? part.relationshipId)
             .join(", ");
           const kind = getExternalIdentifierKind(identifier);
-          const kindLabel = kind === "imported_only" ? "Importato" : "Importato + locale";
+          const kindLabel =
+            kind === "imported_only"
+              ? t("inspector.externalIdentifierSection.kindImportedOnly")
+              : t("inspector.externalIdentifierSection.kindImportedLocal");
           const importedPartLabels = identifier.importedParts.map((part) => {
             const sourceEntity = diagram.nodes.find((node) => node.id === part.sourceEntityId && node.type === "entity");
             const attributes = getExternalIdentifierImportedPartAttributes(diagram, part).map((attribute) => attribute.label).join(" + ");
@@ -297,16 +317,18 @@ export function ExternalIdentifierSection({
                   {importedPartLabels.length > 0 ? importedPartLabels.join(" + ") : importedLabel}
                   {localLabel ? ` + ${localLabel}` : ""}
                 </span>
-                <span className="identifier-meta">via {relationLabel}</span>
+                <span className="identifier-meta">
+                  {t("inspector.externalIdentifierSection.viaRelationship", { relationship: relationLabel })}
+                </span>
               </div>
               <span className="identifier-type">{kindLabel}</span>
               {!readOnly ? (
                 <span className="identifier-actions">
                   <button type="button" onClick={() => setModalIndex(index)}>
-                    Modifica
+                    {t("inspector.externalIdentifierSection.edit")}
                   </button>
                   <button type="button" onClick={() => handleDelete(index)}>
-                    Elimina
+                    {t("inspector.externalIdentifierSection.delete")}
                   </button>
                 </span>
               ) : null}
@@ -315,7 +337,9 @@ export function ExternalIdentifierSection({
         })}
 
         {externalIdentifiers.length === 0 ? (
-          <EmptyStateCard className="action-hint">Nessun identificatore esterno definito.</EmptyStateCard>
+          <EmptyStateCard className="action-hint">
+            {t("inspector.externalIdentifierSection.empty")}
+          </EmptyStateCard>
         ) : null}
       </div>
 
@@ -326,13 +350,13 @@ export function ExternalIdentifierSection({
           onClick={() => setModalIndex(externalIdentifiers.length)}
           disabled={!canAddExternalIdentifier}
         >
-          + Identificatore esterno
+          {t("inspector.externalIdentifierSection.add")}
         </button>
       ) : null}
 
       {!readOnly && !canAddExternalIdentifier ? (
         <p className="action-hint">
-          Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.
+          {t("inspector.externalIdentifierSection.noImportedParts")}
         </p>
       ) : null}
 

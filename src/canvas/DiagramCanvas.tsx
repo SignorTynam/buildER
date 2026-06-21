@@ -2370,13 +2370,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   useEffect(() => {
     if (props.tool !== "connector" && props.tool !== "inheritance") {
+      const hadPendingConnection = pendingConnectionSource !== null;
       setPendingConnectionSource(null);
       setConnectionPreviewPoint(null);
-      if (props.statusMessage.startsWith("Sorgente")) {
+      if (hadPendingConnection) {
         props.onStatusMessageChange("");
       }
     }
-  }, [props.onStatusMessageChange, props.statusMessage, props.tool]);
+  }, [pendingConnectionSource, props.onStatusMessageChange, props.tool]);
 
   useEffect(() => {
     if (!placeableCanvasTool(props.tool)) {
@@ -2406,8 +2407,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       setConnectionPreviewPoint(getNodeCenter(selectedSource));
       props.onStatusMessageChange(
         props.tool === "inheritance"
-          ? `Sorgente selezionata: ${selectedSource.label}. Seleziona parent entity o premi Esc per annullare.`
-          : `Sorgente selezionata: ${selectedSource.label}. Seleziona target entity o premi Esc per annullare.`,
+          ? t("canvas.status.sourceSelectedInheritance", { label: selectedSource.label })
+          : t("canvas.status.sourceSelectedConnector", { label: selectedSource.label }),
       );
     }
   }, [
@@ -2417,6 +2418,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.selection.edgeIds.length,
     props.selection.nodeIds,
     props.tool,
+    t,
   ]);
 
   useEffect(() => {
@@ -2483,9 +2485,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function cancelPendingConnection(clearStatus = true) {
+    const hadPendingConnection = pendingConnectionSource !== null;
     setPendingConnectionSource(null);
     setConnectionPreviewPoint(null);
-    if (clearStatus && props.statusMessage.startsWith("Sorgente")) {
+    if (clearStatus && hadPendingConnection) {
       props.onStatusMessageChange("");
     }
   }
@@ -2533,7 +2536,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         y: rect.height / 2,
         zoom: 1,
       });
-      props.onStatusMessageChange("Viewport centrata.");
+      props.onStatusMessageChange(t("canvas.status.viewportCentered"));
       return;
     }
 
@@ -2544,7 +2547,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     props.onViewportChange(viewportForBounds(bounds, rect, nextZoom));
     props.onStatusMessageChange(
-      props.selection.nodeIds.length > 0 ? "Selezione adattata al canvas." : "Diagramma adattato al canvas.",
+      props.selection.nodeIds.length > 0 ? t("canvas.status.selectionFitted") : t("canvas.status.diagramFitted"),
     );
   }
 
@@ -2558,7 +2561,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     setViewportFromBounds(bounds, props.viewport.zoom);
     props.onStatusMessageChange(
-      props.selection.nodeIds.length > 0 ? "Selezione centrata." : "Diagramma centrato nel canvas.",
+      props.selection.nodeIds.length > 0 ? t("canvas.status.selectionCentered") : t("canvas.status.diagramCentered"),
     );
   }
 
@@ -2577,12 +2580,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         y: rect.height / 2,
         zoom: 1,
       });
-      props.onStatusMessageChange("Viewport ripristinata.");
+      props.onStatusMessageChange(t("canvas.status.viewportReset"));
       return;
     }
 
     props.onViewportChange(viewportForBounds(bounds, rect, 1));
-    props.onStatusMessageChange("Viewport ripristinata.");
+    props.onStatusMessageChange(t("canvas.status.viewportReset"));
   }
 
   function zoomAroundCanvasCenter(multiplier: number) {
@@ -2603,7 +2606,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       x: canvasCenterX - worldX * nextZoom,
       y: canvasCenterY - worldY * nextZoom,
     });
-    props.onStatusMessageChange(`Zoom ${Math.round(nextZoom * 100)}%.`);
+    props.onStatusMessageChange(t("canvas.status.zoom", { zoom: Math.round(nextZoom * 100) }));
   }
 
   function getPointerCenter(first: ActivePointer, second: ActivePointer, rect: DOMRect): Point {
@@ -2757,7 +2760,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     };
 
     props.onCommitDiagram(nextDiagram, props.diagram);
-    props.onStatusMessageChange("Selezione spostata con la tastiera.");
+    props.onStatusMessageChange(t("canvas.status.selectionMovedWithKeyboard"));
     return true;
   }
 
@@ -2798,12 +2801,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (!canEdgeUseManualRouting(selectedEdge)) {
-      props.onStatusMessageChange("Il routing dei connector e automatico: sposta entita o relazione.");
+      props.onStatusMessageChange(t("canvas.status.connectorRoutingAutomatic"));
       return false;
     }
 
     if (isExternalIdentifierConnectorEdge(selectedEdge)) {
-      props.onStatusMessageChange("Gli estremi del collegamento dell'identificatore esterno sono bloccati.");
+      props.onStatusMessageChange(t("canvas.status.externalIdentifierConnectorLocked"));
       return false;
     }
 
@@ -2820,7 +2823,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     };
 
     props.onCommitDiagram(nextDiagram, props.diagram);
-    props.onStatusMessageChange("Collegamento regolato con la tastiera.");
+    props.onStatusMessageChange(t("canvas.status.connectorAdjustedWithKeyboard"));
     return true;
   }
 
@@ -2868,7 +2871,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       event.preventDefault();
       event.stopPropagation();
       cancelPendingConnection();
-      props.onStatusMessageChange("Creazione collegamento annullata.");
+      props.onStatusMessageChange(t("canvas.status.connectionCreationCancelled"));
       return;
     }
 
@@ -2877,7 +2880,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       event.stopPropagation();
       setPlacementPreviewPoint(null);
       props.onToolChange("select");
-      props.onStatusMessageChange("Posizionamento annullato.");
+      props.onStatusMessageChange(t("canvas.status.placementCancelled"));
       return;
     }
 
@@ -2940,9 +2943,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     if (!pendingConnectionSource) {
       setPendingConnectionSource(node.id);
       setConnectionPreviewPoint(getNodeCenter(node));
-      props.onStatusMessageChange(
-        `Sorgente selezionata: ${node.label}. Seleziona la destinazione o premi Esc per annullare.`,
-      );
+      props.onStatusMessageChange(t("canvas.status.sourceSelectedDestination", { label: node.label }));
       return;
     }
 
@@ -3013,7 +3014,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (props.tool === "attribute") {
-      props.onStatusMessageChange("Seleziona prima un'entita o una relazione.");
+      props.onStatusMessageChange(t("canvas.status.selectEntityOrRelationshipFirst"));
       return;
     }
 
@@ -3113,7 +3114,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       startClient: { x: event.clientX, y: event.clientY },
       layout,
     });
-    props.onStatusMessageChange("Identificatore interno selezionato.");
+    props.onStatusMessageChange(t("canvas.status.internalIdentifierSelected"));
   }
 
   function handleNodePointerDown(event: ReactPointerEvent<SVGGElement>, node: DiagramNode) {
@@ -3291,7 +3292,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       offsetMin: layout?.offsetMin ?? -80,
       offsetMax: layout?.offsetMax ?? 80,
     });
-    props.onStatusMessageChange("Identificatore esterno selezionato.");
+    props.onStatusMessageChange(t("canvas.status.externalIdentifierSelected"));
   }
 
   function handleStaticExternalIdentifierPointerDown(
@@ -3331,7 +3332,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     setFocusedTarget({ kind: "externalIdentifier", hostEntityId, externalIdentifierId });
     props.onSelectionChange({ nodeIds: [], edgeIds: [] });
     props.onIdentifierSelectionChange?.({ kind: "external", hostEntityId, externalIdentifierId });
-    props.onStatusMessageChange("Identificatore esterno selezionato.");
+    props.onStatusMessageChange(t("canvas.status.externalIdentifierSelected"));
   }
 
   function renderInteractiveExternalIdentifierFrame(layout: ExternalIdentifierFrameLayout) {
@@ -3353,7 +3354,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         tabIndex={props.tool === "select" ? 0 : -1}
         focusable={props.tool === "select" ? "true" : "false"}
         role="button"
-        aria-label="Identificatore esterno"
+        aria-label={t("canvas.externalIdentifier.aria")}
         onPointerDown={(event) =>
           handleStaticExternalIdentifierPointerDown(
             event,
@@ -3424,7 +3425,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         tabIndex={props.tool === "select" ? 0 : -1}
         focusable={props.tool === "select" ? "true" : "false"}
         role="button"
-        aria-label="Identificatore esterno"
+        aria-label={t("canvas.externalIdentifier.aria")}
         onPointerDown={(event) =>
           handleStaticExternalIdentifierPointerDown(
             event,
@@ -3517,9 +3518,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         nodeIds,
         originPositions,
       });
-      props.onStatusMessageChange(
-        "Trascina l'identificatore composto: gli attributi membri si muovono come gruppo.",
-      );
+      props.onStatusMessageChange(t("canvas.status.compositeIdentifierDrag"));
       return;
     }
 
@@ -3544,7 +3543,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         offsetMin: interaction.offsetMin,
         offsetMax: interaction.offsetMax,
       });
-      props.onStatusMessageChange("Trascina il simbolo per regolare il routing dell'identificatore esterno.");
+      props.onStatusMessageChange(t("canvas.status.externalIdentifierRoutingDrag"));
       return;
     }
 
@@ -3672,7 +3671,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         attributeIds: interaction.layout.memberAttributeIds,
       });
       setInteraction({ kind: "idle" });
-      props.onStatusMessageChange("Identificatore interno selezionato.");
+      props.onStatusMessageChange(t("canvas.status.internalIdentifierSelected"));
       return;
     }
 
@@ -3698,7 +3697,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         externalIdentifierId: interaction.externalIdentifierId,
       });
       setInteraction({ kind: "idle" });
-      props.onStatusMessageChange("Identificatore esterno selezionato.");
+      props.onStatusMessageChange(t("canvas.status.externalIdentifierSelected"));
       return;
     }
 
@@ -3950,7 +3949,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       ? {
           id: `placement-preview-${props.tool}`,
           type: props.tool,
-          label: props.tool === "entity" ? "ENTITA" : "RELAZIONE",
+          label: props.tool === "entity" ? t("canvas.preview.entity") : t("canvas.preview.relationship"),
           x: placementPreviewPoint.x - (props.tool === "entity" ? 140 : 130) / 2,
           y: placementPreviewPoint.y - (props.tool === "entity" ? 64 : 78) / 2,
           width: props.tool === "entity" ? 140 : 130,
@@ -3964,101 +3963,144 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   let guidanceState: CanvasGuidanceState = "idle";
   let guidanceStateLabel = "";
   let guidanceTitle = activeToolDefinition?.label ?? props.tool;
-  let guidanceMessage = "Modella dal canvas, poi usa il rail per rifinire proprieta e regole ER della selezione.";
-  let guidanceShortcuts = ["Home centra", "9 adatta", "0 reset"];
+  let guidanceMessage = t("canvas.guidance.defaultMessage");
+  let guidanceShortcuts = [
+    t("canvas.guidance.shortcuts.homeCenter"),
+    t("canvas.guidance.shortcuts.fit"),
+    t("canvas.guidance.shortcuts.reset"),
+  ];
 
   if (inlineEdit) {
     guidanceState = "editing-label";
-    guidanceStateLabel = "Editing label";
-    guidanceTitle = inlineEdit.kind === "node" ? "Rinomina nodo" : "Modifica etichetta ISA";
-    guidanceMessage = "Aggiorna l'etichetta direttamente sul canvas. Invio conferma e il blur salva automaticamente.";
-    guidanceShortcuts = ["Invio salva", "Click fuori conferma"];
+    guidanceStateLabel = t("canvas.guidance.states.editingLabel");
+    guidanceTitle =
+      inlineEdit.kind === "node" ? t("canvas.guidance.renameNodeTitle") : t("canvas.guidance.editIsaLabelTitle");
+    guidanceMessage = t("canvas.guidance.editingMessage");
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.enterSave"),
+      t("canvas.guidance.shortcuts.clickOutsideConfirm"),
+    ];
   } else if (
     interaction.kind === "edge-drag" ||
     interaction.kind === "external-id-drag" ||
     activeCompositeGroupKey
   ) {
     guidanceState = "dragging-routing";
-    guidanceStateLabel = "Dragging routing";
+    guidanceStateLabel = t("canvas.guidance.states.draggingRouting");
     guidanceTitle =
       interaction.kind === "edge-drag"
-        ? "Routing connector"
+        ? t("canvas.guidance.routingConnectorTitle")
         : interaction.kind === "external-id-drag"
-          ? "External identifier"
-          : "Composite identifier";
+          ? t("canvas.guidance.externalIdentifierTitle")
+          : t("canvas.guidance.compositeIdentifierTitle");
     guidanceMessage =
       interaction.kind === "edge-drag"
-        ? "Trascina la label del connector per spostare il routing senza cambiare gli estremi."
+        ? t("canvas.guidance.routingConnectorMessage")
         : interaction.kind === "external-id-drag"
-          ? "Regola il routing dell'identificatore esterno mantenendo leggibile la relazione di supporto."
-          : "Trascina l'identificatore composto per muovere insieme gli attributi membri.";
-    guidanceShortcuts = ["Rilascia per salvare", "Shift + frecce per spostamenti piu ampi"];
+          ? t("canvas.guidance.externalIdentifierRoutingMessage")
+          : t("canvas.guidance.compositeIdentifierRoutingMessage");
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.releaseToSave"),
+      t("canvas.guidance.shortcuts.shiftArrowsWide"),
+    ];
   } else if (placementGhostNode) {
     guidanceState = "selecting-target";
-    guidanceStateLabel = "Placing";
-    guidanceTitle = props.tool === "entity" ? "Posiziona entita" : "Posiziona associazione";
-    guidanceMessage = "Clicca nel workspace per creare l'elemento in questo punto.";
-    guidanceShortcuts = ["Esc annulla", "Click crea"];
+    guidanceStateLabel = t("canvas.guidance.states.placing");
+    guidanceTitle = props.tool === "entity" ? t("canvas.guidance.placeEntityTitle") : t("canvas.guidance.placeRelationshipTitle");
+    guidanceMessage = t("canvas.guidance.placementMessage");
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.escCancel"),
+      t("canvas.guidance.shortcuts.clickCreate"),
+    ];
   } else if (pendingConnectionSource && pendingSourceNode) {
     guidanceState = "selecting-target";
-    guidanceStateLabel = "Selecting target";
-    guidanceTitle = props.tool === "inheritance" ? "Flusso ISA" : "Flusso source -> target";
-    guidanceMessage = `Sorgente fissata su ${pendingSourceNode.label}. Seleziona ora la destinazione compatibile nel canvas.`;
-    guidanceShortcuts = ["Esc annulla", "Click target completa"];
+    guidanceStateLabel = t("canvas.guidance.states.selectingTarget");
+    guidanceTitle = props.tool === "inheritance" ? t("canvas.guidance.isaFlowTitle") : t("canvas.guidance.sourceTargetFlowTitle");
+    guidanceMessage = t("canvas.guidance.pendingSourceMessage", { label: pendingSourceNode.label });
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.escCancel"),
+      t("canvas.guidance.shortcuts.clickTargetComplete"),
+    ];
   } else if (externalIdentifierFlowActive && selectedNode?.type === "attribute" && internalIdentifierHost) {
     guidanceState = "selecting-target";
-    guidanceStateLabel = "Selecting target";
-    guidanceTitle = "External identifier";
-    guidanceMessage = `Seleziona l'entita target o un attributo compatibile per creare l'identificatore esterno di ${selectedNode.label}.`;
-    guidanceShortcuts = ["Click target crea", "Tab mette a fuoco i nodi"];
+    guidanceStateLabel = t("canvas.guidance.states.selectingTarget");
+    guidanceTitle = t("canvas.guidance.externalIdentifierTitle");
+    guidanceMessage = t("canvas.guidance.externalIdentifierTargetMessage", { label: selectedNode.label });
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.clickTargetCreate"),
+      t("canvas.guidance.shortcuts.tabFocusNodes"),
+    ];
   } else if (props.tool === "connector" || props.tool === "inheritance") {
     guidanceState = "selecting-source";
-    guidanceStateLabel = "Selecting source";
-    guidanceTitle = props.tool === "inheritance" ? "Ereditarieta" : "Connector";
+    guidanceStateLabel = t("canvas.guidance.states.selectingSource");
+    guidanceTitle = props.tool === "inheritance" ? t("canvas.guidance.inheritanceTitle") : t("canvas.guidance.connectorTitle");
     guidanceMessage =
       props.tool === "inheritance"
-        ? "Seleziona prima la sorgente dell'ereditarieta, poi il target ISA."
-        : "Seleziona la sorgente del collegamento. Il canvas ti guidera poi al target.";
-    guidanceShortcuts = ["Tab mette a fuoco i nodi", `${activeToolDefinition?.shortcut.toUpperCase() ?? "C"} mantiene il tool attivo`];
+        ? t("canvas.guidance.inheritanceSourceMessage")
+        : t("canvas.guidance.connectorSourceMessage");
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.tabFocusNodes"),
+      t("canvas.guidance.shortcuts.keepToolActive", {
+        shortcut: activeToolDefinition?.shortcut.toUpperCase() ?? "C",
+      }),
+    ];
   } else if (visiblePersistentMessage && (visiblePersistentMessage.tone === "warning" || visiblePersistentMessage.tone === "error")) {
     guidanceState = "invalid-action";
-    guidanceStateLabel = "Invalid action";
-    guidanceTitle = "Controllo ER";
+    guidanceStateLabel = t("canvas.guidance.states.invalidAction");
+    guidanceTitle = t("canvas.guidance.erCheckTitle");
     guidanceMessage = visiblePersistentMessage.message;
-    guidanceShortcuts = ["Correggi la selezione", "Consulta regole nel rail"];
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.fixSelection"),
+      t("canvas.guidance.shortcuts.checkRulesRail"),
+    ];
   } else if (props.tool === "move") {
     guidanceTitle = activeToolDefinition?.label ?? "Pan";
-    guidanceMessage = "Usa drag o Spazio + drag per navigare il canvas senza alterare il diagramma.";
-    guidanceShortcuts = ["Spazio + drag pan", "+ / - zoom", "9 adatta"];
+    guidanceMessage = t("canvas.guidance.moveMessage");
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.spaceDragPan"),
+      t("canvas.guidance.shortcuts.zoom"),
+      t("canvas.guidance.shortcuts.fit"),
+    ];
   } else if (props.tool === "select" && props.selection.nodeIds.length + props.selection.edgeIds.length > 0) {
-    guidanceTitle = "Selezione attiva";
-    guidanceMessage = "Azioni rapide nel rail. Le proprieta della selezione e i warning ER restano nella sezione inferiore del pannello.";
-    guidanceShortcuts = ["Invio rinomina", "Canc elimina", "Frecce spostano"];
+    guidanceTitle = t("canvas.guidance.activeSelectionTitle");
+    guidanceMessage = t("canvas.guidance.activeSelectionMessage");
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.enterRename"),
+      t("canvas.guidance.shortcuts.deleteRemove"),
+      t("canvas.guidance.shortcuts.arrowsMove"),
+    ];
   } else if (props.tool === "select") {
-    guidanceTitle = "Selezione";
-    guidanceMessage = "Seleziona, trascina o usa marquee. Le gesture avanzate diventano evidenti su hover e focus.";
-    guidanceShortcuts = ["Invio rinomina", "Tab focus", "Shift + drag aggiunge"];
+    guidanceTitle = t("canvas.guidance.selectionTitle");
+    guidanceMessage = t("canvas.guidance.selectionMessage");
+    guidanceShortcuts = [
+      t("canvas.guidance.shortcuts.enterRename"),
+      t("canvas.guidance.shortcuts.tabFocus"),
+      t("canvas.guidance.shortcuts.shiftDragAdd"),
+    ];
   }
 
   const flowPrompt =
     pendingConnectionSource && pendingSourceNode
       ? {
-          title: props.tool === "inheritance" ? "Step 2 di 2 - ISA" : "Step 2 di 2 - Connector",
+          title: props.tool === "inheritance" ? t("canvas.flowPrompt.step2IsaTitle") : t("canvas.flowPrompt.step2ConnectorTitle"),
           body:
             props.tool === "inheritance"
-              ? `Origine: ${pendingSourceNode.label}. Seleziona il target dell'ereditarieta oppure annulla il flusso.`
-              : `Origine: ${pendingSourceNode.label}. Seleziona la destinazione del collegamento oppure annulla il flusso.`,
-          dismissLabel: "Annulla",
+              ? t("canvas.flowPrompt.inheritanceBody", { label: pendingSourceNode.label })
+              : t("canvas.flowPrompt.connectorBody", { label: pendingSourceNode.label }),
+          dismissLabel: t("canvas.flowPrompt.cancel"),
           onDismiss: () => {
             cancelPendingConnection();
-            props.onStatusMessageChange("Creazione collegamento annullata.");
+            props.onStatusMessageChange(t("canvas.status.connectionCreationCancelled"));
           },
         }
       : externalIdentifierFlowActive && selectedNode?.type === "attribute" && internalIdentifierHost
         ? {
-            title: "Step 2 di 2 - Identificatore esterno",
-            body: `Sorgente: ${selectedNode.label} da ${internalIdentifierHost.label}. Ora scegli l'entita host o un attributo compatibile come target.`,
-            dismissLabel: "Deseleziona",
+            title: t("canvas.flowPrompt.externalIdentifierTitle"),
+            body: t("canvas.flowPrompt.externalIdentifierBody", {
+              source: selectedNode.label,
+              host: internalIdentifierHost.label,
+            }),
+            dismissLabel: t("canvas.flowPrompt.deselect"),
             onDismiss: () => {
               props.onSelectionChange({ nodeIds: [], edgeIds: [] });
             },
@@ -4069,13 +4111,25 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.tool === "select"
       ? [
           props.diagram.edges.some((edge) => edge.type === "connector")
-            ? { key: "connector-label", label: "Label connector", hint: "Doppio click sulla cardinalita per modificarla." }
+            ? {
+                key: "connector-label",
+                label: t("canvas.advancedAffordances.connectorLabel.label"),
+                hint: t("canvas.advancedAffordances.connectorLabel.hint"),
+              }
             : null,
           externalIdentifierLayouts.length > 0
-            ? { key: "external-id-marker", label: "Marker ext. ID", hint: "Hover o focus sul marker per selezionarlo." }
+            ? {
+                key: "external-id-marker",
+                label: t("canvas.advancedAffordances.externalIdentifierMarker.label"),
+                hint: t("canvas.advancedAffordances.externalIdentifierMarker.hint"),
+              }
             : null,
           compositeIdentifierLayouts.length > 0
-            ? { key: "composite-identifier", label: "Composite ID", hint: "Trascina il percorso per muovere il gruppo." }
+            ? {
+                key: "composite-identifier",
+                label: t("canvas.advancedAffordances.compositeIdentifier.label"),
+                hint: t("canvas.advancedAffordances.compositeIdentifier.hint"),
+              }
             : null,
         ].filter((item): item is { key: string; label: string; hint: string } => item !== null)
       : [];
@@ -4086,7 +4140,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       className="canvas-panel"
       role="region"
       tabIndex={0}
-      aria-label="Canvas diagramma ER. Usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare e Canc per eliminare."
+      aria-label={t("canvas.regionAria")}
       onKeyDown={handleCanvasKeyDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -4502,7 +4556,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   tabIndex={props.tool === "select" ? 0 : -1}
                   focusable={props.tool === "select" ? "true" : "false"}
                   role="button"
-                  aria-label="Identificatore esterno"
+                  aria-label={t("canvas.externalIdentifier.aria")}
                   onFocus={() =>
                     setFocusedTarget({
                       kind: "externalIdentifier",
@@ -4623,7 +4677,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 tabIndex={props.tool === "select" ? 0 : -1}
                 focusable={props.tool === "select" ? "true" : "false"}
                 role="button"
-                aria-label="Identificatore esterno"
+                aria-label={t("canvas.externalIdentifier.aria")}
                 onPointerDown={(event) =>
                   handleExternalIdentifierPointerDown(
                     event,
@@ -4726,35 +4780,35 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         </g>
       </svg>
 
-      <div className="canvas-viewport-hud" aria-label="Controlli viewport">
+      <div className="canvas-viewport-hud" aria-label={t("canvas.viewportControls")}>
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
-          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1 / 1.14)} aria-label="Riduci zoom">
+          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1 / 1.14)} aria-label={t("canvas.aria.zoomOut")}>
             <StudioIcon name="zoomOut" aria-hidden="true" />
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label="Reset zoom">
+          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label={t("canvas.aria.resetZoom")}>
             {Math.round(props.viewport.zoom * 100)}%
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1.14)} aria-label="Aumenta zoom">
+          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1.14)} aria-label={t("canvas.aria.zoomIn")}>
             <StudioIcon name="zoomIn" aria-hidden="true" />
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label="Adatta contenuto al viewport">
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label={t("canvas.aria.fitContent")}>
             <StudioIcon name="fit" aria-hidden="true" />
-            {props.selection.nodeIds.length > 0 ? "Adatta sel." : "Adatta"}
+            {props.selection.nodeIds.length > 0 ? t("canvas.fitSelection") : t("canvas.fit")}
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerDiagram} aria-label="Centra diagramma">
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerDiagram} aria-label={t("canvas.aria.centerDiagram")}>
             <StudioIcon name="center" aria-hidden="true" />
-            Centra
+            {t("canvas.center")}
           </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label="Reset viewport">
+          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label={t("canvas.aria.resetViewport")}>
             <StudioIcon name="reset" aria-hidden="true" />
-            Reset
+            {t("canvas.reset")}
           </button>
         </div>
       </div>
 
       {showPanHint ? (
         <div className="canvas-pan-hint" aria-hidden="true">
-          Spazio + drag per pan, 9 adatta, 0 reset.
+          {t("canvas.panHint")}
         </div>
       ) : null}
 
