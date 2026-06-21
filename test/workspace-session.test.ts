@@ -115,6 +115,66 @@ test("workspace session sanitizes invalid tool, viewport, and selection", () => 
   assert.deepEqual(restored.logicalSelection, { nodeId: "legacy-table", columnId: null, edgeId: "edge-l" });
 });
 
+test("workspace session restores the code technical panel", () => {
+  const storage = new MemoryStorage();
+  saveWorkspaceSessionSnapshot(
+    createValidSnapshot({
+      technicalPanelOpen: true,
+      technicalPanelTab: "code",
+      codePanelOpen: true,
+      notesPanelOpen: false,
+    }),
+    storage,
+  );
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+
+  assert.equal(restored.technicalPanelOpen, true);
+  assert.equal(restored.technicalPanelTab, "code");
+  assert.equal(restored.codePanelOpen, true);
+  assert.equal(restored.notesPanelOpen, false);
+});
+
+test("workspace session restores the notes technical panel", () => {
+  const storage = new MemoryStorage();
+  saveWorkspaceSessionSnapshot(
+    createValidSnapshot({
+      technicalPanelOpen: true,
+      technicalPanelTab: "notes",
+      codePanelOpen: false,
+      notesPanelOpen: true,
+    }),
+    storage,
+  );
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+
+  assert.equal(restored.technicalPanelOpen, true);
+  assert.equal(restored.technicalPanelTab, "notes");
+  assert.equal(restored.codePanelOpen, false);
+  assert.equal(restored.notesPanelOpen, true);
+});
+
+test("workspace session restores the review technical panel", () => {
+  const storage = new MemoryStorage();
+  saveWorkspaceSessionSnapshot(
+    createValidSnapshot({
+      technicalPanelOpen: true,
+      technicalPanelTab: "review",
+      codePanelOpen: false,
+      notesPanelOpen: false,
+    }),
+    storage,
+  );
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+
+  assert.equal(restored.technicalPanelOpen, true);
+  assert.equal(restored.technicalPanelTab, "review");
+  assert.equal(restored.codePanelOpen, false);
+  assert.equal(restored.notesPanelOpen, false);
+});
+
 test("workspace session keeps compatibility with older saved versions", () => {
   const storage = new MemoryStorage();
   const snapshot = createValidSnapshot({ diagramView: "translation", tool: "attribute" });

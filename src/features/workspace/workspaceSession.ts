@@ -366,12 +366,14 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
         ? "notes"
         : parsed.technicalPanelTab === "code"
           ? "code"
-          : storedNotesPanelOpen
-            ? "notes"
-            : storedCodePanelOpen
-              ? "code"
-              : "review";
-    const storedTechnicalPanelOpen = false;
+          : parsed.technicalPanelTab === "review"
+            ? "review"
+            : storedNotesPanelOpen
+              ? "notes"
+              : storedCodePanelOpen
+                ? "code"
+                : "review";
+    const storedTechnicalPanelOpen = parsed.technicalPanelOpen === true || storedCodePanelOpen || storedNotesPanelOpen;
 
     const storedTranslationWorkspace =
       parsed.version >= 3

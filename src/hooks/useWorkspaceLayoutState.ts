@@ -66,8 +66,8 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
     technicalPanelResizeBounds.min,
     technicalPanelResizeBounds.max,
   );
-  const technicalPanelVisible = false;
-  const structuredSidePanelHidden = false;
+  const technicalPanelVisible = technicalPanelOpen;
+  const structuredSidePanelHidden = technicalPanelVisible;
 
   function handleToggleToolRail() {
     setToolbarCollapsed((current) => !current);
@@ -75,7 +75,7 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
 
   function openTechnicalPanelTab(nextTab: TechnicalPanelTab) {
     setTechnicalPanelTab(nextTab);
-    setTechnicalPanelOpen(false);
+    setTechnicalPanelOpen(true);
     setCodePanelOpen(nextTab === "code");
     setNotesPanelOpen(nextTab === "notes");
   }
@@ -87,7 +87,7 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
   }
 
   function handleToggleCodePanel() {
-    if (codePanelOpen) {
+    if (technicalPanelOpen && technicalPanelTab === "code") {
       closeTechnicalPanel();
       return;
     }
@@ -96,7 +96,12 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
   }
 
   function handleToggleNotesPanel() {
-    setNotesPanelOpen((current) => !current);
+    if (technicalPanelOpen && technicalPanelTab === "notes") {
+      closeTechnicalPanel();
+      return;
+    }
+
+    openTechnicalPanelTab("notes");
   }
 
   function handlePanelResizeStart(
