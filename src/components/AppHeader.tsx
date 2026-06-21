@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WorkspaceView } from "../types/translation";
+import { SUPPORTED_LOCALES } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
 
@@ -24,8 +25,10 @@ interface AppHeaderProps {
 }
 
 export function AppHeader(props: AppHeaderProps) {
-  const { t } = useI18n();
+  const { locale, setLocale, getLanguageMenuLabel, t } = useI18n();
   const [draftName, setDraftName] = useState(props.diagramName);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const activeElement = typeof document === "undefined" ? null : document.activeElement;
@@ -33,6 +36,33 @@ export function AppHeader(props: AppHeaderProps) {
       setDraftName(props.diagramName);
     }
   }, [props.diagramName]);
+
+  useEffect(() => {
+    if (!languageMenuOpen || typeof document === "undefined") {
+      return undefined;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && languageMenuRef.current?.contains(target)) {
+        return;
+      }
+      setLanguageMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setLanguageMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [languageMenuOpen]);
 
   function commitProjectName() {
     const trimmed = draftName.trim() || t("appHeader.defaultProjectName");
@@ -94,6 +124,53 @@ export function AppHeader(props: AppHeaderProps) {
         >
           <StudioIcon name="help" aria-hidden="true" />
         </button>
+        <div className="designer-language-menu" ref={languageMenuRef}>
+          <button
+            type="button"
+            className="designer-icon-button"
+            onClick={() => setLanguageMenuOpen((open) => !open)}
+            title={t("appHeader.actions.languageTitle")}
+            aria-label={t("appHeader.actions.languageAria")}
+            aria-haspopup="menu"
+            aria-expanded={languageMenuOpen}
+            data-testid="app-header-language"
+          >
+            <StudioIcon name="globe" aria-hidden="true" />
+          </button>
+
+          {languageMenuOpen ? (
+            <div
+              className="designer-language-menu__panel"
+              role="menu"
+              aria-label={t("appHeader.actions.languageMenuAria")}
+              data-testid="app-header-language-menu"
+            >
+              {SUPPORTED_LOCALES.map((language) => (
+                <button
+                  key={language}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={locale === language}
+                  className={
+                    locale === language
+                      ? "designer-language-menu__item active"
+                      : "designer-language-menu__item"
+                  }
+                  onClick={() => {
+                    setLocale(language);
+                    setLanguageMenuOpen(false);
+                  }}
+                  data-testid={`app-header-language-${language}`}
+                >
+                  <span>{getLanguageMenuLabel(language)}</span>
+                  {locale === language ? (
+                    <StudioIcon name="done" aria-hidden="true" />
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <button
           type="button"
           className="designer-icon-button"

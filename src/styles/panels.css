@@ -5496,3 +5496,53 @@ textarea {
     padding: 9px 12px max(10px, env(safe-area-inset-bottom));
   }
 }
+
+.designer-language-menu {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.designer-language-menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  display: grid;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1f1f1f;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.designer-topbar-actions .designer-language-menu__item,
+.designer-language-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.designer-language-menu__item:hover,
+.designer-language-menu__item:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.designer-language-menu__item.active {
+  background: rgba(255, 255, 255, 0.16);
+}
