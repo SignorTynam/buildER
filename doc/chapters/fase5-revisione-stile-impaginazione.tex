@@ -1,0 +1,120 @@
+%!TEX root = ../main.tex
+
+\chapter{Fase 5: revisione, stile e impaginazione}
+
+\section{Obiettivo della revisione}
+
+La Fase 5 ha lo scopo di trasformare i materiali preparatori e la bozza tecnica in una relazione universitaria ordinata, coerente e adatta alla consegna. Le Fasi 1--4 hanno raccolto informazioni, definito la struttura, prodotto una bozza completa e approfondito il ruolo della tutor; la revisione serve invece a controllare che il testo finale sia equilibrato, leggibile e coerente con l'obiettivo di una relazione di tirocinio.
+
+La revisione riguarda la coerenza del testo, l'eliminazione delle ripetizioni, il tono accademico, l'uniformità terminologica e la chiarezza delle sezioni. Un aspetto centrale è il bilanciamento tra parte tecnica e parte formativa: la relazione deve descrivere il progetto \builder{} in modo concreto, ma senza trasformarsi in un manuale utente o in un changelog tecnico.
+
+La revisione deve inoltre controllare che il ruolo della Prof.ssa Alessandra Lumini sia integrato correttamente come tutor del tirocinio, con formulazioni rispettose e prudenti. La lunghezza complessiva del corpo centrale deve rimanere compatibile con una relazione di circa dieci pagine, escludendo copertina, indice, bibliografia e appendici.
+
+\section{Criteri di revisione stilistica}
+
+I criteri adottati per la revisione sono i seguenti:
+
+\begin{itemize}
+    \item usare un italiano formale ma chiaro, con frasi scorrevoli e paragrafi non eccessivamente lunghi;
+    \item evitare tono pubblicitario, espressioni enfatiche e affermazioni non verificabili;
+    \item non inventare dati mancanti, come periodo del tirocinio, ore, CFU, matricola o struttura ospitante;
+    \item usare formulazioni prudenti per i consigli della tutor, evitando citazioni dirette non documentate;
+    \item mantenere una terminologia coerente per \builder, schema ER, schema logico, modello relazionale, export e salvataggio;
+    \item evitare ripetizioni evidenti su entità, relazioni, attributi, esportazione e test;
+    \item collegare sempre le scelte tecniche al tirocinio e al percorso formativo;
+    \item non trasformare la relazione in un manuale utente, ma descrivere le funzionalità in rapporto agli obiettivi del progetto;
+    \item presentare limiti e sviluppi futuri con realismo, senza svalutare il lavoro svolto.
+\end{itemize}
+
+\section{Uniformità terminologica}
+
+\noindent\begin{tabularx}{\textwidth}{>{\bfseries}p{4cm}X}
+Termine consigliato & Uso nella relazione \\
+\hline
+\builder & Nome del progetto, scritto sempre con la stessa grafia. \\
+Tirocinio & Contesto formativo in cui è stato svolto il progetto. \\
+Tutor & Ruolo della Prof.ssa Alessandra Lumini nella supervisione del percorso. \\
+Prof.ssa Alessandra Lumini & Forma corretta e completa da usare per indicare la tutor. \\
+Schema Entity-Relationship & Termine esteso da usare alla prima occorrenza o nei passaggi più formali. \\
+Schema ER & Forma abbreviata da usare dopo aver introdotto il termine esteso. \\
+Schema logico & Risultato della trasformazione verso il modello relazionale. \\
+Modello relazionale & Riferimento teorico alla rappresentazione tramite tabelle, chiavi e vincoli. \\
+Canvas SVG & Area grafica vettoriale in cui vengono rappresentati gli schemi. \\
+Esportazione & Produzione di output in formati come PNG, SVG e JPEG. \\
+Salvataggio & Persistenza del progetto, in particolare tramite formato \texttt{.ersp}. \\
+Traduzione ER-logico & Passaggio dallo schema concettuale allo schema logico. \\
+\end{tabularx}
+
+\section{Controllo della struttura della relazione}
+
+La versione finale deve mantenere una struttura lineare e adatta a una relazione di tirocinio.
+
+\begin{enumerate}
+    \item \textbf{Introduzione.} Deve presentare il tirocinio, il progetto \builder, la tutor e lo scopo della relazione. Deve evitare dettagli tecnici prematuri.
+    \item \textbf{Obiettivi del tirocinio.} Deve chiarire obiettivo generale e obiettivi specifici, collegando tecnica, didattica e formazione. Deve evitare un elenco troppo generico.
+    \item \textbf{Descrizione del progetto \builder.} Deve spiegare che cosa fa l'applicazione, a chi è destinata e perché è utile. Deve evitare di diventare una guida all'uso.
+    \item \textbf{Analisi dei requisiti.} Deve distinguere requisiti funzionali e non funzionali. Deve evitare di elencare funzionalità non verificate.
+    \item \textbf{Tecnologie utilizzate.} Deve descrivere il ruolo di TypeScript, React, Vite, SVG, CSS, Playwright e altri strumenti. Deve evitare un elenco superficiale.
+    \item \textbf{Architettura e progettazione.} Deve spiegare l'organizzazione del codice e la separazione tra interfaccia, dominio e test. Deve evitare dettagli implementativi troppo minuti.
+    \item \textbf{Implementazione.} Deve descrivere le funzionalità principali sviluppate o consolidate. Deve mantenere il collegamento con gli obiettivi del tirocinio.
+    \item \textbf{Test e miglioramenti.} Deve mostrare come è stata verificata la qualità. Deve evitare di riportare il changelog in modo meccanico.
+    \item \textbf{Ruolo della tutor e competenze acquisite.} Deve valorizzare supervisione, feedback, competenze tecniche e competenze trasversali.
+    \item \textbf{Conclusioni e sviluppi futuri.} Deve sintetizzare risultati, limiti e possibili evoluzioni. Deve chiudere con una riflessione formativa.
+\end{enumerate}
+
+\section{Elementi grafici e tabelle consigliate}
+
+Nella relazione finale conviene inserire alcune tabelle e, se disponibili, alcuni screenshot:
+
+\begin{itemize}
+    \item \textbf{Tabella degli obiettivi}: da inserire nel capitolo sugli obiettivi, per collegare ogni obiettivo al suo significato nel tirocinio.
+    \item \textbf{Tabella delle tecnologie}: da inserire nel capitolo tecnico, per spiegare il ruolo di React, TypeScript, Vite, SVG, Playwright e strumenti collegati.
+    \item \textbf{Schema testuale dell'architettura}: da inserire nel capitolo di progettazione, per mostrare il flusso tra interfaccia, stato, modello ER, traduzione ed export.
+    \item \textbf{Tabella dei test}: da inserire nel capitolo su verifica e miglioramenti, per collegare aree testate, tipo di verifica e scopo.
+    \item \textbf{Tabella sull'impatto dei suggerimenti della tutor}: da inserire nel capitolo su supervisione e competenze, per valorizzare il ruolo della Prof.ssa Alessandra Lumini.
+    \item \textbf{Screenshot dell'interfaccia}: utile nel capitolo dedicato al progetto \builder, per mostrare l'ambiente di lavoro.
+    \item \textbf{Screenshot della vista ER}: utile nel capitolo sulle funzionalità, per visualizzare entità, relazioni e attributi.
+    \item \textbf{Screenshot della vista logica}: utile per mostrare tabelle, chiavi e collegamenti.
+    \item \textbf{Screenshot dell'export}: utile per dimostrare la qualità dell'output prodotto.
+\end{itemize}
+
+\section{Controllo dei placeholder}
+
+Prima della consegna devono essere completati i seguenti dati:
+
+\begin{itemize}
+    \item nome e cognome dello studente;
+    \item matricola;
+    \item corso di laurea;
+    \item anno accademico;
+    \item periodo del tirocinio;
+    \item ore/CFU;
+    \item struttura ospitante;
+    \item link al repository;
+    \item link al sito pubblicato, se disponibile;
+    \item eventuali screenshot definitivi.
+\end{itemize}
+
+\section{Revisione del ruolo della tutor}
+
+La Prof.ssa Alessandra Lumini deve essere indicata sempre come tutor del tirocinio. La relazione deve valorizzare la supervisione ricevuta, ma senza attribuire alla tutor citazioni dirette o giudizi non documentati. È preferibile usare formule come ``le indicazioni della tutor hanno contribuito a'' oppure ``il confronto con la Prof.ssa Alessandra Lumini ha favorito''.
+
+Il suo ruolo deve essere collegato a chiarezza progettuale, correttezza degli schemi, leggibilità grafica, usabilità dell'interfaccia, valore didattico e manutenibilità del codice. Il tono deve rimanere rispettoso, professionale e coerente con una relazione universitaria.
+
+\section{Checklist finale di revisione}
+
+\begin{itemize}
+    \item[$\square$] La relazione è presentata come tirocinio.
+    \item[$\square$] La Prof.ssa Alessandra Lumini è indicata come tutor.
+    \item[$\square$] Gli obiettivi sono chiari.
+    \item[$\square$] Le tecnologie sono descritte senza elenco superficiale.
+    \item[$\square$] Le funzionalità sono spiegate in modo concreto.
+    \item[$\square$] I test sono collegati alla qualità del progetto.
+    \item[$\square$] I limiti sono realistici.
+    \item[$\square$] Gli sviluppi futuri sono credibili.
+    \item[$\square$] Non sono stati inventati dati mancanti.
+    \item[$\square$] I placeholder sono ben visibili.
+    \item[$\square$] Il tono è universitario.
+    \item[$\square$] Il testo non è troppo pubblicitario.
+    \item[$\square$] La lunghezza è adatta a circa dieci pagine.
+\end{itemize}
