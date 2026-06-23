@@ -1,0 +1,207 @@
+% -- CODE SNIPPETS --
+\RequirePackage{listings}
+
+% algoritms
+\RequirePackage{algorithm}
+\RequirePackage{algorithmic}
+
+% Colors for code snippets highlights
+\definecolor{commentsColor}{RGB}{36, 161, 156}
+\definecolor{numColor}{RGB}{71, 96, 114}
+\definecolor{stringColor}{RGB}{78, 154, 6}
+\definecolor{kwColor}{RGB}{207, 92, 0}
+\definecolor{bgCodeColor}{RGB}{249, 249, 249}
+\definecolor{codeGray}{HTML}{888A85}
+
+% Style of code snippets
+\lstdefinestyle{codeSnippet} {
+  backgroundcolor=\color{bgCodeColor},
+  basicstyle=\ttfamily\small\color{black},
+  keywordstyle=\color{kwColor},
+  stringstyle=\color{stringColor},
+  commentstyle=\color{codeGray}\itshape,
+  numberstyle=\tiny\color{black},
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=10pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  breaklines=true,
+  frame=single,
+  frameround=ttt, % set tttt for 4 rounded corners
+  tabsize=2,
+  xleftmargin=2em,
+  xrightmargin=1em,
+}
+\lstset{style=codeSnippet}
+
+
+
+
+
+% -- BOXES --
+% inspired from https://tex.stackexchange.com/questions/698167/how-to-make-the-inner-icon-solid-in-fontawesome
+\RequirePackage[framemethod=tikz]{mdframed}
+\RequirePackage[fixed]{fontawesome5}
+
+
+% warning
+\mdfdefinestyle{warning}{
+	topline=false, bottomline=false,
+	leftline=false, rightline=false,
+	nobreak,
+	singleextra={%
+        \coordinate (TL) at (P-|O);
+        \node at(TL) {\color{black}\faExclamationTriangle};
+		\draw[very thick](P-|O)++(0,-0.8em)--(O);
+	}
+}
+
+\newenvironment{warning}[1][Warning:]{
+	\medskip
+	\begin{mdframed}[style=warning]
+		\noindent{\textbf{#1}}
+}{
+	\end{mdframed}
+}
+
+% info
+\mdfdefinestyle{info}{%
+	topline=false, bottomline=false,
+	leftline=false, rightline=false,
+	nobreak, %backgroundcolor=black!10,
+	singleextra={%
+        \coordinate (TL) at (P-|O);
+        \node at(TL) {\color{black}\faInfoCircle};
+		\draw[very thick](P-|O)++(0,-0.8em)--(O);
+	}
+}
+
+\newenvironment{info}[1][Info:]{
+	\medskip
+	\begin{mdframed}[style=info]
+		\noindent{\textbf{#1}}
+}{
+	\end{mdframed}
+}
+
+
+% summary
+\mdfdefinestyle{summary}{%
+    topline=false, bottomline=false,
+    leftline=false, rightline=false,
+    nobreak,
+    backgroundcolor=pastelgreen!10,
+    singleextra={%
+        \coordinate (TL) at (P-|O);
+        \node[shape=circle, fill, color=white] at (TL) {};
+        \node at(TL){\color{pastelgreen}\faInfoCircle};
+        \draw[very thick, pastelgreen](P-|O)++(0,-0.3em)--(O);
+        }       
+}
+
+\newenvironment{summary}[1][Summary:]{ 
+    \medskip
+    \begin{mdframed}[style=summary]
+        \noindent{\textbf{#1}}
+}{
+    \end{mdframed}
+}
+
+% example
+\mdfdefinestyle{example}{%
+    topline=false, bottomline=false,
+    leftline=false, rightline=false,
+    nobreak,
+    skipabove=0pt, skipbelow=0pt,
+    singleextra={%
+        \coordinate (TL) at (P-|O);
+        \node[shape=circle, fill, color=white] at (TL) {};
+        \node at(TL){\footnotesize\faPlusCircle};
+        \draw[very thick, black](P-|O)++(0.05em,-0.4em)--(0.05em,0em);
+        }       
+}
+
+\newenvironment{example}[1][Example:]{ 
+    \medskip
+    \begin{mdframed}[style=example]
+        \noindent{\textbf{#1}}
+}{
+    \end{mdframed}
+}
+
+
+\RequirePackage[most]{tcolorbox}
+
+
+\tikzset{vertex style/.style={
+    draw=#1,
+    thick,
+    fill=#1!70,
+    text=white,
+    ellipse,
+    minimum width=2cm,
+    minimum height=0.75cm,
+    font=\small,
+    outer sep=3pt,
+  },
+  text style/.style={
+    sloped,
+    text=black,
+    font=\footnotesize,
+    above
+  }
+}
+
+
+% -- EQUATIONS --
+\RequirePackage{xparse}
+
+% overarrows
+%   from https://tex.stackexchange.com/questions/8720/overbrace-underbrace-but-with-an-arrow-instead
+\NewDocumentCommand{\overarrow}{O{=} O{\uparrow} m}{%
+  \overset{\makebox[0pt]{\begin{tabular}{@{}c@{}}#3\\[0pt]\ensuremath{#2}\end{tabular}}}{#1}
+}
+\NewDocumentCommand{\underarrow}{O{=} O{\downarrow} m}{%
+  \underset{\makebox[0pt]{\begin{tabular}{@{}c@{}}\ensuremath{#2}\\[0pt]#3\end{tabular}}}{#1}
+}
+
+\RequirePackage{accents}
+%\renewcommand{\undertilde}[1]{\underaccent{\tilde}{#1}}
+
+\DeclareMathOperator{\Tr}{Tr}
+
+\newcommand{\bigequalexpl}[1]{%
+  \underset{\substack{\uparrow\\\\\mathrlap{\text{\hspace{-5em}#1}}}}{=}}
+
+
+
+% -- GITHUB LINK --
+
+\newcommand{\prettygitlink}[1]{
+    \begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.2}
+        \begin{tabular}{cl}
+        \hline
+        {\large\faGithub} & \href{https://github.com/#1}{#1} \\ \hline
+        \end{tabular}
+    \end{table}
+}
+
+
+
+% -- extra packages --
+\RequirePackage{quantikz} %*
+\RequirePackage{annotate-equations} %*
+\RequirePackage{tabularray} %*
+\RequirePackage{makecell} %*
+\RequirePackage{afterpage} %*
+\RequirePackage[export]{adjustbox} %*
+\RequirePackage{leftindex} %*
+
+
