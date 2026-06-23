@@ -1,0 +1,141 @@
+%!TEX root = ../main.tex
+
+\chapter{Fase 2: outline relazione finale di tirocinio}
+
+\section{Titolo provvisorio}
+
+Tre titoli possibili per la relazione finale sono:
+
+\begin{enumerate}
+    \item Relazione finale di tirocinio: sviluppo dell'applicazione \builder{} per la progettazione di schemi Entity-Relationship.
+    \item Sviluppo e miglioramento di \builder: applicazione web per la modellazione concettuale e logica di basi di dati.
+    \item Progettazione e sviluppo di \builder, strumento didattico per schemi ER e logici.
+\end{enumerate}
+
+\section{Copertina}
+
+La copertina dovra contenere Universita di Bologna, corso di laurea, titolo della relazione, nome e cognome dello studente, matricola se richiesta, nome della tutor Prof.ssa Alessandra Lumini, anno accademico, periodo del tirocinio, eventuale struttura ospitante ed eventuale logo previsto dal template.
+
+\section{Indice proposto}
+
+\begin{enumerate}
+    \item Introduzione al tirocinio.
+    \item Obiettivi del tirocinio e del progetto.
+    \item Descrizione generale di \builder.
+    \item Analisi dei requisiti e contesto d'uso.
+    \item Tecnologie utilizzate.
+    \item Architettura e progettazione del sistema.
+    \item Implementazione delle funzionalita principali.
+    \item Test, bug fixing e miglioramenti.
+    \item Ruolo della tutor e competenze acquisite.
+    \item Risultati finali, limiti e sviluppi futuri.
+    \item Bibliografia e sitografia.
+    \item Appendici eventuali.
+\end{enumerate}
+
+\section{Distribuzione delle dieci pagine}
+
+Copertina, indice, bibliografia e appendici non devono essere conteggiati nelle dieci pagine del corpo centrale.
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{1.5cm}p{3.4cm}X}
+Pagina & Sezione & Contenuto principale \\
+\hline
+1 & Introduzione al tirocinio & Contesto universitario, progetto \builder, tutor, finalita generale. \\
+2 & Obiettivi & Obiettivo generale, obiettivi specifici e valore didattico. \\
+3 & Descrizione di \builder & Funzioni principali, utenti previsti, flusso ER/logico. \\
+4 & Requisiti & Requisiti funzionali e non funzionali ricavati dal progetto. \\
+5 & Tecnologie & React, TypeScript, Vite, SVG, CSS, npm, Playwright, GitHub Actions. \\
+6 & Architettura & Struttura del repository, separazione moduli e flusso dati. \\
+7 & Implementazione & Modellazione ER, traduzione, schema logico, export, salvataggio, i18n. \\
+8 & Test e miglioramenti & Test unitari, E2E, regressioni e problemi risolti. \\
+9 & Tutor e competenze & Supervisione della Prof.ssa Lumini, feedback e competenze acquisite. \\
+10 & Risultati e sviluppi futuri & Stato finale, limiti e possibili estensioni. \\
+\end{tabularx}
+
+\section{Pagina 1: introduzione al tirocinio}
+
+Obiettivo: introdurre il tirocinio, il progetto \builder{} e il contesto universitario.
+
+Contenuti da includere: nome del progetto, natura di applicazione web, ambito delle basi di dati, ruolo della Prof.ssa Alessandra Lumini come tutor e motivazione generale del lavoro.
+
+Possibile frase iniziale:
+\begin{quote}
+Il tirocinio ha riguardato lo sviluppo e il consolidamento di \builder, un'applicazione web dedicata alla progettazione di schemi Entity-Relationship e alla loro traduzione verso schemi logici.
+\end{quote}
+
+Possibile frase finale:
+\begin{quote}
+La relazione descrive quindi il percorso svolto, le scelte progettuali adottate, le funzionalita realizzate e le competenze maturate durante l'esperienza.
+\end{quote}
+
+\section{Pagina 2: obiettivi del tirocinio e del progetto}
+
+Obiettivo: spiegare perche il progetto e stato svolto e quali obiettivi tecnici, didattici e formativi ha perseguito.
+
+Da includere: obiettivo generale, obiettivi specifici, usabilita, correttezza concettuale, qualita del codice, esportazione, test e valore formativo del tirocinio.
+
+Elemento visivo consigliato: tabella ``Obiettivo -- Risultato atteso''.
+
+\section{Pagina 3: descrizione generale di \builder}
+
+Obiettivo: presentare \builder{} dal punto di vista dell'utente e del contesto didattico.
+
+Da includere: modellazione ER, canvas SVG, toolbar, pannelli, salvataggio \texttt{.ersp}, export, schema logico, SQL reverse e localizzazione.
+
+Elemento visivo consigliato: screenshot della schermata principale o di un diagramma ER.
+
+\section{Pagina 4: analisi dei requisiti}
+
+Obiettivo: collegare le funzionalita implementate ai bisogni concreti del progetto.
+
+Requisiti funzionali da citare: creazione elementi ER, collegamenti, cardinalita, identificatori, generalizzazioni, traduzione logica, export, salvataggio/caricamento, SQL reverse e i18n.
+
+Requisiti non funzionali da citare: usabilita, leggibilita, manutenibilita, compatibilita dei file, responsive, testabilita e stabilita.
+
+\section{Pagina 5: tecnologie utilizzate}
+
+Obiettivo: descrivere le tecnologie effettivamente usate e il loro ruolo.
+
+Da includere: React, TypeScript, Vite, CSS, SVG, npm, \texttt{tsx}, Playwright, Git/GitHub, GitHub Actions/GitHub Pages e \texttt{lucide-react}. Il tono deve essere tecnico ma accessibile, evitando una semplice lista di dipendenze.
+
+\section{Pagina 6: architettura e progettazione del sistema}
+
+Obiettivo: spiegare come e organizzato il codice e quali principi architetturali emergono.
+
+Da includere: \texttt{src/App.tsx} come orchestratore, \texttt{src/canvas}, \texttt{src/components}, \texttt{src/inspector}, \texttt{src/toolbar}, \texttt{src/translation}, \texttt{src/logical}, \texttt{src/i18n}, \texttt{src/types}, \texttt{src/utils}.
+
+Concetti da non dimenticare: separazione tra interfaccia e logica di dominio, utility pure e testabili, tipi condivisi e compatibilita dei file progetto.
+
+\section{Pagina 7: implementazione delle funzionalita principali}
+
+Obiettivo: sintetizzare le parti realizzate o consolidate durante il progetto.
+
+Da includere: modellazione ER, identificatori, generalizzazioni, traduzione ER--ER, vista logica, export, salvataggio, SQL reverse e i18n. La pagina non deve diventare una guida utente, ma deve spiegare le funzionalita nel quadro del tirocinio.
+
+\section{Pagina 8: test, bug fixing e miglioramenti}
+
+Obiettivo: mostrare come e stata verificata la qualita del progetto.
+
+Da includere: test unitari/integrativi in \texttt{test/}, test E2E Playwright in \texttt{tests/e2e/}, test su parsing, serializzazione, layout, export, sessione, i18n, SQL reverse e traduzione logica.
+
+Elemento visivo consigliato: tabella ``Area testata -- Tipo di test -- Scopo''.
+
+\section{Pagina 9: ruolo della tutor e competenze acquisite}
+
+Questa pagina deve valorizzare l'esperienza di tirocinio e il ruolo formativo della Prof.ssa Alessandra Lumini. Non bisogna inventare citazioni dirette; e preferibile usare formulazioni prudenti.
+
+Paragrafo pronto da usare:
+
+\begin{quote}
+La Prof.ssa Alessandra Lumini ha ricoperto il ruolo di tutor del tirocinio, supervisionando l'andamento del progetto e fornendo indicazioni utili per orientare il lavoro. I suoi consigli hanno contribuito a definire le priorita, con particolare attenzione alla chiarezza dell'applicazione, alla qualita complessiva dell'interfaccia, all'usabilita dello strumento e alla correttezza concettuale degli schemi prodotti. Il confronto con la tutor ha inoltre aiutato a considerare il progetto non solo come esercizio tecnico, ma come strumento da rendere comprensibile e utile in un contesto didattico. Tale supervisione ha favorito lo sviluppo di competenze tecniche, legate alla progettazione e implementazione dell'applicazione, e di competenze metodologiche, legate alla pianificazione, alla revisione progressiva del lavoro e alla capacita di integrare feedback esterni.
+\end{quote}
+
+\section{Pagina 10: risultati finali, limiti e sviluppi futuri}
+
+Obiettivo: chiudere la relazione con una valutazione critica del risultato.
+
+Risultati da citare: editor ER, schema logico, export, salvataggio, i18n, SQL reverse e test.
+
+Limiti da citare con prudenza: parser SQL non completo, attributi derivati e simboli EER specialistici non ancora coperti, possibili miglioramenti su layout, accessibilita, documentazione utente e casi SQL avanzati.
+
+Sviluppi futuri possibili: ampliamento dei costrutti EER, maggiore copertura SQL, miglioramenti UI/accessibilita, esempi didattici, guide integrate e ulteriori test E2E.

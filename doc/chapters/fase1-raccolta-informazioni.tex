@@ -1,0 +1,201 @@
+%!TEX root = ../main.tex
+
+\chapter{Fase 1: raccolta informazioni tirocinio}
+
+\section{Dati generali del tirocinio}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{4.2cm}X}
+Nome progetto & \builder \\
+Tipo progetto & Applicazione web \\
+Ambito & Progettazione di basi di dati \\
+Contesto & Tirocinio universitario \\
+Tutor & Prof.ssa Alessandra Lumini \\
+Ruolo della tutor & Supervisione, consigli metodologici, suggerimenti progettuali, orientamento sulle priorita, attenzione alla chiarezza concettuale e alla qualita complessiva del lavoro \\
+Obiettivo generale & Realizzare, migliorare e consolidare un'applicazione web per la modellazione di schemi Entity-Relationship, la trasformazione in schemi logici e l'esportazione dei risultati \\
+Periodo del tirocinio & \placeholder{Informazione da completare manualmente} \\
+Ore/CFU & \placeholder{Informazione da completare manualmente} \\
+Corso di laurea & \placeholder{Informazione da completare manualmente} \\
+Struttura ospitante & \placeholder{Informazione da completare manualmente} \\
+\end{tabularx}
+
+\section{Descrizione sintetica del progetto}
+
+\builder{} e un'applicazione web pensata per supportare la progettazione di basi di dati attraverso la costruzione, la visualizzazione e la trasformazione di schemi Entity-Relationship e schemi logici. Il progetto consente di modellare diagrammi ER in stile Chen, intervenendo su entita, relazioni, attributi, cardinalita, identificatori e generalizzazioni ISA.
+
+Il problema affrontato riguarda la necessita di disporre di uno strumento interattivo, chiaro e accessibile da browser per esercitarsi nella progettazione concettuale e logica di basi di dati. In ambito universitario e didattico, \builder{} puo essere usato da studenti e docenti per costruire esempi, verificare scelte progettuali, visualizzare trasformazioni e discutere in modo piu immediato la corrispondenza tra modello ER e modello relazionale.
+
+Dal repository emerge che il progetto include anche salvataggio e caricamento in formato \texttt{.ersp}, sincronizzazione con una rappresentazione testuale ERS, esportazione in PNG, SVG e JPEG, reverse engineering da SQL, localizzazione in italiano, inglese e albanese, test unitari e test end-to-end.
+
+\section{Obiettivi del progetto}
+
+\subsection{Obiettivo generale}
+
+L'obiettivo principale del tirocinio puo essere formulato come segue: sviluppare e consolidare \builder, un'applicazione web per la modellazione di schemi Entity-Relationship, il supporto alla traduzione verso schemi logici e la produzione di output esportabili e riutilizzabili, con attenzione alla correttezza concettuale, alla leggibilita grafica, all'usabilita e alla manutenibilita del codice.
+
+\subsection{Obiettivi specifici}
+
+\begin{itemize}
+    \item Migliorare l'interfaccia utente dell'editor, rendendo piu chiari toolbar, header, menu comandi, modali e pannelli tecnici.
+    \item Rendere piu leggibili gli schemi ER e logici attraverso layout automatici, routing degli edge, gestione delle label e riduzione delle sovrapposizioni.
+    \item Gestire gli elementi ER principali: entita, entita deboli, relazioni, attributi semplici, composti e multivalore, cardinalita, identificatori interni, esterni e misti, generalizzazioni ISA.
+    \item Migliorare la pipeline di trasformazione, distinguendo la fase di traduzione ER--ER dalla successiva costruzione del modello logico.
+    \item Consolidare la vista logica con tabelle, colonne, chiavi primarie, chiavi esterne, vincoli, tipi SQL e visualizzazione delle relazioni.
+    \item Migliorare l'esportazione in PNG, SVG e JPEG, con bounding box reale dello schema, riduzione dello spazio vuoto e gestione coerente degli sfondi.
+    \item Introdurre e completare il supporto multilingua in italiano, inglese e albanese.
+    \item Rafforzare salvataggio, caricamento e ripristino della sessione, inclusa compatibilita con versioni precedenti.
+    \item Aumentare stabilita e manutenibilita tramite test unitari, test di regressione e test end-to-end.
+    \item Rendere il progetto piu adatto all'uso didattico.
+\end{itemize}
+
+\section{Funzionalita principali individuate}
+
+\subsection{Modellazione ER}
+
+Il repository conferma la presenza di un editor ER basato su canvas SVG. Gli elementi principali sono modellati nei tipi condivisi del dominio e gestiti da utility dedicate alla validazione, serializzazione e disposizione grafica.
+
+Le funzionalita individuate includono:
+
+\begin{itemize}
+    \item creazione di entita, relazioni e attributi;
+    \item supporto per entita deboli;
+    \item attributi identificanti, composti e multivalore;
+    \item identificatori interni semplici e composti;
+    \item identificatori esterni e misti;
+    \item relazioni binarie, n-arie e associazioni ad anello con ruoli;
+    \item collegamenti grafici tra entita, relazioni e attributi;
+    \item cardinalita sui collegamenti e sugli attributi;
+    \item generalizzazioni ISA con vincoli disjoint/overlap e total/partial;
+    \item validazione dello schema e segnalazione di warning/error;
+    \item selezione multipla, duplicazione, allineamento, zoom, pan, snap to grid, undo/redo;
+    \item modalita codice ERS con parsing, serializzazione e sincronizzazione live.
+\end{itemize}
+
+Un limite da indicare con prudenza nella relazione finale e che il progetto non dichiara supporto completo a tutti i costrutti EER specialistici; nell'interfaccia e indicato che attributi derivati e altri simboli EER specialistici non risultano ancora coperti.
+
+\subsection{Schema logico}
+
+La vista logica e gestita da moduli dedicati alla traduzione ER--ER, alla costruzione del modello logico e al layout delle tabelle. Le funzionalita individuate includono:
+
+\begin{itemize}
+    \item pipeline di traduzione ER--ER per risolvere generalizzazioni e attributi composti;
+    \item trasformazione verso modello logico con entita forti, entita deboli, relazioni, attributi multivalore e generalizzazioni;
+    \item workflow manuale e incrementale con step, decisioni, conflitti e artefatti generati;
+    \item scelta della chiave primaria quando esistono piu identificatori candidati;
+    \item rappresentazione di tabelle con colonne, PK, FK, UNIQUE e nullable/not nullable;
+    \item gestione dei metadati SQL delle colonne;
+    \item generazione SQL con dialetti generic, MySQL, MariaDB, SQL Server, Oracle, PostgreSQL e SQLite;
+    \item label FK opzionali con posizionamento anti-collisione.
+\end{itemize}
+
+\subsection{Esportazione}
+
+L'esportazione e disponibile nei formati SVG, PNG e JPEG. Sono inoltre presenti salvataggio del progetto in formato \texttt{.ersp}, sorgente ERS e generazione SQL dalla vista logica.
+
+Le caratteristiche principali individuate sono:
+
+\begin{itemize}
+    \item SVG standalone con font e stili essenziali copiati nel markup serializzato;
+    \item PNG con sfondo trasparente;
+    \item JPEG con sfondo bianco;
+    \item calcolo della bounding box reale del contenuto;
+    \item padding minimo anti-clipping;
+    \item esclusione degli sfondi del canvas;
+    \item crop indipendente da pan e zoom correnti;
+    \item compatibilita tra vista ER e vista logica.
+\end{itemize}
+
+\subsection{Interfaccia utente}
+
+L'interfaccia e basata su React e comprende header, canvas SVG, toolbar laterale, command menu, modali, pannelli tecnici, loading screen, onboarding, status bar, scorciatoie da tastiera, localizzazione e layout responsive. Il sistema di icone usa la libreria \texttt{lucide-react} insieme a componenti interni.
+
+\subsection{Salvataggio, caricamento e sessione}
+
+Il progetto include salvataggio e caricamento in formato \texttt{.ersp}, compatibilita con backup JSON legacy, autosalvataggio e ripristino sessione tramite \texttt{localStorage}. Vengono conservati diagramma ER, workspace di traduzione, workspace logico, vista corrente, viewport, selezioni, bozza ERS, stato dei pannelli e preferenze diagnostiche.
+
+\subsection{Test}
+
+Sono presenti test unitari e di integrazione nella cartella \texttt{test/} e test end-to-end Playwright nella cartella \texttt{tests/e2e/}. Le aree coperte includono parsing e serializzazione ERS, file progetto, traduzione ER, traduzione logica, identificatori, layout, export, i18n, SQL reverse, loading screen e cambio lingua.
+
+\section{Tecnologie utilizzate}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.3cm}p{4.4cm}X}
+Tecnologia & Dove viene usata & Perche e importante \\
+\hline
+TypeScript & Sorgenti e test & Definisce tipi espliciti per diagrammi, modelli logici, file progetto e trasformazioni. \\
+React & Componenti UI, canvas e workspace & Permette di costruire un'interfaccia interattiva e modulare. \\
+Vite & Script di sviluppo e build & Fornisce dev server, build e preview della single-page application. \\
+CSS & Stili globali e pannelli & Gestisce layout, responsive, tema grafico e componenti visuali. \\
+SVG/browser canvas & Canvas e export & Abilita rendering vettoriale e rasterizzazione per PNG/JPEG. \\
+\texttt{lucide-react} & Icone UI & Supporta un sistema di icone coerente. \\
+npm & Dipendenze e script & Gestisce installazione, build, test e preview. \\
+\texttt{tsx} & Test TypeScript & Esegue i test TypeScript del progetto. \\
+Playwright & Test end-to-end & Verifica flussi utente nel browser. \\
+GitHub Actions & Workflow Pages & Automatizza build e deploy statico. \\
+\end{tabularx}
+
+\section{Attivita svolte durante il tirocinio}
+
+\begin{itemize}
+    \item \textbf{Sviluppo e consolidamento dell'editor ER.} Il lavoro ha riguardato la gestione degli elementi principali della notazione Chen, incluse entita, relazioni, attributi, collegamenti, cardinalita e generalizzazioni.
+    \item \textbf{Gestione avanzata degli identificatori.} Sono stati introdotti e rifiniti identificatori interni semplici/composti, esterni e misti, con attenzione a validazione, rendering e compatibilita.
+    \item \textbf{Realizzazione del workflow di traduzione.} Il progetto distingue la traduzione ER--ER dalla costruzione dello schema logico, rendendo piu controllato il passaggio al modello relazionale.
+    \item \textbf{Miglioramento dell'interfaccia.} Il changelog mostra interventi su toolbar, header, command menu, shortcut, pannelli, modali, quick actions e layout responsive.
+    \item \textbf{Miglioramento degli export.} L'applicazione esporta PNG, SVG e JPEG con attenzione a crop, sfondi, font e compatibilita tra vista ER e vista logica.
+    \item \textbf{Supporto multilingua.} L'interfaccia e localizzata in italiano, inglese e albanese, con selettore lingua e test dedicati.
+    \item \textbf{Reverse engineering SQL.} La funzionalita importa schemi SQL testuali e produce preview logica/ER, pur con limitazioni dichiarate.
+    \item \textbf{Rafforzamento della qualita.} Sono stati introdotti test di regressione su parsing, layout, export, traduzione, salvataggio e flussi principali.
+\end{itemize}
+
+\section{Problemi incontrati e soluzioni adottate}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.6cm}p{4.1cm}X}
+Problema & Impatto & Soluzione/Miglioramento \\
+\hline
+Sovrapposizione di attributi e label & Riduzione della leggibilita degli schemi & Layout automatici, collision avoidance, routing piu stabile e test mirati. \\
+Export con spazio vuoto o sfondi non corretti & Output meno adatti a documenti e presentazioni & Bounds reali del contenuto, rimozione sfondi canvas, PNG/SVG trasparenti e JPEG bianco. \\
+Gestione complessa degli identificatori & Impatto su validazione, rendering, traduzione e salvataggio & Tipizzazione, normalizzazione, inspector dedicato e test di regressione. \\
+Traduzione logica non banale & Necessita di scelte progettuali esplicite & Workflow a step con decisioni, preview, conflitti e scelta manuale delle chiavi. \\
+Compatibilita dei progetti salvati & Rischio di rompere file precedenti & Formato \texttt{.ersp} versionato, migrazione legacy e sanitizzazione. \\
+Responsive e usabilita mobile & Possibili overflow o collisioni tra controlli & Layout responsive, safe area, toolbar compatte e verifiche E2E. \\
+Localizzazione incompleta & Esperienza multilingua incoerente & Dizionari i18n, selettore lingua e test su italiano, inglese e albanese. \\
+\end{tabularx}
+
+\section{Consigli e suggerimenti della Prof.ssa Alessandra Lumini}
+
+Durante il tirocinio, la Prof.ssa Alessandra Lumini ha svolto il ruolo di tutor e punto di riferimento per la supervisione del progetto. Il suo contributo va presentato nella relazione come un supporto metodologico e progettuale, evitando citazioni dirette non documentate.
+
+\begin{quote}
+Durante il tirocinio, le indicazioni della Prof.ssa Alessandra Lumini hanno contribuito a orientare il lavoro verso una maggiore chiarezza progettuale e una migliore qualita complessiva dell'applicazione.
+\end{quote}
+
+\begin{quote}
+I suggerimenti della tutor hanno portato a dare particolare importanza alla leggibilita degli schemi, alla coerenza dell'interfaccia e alla manutenibilita del codice.
+\end{quote}
+
+Nella relazione finale e opportuno valorizzare la supervisione generale del tirocinio, la definizione delle priorita, l'attenzione alla correttezza concettuale, la cura della leggibilita grafica, la semplicita dell'interfaccia e l'incoraggiamento a mantenere una struttura progettuale ordinata, testabile e manutenibile.
+
+\section{Competenze acquisite}
+
+\subsection{Competenze tecniche}
+
+Le competenze tecniche maturate riguardano sviluppo web moderno con React, TypeScript e Vite, modellazione di strutture dati per schemi ER e logici, gestione di canvas SVG, parsing, serializzazione, validazione, esportazione immagini, salvataggio versionato, localizzazione, test software, Git e organizzazione modulare del codice.
+
+\subsection{Competenze trasversali}
+
+Le competenze trasversali includono autonomia, problem solving, pianificazione, capacita di ricevere feedback, comunicazione con la tutor, revisione progressiva del lavoro e attenzione all'utente finale.
+
+\section{Materiale da completare manualmente}
+
+\begin{itemize}
+    \item Periodo del tirocinio.
+    \item Numero di ore.
+    \item CFU.
+    \item Corso di laurea.
+    \item Struttura ospitante.
+    \item Nome dello studente e matricola.
+    \item Anno accademico.
+    \item Eventuale sito online del progetto.
+    \item Eventuale link GitHub.
+    \item Screenshot dell'interfaccia, dello schema ER, della vista logica e degli export.
+    \item Eventuali ringraziamenti e riferimenti bibliografici.
+\end{itemize}

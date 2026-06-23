@@ -1,98 +1,66 @@
 %!TEX TS-program = pdflatex
 %!TEX encoding = UTF-8 Unicode
 
-\documentclass{unipd-thesis-modern} % src: https://github.com/baronefr/unipd-thesis-modern
-%  print layout: two-sided with binding on the left
+\PassOptionsToPackage{italian,english}{babel}
+\documentclass{unipd-thesis-modern}
 
+% Pacchetti aggiuntivi per il dossier preparatorio.
+\usepackage{array}
 
-% I recommend to validate/convert the PDF/A file with the following tool:
-% https://www.pdfforge.org/online/en/validate-pdfa
+% Personalizzazione indice.
+\setlength{\cftbeforechapskip}{7pt}
+\setcounter{tocdepth}{3}
 
+% Comandi locali.
+\newcommand{\placeholder}[1]{\textit{[#1]}}
+\newcommand{\builder}{buildER}
 
-% additional packages
-\usepackage{lipsum} % for DEMO only
+% Dati di copertina.
+\title{Materiali preparatori per la relazione finale di tirocinio\\ \builder}
+\thesisHeader{Universita di Bologna\\ \placeholder{Corso di laurea da completare}}
+\academicYear{\placeholder{Anno accademico da completare}}
 
-%% (optional) to add a draft watermark, uncomment the following:
-%\usepackage[color={[gray]{0.85}}]{draftwatermark}
-%% NOTE: high values -> less visible
+% Studente.
+\author{\placeholder{Nome e cognome studente}}
+\studentId{\placeholder{Matricola}}
 
-% ToC customization
-\setlength{\cftbeforechapskip}{7pt} % there are more variables like this set in the template file
-\setcounter{tocdepth}{4} % ToC depth
+% Tutor.
+\advisor{Prof.ssa Alessandra Lumini}{Universita di Bologna}
 
-
-% titles
-\title{A modern template for a thesis at\\ the University of Padova}
-\thesisHeader{Department of Physics and Astronomy ``G. Galilei''\\Master Thesis in Physics}
-\academicYear{2025/2026}
-
-% student
-\author{Student Name Surname}
-\studentId{1234567}
-
-% supervisor(s)Zürich
-\advisor{Prof. Albert Einstein}{University of Zürich} % (mandatory)
-\coadvisor{Dr. Bruce Wayne}{University of Gotham} % (optional, comment to remove)
-\otheradvisor{Prof. Paolino Paperino}{University of Padova} % (optional, comment to remove)
-% ^ NOTE: you can use optional arg to customize the label "Internal Supervisor"
-%   example:   \otheradvisor[The best supervisor!]{Prof. Paolino Paperino}{University of Padua}
-
-
-
-
-% add notes at the bottom of the second page (optional)
+% Seconda pagina di copertina.
 \secondpage{\input{docs/secondcover}}
 
-% dedication (comment line to remove)
-\dedication{\textit{To my parents\\and friends}}
-
-
-% define custom symbols and shortcuts (optional)
+% Simboli e bibliografia del template.
 \input{custom-symbols}
-
-% bibliography file
 \addbibresource{refs.bib}
 
-%% SUGGESTION: to print only the cover page with larger fonts and without watermark, uncomment the following:
-%\begin{document}
-%    \makecover
-%\end{document}
-
-
 \begin{document}
-    % cover, ToC, abstract
+    \selectlanguage{italian}
+
     \frontmatter
 
-    % main content
     \mainmatter
 
-    % introduction -------------
     \input{chapters/introduction}
-    \glsresetall  % reset gls after introduction (suggested, but optional)
+    \glsresetall
 
+    \input{chapters/fase1-raccolta-informazioni}
+    \input{chapters/fase2-outline-relazione}
+    \input{chapters/prompt-prism}
 
-    % I  -----------------------
-    \part{\label{prt:demo}Demo of the template features} % NOTE: dividing in parts is optional
-
-    \input{chapters/demo-basic}
-    % NOTE: I suggest to create a file for each chapter, like the previous \input{}.
-
-
-    % II -----------------------
-    \part{\label{prt:filler}Filler part}
-    
-    \input{chapters/demo-filler}
-
-
-    % conclusion ---------------
     \bookmarksetup{startatroot}
     \input{chapters/conclusions}
 
-    % appendices ---------------
     \begin{appendices}
-        \include{chapters/demo-appendix}
+        \include{chapters/appendice-dati-da-completare}
     \end{appendices}
 
-    % glossary, bibliography, acknowledges
+    \nocite{chen1976er}
+    \nocite{elmasri_navath_database}
+    \nocite{react_docs}
+    \nocite{typescript_docs}
+    \nocite{vite_docs}
+    \nocite{playwright_docs}
+
     \backmatter
 \end{document}

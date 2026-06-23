@@ -388,7 +388,7 @@
     % supervisor
     \vspace{2.7cm}
     \begin{minipage}[t]{7cm}
-        \textsc{Supervisor}\\
+        \textsc{Tutor del tirocinio}\\
         {\setlength\parindent{1mm}
         \indent\large{\textbf{\@advisor}}\\
         \indent\small\textbf{\@advisorUniversity}
@@ -497,7 +497,7 @@
     % supervisor
     \vspace{1.8cm}
     \begin{minipage}[t]{8cm}
-        \textsc{Supervisor}\\
+        \textsc{Tutor del tirocinio}\\
         {\setlength\parindent{1mm}
         \indent\Large{\textbf{\@advisor}}\\[-4mm]
         \large{\indent{\@advisorUniversity}}
