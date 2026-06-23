@@ -3,12 +3,16 @@ node_modules/
 
 # Production build output
 dist/
+output/
 
 # Environment and local overrides
 .env
 .env.*
 !.env.example
 *.local
+.cache/
+*.tmp
+*.temp
 
 # TypeScript incremental build output
 *.tsbuildinfo
@@ -30,4 +34,24 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .vscode/
+.cursor/
 .idea/
+
+# Local agent/tooling state
+.agents/
+
+# LaTeX generated files for local report builds
+doc/**/*.aux
+doc/**/*.bbl
+doc/**/*.bcf
+doc/**/*.blg
+doc/**/*.fdb_latexmk
+doc/**/*.fls
+doc/**/*.lof
+doc/**/*.log
+doc/**/*.lot
+doc/**/*.out
+doc/**/*.run.xml
+doc/**/*.synctex.gz
+doc/**/*.toc
+doc/main.pdf
