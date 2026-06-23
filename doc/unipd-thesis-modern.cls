@@ -39,10 +39,19 @@
   marginparwidth=0mm, marginparsep=0mm, % not used in this template
 ]{geometry}
 
+\ifdefined\pdfsuppresswarningpagegroup
+  \pdfsuppresswarningpagegroup=1
+\fi
+\hbadness=10000
+\vbadness=10000
+\emergencystretch=2em
+
 
 % packages to load here to avoid conflicts:
 \RequirePackage{scrextend}
 \RequirePackage[explicit]{titlesec}
+\RequirePackage{silence}
+\WarningFilter{tracklang}{No `datatool' support for dialect}
 % ---------
 
 
@@ -138,6 +147,10 @@
 % bibliography
 \RequirePackage[autostyle]{csquotes}
 \RequirePackage[backend=biber]{biblatex}
+\setcounter{biburlnumpenalty}{9000}
+\setcounter{biburllcpenalty}{9000}
+\setcounter{biburlucpenalty}{9000}
+\appto{\bibsetup}{\raggedright}
 
 % tables
 \RequirePackage{tabularx}
@@ -169,6 +182,12 @@
 \otheradvisor{}{}
 \secondpage{}
 \dedication{}
+
+% default localized names used before \frontmatter customizes page order
+\def\abstractname{Abstract}
+\def\abstractnameit{Sommario}
+\def\listacronymname{Acronyms}
+\def\acknowledgmentsname{Acknowledgments}
 
 
 
@@ -614,8 +633,9 @@
 
     % glossary
     \begingroup     
-    \let\clearpage\relax        
-    \printglossaries
+    \let\clearpage\relax
+    \glsaddall
+    \printnoidxglossary[type=\acronymtype,title={\listacronymname}]
     \endgroup
     
     % references
@@ -642,7 +662,6 @@
 
 \RequirePackage{etoolbox}
 % The warning "Package pdfx Warning: Setting all color commands to rgb, consistent with the Color Model for PDF/A on input line 3126." is expected in pdfLaTeX 2025, so I will suppress it:
-\RequirePackage{silence}
 \WarningFilter{pdfx}{Setting all color commands to rgb}
 %
 \RequirePackage[a-2b]{pdfx}   % for PDF/A
