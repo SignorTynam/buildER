@@ -1,0 +1,76 @@
+%!TEX TS-program = pdflatex
+%!TEX encoding = UTF-8 Unicode
+
+% File di lavoro: dossier preparatorio con fasi e prompt.
+% Non usare questo sorgente per il PDF finale da consegnare.
+
+\PassOptionsToPackage{italian,english}{babel}
+\documentclass{unipd-thesis-modern}
+
+% Pacchetti aggiuntivi per il dossier preparatorio.
+\usepackage{array}
+
+% Personalizzazione indice.
+\setlength{\cftbeforechapskip}{7pt}
+\setcounter{tocdepth}{3}
+
+% Comandi locali.
+\newcommand{\placeholder}[1]{\textit{[#1]}}
+\newcommand{\builder}{buildER}
+
+% Dati di copertina.
+\title{Materiali preparatori per la relazione finale di tirocinio\\ \builder}
+\thesisHeader{Universita di Bologna\\ \placeholder{Corso di laurea da completare}}
+\academicYear{\placeholder{Anno accademico da completare}}
+
+% Studente.
+\author{\placeholder{Nome e cognome studente}}
+\studentId{\placeholder{Matricola}}
+
+% Tutor.
+\advisor{Prof.ssa Alessandra Lumini}{Universita di Bologna}
+
+% Seconda pagina di copertina.
+\secondpage{\input{docs/secondcover}}
+
+% Simboli e bibliografia del template.
+\input{custom-symbols}
+\addbibresource{refs.bib}
+
+\begin{document}
+    \selectlanguage{italian}
+
+    \frontmatter
+
+    \mainmatter
+
+    \input{chapters/introduction}
+    \glsresetall
+
+    \input{chapters/fase1-raccolta-informazioni}
+    \input{chapters/fase2-outline-relazione}
+    \input{chapters/fase3-bozza-completa}
+    \input{chapters/fase4-ruolo-tutor}
+    \input{chapters/fase5-revisione-stile-impaginazione}
+    \input{chapters/fase6-versione-finale}
+
+    \input{chapters/prompt-prism}
+    \input{chapters/prompt-prism-fase3-fase4}
+    \input{chapters/prompt-prism-finale}
+
+    \bookmarksetup{startatroot}
+    \input{chapters/conclusions}
+
+    \begin{appendices}
+        \include{chapters/appendice-dati-da-completare}
+    \end{appendices}
+
+    \nocite{chen1976er}
+    \nocite{elmasri_navath_database}
+    \nocite{react_docs}
+    \nocite{typescript_docs}
+    \nocite{vite_docs}
+    \nocite{playwright_docs}
+
+    \backmatter
+\end{document}

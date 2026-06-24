@@ -1,25 +1,26 @@
-%!TEX TS-program = pdflatex
+﻿%!TEX TS-program = pdflatex
 %!TEX encoding = UTF-8 Unicode
 
 \PassOptionsToPackage{italian,english}{babel}
 \documentclass{unipd-thesis-modern}
 
 \usepackage{array}
+\usepackage{booktabs}
 
 \setlength{\cftbeforechapskip}{7pt}
 \setcounter{tocdepth}{2}
 
-\newcommand{\placeholder}[1]{\textit{[#1]}}
 \newcommand{\builder}{buildER}
+\newcommand{\placeholder}[1]{\textit{[#1]}}
 
 \title{Relazione finale di tirocinio:\\ sviluppo e consolidamento di \builder}
-\thesisHeader{Universita di Bologna\\ \placeholder{Corso di laurea da completare}}
+\thesisHeader{Università di Bologna\\ \placeholder{Corso di laurea da completare}}
 \academicYear{\placeholder{Anno accademico da completare}}
 
-\author{\placeholder{Nome e cognome studente}}
+\author{Alion Emini}
 \studentId{\placeholder{Matricola da completare}}
 
-\advisor{Prof.ssa Alessandra Lumini}{Universita di Bologna}
+\advisor{Prof.ssa Alessandra Lumini}{Università di Bologna}
 
 \secondpage{
 \mbox{}
@@ -28,7 +29,8 @@
 \begin{center}
 \noindent\rule{\textwidth}{1pt}
 
-Relazione finale di tirocinio sul progetto \builder.\\
+\textbf{Relazione finale di tirocinio}\\[0.4em]
+Progetto: \builder.\\
 Tutor del tirocinio: \textbf{Prof.ssa Alessandra Lumini}.\\
 Periodo del tirocinio: \placeholder{Periodo del tirocinio da completare}.\\
 Ore/CFU: \placeholder{Ore/CFU da completare}.\\
@@ -39,10 +41,22 @@ Struttura ospitante: \placeholder{Struttura ospitante da completare}.
 }
 }
 
+\input{custom-symbols}
+\addbibresource{refs.bib}
+
 \begin{document}
 \selectlanguage{italian}
 
 \makecover
+\cleardoublepage
+
+\chapter*{Sommario}
+\addcontentsline{toc}{chapter}{Sommario}
+
+La presente relazione descrive il tirocinio universitario svolto sul progetto \builder, un'applicazione web dedicata alla progettazione, visualizzazione, traduzione ed esportazione di schemi Entity-Relationship e schemi logici. Il lavoro, supervisionato dalla Prof.ssa Alessandra Lumini in qualità di tutor, ha riguardato il consolidamento dello strumento dal punto di vista funzionale, tecnico e didattico.
+
+La relazione presenta gli obiettivi del tirocinio, il contesto applicativo di \builder, le principali tecnologie utilizzate, l'organizzazione architetturale del sistema e le funzionalità sviluppate o rafforzate. Vengono inoltre descritti i test, le verifiche svolte, i miglioramenti introdotti, il ruolo della tutor nel percorso e le competenze tecniche e metodologiche acquisite. L'elaborato collega quindi gli aspetti implementativi del progetto con il valore formativo del tirocinio, evidenziando come lo sviluppo di uno strumento per la progettazione di basi di dati richieda attenzione sia alla correttezza concettuale sia all'usabilità dell'interfaccia.
+
 \cleardoublepage
 
 {\hypersetup{linkcolor=black}
@@ -53,47 +67,53 @@ Struttura ospitante: \placeholder{Struttura ospitante da completare}.
 
 \chapter{Introduzione}
 
-Il presente elaborato descrive il lavoro svolto durante il tirocinio universitario dedicato al progetto \builder, un'applicazione web per la progettazione, visualizzazione, traduzione ed esportazione di schemi Entity-Relationship e schemi logici. Il tirocinio è stato seguito dalla Prof.ssa Alessandra Lumini, tutor del percorso, che ha supervisionato il lavoro e fornito indicazioni utili per orientare le scelte progettuali.
+Il presente elaborato costituisce la relazione finale del tirocinio universitario dedicato al progetto \builder. Il progetto riguarda un'applicazione web pensata per supportare la progettazione di basi di dati attraverso la costruzione di schemi Entity-Relationship, la loro visualizzazione grafica, la traduzione verso schemi logici e l'esportazione dei risultati.
 
-Il progetto si colloca nell'ambito della progettazione di basi di dati, un tema centrale nei percorsi universitari di informatica. La costruzione di uno schema concettuale richiede infatti la capacità di individuare entità, relazioni, attributi, cardinalità e vincoli; la successiva trasformazione verso uno schema logico richiede invece regole coerenti per rappresentare tabelle, colonne, chiavi primarie, chiavi esterne e vincoli relazionali. \builder{} nasce per supportare questo processo in modo interattivo, offrendo un ambiente grafico accessibile da browser.
+Il tirocinio è stato supervisionato dalla Prof.ssa Alessandra Lumini, tutor del percorso, che ha fornito indicazioni utili per orientare il lavoro verso chiarezza progettuale, correttezza concettuale e qualità complessiva dello strumento. La supervisione ha contribuito a mantenere un equilibrio tra aspetti tecnici, esigenze didattiche e usabilità dell'applicazione.
 
-La relazione non ha l'obiettivo di essere un manuale utente dell'applicazione, ma una descrizione ragionata del percorso svolto durante il tirocinio. Per questo motivo vengono presentati il contesto del progetto, gli obiettivi, le tecnologie utilizzate, l'architettura del sistema, le funzionalità sviluppate o consolidate, le attività di test e i miglioramenti introdotti. Una parte specifica è dedicata anche al ruolo della tutor e alle competenze tecniche e metodologiche acquisite.
+\builder{} si colloca nell'ambito della progettazione di basi di dati, un tema centrale nei percorsi universitari di informatica. La costruzione di uno schema concettuale richiede la capacità di individuare entità, relazioni, attributi, cardinalità e vincoli; la successiva trasformazione verso uno schema logico richiede invece regole coerenti per rappresentare tabelle, colonne, chiavi primarie, chiavi esterne e vincoli relazionali.
 
-L'esperienza ha richiesto di collegare aspetti tecnici e formativi. Da un lato, è stato necessario analizzare un'applicazione web articolata, basata su React, TypeScript e canvas SVG; dall'altro, il lavoro ha richiesto attenzione alla chiarezza degli schemi, alla correttezza concettuale, alla leggibilità dell'interfaccia e alla manutenibilità del codice. Questi aspetti sono stati centrali nel tirocinio e rappresentano il filo conduttore della relazione.
+La relazione descrive il percorso svolto durante il tirocinio, presentando obiettivi, tecnologie, architettura, funzionalità principali, test, miglioramenti, competenze acquisite e possibili sviluppi futuri. L'obiettivo non e produrre un manuale utente, ma documentare in modo ordinato il lavoro svolto, le scelte progettuali è il valore formativo dell'esperienza.
 
 \chapter{Obiettivi del tirocinio}
 
-L'obiettivo generale del tirocinio è stato contribuire allo sviluppo e al consolidamento di \builder{} come applicazione web per la modellazione di schemi ER e per il supporto alla loro trasformazione in schemi logici. Il progetto richiedeva di mantenere un equilibrio tra correttezza concettuale, qualità tecnica e usabilità, poiché uno strumento didattico deve essere comprensibile, affidabile e coerente con i concetti che intende rappresentare.
+L'obiettivo generale del tirocinio è stato contribuire allo sviluppo e al consolidamento di \builder{} come applicazione web per la modellazione di schemi ER e per il supporto alla loro trasformazione in schemi logici. Il lavoro ha richiesto di mantenere un equilibrio tra correttezza concettuale, qualità tecnica e usabilità, poiché uno strumento destinato anche all'uso didattico deve essere comprensibile, affidabile è coerente con i concetti che intende rappresentare.
 
-Gli obiettivi specifici hanno riguardato il miglioramento della modellazione ER, il supporto alla traduzione ER-logico, la leggibilità grafica degli schemi, l'esportazione dei risultati, il salvataggio dei progetti, la localizzazione dell'interfaccia e la verifica tramite test. Tali obiettivi sono stati affrontati considerando sia l'esperienza dell'utente finale sia la struttura interna del codice.
+Gli obiettivi specifici hanno riguardato il miglioramento della modellazione ER, il supporto alla traduzione ER-logico, la leggibilità grafica degli schemi, l'esportazione dei risultati, il salvataggio dei progetti, la localizzazione dell'interfaccia è la verifica tramite test. Tali obiettivi sono stati affrontati considerando sia l'esperienza dell'utente finale sia la struttura interna del codice.
 
-\noindent\begin{tabularx}{\textwidth}{>{\bfseries}p{4cm}X}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.5cm}X}
+\toprule
 Obiettivo & Descrizione \\
-\hline
+\midrule
 Correttezza concettuale & Rappresentare in modo coerente entità, relazioni, attributi, cardinalità, identificatori e generalizzazioni. \\
 Traduzione ER-logico & Supportare il passaggio da schema concettuale a schema logico con tabelle, colonne, chiavi e vincoli. \\
-Leggibilità grafica & Migliorare disposizione degli elementi, label, collegamenti e resa degli schemi esportati. \\
-Usabilità & Rendere l'interfaccia chiara tramite toolbar, pannelli, modali, scorciatoie e flussi guidati. \\
-Esportazione & Produrre output PNG, SVG e JPEG utilizzabili in relazioni, presentazioni e materiali didattici. \\
-Persistenza & Salvare e caricare progetti tramite formato \texttt{.ersp}, mantenendo compatibilità con versioni precedenti. \\
-Manutenibilità & Organizzare il codice in moduli chiari, separando interfaccia, tipi, logica di dominio e test. \\
-Stabilità & Verificare le parti critiche tramite test unitari, test di integrazione e test end-to-end. \\
-Valore didattico & Rendere lo strumento utile per comprendere il rapporto tra modello concettuale e modello logico. \\
+Leggibilita grafica & Migliorare disposizione degli elementi, label, collegamenti e resa degli schemi esportati. \\
+Usabilita & Rendere l'interfaccia chiara tramite toolbar, pannelli, modali, scorciatoie e flussi guidati. \\
+Esportazione e salvataggio & Produrre output riutilizzabili e conservare i progetti tramite formato \texttt{.ersp}. \\
+Stabilita e test & Verificare le parti critiche tramite test unitari, test di integrazione e test end-to-end. \\
+Valore didattico & Rendere più comprensibile il rapporto tra modello concettuale, modello logico e SQL. \\
+\bottomrule
 \end{tabularx}
+\end{table}
 
-Dal punto di vista formativo, il tirocinio ha permesso di lavorare su un progetto reale, nel quale ogni scelta tecnica aveva conseguenze sulla comprensibilità dello strumento. La necessità di considerare insieme funzionalità, interfaccia, test e documentazione ha reso il lavoro particolarmente utile per consolidare un metodo di sviluppo più consapevole.
+Dal punto di vista formativo, il tirocinio ha permesso di lavorare su un progetto reale, nel quale ogni scelta tecnica aveva conseguenze sulla comprensibilità dello strumento. La necessità di considerare insieme funzionalità, interfaccia, test e documentazione ha reso il lavoro utile per consolidare un metodo di sviluppo più consapevole.
 
 \chapter{Il progetto \builder}
 
 \builder{} è un'applicazione web single-page per la modellazione di schemi Entity-Relationship in stile Chen. L'utente può costruire diagrammi ER su un canvas SVG, aggiungendo entità, relazioni, attributi, cardinalità, identificatori e generalizzazioni ISA. L'applicazione consente inoltre di passare alla vista logica, nella quale lo schema viene rappresentato attraverso tabelle, colonne, chiavi primarie, chiavi esterne e vincoli.
 
-Il progetto è destinato principalmente a un contesto didattico e universitario. Può essere utile agli studenti che devono esercitarsi nella progettazione di basi di dati e ai docenti che vogliono mostrare esempi, discutere schemi o evidenziare il passaggio dal modello concettuale al modello logico. La presenza di strumenti di salvataggio, esportazione e generazione SQL rende il risultato riutilizzabile anche in relazioni, slide o materiali di studio.
+Il progetto è destinato principalmente a un contesto didattico è universitario. Puo essere utile agli studenti che devono esercitarsi nella progettazione di basi di dati e ai docenti che vogliono mostrare esempi, discutere schemi o evidenziare il passaggio dal modello concettuale al modello logico. La presenza di strumenti di salvataggio, esportazione e generazione SQL rende il risultato riutilizzabile anche in relazioni, slide o materiali di studio.
 
 Il flusso principale dell'applicazione parte dall'editor ER. Il canvas SVG permette una rappresentazione vettoriale degli elementi e supporta operazioni come selezione, spostamento, zoom, pan, duplicazione, allineamento, annulla e ripeti. Accanto alla vista grafica è presente anche una rappresentazione testuale ERS, sincronizzata con il diagramma, utile per descrivere lo schema in forma più strutturata.
 
-La trasformazione verso lo schema logico è uno degli aspetti più significativi del progetto. Invece di ridurre il passaggio a una conversione automatica non controllata, \builder{} adotta un percorso più esplicito: alcune strutture, come generalizzazioni e attributi composti, vengono trattate in una fase di traduzione ER--ER; successivamente viene costruito il modello logico, con workflow manuale e incrementale. Questo approccio è coerente con un uso didattico, perché rende visibili le decisioni progettuali.
+La trasformazione verso lo schema logico è uno degli aspetti più significativi del progetto. Invece di ridurre il passaggio a una conversione automatica non controllata, \builder{} adotta un percorso esplicito: alcune strutture, come generalizzazioni e attributi composti, vengono trattate in una fase di trasformazione ER--ER; successivamente viene costruito il modello logico, con workflow manuale e incrementale. Questo approccio è coerente con un uso didattico, perché rende visibili le decisioni progettuali.
 
 Il repository conferma inoltre la presenza di generazione SQL, esportazione in PNG, SVG e JPEG, salvataggio e caricamento in formato \texttt{.ersp}, reverse engineering SQL e localizzazione in italiano, inglese e albanese. Il progetto si configura quindi come un ambiente completo per progettare, verificare, conservare e condividere schemi di basi di dati.
+
+% TODO: Inserire screenshot della schermata principale di buildER.
 
 \chapter{Analisi dei requisiti}
 
@@ -105,11 +125,11 @@ Un secondo gruppo di requisiti riguarda la rappresentazione dei vincoli. L'appli
 
 La traduzione verso lo schema logico costituisce un requisito centrale. Il sistema deve produrre tabelle, colonne, chiavi primarie, chiavi esterne e vincoli, gestendo anche casi in cui sono presenti più chiavi candidate o decisioni progettuali alternative. Il repository conferma inoltre la presenza della generazione SQL a partire dal modello logico.
 
-Rientrano tra i requisiti funzionali anche salvataggio e caricamento dei progetti, esportazione in PNG, SVG e JPEG, localizzazione dell'interfaccia e reverse engineering SQL. Quest'ultima funzionalità consente di importare schemi SQL testuali e ottenere una rappresentazione logica o ER, pur con le limitazioni dichiarate nella documentazione tecnica.
+Rientrano tra i requisiti funzionali anche salvataggio e caricamento dei progetti, esportazione in PNG, SVG e JPEG, localizzazione dell'interfaccia e reverse engineering SQL. Quest'ultima funzionalità consente di importare schemi SQL testuali e ottenere una rappresentazione logica o ER, pur con le limitazioni dichiarate dalla documentazione tecnica.
 
 \section{Requisiti non funzionali}
 
-I requisiti non funzionali riguardano la qualità complessiva dell'applicazione. Il primo aspetto è l'usabilità: l'utente deve poter comprendere gli strumenti disponibili, interagire con il canvas e ricevere feedback chiari. Un'interfaccia poco leggibile rischierebbe di spostare l'attenzione dai concetti di progettazione ai problemi di utilizzo dello strumento.
+I requisiti non funzionali riguardano la qualità complessiva dell'applicazione. Il primo aspetto e l'usabilità: l'utente deve poter comprendere gli strumenti disponibili, interagire con il canvas e ricevere feedback chiari. Un'interfaccia poco leggibile rischierebbe di spostare l'attenzione dai concetti di progettazione ai problemi di utilizzo dello strumento.
 
 La leggibilità grafica è un requisito altrettanto importante. Diagrammi con label sovrapposte, collegamenti poco chiari o spazi vuoti eccessivi negli export risultano meno utili in un contesto didattico. Per questo motivo il progetto presta attenzione a layout, routing, bounding box, gestione degli sfondi e resa degli output.
 
@@ -119,28 +139,33 @@ Altri requisiti riguardano stabilità, compatibilità, responsive, manutenibilit
 
 Il progetto è sviluppato con TypeScript, React e Vite. TypeScript consente di definire in modo esplicito le strutture dati dell'applicazione, come nodi, collegamenti, diagrammi, modelli logici, tabelle e file progetto. Questo è particolarmente utile in un'applicazione che manipola dati complessi e deve mantenere coerenza tra rappresentazione grafica, serializzazione e traduzione logica.
 
-React è utilizzato per costruire l'interfaccia utente attraverso componenti. Header, toolbar, canvas, pannelli, modali, loading screen, workspace di traduzione e vista logica sono organizzati in moduli distinti. Vite fornisce l'ambiente di sviluppo, il dev server e la build della single-page application.
+React è utilizzato per costruire l'interfaccia utente attraverso componenti. Header, toolbar, canvas, pannelli, modali, loading screen, workspace di traduzione e vista logica sono organizzati in moduli distinti. Vite fornisce l'ambiente di sviluppo, il dev server è la build della single-page application.
 
 Il canvas usa SVG, tecnologia adatta alla rappresentazione di diagrammi vettoriali. Gli stili sono gestiti tramite CSS, mentre la libreria \texttt{lucide-react} supporta il sistema di icone dell'interfaccia. Per la verifica del progetto sono usati \texttt{tsx}, per i test TypeScript, e Playwright, per i test end-to-end nel browser.
 
-\noindent\begin{tabularx}{\textwidth}{>{\bfseries}p{3.5cm}X}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.2cm}X}
+\toprule
 Tecnologia & Ruolo nel progetto \\
-\hline
+\midrule
 TypeScript & Tipizzazione del dominio applicativo, dei modelli ER/logici e delle funzioni di trasformazione. \\
 React & Realizzazione dell'interfaccia utente e dei workspace interattivi. \\
 Vite & Dev server, build e preview dell'applicazione web. \\
 CSS & Layout, responsive, pannelli, modali, toolbar e stile del canvas. \\
-SVG & Rendering vettoriale di diagrammi, nodi, collegamenti e label. \\
+SVG & Rendering vettoriale di diagrammi, nodi, collegamenti è label. \\
 npm & Gestione delle dipendenze e degli script di sviluppo, test e build. \\
 \texttt{tsx} & Esecuzione dei test TypeScript. \\
 Playwright & Test end-to-end dei flussi principali nel browser. \\
 Git/GitHub & Versionamento del progetto e organizzazione del repository. \\
-GitHub Actions & Automazione della build e del deploy. \\
-GitHub Pages & Pubblicazione della build statica. \\
+GitHub Actions e Pages & Automazione della build e pubblicazione della build statica. \\
 \texttt{lucide-react} & Icone dell'interfaccia. \\
+\bottomrule
 \end{tabularx}
+\end{table}
 
-L'insieme di queste tecnologie ha permesso di realizzare un'applicazione interattiva, modulare e verificabile. L'uso di strumenti moderni ha inoltre favorito un'organizzazione più chiara del codice e una maggiore attenzione alla qualità del processo di sviluppo.
+L'insieme di queste tecnologie ha permesso di realizzare un'applicazione interattiva, modulare e verificabile. L'uso di strumenti moderni ha inoltre favorito un'organizzazione più chiara del codice è una maggiore attenzione alla qualità del processo di sviluppo.
 
 \chapter{Architettura e progettazione}
 
@@ -162,29 +187,33 @@ Traduzione logica
 Esportazione / salvataggio
 \end{verbatim}
 
-Questa organizzazione rende più chiara la separazione tra interfaccia, stato, modello dati, traduzione ed export. La centralità dei tipi TypeScript permette di descrivere il dominio applicativo in modo coerente, mentre la presenza di utility pure facilita la scrittura dei test. La compatibilità dei file salvati e il ripristino della sessione sono aspetti progettuali importanti, perché consentono all'utente di proseguire il lavoro nel tempo.
+Questa organizzazione rende più chiara la separazione tra interfaccia, stato, modello dati, traduzione ed export. La centralità dei tipi TypeScript permette di descrivere il dominio applicativo in modo coerente, mentre la presenza di utility pure facilita la scrittura dei test. La compatibilità dei file salvati è il ripristino della sessione sono aspetti progettuali importanti, perché consentono all'utente di proseguire il lavoro nel tempo.
 
-\chapter{Funzionalità sviluppate e consolidate}
+\chapter{Funzionalita sviluppate e consolidate}
 
 \section{Editor ER}
 
-L'editor ER rappresenta il nucleo dell'applicazione. L'utente può creare entità, relazioni e attributi, collegarli tra loro, indicare cardinalità e modellare vincoli. Il canvas supporta selezione, spostamento, zoom, pan, duplicazione, allineamento e undo/redo. Queste funzionalità rendono l'ambiente adatto alla costruzione progressiva di schemi anche complessi.
+L'editor ER rappresenta il nucleo dell'applicazione. L'utente può creare entità, relazioni e attributi, collegarli tra loro, indicare cardinalità e modellare vincoli. Il canvas supporta selezione, spostamento, zoom, pan, duplicazione, allineamento è undo/redo. Queste funzionalità rendono l'ambiente adatto alla costruzione progressiva di schemi anche complessi.
 
-Particolare attenzione è stata posta alla gestione grafica degli elementi. La disposizione degli attributi, il posizionamento delle label e il routing dei collegamenti incidono direttamente sulla leggibilità dello schema. Il progetto include quindi logiche dedicate a layout, collision avoidance e stabilità della geometria.
+Particolare attenzione è stata posta alla gestione grafica degli elementi. La disposizione degli attributi, il posizionamento delle label è il routing dei collegamenti incidono direttamente sulla leggibilità dello schema. Il progetto include quindi logiche dedicate a layout, collision avoidance e stabilità della geometria.
 
-Gli identificatori interni, esterni e misti costituiscono una parte rilevante del lavoro. La loro corretta gestione è fondamentale perché incide sia sulla validità dello schema ER sia sulla successiva traduzione verso il modello logico. Anche le generalizzazioni ISA sono supportate con vincoli specifici, come total/partial e disjoint/overlap.
+\section{Identificatori, vincoli e generalizzazioni}
+
+Gli identificatori interni, esterni e misti costituiscono una parte rilevante del lavoro. La loro corretta gestione è fondamentale perché incide sia sulla validità dello schema ER sia sulla successiva traduzione verso il modello logico. Il progetto considera anche chiavi candidate e vincoli associati alle entità.
+
+Le generalizzazioni ISA sono supportate con vincoli specifici, come total/partial e disjoint/overlap. La loro presenza rende il modello concettuale più espressivo, ma richiede anche una gestione attenta nella fase di traduzione, poiché diverse strategie possono portare a schemi logici differenti.
 
 \section{Traduzione verso lo schema logico}
 
 La traduzione verso lo schema logico è organizzata come processo guidato. Il sistema non si limita a convertire immediatamente il diagramma, ma prevede una pipeline ER--ER per risolvere strutture come generalizzazioni e attributi composti. Successivamente, il workspace logico permette di costruire il modello relazionale attraverso decisioni più esplicite.
 
-Il modello logico comprende tabelle, colonne, chiavi primarie, chiavi esterne e vincoli. In presenza di più identificatori candidati, l'applicazione prevede una scelta esplicita della chiave primaria, rendendo visibile una decisione progettuale importante. Questo comportamento è particolarmente utile in un contesto didattico, perché aiuta a comprendere che la traduzione non è sempre un processo meccanico.
+Il modello logico comprende tabelle, colonne, chiavi primarie, chiavi esterne e vincoli. In presenza di più identificatori candidati, l'applicazione prevede una scelta esplicita della chiave primaria, rendendo visibile una decisione progettuale importante. Questo comportamento è particolarmente utile in un contesto didattico, perché aiuta a comprendere che la traduzione non e sempre un processo meccanico.
 
 \section{Esportazione, salvataggio e caricamento}
 
 \builder{} supporta l'esportazione in PNG, SVG e JPEG. Il changelog documenta miglioramenti specifici relativi a bounding box reale dello schema, riduzione dello spazio vuoto, sfondo trasparente per PNG e SVG, sfondo bianco per JPEG e conservazione degli stili nello SVG standalone. Queste caratteristiche rendono gli output più adatti all'uso in documenti e presentazioni.
 
-Il salvataggio avviene tramite formato \texttt{.ersp}, che conserva diagramma ER, workspace di traduzione, workspace logico, vista corrente, viewport e metadati. La compatibilità con file legacy e il ripristino della sessione mostrano attenzione alla continuità del lavoro dell'utente.
+Il salvataggio avviene tramite formato \texttt{.ersp}, che conserva diagramma ER, workspace di traduzione, workspace logico, vista corrente, viewport e metadati. La compatibilità con file legacy è il ripristino della sessione mostrano attenzione alla continuità del lavoro dell'utente.
 
 \section{Interfaccia e localizzazione}
 
@@ -192,23 +221,30 @@ L'interfaccia include toolbar, pannelli, modali, command menu, loading screen e 
 
 La localizzazione in italiano, inglese e albanese è integrata nell'applicazione tramite dizionari e selettore lingua. Questa funzionalità amplia l'accessibilità dello strumento e rafforza il suo possibile uso didattico in contesti diversi.
 
+% TODO: Inserire screenshot della vista logica o dell'export, se utile.
+
 \chapter{Test, verifica e miglioramenti}
 
 La qualità di \builder{} è stata verificata tramite test unitari, test di integrazione e test end-to-end. I test nella cartella \texttt{test/} coprono parser ERS, serializzazione, traduzione ER, traduzione logica, identificatori, layout, export, file progetto, SQL reverse, localizzazione e sessione. I test Playwright nella cartella \texttt{tests/e2e/} verificano flussi reali nel browser, come loading screen e cambio lingua.
 
-\noindent\begin{tabularx}{\textwidth}{>{\bfseries}p{4cm}p{4cm}X}
+\begin{table}[htbp]
+\centering
+\scriptsize
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.2cm}p{3.4cm}X}
+\toprule
 Area testata & Tipo di verifica & Scopo \\
-\hline
+\midrule
 Parsing e serializzazione ERS & Test unitari e di integrazione & Verificare la coerenza tra rappresentazione testuale e diagramma. \\
 Formato \texttt{.ersp} & Test di integrazione & Controllare salvataggio, caricamento, compatibilità e migrazione legacy. \\
 Traduzione ER--ER & Test unitari & Verificare generalizzazioni, attributi composti e decisioni di traduzione. \\
 Vista logica & Test unitari e di integrazione & Controllare tabelle, chiavi, foreign key, vincoli e workflow manuale. \\
 Export & Test unitari & Verificare PNG, SVG, JPEG, sfondi, bounds e stili. \\
-Layout & Test unitari & Evitare sovrapposizioni di attributi, cardinalità, edge label e label FK. \\
-SQL reverse & Test unitari e di integrazione & Controllare parser SQL, modello logico, diagramma ER e layout generato. \\
+Layout & Test unitari & Evitare sovrapposizioni di attributi, cardinalità, edge label è label FK. \\
+SQL reverse & Test unitari e di integrazione & Controllare parser SQL, modello logico, diagramma ER è layout generato. \\
 Localizzazione & Test unitari ed E2E & Verificare dizionari, selettore lingua e testi dell'interfaccia. \\
-Sessione workspace & Test unitari & Controllare ripristino, sanitizzazione e compatibilità dei dati salvati. \\
+\bottomrule
 \end{tabularx}
+\end{table}
 
 I miglioramenti introdotti hanno riguardato in particolare layout, label, export, sfondi, compatibilità dei salvataggi, responsive, localizzazione e stabilità. In diversi casi, la correzione di un problema è stata accompagnata dall'aggiunta di test, in modo da ridurre il rischio di regressioni.
 
@@ -218,19 +254,24 @@ Dal punto di vista del tirocinio, questa attività ha permesso di comprendere me
 
 La Prof.ssa Alessandra Lumini ha svolto il ruolo di tutor del tirocinio, supervisionando il percorso e fornendo indicazioni utili per orientare il lavoro. Il suo contributo ha aiutato a mantenere l'attenzione non solo sulla realizzazione tecnica, ma anche sulla chiarezza concettuale, sulla correttezza degli schemi, sulla leggibilità grafica e sull'utilità didattica dello strumento.
 
-Le indicazioni della tutor hanno contribuito a definire le priorità del progetto. In particolare, hanno favorito un'attenzione costante alla coerenza tra schema ER e schema logico, alla semplicità dell'interfaccia e alla necessità di mantenere il codice organizzato e verificabile. Non si tratta di citazioni dirette, ma di una sintesi prudente del ruolo di supervisione svolto durante il tirocinio.
+Le indicazioni della tutor hanno contribuito a definire le priorità del progetto. In particolare, hanno favorito un'attenzione costante alla coerenza tra schema ER e schema logico, alla semplicità dell'interfaccia e alla necessità di mantenere il codice organizzato e verificabile. Non vengono riportate citazioni dirette; il riferimento alla tutor è formulato come sintesi del ruolo di supervisione svolto durante il tirocinio.
 
-\noindent\begin{tabularx}{\textwidth}{>{\bfseries}p{4cm}X}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.8cm}X}
+\toprule
 Aspetto supervisionato & Effetto sul lavoro \\
-\hline
+\midrule
 Chiarezza concettuale & Maggiore attenzione al significato degli elementi ER e alla loro trasformazione logica. \\
 Correttezza degli schemi & Controllo di entità, relazioni, cardinalità, identificatori e generalizzazioni. \\
-Leggibilità grafica & Cura di layout, label, collegamenti e output esportati. \\
-Usabilità & Miglioramento di toolbar, pannelli, modali, flussi utente e responsive. \\
+Leggibilita grafica & Cura di layout, label, collegamenti e output esportati. \\
+Usabilita & Miglioramento di toolbar, pannelli, modali, flussi utente e responsive. \\
 Valore didattico & Collegamento tra funzionalità tecniche e comprensione della progettazione di basi di dati. \\
-Manutenibilità & Separazione tra interfaccia e logica di dominio, uso di tipi condivisi e test. \\
-Revisione progressiva & Consolidamento incrementale del progetto e maggiore attenzione alla qualità complessiva. \\
+Manutenibilita & Separazione tra interfaccia e logica di dominio, uso di tipi condivisi e test. \\
+\bottomrule
 \end{tabularx}
+\end{table}
 
 \section{Competenze tecniche}
 
@@ -242,44 +283,26 @@ Sul piano metodologico, il lavoro ha richiesto autonomia, problem solving, piani
 
 \chapter{Conclusioni e sviluppi futuri}
 
-Il tirocinio ha portato alla preparazione e al consolidamento di un progetto web articolato, capace di supportare diverse fasi della progettazione di basi di dati. \builder{} integra editor ER, vista logica, esportazione, salvataggio, localizzazione, test e funzionalità di reverse engineering SQL. Questi risultati mostrano un'evoluzione significativa dello strumento e ne confermano il possibile valore didattico.
+Il tirocinio ha portato al consolidamento di un progetto web articolato, capace di supportare diverse fasi della progettazione di basi di dati. \builder{} integra editor ER, vista logica, esportazione, salvataggio, localizzazione, test e funzionalità di reverse engineering SQL. Questi risultati mostrano un'evoluzione significativa dello strumento e ne confermano il possibile valore didattico.
 
 L'esperienza ha avuto anche un valore formativo rilevante. Il progetto ha richiesto di lavorare su un'applicazione reale, con molte parti interdipendenti, e di collegare le scelte tecniche agli obiettivi di chiarezza, correttezza e usabilità. La supervisione della Prof.ssa Alessandra Lumini ha contribuito a mantenere questo orientamento, aiutando a considerare il software non solo come prodotto tecnico, ma come strumento di apprendimento.
 
-Restano alcuni limiti realistici. Il layout automatico può essere ulteriormente migliorato per schemi molto grandi o densi. Il parser SQL, pur utile, non mira a coprire l'intera grammatica dei diversi dialetti. L'accessibilità e la documentazione utente possono essere ampliate, così come i test end-to-end. Inoltre, funzionalità collaborative online non risultano presenti e potrebbero rappresentare un'evoluzione futura.
+Restano alcuni limiti realistici. Il layout automatico può essere ulteriormente migliorato per schemi molto grandi o densi. Il parser SQL, pur utile, non mira a coprire l'intera grammatica dei diversi dialetti. L'accessibilità è la documentazione utente possono essere ampliate, così come i test end-to-end. Inoltre, funzionalità collaborative online non risultano presenti e potrebbero rappresentare un'evoluzione futura.
 
-Tra gli sviluppi futuri si possono indicare l'introduzione di esempi didattici integrati, una guida utente più completa, il miglioramento dell'accessibilità, l'ampliamento dei costrutti EER, il rafforzamento del parser SQL, ulteriori test e un layout automatico ancora più robusto. Un possibile sviluppo più avanzato potrebbe riguardare la collaborazione online, utile in scenari di revisione o esercitazione condivisa.
+Tra gli sviluppi futuri si possono indicare l'introduzione di esempi didattici integrati, una guida utente più completa, il miglioramento dell'accessibilità, l'ampliamento dei costrutti EER, il rafforzamento del parser SQL, ulteriori test è un layout automatico ancora più robusto. Un possibile sviluppo più avanzato potrebbe riguardare la collaborazione online, utile in scenari di revisione o esercitazione condivisa.
 
 In conclusione, il tirocinio ha permesso di consolidare competenze tecniche e metodologiche, affrontando un progetto significativo per la progettazione di basi di dati. Il lavoro svolto ha richiesto attenzione alla qualità del codice, alla correttezza dei modelli, alla chiarezza dell'interfaccia e alla verifica delle funzionalità. Per questo motivo, l'esperienza rappresenta un passaggio importante nel percorso formativo universitario e nella maturazione di un approccio più consapevole allo sviluppo software.
 
-\appendix
-\chapter{Dati da completare prima della consegna}
-
-\begin{itemize}
-    \item \placeholder{Nome e cognome studente}.
-    \item \placeholder{Matricola da completare}.
-    \item \placeholder{Corso di laurea da completare}.
-    \item \placeholder{Anno accademico da completare}.
-    \item \placeholder{Periodo del tirocinio da completare}.
-    \item \placeholder{Ore/CFU da completare}.
-    \item \placeholder{Struttura ospitante da completare}.
-    \item \placeholder{Link repository o sito pubblicato da completare}.
-    \item Eventuali screenshot dell'interfaccia, dello schema ER, della vista logica e dell'export.
-\end{itemize}
+\nocite{chen1976er}
+\nocite{elmasri_navath_database}
+\nocite{react_docs}
+\nocite{typescript_docs}
+\nocite{vite_docs}
+\nocite{playwright_docs}
 
 \cleardoublepage
-
-\chapter*{Bibliografia e sitografia}
-\addcontentsline{toc}{chapter}{Bibliografia e sitografia}
-
-\begin{itemize}
-    \item Peter P. Chen, \textit{The Entity-Relationship Model: Toward a Unified View of Data}, ACM Transactions on Database Systems, 1976.
-    \item Ramez Elmasri, Shamkant B. Navathe, \textit{Fundamentals of Database Systems}, Pearson.
-    \item Documentazione ufficiale React: \url{https://react.dev/}.
-    \item Documentazione ufficiale TypeScript: \url{https://www.typescriptlang.org/docs/}.
-    \item Documentazione ufficiale Vite: \url{https://vite.dev/guide/}.
-    \item Documentazione ufficiale Playwright: \url{https://playwright.dev/}.
-    \item Repository o sito del progetto \builder: \placeholder{Link da completare}.
-\end{itemize}
+\bookmarksetup{startatroot}
+\printbibliography[heading=bibintoc,title={Bibliografia e sitografia}]
 
 \end{document}
+
