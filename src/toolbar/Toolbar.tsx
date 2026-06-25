@@ -450,20 +450,16 @@ export function Toolbar(props: ToolbarProps) {
       ? undefined
       : t("toolbar.commands.simpleId.titleUnavailable");
     detailCommands = [
-      ...(selectedAttribute.isMultivalued !== true
-        ? [
-            {
-              key: "subattribute",
-              label: t("toolbar.commands.subattribute.label"),
-              icon: <StudioIcon name="attribute" />,
-              onClick: props.onCreateAttributeForSelection,
-              disabled: !canEdit || !selectedAttributeCanCreateSubattribute,
-              title: selectedAttributeCanCreateSubattribute
-                ? undefined
-                : t("toolbar.commands.subattribute.titleUnavailable"),
-            } satisfies ToolbarCommand,
-          ]
-        : []),
+      {
+        key: "subattribute",
+        label: t("toolbar.commands.subattribute.label"),
+        icon: <StudioIcon name="attribute" />,
+        onClick: props.onCreateAttributeForSelection,
+        disabled: !canEdit || !selectedAttributeCanCreateSubattribute,
+        title: selectedAttributeCanCreateSubattribute
+          ? undefined
+          : t("toolbar.commands.subattribute.titleUnavailable"),
+      },
       ...(hasSelectedSimpleIdentifier
         ? []
         : [

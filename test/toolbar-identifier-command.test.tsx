@@ -116,3 +116,52 @@ test("simple id command is visible for a normal directly connected attribute", (
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
+test("subattribute command is visible for a simple directly connected attribute", () => {
+  setCurrentLocale("en");
+  const selectedAttribute = attribute({ isMultivalued: false });
+  const diagram = diagramWithAttribute(selectedAttribute);
+
+  const markup = renderToolbar(diagram, { nodeIds: [selectedAttribute.id], edgeIds: [] }, selectedAttribute);
+
+  assert.match(markup, />Subattribute</);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("subattribute command remains visible for an existing composite attribute", () => {
+  setCurrentLocale("en");
+  const selectedAttribute = attribute({ isMultivalued: true });
+  const childAttribute = attribute({
+    id: "attr-child-1",
+    label: "ATTRIBUTO2",
+    x: 120,
+    y: 280,
+    width: 140,
+    height: 36,
+  });
+  const entityNode = entity();
+  const diagram: DiagramDocument = {
+    meta: { name: "Composite attribute", version: 1 },
+    notes: "",
+    nodes: [entityNode, selectedAttribute, childAttribute],
+    edges: [
+      { id: "edge-1", type: "attribute", sourceId: entityNode.id, targetId: selectedAttribute.id, label: "", lineStyle: "solid" },
+      {
+        id: "edge-2",
+        type: "attribute",
+        sourceId: childAttribute.id,
+        targetId: selectedAttribute.id,
+        label: "",
+        lineStyle: "solid",
+      },
+    ],
+  };
+
+  const markup = renderToolbar(diagram, { nodeIds: [selectedAttribute.id], edgeIds: [] }, selectedAttribute);
+  const subattributeButton = markup.match(/<button[^>]*title="Subattribute"[\s\S]*?<\/button>/)?.[0];
+
+  assert.match(markup, />Subattribute</);
+  assert.ok(subattributeButton);
+  assert.doesNotMatch(subattributeButton, /disabled/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+

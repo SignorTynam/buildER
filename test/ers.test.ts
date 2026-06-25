@@ -6,6 +6,7 @@ import {
   assignInheritanceEdgeToGeneralizationGroup,
   assignInheritanceConstraintToGroup,
   canAttributeBecomeComposite,
+  createEdge,
   cleanupGeneralizationReferences,
   createGeneralizationGroupForInheritanceEdge,
   getPreferredNodeSizeForLabel,
@@ -411,6 +412,31 @@ test("un attributo figlio di un attributo composto non puo diventare composto", 
   assert.equal(compositeRoot?.type === "attribute" && canAttributeBecomeComposite(diagram, compositeRoot), true);
   assert.equal(compositeChild?.type === "attribute" && canAttributeBecomeComposite(diagram, compositeChild), false);
   assert.equal(directAttribute?.type === "attribute" && canAttributeBecomeComposite(diagram, directAttribute), true);
+
+  assert.ok(compositeRoot?.type === "attribute");
+  const secondChild: Extract<DiagramNode, { type: "attribute" }> = {
+    id: "attr-cabina-2",
+    type: "attribute",
+    label: "ATTRIBUTO2",
+    x: 420,
+    y: 80,
+    width: 120,
+    height: 28,
+  };
+  const diagramWithSecondChild: DiagramDocument = {
+    ...diagram,
+    nodes: [...diagram.nodes, secondChild],
+    edges: [...diagram.edges, createEdge("attribute", secondChild.id, compositeRoot.id, diagram)],
+  };
+  const compositeChildren = diagramWithSecondChild.edges.filter(
+    (edge) =>
+      edge.type === "attribute" &&
+      (edge.sourceId === compositeRoot.id || edge.targetId === compositeRoot.id) &&
+      (edge.sourceId === secondChild.id || edge.targetId === secondChild.id || edge.id === "edge-cabine-cabina"),
+  );
+
+  assert.equal(canAttributeBecomeComposite(diagramWithSecondChild, compositeRoot), true);
+  assert.equal(compositeChildren.length, 2);
 });
 
 test("la serializzazione ERS usa il nome corrente della shape invece dell'id legacy", () => {
