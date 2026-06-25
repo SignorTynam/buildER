@@ -10,10 +10,10 @@ import type {
 } from "../src/types/diagram.ts";
 import {
   buildAttributeLayoutBounds,
+  FIXED_ATTRIBUTE_MARKER_GAP,
   getAttributeMarkerCenter,
   getDirectAttributeLayoutSide,
 } from "../src/utils/attributeLayout.ts";
-import { boundsIntersect } from "../src/utils/edgeLabelLayout.ts";
 import { perimeterDistance } from "../src/utils/sqlReverseAttributeLayout.ts";
 import { reverseSqlToDiagram } from "../src/utils/sqlReverseDiagram.ts";
 
@@ -78,57 +78,27 @@ function attributeLayoutBounds(
   return buildAttributeLayoutBounds(owner, attribute);
 }
 
-export function assertNoGeneratedAttributeCollisions(diagram: DiagramDocument, padding = 8): void {
+export function assertGeneratedAttributesHaveOwnersAndBounds(diagram: DiagramDocument): void {
   const attributes = nodesByType(diagram, "attribute");
-  const entities = nodesByType(diagram, "entity");
-  const relationships = nodesByType(diagram, "relationship");
 
-  attributes.forEach((attribute, index) => {
+  attributes.forEach((attribute) => {
     const owner = findAttributeOwner(diagram, attribute.id);
     assert.ok(owner, `${attribute.label} has no owner`);
     const attributeBounds = attributeLayoutBounds(diagram, attribute);
     assert.ok(attributeBounds, `${attribute.label} has no layout bounds`);
+    assert.ok(attributeBounds.width > 0, `${attribute.label} has invalid layout width`);
+    assert.ok(attributeBounds.height > 0, `${attribute.label} has invalid layout height`);
+  });
+}
 
-    assert.equal(
-      boundsIntersect(attributeBounds, getBounds(owner)),
-      false,
-      `${attribute.label} overlaps owner ${owner.label}`,
+export function assertFixedGeneratedAttributeDistances(diagram: DiagramDocument): void {
+  nodesByType(diagram, "attribute").forEach((attribute) => {
+    const owner = findAttributeOwner(diagram, attribute.id);
+    assert.ok(owner, `${attribute.label} has no owner`);
+    assert.ok(
+      Math.abs(perimeterDistance(owner, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+      `${attribute.label} is not at the fixed marker gap`,
     );
-
-    entities.forEach((entity) => {
-      if (entity.id === owner.id) {
-        return;
-      }
-      assert.equal(
-        boundsIntersect(attributeBounds, getBounds(entity)),
-        false,
-        `${attribute.label} overlaps entity ${entity.label}`,
-      );
-    });
-
-    relationships.forEach((relationship) => {
-      if (relationship.id === owner.id) {
-        return;
-      }
-      assert.equal(
-        boundsIntersect(attributeBounds, getBounds(relationship)),
-        false,
-        `${attribute.label} overlaps relationship ${relationship.label}`,
-      );
-    });
-
-    attributes.slice(index + 1).forEach((other) => {
-      const otherOwner = findAttributeOwner(diagram, other.id);
-      const otherBounds = attributeLayoutBounds(diagram, other);
-      assert.ok(otherBounds, `${other.label} has no layout bounds`);
-      if (otherOwner?.id === owner.id) {
-        assert.equal(
-          boundsIntersect(attributeBounds, otherBounds),
-          false,
-          `${attribute.label} overlaps sibling attribute ${other.label}`,
-        );
-      }
-    });
   });
 }
 
@@ -317,7 +287,7 @@ function buildLargeUniversitySchemaSql(): string {
   `;
 }
 
-test("sql reverse attribute layout: large university schema stays compact and collision-free", () => {
+test("sql reverse attribute layout: large university schema stays compact and fixed-distance", () => {
   const sql = buildLargeUniversitySchemaSql();
   const first = reverseSqlToDiagram(sql).diagram;
   const second = reverseSqlToDiagram(sql).diagram;
@@ -329,7 +299,8 @@ test("sql reverse attribute layout: large university schema stays compact and co
     assert.equal(node.y > 0, true, `${node.id} y is not positive`);
   });
 
-  assertNoGeneratedAttributeCollisions(first);
+  assertGeneratedAttributesHaveOwnersAndBounds(first);
+  assertFixedGeneratedAttributeDistances(first);
   assertCompactAttributeDistances(first, { maxDistance: 280, averageDistance: 170 });
 
   const firstCoordinates = first.nodes
@@ -368,11 +339,12 @@ test("sql reverse attribute layout: owner with many attributes uses multiple sid
   assert.ok(counts.size >= 3, "expected at least three sides");
   assert.notEqual(counts.get("right"), attributes.length);
   assert.notEqual(counts.get("bottom"), attributes.length);
-  assertNoGeneratedAttributeCollisions(result.diagram);
+  assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
+  assertFixedGeneratedAttributeDistances(result.diagram);
   const distances = attributes.map((attribute) => perimeterDistance(owner, attribute));
-  assert.ok(Math.max(...distances) <= 310, `max distance ${Math.max(...distances)} exceeds 310`);
+  assert.ok(Math.max(...distances) <= FIXED_ATTRIBUTE_MARKER_GAP + 1, `max distance ${Math.max(...distances)} exceeds fixed gap`);
   assert.ok(
-    distances.reduce((sum, distance) => sum + distance, 0) / distances.length <= 170,
+    distances.reduce((sum, distance) => sum + distance, 0) / distances.length <= FIXED_ATTRIBUTE_MARKER_GAP + 1,
     "average distance too high for dense owner",
   );
 });
@@ -433,11 +405,12 @@ test("sql reverse attribute layout: dense foreign key hub keeps central attribut
   });
   const hubDistances = hubAttributes.map((attribute) => perimeterDistance(hub, attribute));
 
-  assert.ok(Math.max(...hubDistances) <= 220);
-  assertNoGeneratedAttributeCollisions(result.diagram);
+  assert.ok(Math.max(...hubDistances) <= FIXED_ATTRIBUTE_MARKER_GAP + 1);
+  assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
+  assertFixedGeneratedAttributeDistances(result.diagram);
 });
 
-test("sql reverse attribute layout: long labels use real bounds without collisions", () => {
+test("sql reverse attribute layout: long labels keep real bounds at fixed distance", () => {
   const result = reverseSqlToDiagram(`
     CREATE TABLE ExtremelyVerboseOperationalAuditTrailEntry (
       extremely_verbose_operational_audit_trail_entry_id INTEGER PRIMARY KEY,
@@ -465,7 +438,8 @@ test("sql reverse attribute layout: long labels use real bounds without collisio
     assert.ok(marker.x > 0 && marker.y > 0);
   });
 
-  assertNoGeneratedAttributeCollisions(result.diagram);
+  assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
+  assertFixedGeneratedAttributeDistances(result.diagram);
   assertCompactAttributeDistances(result.diagram, { maxDistance: 190, averageDistance: 135 });
 });
 
@@ -497,7 +471,8 @@ test("sql reverse attribute layout: single owner with up to ten attributes stays
   const distances = ownerAttributes.map((attribute) => perimeterDistance(owner, attribute));
 
   assert.equal(ownerAttributes.length, 11);
-  assert.ok(Math.max(...distances) <= 190);
-  assert.ok(distances.reduce((sum, distance) => sum + distance, 0) / distances.length <= 135);
-  assertNoGeneratedAttributeCollisions(result.diagram);
+  assert.ok(Math.max(...distances) <= FIXED_ATTRIBUTE_MARKER_GAP + 1);
+  assert.ok(distances.reduce((sum, distance) => sum + distance, 0) / distances.length <= FIXED_ATTRIBUTE_MARKER_GAP + 1);
+  assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
+  assertFixedGeneratedAttributeDistances(result.diagram);
 });

@@ -85,6 +85,13 @@ export function layoutSqlReverseDiagram(
     x: snapValue(node.x, GRID_SIZE),
     y: snapValue(node.y, GRID_SIZE),
   }));
+  const shiftedNodeById = new Map(shiftedNodes.map((node) => [node.id, node]));
+  const shiftedAttributes = shiftedNodes.filter((node): node is AttributeNode => node.type === "attribute");
+  const shiftedOccupied = shiftedNodes
+    .filter((node) => node.type === "entity" || node.type === "relationship")
+    .map(getNodeBounds);
+
+  layoutSqlReverseAttributes(shiftedAttributes, diagram.edges, shiftedNodeById, shiftedOccupied);
 
   return {
     ...diagram,

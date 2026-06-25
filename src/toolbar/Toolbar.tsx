@@ -267,9 +267,8 @@ export function Toolbar(props: ToolbarProps) {
     props.selection.nodeIds.length === 1 &&
     props.selection.edgeIds.length === 0;
   const canCreateAttributeForSelection =
-    canEdit &&
     hasSingleNodeSelection &&
-    props.selectedNode?.type === "entity";
+    (props.selectedNode?.type === "entity" || props.selectedNode?.type === "relationship");
   const canStartConnectorFromSelection = canEdit && hasSingleNodeSelection && props.selectedNode?.type === "relationship";
   const canStartIsaFromSelection = canEdit && hasSingleNodeSelection && props.selectedNode?.type === "entity";
 
@@ -308,6 +307,7 @@ export function Toolbar(props: ToolbarProps) {
             label: t("toolbar.commands.attribute.label"),
             icon: <StudioIcon name="attribute" />,
             onClick: props.onCreateAttributeForSelection,
+            disabled: !canEdit,
             ariaLabel: t("toolbar.commands.attribute.aria"),
           } satisfies ToolbarCommand,
         ]

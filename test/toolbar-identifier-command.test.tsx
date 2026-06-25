@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { DEFAULT_LOCALE, setCurrentLocale } from "../src/i18n/index.ts";
 import { Toolbar, findSimpleInternalIdentifierForAttribute } from "../src/toolbar/Toolbar.tsx";
-import type { AttributeNode, DiagramDocument, EntityNode, SelectionState } from "../src/types/diagram.ts";
+import type { AttributeNode, DiagramDocument, DiagramNode, EditorMode, EntityNode, RelationshipNode, SelectionState } from "../src/types/diagram.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -37,6 +37,19 @@ function attribute(overrides: Partial<AttributeNode> = {}): AttributeNode {
   };
 }
 
+function relationship(overrides: Partial<RelationshipNode> = {}): RelationshipNode {
+  return {
+    id: "relationship-1",
+    type: "relationship",
+    label: "RELAZIONE1",
+    x: 360,
+    y: 100,
+    width: 150,
+    height: 80,
+    ...overrides,
+  };
+}
+
 function diagramWithAttribute(attributeNode: AttributeNode, entityNode: EntityNode = entity()): DiagramDocument {
   return {
     meta: { name: "Test", version: 1 },
@@ -48,14 +61,19 @@ function diagramWithAttribute(attributeNode: AttributeNode, entityNode: EntityNo
   };
 }
 
-function renderToolbar(diagram: DiagramDocument, selection: SelectionState, selectedNode: AttributeNode): string {
+function renderToolbar(
+  diagram: DiagramDocument,
+  selection: SelectionState,
+  selectedNode: DiagramNode,
+  mode: EditorMode | "readonly" = "edit",
+): string {
   return renderToStaticMarkup(
     <I18nProvider>
       <Toolbar
         diagram={diagram}
         selection={selection}
         activeTool="select"
-        mode="edit"
+        mode={mode as EditorMode}
         collapsed={false}
         selectionItemCount={selection.nodeIds.length + selection.edgeIds.length}
         issues={[]}
@@ -162,6 +180,48 @@ test("subattribute command remains visible for an existing composite attribute",
   assert.match(markup, />Subattribute</);
   assert.ok(subattributeButton);
   assert.doesNotMatch(subattributeButton, /disabled/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("attribute command is visible for a selected relationship", () => {
+  setCurrentLocale("en");
+  const selectedRelationship = relationship();
+  const diagram: DiagramDocument = {
+    meta: { name: "Relationship attribute", version: 1 },
+    notes: "",
+    nodes: [selectedRelationship],
+    edges: [],
+  };
+
+  const markup = renderToolbar(diagram, { nodeIds: [selectedRelationship.id], edgeIds: [] }, selectedRelationship);
+  const attributeButton = markup.match(/<button[^>]*title="Attribute"[\s\S]*?<\/button>/)?.[0];
+
+  assert.match(markup, />Attribute</);
+  assert.ok(attributeButton);
+  assert.doesNotMatch(attributeButton, /disabled/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("attribute command for a selected relationship is disabled in read-only mode", () => {
+  setCurrentLocale("en");
+  const selectedRelationship = relationship();
+  const diagram: DiagramDocument = {
+    meta: { name: "Relationship attribute readonly", version: 1 },
+    notes: "",
+    nodes: [selectedRelationship],
+    edges: [],
+  };
+
+  const markup = renderToolbar(
+    diagram,
+    { nodeIds: [selectedRelationship.id], edgeIds: [] },
+    selectedRelationship,
+    "readonly",
+  );
+  const attributeButton = markup.match(/<button[^>]*title="Attribute"[\s\S]*?<\/button>/)?.[0];
+
+  assert.ok(attributeButton);
+  assert.match(attributeButton, /disabled/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 

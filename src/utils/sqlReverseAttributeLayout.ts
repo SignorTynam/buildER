@@ -9,6 +9,9 @@ import type {
 } from "../types/diagram";
 import {
   buildAttributeLayoutBounds,
+  distributeAttributesAroundHost,
+  FIXED_ATTRIBUTE_MARKER_GAP,
+  getAttributeMarkerCenter,
   getDirectAttributeLayoutSide,
   placeAttributeMarker,
   type AttributeLayoutSide,
@@ -60,7 +63,7 @@ interface PlacementState {
 type AttributeOwner = EntityNode | RelationshipNode;
 
 const DEFAULT_OPTIONS: ResolvedSqlReverseAttributeLayoutOptions = {
-  markerGap: 52,
+  markerGap: FIXED_ATTRIBUTE_MARKER_GAP,
   ringGap: 48,
   collisionPadding: 12,
   horizontalSpacing: 0,
@@ -75,11 +78,10 @@ const BACKTRACKING_ATTRIBUTE_LIMIT = 6;
 const BACKTRACKING_MAX_CANDIDATES = 8;
 
 export function perimeterDistance(owner: AttributeOwner, attribute: AttributeNode): number {
-  const bounds = buildAttributeLayoutBounds(owner, attribute, 0);
-  return rectangleGapDistance(
-    { x: owner.x, y: owner.y, width: owner.width, height: owner.height },
-    bounds,
-  );
+  const marker = getAttributeMarkerCenter(attribute);
+  const clampedX = Math.min(Math.max(marker.x, owner.x), owner.x + owner.width);
+  const clampedY = Math.min(Math.max(marker.y, owner.y), owner.y + owner.height);
+  return Math.hypot(marker.x - clampedX, marker.y - clampedY);
 }
 
 function rectangleGapDistance(left: Bounds, right: Bounds): number {
@@ -199,35 +201,17 @@ function sortAttributesForOwner(attributes: AttributeNode[]): AttributeNode[] {
 function layoutAttributesForOwner(
   owner: AttributeOwner,
   attributes: AttributeNode[],
-  occupied: LayoutBounds[],
+  _occupied: LayoutBounds[],
   options: ResolvedSqlReverseAttributeLayoutOptions,
 ): AttributeNode[] {
   if (attributes.length === 0) {
     return [];
   }
 
-  const sharedSlots = generateCandidateSlots(owner, attributes, options);
-  const candidatesPerAttribute = attributes.map((attribute) =>
-    pickTopCandidates(owner, attribute, sharedSlots, occupied, options),
-  );
-
-  if (attributes.length <= BACKTRACKING_ATTRIBUTE_LIMIT) {
-    const limitedCandidates = candidatesPerAttribute.map((candidates) =>
-      candidates.slice(0, BACKTRACKING_MAX_CANDIDATES),
-    );
-    const backtrackingResult = backtrackingPlacement(
-      owner,
-      attributes,
-      limitedCandidates,
-      occupied,
-      options,
-    );
-    if (backtrackingResult) {
-      return backtrackingResult;
-    }
-  }
-
-  return beamSearchPlacement(owner, attributes, candidatesPerAttribute, occupied, options);
+  return distributeAttributesAroundHost(owner, attributes, {
+    markerGap: options.markerGap,
+    preserveInputOrder: true,
+  });
 }
 
 function pickTopCandidates(

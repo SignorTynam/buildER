@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { DiagramDocument, DiagramNode } from "../src/types/diagram.ts";
+import { FIXED_ATTRIBUTE_MARKER_GAP, getAttributeMarkerCenter } from "../src/utils/attributeLayout.ts";
 import { reverseSqlToDiagram } from "../src/utils/sqlReverseDiagram.ts";
 
 interface TestBounds {
@@ -52,6 +53,13 @@ function attributeOwnerId(diagram: DiagramDocument, attributeId: string): string
   return diagram.edges.find((edge) => {
     return edge.type === "attribute" && (edge.sourceId === attributeId || edge.targetId === attributeId);
   })?.sourceId;
+}
+
+function markerDistanceFromOwner(owner: DiagramNode, attribute: Extract<DiagramNode, { type: "attribute" }>): number {
+  const marker = getAttributeMarkerCenter(attribute);
+  const clampedX = Math.min(Math.max(marker.x, owner.x), owner.x + owner.width);
+  const clampedY = Math.min(Math.max(marker.y, owner.y), owner.y + owner.height);
+  return Math.hypot(marker.x - clampedX, marker.y - clampedY);
 }
 
 function assertValidEdges(diagram: DiagramDocument): void {
@@ -109,7 +117,7 @@ test("sql reverse layout: entities do not overlap", () => {
   });
 });
 
-test("sql reverse layout: attributes do not overlap their owner", () => {
+test("sql reverse layout: attributes keep fixed marker distance from their owner", () => {
   const result = reverseSqlToDiagram(`
     CREATE TABLE WideTable (
       id INTEGER PRIMARY KEY,
@@ -130,7 +138,10 @@ test("sql reverse layout: attributes do not overlap their owner", () => {
 
   nodesByType(result.diagram, "attribute").forEach((attribute) => {
     if (attributeOwnerId(result.diagram, attribute.id) === owner.id) {
-      assert.equal(overlaps(getBounds(attribute), getBounds(owner), 12), false, `${attribute.label} overlaps owner`);
+      assert.ok(
+        Math.abs(markerDistanceFromOwner(owner, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+        `${attribute.label} is not at the fixed marker gap`,
+      );
     }
   });
 });
@@ -269,7 +280,7 @@ test("sql reverse layout: large ten-table chain has finite deterministic coordin
   assertValidEdges(first);
 });
 
-test("sql reverse layout: long labels resize nodes and keep direct attributes separated", () => {
+test("sql reverse layout: long labels resize nodes and keep direct attributes at fixed distance", () => {
   const result = reverseSqlToDiagram(`
     CREATE TABLE ExtremelyVerboseOperationalAuditTrailEntry (
       extremely_verbose_operational_audit_trail_entry_id INTEGER PRIMARY KEY,
@@ -288,10 +299,12 @@ test("sql reverse layout: long labels resize nodes and keep direct attributes se
   assert.ok(idAttribute);
   assert.equal(entity.width > 140, true);
   assert.equal(idAttribute.width > 112, true);
-  directAttributes.forEach((attribute, index) => {
-    assert.equal(overlaps(getBounds(attribute), getBounds(entity), 12), false, `${attribute.label} overlaps entity`);
-    directAttributes.slice(index + 1).forEach((other) => {
-      assert.equal(overlaps(getBounds(attribute), getBounds(other), 12), false, `${attribute.label} overlaps ${other.label}`);
-    });
+  directAttributes.forEach((attribute) => {
+    assert.ok(
+      Math.abs(markerDistanceFromOwner(entity, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+      `${attribute.label} is not at the fixed marker gap`,
+    );
+    assert.equal(Number.isFinite(attribute.x), true);
+    assert.equal(Number.isFinite(attribute.y), true);
   });
 });
