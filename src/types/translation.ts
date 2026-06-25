@@ -12,7 +12,9 @@ export type ErTranslationRuleKind =
   | "generalization-collapse-down"
   | "generalization-substitution"
   | "composite-split"
-  | "composite-merge";
+  | "composite-merge"
+  | "simple-multivalued-unique"
+  | "simple-multivalued-shared";
 
 export interface ErTranslationChoice {
   id: string;

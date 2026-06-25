@@ -8,6 +8,7 @@ import {
   applyCompositeAttributeTranslation,
   applyErTranslationChoice,
   applyGeneralizationTranslation,
+  applySimpleMultivaluedAttributeTranslation,
   buildErTranslationOverview,
   canOpenLogicalView,
   createEmptyErTranslationWorkspace,
@@ -148,6 +149,37 @@ function assertSubstitutionRelationship(diagram: DiagramDocument, subtypeId: str
   assert.equal(externalIdentifiers[0].importedParts[0].sourceEntityId, "ENTITY1");
   assert.equal(externalIdentifiers[0].importedParts[0].importedIdentifierId, "ENTITY1-pk");
   assert.deepEqual(externalIdentifiers[0].localAttributeIds, []);
+}
+
+function assertSimpleMultivaluedFix(
+  diagram: DiagramDocument,
+  attributeLabel: string,
+  ownerCardinality: string,
+  attributeEntityCardinality: string,
+) {
+  const attributeEntityLabel = attributeLabel.toUpperCase();
+  const relationshipLabel = `HAS_${attributeEntityLabel}`;
+  const attributeEntity = diagram.nodes.find(
+    (node): node is EntityNode => node.type === "entity" && node.label === attributeEntityLabel,
+  );
+  assert.ok(attributeEntity, `missing entity ${attributeEntityLabel}`);
+
+  const relationship = getRelationshipByLabel(diagram, relationshipLabel);
+  const directOwnerAttributes = getDirectEntityAttributes(diagram, "ENTITY1").map((attribute) => attribute.label);
+  assert.equal(directOwnerAttributes.includes(attributeLabel), false);
+  assert.equal(directOwnerAttributes.includes("Attribute2"), true);
+  assert.equal(directOwnerAttributes.includes("Attribute5"), true);
+
+  const keyAttribute = getDirectEntityAttributes(diagram, attributeEntity.id).find(
+    (attribute) => attribute.label === attributeLabel,
+  );
+  assert.ok(keyAttribute, `missing key attribute ${attributeLabel}`);
+  assert.equal(keyAttribute.isIdentifier, true);
+  assert.equal(keyAttribute.cardinality, undefined);
+  assert.deepEqual(attributeEntity.internalIdentifiers?.[0]?.attributeIds, [keyAttribute.id]);
+  assert.equal(getConnectorCardinality(diagram, "ENTITY1", relationship.id), ownerCardinality);
+  assert.equal(getConnectorCardinality(diagram, attributeEntity.id, relationship.id), attributeEntityCardinality);
+  assertNoDanglingReferences(diagram);
 }
 
 function createCollapseUpDiagram(options: { childAttributes?: boolean; existingType?: boolean } = {}): DiagramDocument {
@@ -298,6 +330,61 @@ function createCompositeDiagram(): DiagramDocument {
     notes: "",
     nodes,
     edges,
+  };
+}
+
+function createSimpleMultivaluedAttributeDiagram(
+  attributeLabel: string,
+  cardinality: string,
+  options: { composite?: boolean; hierarchy?: boolean } = {},
+): DiagramDocument {
+  const attributeId = `attr-${attributeLabel.toLowerCase()}`;
+  const nodes: DiagramNode[] = [
+    createEntity("ENTITY1", "ENTITY1"),
+    createAttribute("attr-Attribute2", "Attribute2"),
+    createAttribute(attributeId, attributeLabel, {
+      cardinality,
+      isMultivalued: options.composite === true,
+      width: 120,
+      height: 44,
+    }),
+    createAttribute("attr-Attribute5", "Attribute5"),
+  ];
+  const edges: DiagramEdge[] = [
+    createAttributeEdge("edge-Attribute2", "attr-Attribute2", "ENTITY1"),
+    createAttributeEdge(`edge-${attributeLabel}`, attributeId, "ENTITY1"),
+    createAttributeEdge("edge-Attribute5", "attr-Attribute5", "ENTITY1"),
+  ];
+
+  if (options.composite) {
+    nodes.push(createAttribute(`attr-${attributeLabel}-child`, `${attributeLabel}Child`));
+    edges.push(createAttributeEdge(`edge-${attributeLabel}-child`, `attr-${attributeLabel}-child`, attributeId));
+  }
+
+  if (options.hierarchy) {
+    nodes.push(createEntity("ENTITY2", "ENTITY2"));
+    edges.push(createInheritanceEdge("edge-isa-ENTITY2", "ENTITY2", "ENTITY1", "G_ENTITY1"));
+  }
+
+  return {
+    meta: {
+      name: "Simple multivalued attribute",
+      version: 1,
+    },
+    notes: "",
+    nodes,
+    edges,
+    generalizationGroups: options.hierarchy
+      ? [
+          {
+            id: "G_ENTITY1",
+            supertypeId: "ENTITY1",
+            subtypeIds: ["ENTITY2"],
+            isaCompleteness: "partial",
+            isaDisjointness: "disjoint",
+          },
+        ]
+      : undefined,
   };
 }
 
@@ -983,6 +1070,112 @@ test("la pipeline ER->ER blocca gli attributi composti finche esistono generaliz
     workspace.translatedDiagram.nodes.some((node) => node.type === "attribute" && node.isMultivalued === true),
     false,
   );
+});
+
+test("attributo semplice multivalore Attribute3 (1,N) mostra Fix Unique/Shared", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute3", "(1,N)");
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const overview = buildErTranslationOverview(workspace);
+  const item = overview.itemsByStep["composite-attributes"].find((candidate) => candidate.id === "attr-attribute3");
+  assert.ok(item);
+
+  const choices = getErTranslationChoicesForItem(workspace, item);
+  assert.deepEqual(
+    choices.map((choice) => choice.label).sort(),
+    ["Shared", "Unique"],
+  );
+  assert.deepEqual(
+    choices.map((choice) => choice.rule).sort(),
+    ["simple-multivalued-shared", "simple-multivalued-unique"],
+  );
+});
+
+test("Fix Shared su Attribute3 (1,N) crea entita e relazione con lato nuova entita (1,N)", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute3", "(1,N)");
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attribute3",
+    "simple-multivalued-shared",
+  );
+
+  assertSimpleMultivaluedFix(translated, "Attribute3", "(1,N)", "(1,N)");
+});
+
+test("Fix Unique su Attribute3 (1,N) crea entita e relazione con lato nuova entita (1,1)", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute3", "(1,N)");
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attribute3",
+    "simple-multivalued-unique",
+  );
+
+  assertSimpleMultivaluedFix(translated, "Attribute3", "(1,N)", "(1,1)");
+});
+
+test("Fix Shared su Attribute4 (0,N) preserva (0,N) sul lato owner", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute4", "(0,N)");
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attribute4",
+    "simple-multivalued-shared",
+  );
+
+  assertSimpleMultivaluedFix(translated, "Attribute4", "(0,N)", "(1,N)");
+});
+
+test("Fix Unique su Attribute4 (0,N) preserva (0,N) sul lato owner", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute4", "(0,N)");
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attribute4",
+    "simple-multivalued-unique",
+  );
+
+  assertSimpleMultivaluedFix(translated, "Attribute4", "(0,N)", "(1,1)");
+});
+
+test("attributo composto con cardinalita non espone Fix Unique/Shared", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute3", "(1,N)", { composite: true });
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const overview = buildErTranslationOverview(workspace);
+  const item = overview.itemsByStep["composite-attributes"].find((candidate) => candidate.id === "attr-attribute3");
+  assert.ok(item);
+
+  const choices = getErTranslationChoicesForItem(workspace, item);
+  assert.equal(choices.some((choice) => choice.rule === "simple-multivalued-shared"), false);
+  assert.equal(choices.some((choice) => choice.rule === "simple-multivalued-unique"), false);
+});
+
+test("Fix su attributo semplice multivalore e bloccato se esistono gerarchie non risolte", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute3", "(1,N)", { hierarchy: true });
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const overview = buildErTranslationOverview(workspace);
+  const item = overview.itemsByStep["composite-attributes"].find((candidate) => candidate.id === "attr-attribute3");
+  assert.ok(item);
+  assert.equal(item.status, "blocked");
+  assert.match(
+    item.blockedReason ?? "",
+    /Prima di correggere gli attributi multivalore devi risolvere tutte le gerarchie/i,
+  );
+
+  assert.throws(
+    () =>
+      applySimpleMultivaluedAttributeTranslation(
+        diagram,
+        "attr-attribute3",
+        "simple-multivalued-shared",
+      ),
+    /Prima di correggere gli attributi multivalore devi risolvere tutte le gerarchie/i,
+  );
+  assert.equal(diagram.nodes.some((node) => node.type === "entity" && node.label === "ATTRIBUTE3"), false);
+  assert.equal(diagram.nodes.some((node) => node.type === "relationship" && node.label === "HAS_ATTRIBUTE3"), false);
+});
+
+test("attributo semplice non multivalore non espone Fix Unique/Shared", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute5", "(1,1)");
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const overview = buildErTranslationOverview(workspace);
+  assert.equal(overview.itemsByStep["composite-attributes"].some((item) => item.id === "attr-attribute5"), false);
 });
 
 test("applyGeneralizationTranslation risolve la gerarchia ISA dentro l'ER tradotto", () => {

@@ -913,5 +913,19 @@ export const it = {
         preview: "Output ER: l'attributo composto diventa semplice combinando i nomi interni.",
       },
     },
+    simpleMultivalued: {
+      unique: {
+        label: "Unique",
+        description: "Trasforma \"{name}\" in una nuova entita esclusiva per ogni istanza di {owner}.",
+        summary: "Attributo multivalore semplice \"{name}\" trasformato in entita esclusiva.",
+        preview: "Output ER: lato nuova entita con cardinalita (1,1).",
+      },
+      shared: {
+        label: "Shared",
+        description: "Trasforma \"{name}\" in una nuova entita condivisibile da piu istanze di {owner}.",
+        summary: "Attributo multivalore semplice \"{name}\" trasformato in entita condivisa.",
+        preview: "Output ER: lato nuova entita con cardinalita (1,N).",
+      },
+    },
   },
 } as const;

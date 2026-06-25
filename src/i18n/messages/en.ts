@@ -915,5 +915,19 @@ export const en: DeepPartialMessages = {
         preview: "Output ER: the composite attribute becomes simple by combining internal names.",
       },
     },
+    simpleMultivalued: {
+      unique: {
+        label: "Unique",
+        description: "Turns \"{name}\" into a new entity whose values belong exclusively to one {owner} instance.",
+        summary: "Simple multivalued attribute \"{name}\" transformed into an exclusive entity.",
+        preview: "Output ER: new entity side cardinality is (1,1).",
+      },
+      shared: {
+        label: "Shared",
+        description: "Turns \"{name}\" into a new entity whose values can be shared by multiple {owner} instances.",
+        summary: "Simple multivalued attribute \"{name}\" transformed into a shared entity.",
+        preview: "Output ER: new entity side cardinality is (1,N).",
+      },
+    },
   },
 } as const;

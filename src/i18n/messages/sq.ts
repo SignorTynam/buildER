@@ -915,5 +915,19 @@ export const sq: DeepPartialMessages = {
         preview: "Output ER: atributi i përbërë bëhet i thjeshtë duke kombinuar emrat e brendshëm.",
       },
     },
+    simpleMultivalued: {
+      unique: {
+        label: "Unique",
+        description: "Kthen \"{name}\" ne nje entitet te ri me vlera ekskluzive per nje instance te {owner}.",
+        summary: "Atributi i thjeshte shumevleresh \"{name}\" u kthye ne entitet ekskluziv.",
+        preview: "Output ER: kardinaliteti ne anen e entitetit te ri eshte (1,1).",
+      },
+      shared: {
+        label: "Shared",
+        description: "Kthen \"{name}\" ne nje entitet te ri me vlera qe mund te ndahen nga disa instanca te {owner}.",
+        summary: "Atributi i thjeshte shumevleresh \"{name}\" u kthye ne entitet te perbashket.",
+        preview: "Output ER: kardinaliteti ne anen e entitetit te ri eshte (1,N).",
+      },
+    },
   },
 } as const;

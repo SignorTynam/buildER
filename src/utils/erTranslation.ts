@@ -31,6 +31,7 @@ import {
   synchronizeInternalIdentifiers,
   validateDiagram,
 } from "./diagram";
+import { normalizeCardinalityInput } from "./cardinality";
 import { canEdgeUseManualRouting } from "./edgeRouting";
 import { buildLogicalSourceSignature } from "./logicalMapping";
 
@@ -82,8 +83,8 @@ const ER_TRANSLATION_STEP_DEFS: Array<{
   },
   {
     id: "composite-attributes",
-    label: "Attributi composti",
-    description: "Poi appiattisci gli attributi composti ridisegnando l'owner ER senza creare tabelle.",
+    label: "Attributi multivalore",
+    description: "Poi risolvi attributi composti e attributi semplici multivalore ridisegnando l'ER intermedio.",
   },
   {
     id: "review",
@@ -96,6 +97,8 @@ const STEP_ORDER: ErTranslationStep[] = ["generalizations", "composite-attribute
 const COLLAPSE_UP_IMPORTED_ATTRIBUTE_CARDINALITY = "(0,1)";
 const SUBSTITUTION_SUPERTYPE_CARDINALITY = "(0,1)";
 const SUBSTITUTION_SUBTYPE_CARDINALITY = "(1,1)";
+const SIMPLE_MULTIVALUED_ATTRIBUTE_HIERARCHY_BLOCK =
+  "Prima di correggere gli attributi multivalore devi risolvere tutte le gerarchie presenti nel modello.";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -458,6 +461,57 @@ function getCompositeRootAttributes(diagram: DiagramDocument): AttributeNode[] {
         (node.isMultivalued === true || (ownership.childrenByHostId.get(node.id) ?? []).length > 0) &&
         ownership.parentByAttributeId.has(node.id) &&
         ownership.nodeById.get(ownership.parentByAttributeId.get(node.id) as string)?.type !== "attribute",
+    ),
+  );
+}
+
+function getCardinalityMaxValue(
+  cardinality: string | undefined,
+): number | "N" | null {
+  const normalized = normalizeCardinalityInput(cardinality);
+  if (!normalized.valid || !normalized.value) {
+    return null;
+  }
+
+  const match = normalized.value.match(/^\(\s*[^,]+\s*,\s*([^)]+)\s*\)$/);
+  if (!match) {
+    return null;
+  }
+
+  const rawMax = match[1].trim().toUpperCase();
+  if (rawMax === "N") {
+    return "N";
+  }
+
+  const parsed = Number(rawMax);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function isMultivaluedCardinality(cardinality: string | undefined): boolean {
+  const max = getCardinalityMaxValue(cardinality);
+  return max === "N" || (typeof max === "number" && max > 1);
+}
+
+function isSimpleMultivaluedAttribute(
+  attribute: AttributeNode,
+  ownership: AttributeOwnershipContext,
+): boolean {
+  const ownerId = ownership.parentByAttributeId.get(attribute.id);
+  const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
+  return (
+    attribute.isMultivalued !== true &&
+    (ownership.childrenByHostId.get(attribute.id) ?? []).length === 0 &&
+    owner?.type === "entity" &&
+    isMultivaluedCardinality(attribute.cardinality)
+  );
+}
+
+function getSimpleMultivaluedAttributes(diagram: DiagramDocument): AttributeNode[] {
+  const ownership = buildAttributeOwnershipContext(diagram);
+  return sortByLabel(
+    diagram.nodes.filter(
+      (node): node is AttributeNode =>
+        node.type === "attribute" && isSimpleMultivaluedAttribute(node, ownership),
     ),
   );
 }
@@ -1098,6 +1152,295 @@ function applyCompositeAttributeTranslationDetailed(
   return {
     diagram: translatedDiagram,
     artifacts,
+  };
+}
+
+function toUpperNodeLabel(value: string, fallback: string): string {
+  const normalized = toAscii(normalizeSpaces(value))
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return (normalized || fallback).toUpperCase();
+}
+
+function rectanglesOverlap(
+  left: { x: number; y: number; width: number; height: number },
+  right: { x: number; y: number; width: number; height: number },
+): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
+}
+
+function findSimpleMultivaluedPlacement(
+  diagram: DiagramDocument,
+  owner: EntityNode,
+  attribute: AttributeNode,
+): {
+  entity: Pick<EntityNode, "x" | "y" | "width" | "height">;
+  relationship: Pick<Extract<DiagramNode, { type: "relationship" }>, "x" | "y" | "width" | "height">;
+  attribute: Pick<AttributeNode, "x" | "y" | "width" | "height">;
+} {
+  const entitySize = { width: 160, height: 80 };
+  const relationshipSize = { width: 130, height: 78 };
+  const attributeSize = {
+    width: Math.max(110, Math.min(220, attribute.label.length * 8 + 32)),
+    height: 44,
+  };
+  const occupied = diagram.nodes.filter((node) => node.id !== attribute.id);
+  const startX = owner.x + owner.width + 260;
+  let candidateY = owner.y;
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const entityRect = {
+      x: startX,
+      y: candidateY,
+      ...entitySize,
+    };
+    const relationshipRect = {
+      x: (owner.x + owner.width / 2 + entityRect.x + entityRect.width / 2) / 2 - relationshipSize.width / 2,
+      y: (owner.y + owner.height / 2 + entityRect.y + entityRect.height / 2) / 2 - relationshipSize.height / 2,
+      ...relationshipSize,
+    };
+    const attributeRect = {
+      x: entityRect.x + entityRect.width / 2 - attributeSize.width / 2,
+      y: entityRect.y + entityRect.height + 70,
+      ...attributeSize,
+    };
+    const candidateRects = [entityRect, relationshipRect, attributeRect];
+    const overlapsExisting = occupied.some((node) =>
+      candidateRects.some((rect) => rectanglesOverlap(rect, node)),
+    );
+    const overlapsSelf =
+      rectanglesOverlap(entityRect, relationshipRect) ||
+      rectanglesOverlap(entityRect, attributeRect) ||
+      rectanglesOverlap(relationshipRect, attributeRect);
+
+    if (!overlapsExisting && !overlapsSelf) {
+      return {
+        entity: entityRect,
+        relationship: relationshipRect,
+        attribute: attributeRect,
+      };
+    }
+
+    candidateY += 150;
+  }
+
+  const entityRect = {
+    x: startX,
+    y: candidateY,
+    ...entitySize,
+  };
+
+  return {
+    entity: entityRect,
+    relationship: {
+      x: (owner.x + owner.width / 2 + entityRect.x + entityRect.width / 2) / 2 - relationshipSize.width / 2,
+      y: (owner.y + owner.height / 2 + entityRect.y + entityRect.height / 2) / 2 - relationshipSize.height / 2,
+      ...relationshipSize,
+    },
+    attribute: {
+      x: entityRect.x + entityRect.width / 2 - attributeSize.width / 2,
+      y: entityRect.y + entityRect.height + 70,
+      ...attributeSize,
+    },
+  };
+}
+
+function applySimpleMultivaluedAttributeTranslationDetailed(
+  diagram: DiagramDocument,
+  attributeId: string,
+  rule: Extract<ErTranslationRuleKind, "simple-multivalued-unique" | "simple-multivalued-shared">,
+): TranslationApplyResult {
+  const working = cloneDiagram(diagram);
+  if (buildGeneralizationHierarchies(working).length > 0) {
+    throw new Error(SIMPLE_MULTIVALUED_ATTRIBUTE_HIERARCHY_BLOCK);
+  }
+
+  const ownership = buildAttributeOwnershipContext(working);
+  const attribute = ownership.nodeById.get(attributeId);
+  if (attribute?.type !== "attribute" || !isSimpleMultivaluedAttribute(attribute, ownership)) {
+    throw new Error(`L'attributo multivalore semplice "${attributeId}" non e disponibile nel diagramma tradotto corrente.`);
+  }
+
+  const ownerId = ownership.parentByAttributeId.get(attribute.id);
+  const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
+  if (owner?.type !== "entity") {
+    throw new Error(`L'attributo multivalore semplice "${attribute.label}" non e collegato direttamente a un'entita.`);
+  }
+
+  const normalizedCardinality = normalizeCardinalityInput(attribute.cardinality);
+  if (!normalizedCardinality.valid || !normalizedCardinality.value || !isMultivaluedCardinality(normalizedCardinality.value)) {
+    throw new Error(`La cardinalita dell'attributo "${attribute.label}" non e valida per la correzione multivalore.`);
+  }
+
+  const usedNodeIds = new Set(working.nodes.map((node) => node.id));
+  const usedEdgeIds = new Set(working.edges.map((edge) => edge.id));
+  const usedEntityLabels = new Set(
+    working.nodes
+      .filter((node): node is EntityNode => node.type === "entity")
+      .map((node) => canonicalKey(node.label)),
+  );
+  const usedRelationshipLabels = new Set(
+    working.nodes
+      .filter((node): node is Extract<DiagramNode, { type: "relationship" }> => node.type === "relationship")
+      .map((node) => canonicalKey(node.label)),
+  );
+  const usedParticipationIds = new Set(
+    working.nodes.flatMap((node) =>
+      node.type === "entity" ? (node.relationshipParticipations ?? []).map((participation) => participation.id) : [],
+    ),
+  );
+
+  const attributeEntityBaseLabel = toUpperNodeLabel(attribute.label, "ATTRIBUTO");
+  const entityLabel = allocateUniqueLabel(usedEntityLabels, attributeEntityBaseLabel);
+  const relationshipLabel = allocateUniqueLabel(usedRelationshipLabels, `HAS_${attributeEntityBaseLabel}`);
+  const entityId = allocateUniqueId(usedNodeIds, entityLabel, "entity");
+  const relationshipId = allocateUniqueId(usedNodeIds, `relationship-${relationshipLabel}`, "relationship");
+  const ownerConnectorId = allocateUniqueId(usedEdgeIds, `connector-${owner.id}-${relationshipId}`, "connector");
+  const attributeEntityConnectorId = allocateUniqueId(
+    usedEdgeIds,
+    `connector-${entityId}-${relationshipId}`,
+    "connector",
+  );
+  const attributeEdgeId = allocateUniqueId(usedEdgeIds, `attribute-${entityId}-${attribute.id}`, "attribute-edge");
+  const ownerParticipationId = allocateUniqueId(
+    usedParticipationIds,
+    `${owner.id}-${relationshipId}-participation`,
+    "participation",
+  );
+  const attributeEntityParticipationId = allocateUniqueId(
+    usedParticipationIds,
+    `${entityId}-${relationshipId}-participation`,
+    "participation",
+  );
+  const placement = findSimpleMultivaluedPlacement(working, owner, attribute);
+  const targetCardinality = rule === "simple-multivalued-shared" ? "(1,N)" : "(1,1)";
+
+  const newEntity: EntityNode = {
+    id: entityId,
+    type: "entity",
+    label: entityLabel,
+    x: placement.entity.x,
+    y: placement.entity.y,
+    width: placement.entity.width,
+    height: placement.entity.height,
+    isWeak: false,
+    internalIdentifiers: [
+      {
+        id: `${entityId}-pk`,
+        attributeIds: [attribute.id],
+      },
+    ],
+    externalIdentifiers: [],
+    relationshipParticipations: [
+      {
+        id: attributeEntityParticipationId,
+        relationshipId,
+        cardinality: targetCardinality,
+      },
+    ],
+  };
+  const relationshipNode: Extract<DiagramNode, { type: "relationship" }> = {
+    id: relationshipId,
+    type: "relationship",
+    label: relationshipLabel,
+    x: placement.relationship.x,
+    y: placement.relationship.y,
+    width: placement.relationship.width,
+    height: placement.relationship.height,
+  };
+
+  const nextNodes = working.nodes
+    .map((node): DiagramNode => {
+      if (node.id === owner.id && node.type === "entity") {
+        return {
+          ...node,
+          relationshipParticipations: [
+            ...(node.relationshipParticipations ?? []),
+            {
+              id: ownerParticipationId,
+              relationshipId,
+              cardinality: normalizedCardinality.value,
+            },
+          ],
+        };
+      }
+
+      if (node.id === attribute.id && node.type === "attribute") {
+        return {
+          ...node,
+          x: placement.attribute.x,
+          y: placement.attribute.y,
+          width: placement.attribute.width,
+          height: placement.attribute.height,
+          isIdentifier: true,
+          isCompositeInternal: false,
+          isMultivalued: false,
+          cardinality: undefined,
+        };
+      }
+
+      return node;
+    })
+    .concat(newEntity, relationshipNode);
+
+  const nextEdges = working.edges
+    .filter(
+      (edge) =>
+        !(
+          edge.type === "attribute" &&
+          ((edge.sourceId === owner.id && edge.targetId === attribute.id) ||
+            (edge.sourceId === attribute.id && edge.targetId === owner.id))
+        ),
+    )
+    .concat(
+      {
+        id: ownerConnectorId,
+        type: "connector",
+        sourceId: owner.id,
+        targetId: relationshipId,
+        label: "",
+        lineStyle: "solid",
+        participationId: ownerParticipationId,
+      },
+      {
+        id: attributeEntityConnectorId,
+        type: "connector",
+        sourceId: entityId,
+        targetId: relationshipId,
+        label: "",
+        lineStyle: "solid",
+        participationId: attributeEntityParticipationId,
+      },
+      {
+        id: attributeEdgeId,
+        type: "attribute",
+        sourceId: attribute.id,
+        targetId: entityId,
+        label: "",
+        lineStyle: "solid",
+      },
+    );
+
+  const translatedDiagram = normalizeTranslatedDiagram({
+    ...working,
+    nodes: nextNodes,
+    edges: nextEdges,
+  });
+
+  return {
+    diagram: translatedDiagram,
+    artifacts: [
+      { kind: "node", id: entityId, label: entityLabel },
+      { kind: "node", id: relationshipId, label: relationshipLabel },
+      { kind: "node", id: attribute.id, label: attribute.label },
+      { kind: "edge", id: ownerConnectorId, label: relationshipLabel },
+      { kind: "edge", id: attributeEntityConnectorId, label: relationshipLabel },
+    ],
   };
 }
 
@@ -1910,6 +2253,33 @@ function buildCompositeChoices(attribute: AttributeNode, ownerLabel: string): Tr
   ];
 }
 
+function buildSimpleMultivaluedAttributeChoices(attribute: AttributeNode, ownerLabel: string): TranslationChoiceRecord[] {
+  return [
+    {
+      id: `simple-multivalued-unique-${attribute.id}`,
+      targetType: "attribute",
+      targetId: attribute.id,
+      step: "composite-attributes",
+      rule: "simple-multivalued-unique",
+      label: t("translation.simpleMultivalued.unique.label"),
+      description: t("translation.simpleMultivalued.unique.description", { name: attribute.label, owner: ownerLabel }),
+      summary: t("translation.simpleMultivalued.unique.summary", { name: attribute.label }),
+      previewLines: [t("translation.simpleMultivalued.unique.preview")],
+    },
+    {
+      id: `simple-multivalued-shared-${attribute.id}`,
+      targetType: "attribute",
+      targetId: attribute.id,
+      step: "composite-attributes",
+      rule: "simple-multivalued-shared",
+      label: t("translation.simpleMultivalued.shared.label"),
+      description: t("translation.simpleMultivalued.shared.description", { name: attribute.label, owner: ownerLabel }),
+      summary: t("translation.simpleMultivalued.shared.summary", { name: attribute.label }),
+      previewLines: [t("translation.simpleMultivalued.shared.preview")],
+    },
+  ];
+}
+
 function createTranslationItemsByStep(
   workspace: ErTranslationWorkspaceDocument,
 ): TranslationOverviewInternal {
@@ -1946,6 +2316,9 @@ function createTranslationItemsByStep(
   const compositeBlockReason = generalizationsPending
     ? "Risolvi prima le generalizzazioni per poter tradurre gli attributi composti."
     : undefined;
+  const simpleMultivaluedBlockReason = generalizationsPending
+    ? SIMPLE_MULTIVALUED_ATTRIBUTE_HIERARCHY_BLOCK
+    : undefined;
 
   getCompositeRootAttributes(translatedDiagram).forEach((attribute) => {
     const ownerId = ownership.parentByAttributeId.get(attribute.id) as string | undefined;
@@ -1967,6 +2340,30 @@ function createTranslationItemsByStep(
       description: `Attributo composto di ${ownerLabel} da espandere nel diagramma ER tradotto.`,
       status: generalizationsPending ? "blocked" : "pending",
       blockedReason: compositeBlockReason,
+      choiceIds: choices.map((choice) => choice.id),
+    });
+  });
+
+  getSimpleMultivaluedAttributes(translatedDiagram).forEach((attribute) => {
+    const ownerId = ownership.parentByAttributeId.get(attribute.id) as string | undefined;
+    const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
+    const ownerLabel = owner?.label ?? "owner";
+    const choices = buildSimpleMultivaluedAttributeChoices(attribute, ownerLabel);
+    choices.forEach((choice) =>
+      choicesByKey.set(
+        buildChoiceKey(choice.targetType, choice.targetId, choice.rule, choice.configuration),
+        choice,
+      ),
+    );
+
+    itemsByStep["composite-attributes"].push({
+      id: attribute.id,
+      targetType: "attribute",
+      step: "composite-attributes",
+      label: attribute.label,
+      description: `Attributo semplice multivalore di ${ownerLabel} da trasformare in entita collegata.`,
+      status: generalizationsPending ? "blocked" : "pending",
+      blockedReason: simpleMultivaluedBlockReason,
       choiceIds: choices.map((choice) => choice.id),
     });
   });
@@ -2003,10 +2400,11 @@ function createTranslationItemsByStep(
     isComplete,
     logicalBlockReason: !isComplete
       ? compositeBlockReason ??
+        simpleMultivaluedBlockReason ??
         (itemsByStep.generalizations.length > 0
           ? "La vista logica si abilita solo dopo aver risolto tutte le generalizzazioni."
           : itemsByStep["composite-attributes"].length > 0
-            ? "La vista logica si abilita solo dopo aver tradotto tutti gli attributi composti."
+            ? "La vista logica si abilita solo dopo aver tradotto tutti gli attributi multivalore."
             : workspace.translation.conflicts[0]?.message)
       : undefined,
   };
@@ -2045,6 +2443,14 @@ function applyDecisionToDiagram(
         ErTranslationRuleKind,
         "generalization-collapse-up" | "generalization-collapse-down" | "generalization-substitution"
       >,
+    );
+  }
+
+  if (decision.rule === "simple-multivalued-unique" || decision.rule === "simple-multivalued-shared") {
+    return applySimpleMultivaluedAttributeTranslationDetailed(
+      diagram,
+      decision.targetId,
+      decision.rule,
     );
   }
 
@@ -2301,6 +2707,14 @@ export function applyCompositeAttributeTranslation(
   strategy: Extract<ErTranslationRuleKind, "composite-split" | "composite-merge">,
 ): DiagramDocument {
   return applyCompositeAttributeTranslationDetailed(diagram, attributeId, strategy).diagram;
+}
+
+export function applySimpleMultivaluedAttributeTranslation(
+  diagram: DiagramDocument,
+  attributeId: string,
+  strategy: Extract<ErTranslationRuleKind, "simple-multivalued-unique" | "simple-multivalued-shared">,
+): DiagramDocument {
+  return applySimpleMultivaluedAttributeTranslationDetailed(diagram, attributeId, strategy).diagram;
 }
 
 export const ER_TRANSLATION_STEPS = ER_TRANSLATION_STEP_DEFS;

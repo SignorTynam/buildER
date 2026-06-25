@@ -65,6 +65,8 @@ function getChoiceOrder(choice: ErTranslationChoice): number {
     "generalization-substitution": 3,
     "composite-split": 1,
     "composite-merge": 2,
+    "simple-multivalued-unique": 1,
+    "simple-multivalued-shared": 2,
   };
   return order[choice.rule] ?? 99;
 }
@@ -81,6 +83,12 @@ function getChoiceIcon(choice: ErTranslationChoice): StudioIconName {
   }
   if (choice.rule === "composite-split") {
     return "split";
+  }
+  if (choice.rule === "simple-multivalued-unique") {
+    return "unique";
+  }
+  if (choice.rule === "simple-multivalued-shared") {
+    return "merge";
   }
   return "merge";
 }
