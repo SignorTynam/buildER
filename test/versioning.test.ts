@@ -50,6 +50,11 @@ test("classifica major update con effetto wow", () => {
     shouldShow: true,
     wow: true,
   });
+  assert.deepEqual(classifyAppUpdate("5.4", "6.0"), {
+    kind: "major",
+    shouldShow: true,
+    wow: true,
+  });
 });
 
 test("classifica downgrade senza mostrare annunci", () => {

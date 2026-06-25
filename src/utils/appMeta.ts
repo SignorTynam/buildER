@@ -1,5 +1,5 @@
 export const APP_NAME = "buildER";
-export const APP_VERSION = "5.4";
+export const APP_VERSION = "6.0";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,65 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "6.0",
+    date: "2026-06-25",
+    impact: "major",
+    headline: "buildER 6: traduzione ER piu completa e trasformazioni multivalore solide",
+    summary:
+      "buildER 6 e un major upgrade dalla 5.4: completa la gestione degli attributi semplici multivalore con Fix Unique/Shared, corregge la traduzione logica delle FK generate, introduce la traduzione standard degli attributi composti multivalore, preserva cardinalita e geometria nelle trasformazioni e rafforza la copertura test.",
+    hero: {
+      eyebrow: "Major Upgrade",
+      title: "Benvenuto in buildER 6",
+      subtitle:
+        "Dalla 5.4 a buildER 6 la fase Translation diventa piu affidabile: Fix Unique/Shared, attributi composti multivalore, FK logiche, cardinalita e rendering ER generato lavorano insieme senza perdere semantica.",
+    },
+    highlights: [
+      {
+        title: "Fix Unique/Shared completo",
+        description: "Gli attributi semplici multivalore possono essere trasformati in entita e relazione preservando cardinalita originali, modalita Unique o Shared e blocco sulle gerarchie non risolte.",
+        tag: "Translation",
+      },
+      {
+        title: "FK logiche corrette",
+        description: "Unique genera la FK verso l'entita owner nella tabella attributo; Shared genera una tabella associativa con entrambe le FK e PK composta.",
+        tag: "Logical",
+      },
+      {
+        title: "Composti multivalore",
+        description: "Gli attributi composti multivalore producono una tabella dedicata con FK owner, leaf attributes e PK naturale coerente anche con chiavi composte.",
+        tag: "Schema",
+      },
+      {
+        title: "Canvas di traduzione coerente",
+        description: "Gli shape ER generati usano le stesse regole grafiche della vista ER, con dimensioni adattive e proprieta preservate.",
+        tag: "Canvas",
+      },
+    ],
+    updates: [
+      "Versione applicativa aggiornata a buildER 6 con package.json, package-lock.json, src/utils/appMeta.ts, README e changelog allineati come major upgrade.",
+      "Aggiunto Fix per attributi semplici multivalore con menu Unique e Shared, disponibile solo per attributi semplici diretti con cardinalita multivalore.",
+      "Fix Unique trasforma l'attributo semplice multivalore in una nuova entita e relazione HAS_<ATTRIBUTO>, con cardinalita originale sul lato owner e (1,1) sul lato nuova entita.",
+      "Fix Shared trasforma l'attributo semplice multivalore in una nuova entita e relazione HAS_<ATTRIBUTO>, con cardinalita originale sul lato owner e (1,N) sul lato nuova entita.",
+      "Il Fix degli attributi semplici multivalore viene bloccato quando esistono gerarchie non ancora risolte, evitando trasformazioni in ordine non valido.",
+      "Gli attributi composti sono esclusi dalla logica Unique/Shared degli attributi semplici multivalore.",
+      "La traduzione logica di Fix Unique ora aggiunge nella tabella della nuova entita attributo la FK NOT NULL verso l'entita proprietaria.",
+      "La traduzione logica di Fix Shared ora crea la tabella associativa con FK verso l'entita proprietaria e FK verso la nuova entita attributo, includendole nella PK composta.",
+      "La traduzione logica dei Fix supporta PK semplici e composte dell'entita owner e blocca la generazione se l'owner non ha una PK utilizzabile.",
+      "Aggiunta traduzione logica standard per attributi composti multivalore: tabella separata owner_attributo con FK owner NOT NULL, leaf attributes e PK composta da FK owner piu valori leaf.",
+      "Gli attributi composti multivalore annidati vengono appiattiti usando solo i leaf attributes, senza trasformare i nodi composti intermedi in colonne.",
+      "I multivalori annidati dentro un composto multivalore vengono rilevati e segnalati con issue invece di produrre una traduzione ambigua.",
+      "La traduzione degli attributi composti multivalore gestisce owner con PK composta, owner senza PK e composti multivalore senza sotto-attributi con comportamento deterministico.",
+      "Le trasformazioni Split sugli attributi composti multivalore preservano la cardinalita originale del root composto sul nuovo attributo semplice generato.",
+      "Gli attributi generati da Split restano semplici, non composti, e non ricevono il simbolo grafico di attributo multivalore quando la vista ER non lo usa per quel caso.",
+      "Unique e Shared possono essere applicati dopo Split perche la cardinalita originale resta disponibile sul nuovo attributo generato.",
+      "La vista Traduzione usa la stessa geometria della vista ER per entita, relazioni e attributi generati dalle trasformazioni.",
+      "Le entita generate con label lunga mantengono altezza ER standard e larghezza adattiva, senza height hard-coded eccessiva.",
+      "Le relazioni generate con label lunga, come HAS_<ATTRIBUTO>, usano dimensioni calcolate dagli helper ER e non tagliano il testo.",
+      "I fallback dei nodi sintetici nella Logical Transformation View preservano le proprieta ER del nodo sorgente, inclusi cardinality, isIdentifier, isWeak, isCompositeInternal e relationshipParticipations.",
+      "Estesa la copertura test per Fix Unique/Shared, FK logiche, PK composte, attributi composti multivalore, Split con cardinalita, rendering geometrico nella vista Traduzione e versioning major.",
+    ],
+  },
   {
     version: "5.4",
     date: "2026-06-25",

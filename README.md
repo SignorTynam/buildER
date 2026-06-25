@@ -2,13 +2,24 @@
   <img src="src/image/buildER%20no%20background.png" alt="buildER logo" width="520" />
 </p>
 
-# buildER (v5.4)
+# buildER (v6.0)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG/JPEG e sincronizzazione ERS live.
 
 ## Stato del progetto
 
-buildER è la nuova evoluzione di ER Studio. La versione 5.x consolida rebrand, responsive/mobile, UI moderna, SQL Reverse e gestione più robusta degli identificatori interni, esterni e misti.
+buildER è la nuova evoluzione di ER Studio. La versione 6 è un major update dedicato alla fase Translation: attributi semplici multivalore, attributi composti multivalore, FK logiche, cardinalità preservate e rendering degli shape ER generati.
+
+## Novità principali in buildER 6.0
+
+- Fix Unique/Shared per attributi semplici multivalore diretti, con cardinalità originale preservata sul lato owner.
+- Traduzione logica corretta dei Fix: Unique aggiunge la FK verso l'owner nella tabella attributo, Shared crea una tabella associativa con entrambe le FK.
+- Supporto a PK semplici e composte nella traduzione logica dei multivalori; owner senza PK gestito con errore chiaro invece di tabelle incomplete.
+- Traduzione standard degli attributi composti multivalore in tabelle separate con FK owner, leaf attributes e PK composta coerente.
+- Rilevamento dei casi non supportati, come multivalori annidati dentro composti multivalore, senza produrre schemi logici sbagliati.
+- Split degli attributi composti multivalore corretto: il nuovo attributo semplice eredita la cardinalità originale e può essere poi risolto con Unique/Shared.
+- Vista Traduzione allineata alla vista ER: entità, relazioni e attributi generati usano dimensioni adattive e proprietà grafiche coerenti.
+- Test estesi su trasformazioni ER, modello logico, SQL/foreign key, cardinalità, geometria della vista Translation e versioning major.
 
 ## Funzionalità principali
 

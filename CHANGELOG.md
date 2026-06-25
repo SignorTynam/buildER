@@ -15,6 +15,38 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [6.0] - 2026-06-25
+
+### Added
+- Major update buildER 6: aggiunto modal grande di aggiornamento tramite nuova release `impact: "major"` in `src/utils/appMeta.ts`.
+- Aggiunto Fix Unique/Shared per attributi semplici multivalore diretti con cardinalita `(0,N)` e `(1,N)`.
+- Aggiunta trasformazione ER Unique: nuova entita attributo, relazione `HAS_<ATTRIBUTO>`, cardinalita originale sul lato owner e `(1,1)` sul lato nuova entita.
+- Aggiunta trasformazione ER Shared: nuova entita attributo, relazione `HAS_<ATTRIBUTO>`, cardinalita originale sul lato owner e `(1,N)` sul lato nuova entita.
+- Aggiunta traduzione logica corretta dei Fix Unique/Shared per attributi semplici multivalore gia trasformati.
+- Aggiunta traduzione logica standard per attributi composti multivalore con tabella dedicata, FK owner, leaf attributes e PK composta.
+- Aggiunto supporto alle PK composte dell'entita owner nella traduzione dei multivalori semplici risolti e dei composti multivalore.
+- Aggiunti controlli espliciti per owner senza PK, composti multivalore senza sotto-attributi e multivalori annidati non supportati.
+- Aggiunta copertura test per Fix Unique/Shared, FK logiche, attributi composti multivalore, Split, geometria della vista Traduzione e versioning major.
+
+### Changed
+- Versione applicativa aggiornata a buildER 6 con `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README e changelog allineati come major upgrade.
+- Gli attributi composti restano esclusi dal Fix Unique/Shared degli attributi semplici multivalore.
+- Split sugli attributi composti multivalore ora preserva la cardinalita del root composto sul nuovo attributo semplice generato.
+- Gli attributi generati da Split restano semplici e non ricevono il simbolo grafico di multivalore quando la vista ER non lo usa per quel caso.
+- Unique e Shared dopo Split usano la cardinalita preservata dal nuovo attributo generato.
+- La vista Traduzione ora usa le stesse regole grafiche della vista ER per entita, relazioni, attributi e shape generati automaticamente.
+- Le entita generate con label lunga mantengono altezza ER standard e larghezza adattiva.
+- Le relazioni generate con label lunga, come `HAS_<ATTRIBUTO>`, usano dimensioni calcolate dagli helper ER.
+- I nodi sintetici della Logical Transformation View preservano le proprieta ER del nodo sorgente e sovrascrivono solo label, posizione e dimensioni.
+
+### Fixed
+- Corretto il caso Unique in cui la tabella della nuova entita attributo veniva generata senza FK verso l'entita proprietaria.
+- Corretto il caso Shared in cui la tabella associativa `HAS_<ATTRIBUTO>` conteneva solo la FK verso la nuova entita attributo e perdeva la FK verso l'owner.
+- Corretto il rischio di tabelle logiche incomplete quando l'entita owner non ha una PK utilizzabile.
+- Corretto il caso in cui i sotto-attributi leaf di un composto multivalore venivano persi o non inclusi correttamente nella PK della tabella dedicata.
+- Corretto lo Split di composto multivalore che generava un attributo semplice senza cardinalita.
+- Corrette dimensioni hard-coded o incoerenti degli shape ER generati nella vista Traduzione.
+
 ## [5.4] - 2026-06-25
 
 ### Added
