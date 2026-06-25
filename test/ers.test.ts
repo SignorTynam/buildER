@@ -9,9 +9,11 @@ import {
   createEdge,
   cleanupGeneralizationReferences,
   createGeneralizationGroupForInheritanceEdge,
+  getMultivaluedAttributeSize,
   getPreferredNodeSizeForLabel,
   mergeCompatibleGeneralizationGroups,
   normalizeGeneralizationGroups,
+  parseDiagram,
   removeEntityFromGeneralizationHierarchy,
   removeExternalIdentifierFromEntity,
   removeSelection,
@@ -182,6 +184,60 @@ test("preferred label resize does not affect attributes", () => {
   const resized = withPreferredNodeSizeForLabel(node);
 
   assert.deepEqual(resized, node);
+});
+
+test("multivalued attribute size uses compact capsule height and adaptive width", () => {
+  const shortSize = getMultivaluedAttributeSize("ATTRIBUTO1");
+  const longSize = getMultivaluedAttributeSize("ATTRIBUTO_CON_NOME_MOLTO_MOLTO_LUNGO");
+
+  assert.equal(shortSize.height, 36);
+  assert.equal(longSize.height, 36);
+  assert.ok(longSize.width > shortSize.width);
+});
+
+test("parseDiagram normalizes legacy multivalued attributes to compact height", () => {
+  const parsed = parseDiagram(
+    JSON.stringify({
+      meta: { name: "Legacy multivalued", version: 3 },
+      notes: "",
+      nodes: [
+        {
+          id: "attr-composite",
+          type: "attribute",
+          label: "INDIRIZZO",
+          x: 100,
+          y: 80,
+          width: 180,
+          height: 44,
+          isMultivalued: true,
+        },
+        {
+          id: "attr-simple",
+          type: "attribute",
+          label: "VIA",
+          x: 100,
+          y: 160,
+          width: 150,
+          height: 28,
+          isMultivalued: false,
+        },
+      ],
+      edges: [],
+    } satisfies DiagramDocument),
+  );
+  const composite = parsed.nodes.find(
+    (node): node is Extract<DiagramNode, { type: "attribute" }> =>
+      node.type === "attribute" && node.isMultivalued === true,
+  );
+  const simple = parsed.nodes.find(
+    (node): node is Extract<DiagramNode, { type: "attribute" }> =>
+      node.type === "attribute" && node.isMultivalued !== true,
+  );
+
+  assert.equal(composite?.height, 36);
+  assert.equal(composite?.width, getMultivaluedAttributeSize("INDIRIZZO").width);
+  assert.equal(simple?.height, 28);
+  assert.equal(simple?.width, 150);
 });
 
 test("ERS serialization does not emit project notes", () => {
