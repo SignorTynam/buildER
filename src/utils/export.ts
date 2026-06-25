@@ -259,10 +259,25 @@ function applyPrintExportStyle(clone: SVGSVGElement) {
   clone.style.setProperty("--diagram-translation-blocked", "#000000");
 }
 
+function shouldPreservePrintFill(element: SVGElement): boolean {
+  return (
+    element.classList.contains("attribute-identifier-marker") ||
+    element.classList.contains("external-identifier-marker") ||
+    element.classList.contains("external-identifier-terminal-marker")
+  );
+}
+
 function normalizePrintExportElements(clone: SVGSVGElement) {
   clone.querySelectorAll<SVGElement>("rect, polygon, ellipse, circle, path, line, polyline").forEach((element) => {
-    element.style.setProperty("fill", "none");
-    element.setAttribute("fill", "none");
+    const preserveFill = shouldPreservePrintFill(element);
+
+    if (preserveFill) {
+      element.style.setProperty("fill", "#000000");
+      element.setAttribute("fill", "#000000");
+    } else {
+      element.style.setProperty("fill", "none");
+      element.setAttribute("fill", "none");
+    }
 
     const currentStroke = element.style.getPropertyValue("stroke") || element.getAttribute("stroke");
     if (isTransparentPaint(currentStroke)) {

@@ -5,9 +5,31 @@ import test from "node:test";
 const exportSource = readFileSync(new URL("../src/utils/export.ts", import.meta.url), "utf8");
 const diagramNodeSource = readFileSync(new URL("../src/canvas/DiagramNode.tsx", import.meta.url), "utf8");
 const diagramEdgeSource = readFileSync(new URL("../src/canvas/DiagramEdge.tsx", import.meta.url), "utf8");
+const diagramCanvasSource = readFileSync(new URL("../src/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
 
 function functionBody(name: string): string {
   const start = exportSource.indexOf(`export async function ${name}`);
+  assert.notEqual(start, -1, `${name} should exist`);
+  const bodyStart = exportSource.indexOf("{", start);
+  let depth = 0;
+
+  for (let index = bodyStart; index < exportSource.length; index += 1) {
+    const char = exportSource[index];
+    if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return exportSource.slice(bodyStart, index + 1);
+      }
+    }
+  }
+
+  throw new Error(`Unable to read ${name} body`);
+}
+
+function localFunctionBody(name: string): string {
+  const start = exportSource.indexOf(`function ${name}`);
   assert.notEqual(start, -1, `${name} should exist`);
   const bodyStart = exportSource.indexOf("{", start);
   let depth = 0;
@@ -85,6 +107,32 @@ test("JPEG print mode forces monochrome transparent fills", () => {
   assert.match(exportSource, /setProperty\("fill",\s*"none"\)/);
   assert.match(exportSource, /setAttribute\("stroke",\s*"#000000"\)/);
   assert.match(exportSource, /querySelectorAll<SVGTextElement>\("text"\)/);
+});
+
+test("simple attribute identifiers expose a print-preservable marker class", () => {
+  assert.match(diagramNodeSource, /attribute-identifier-marker/);
+  assert.match(diagramNodeSource, /isIdentifier\s*\?\s*"attribute-marker attribute-identifier-marker"\s*:\s*"attribute-marker"/);
+});
+
+test("JPEG print mode preserves semantic identifier marker fills", () => {
+  const preserveFillBody = localFunctionBody("shouldPreservePrintFill");
+  const normalizeBody = localFunctionBody("normalizePrintExportElements");
+
+  assert.match(exportSource, /function shouldPreservePrintFill/);
+  assert.match(preserveFillBody, /classList\.contains\("attribute-identifier-marker"\)/);
+  assert.match(preserveFillBody, /classList\.contains\("external-identifier-marker"\)/);
+  assert.match(preserveFillBody, /classList\.contains\("external-identifier-terminal-marker"\)/);
+  assert.match(normalizeBody, /const preserveFill = shouldPreservePrintFill\(element\)/);
+  assert.match(normalizeBody, /if \(preserveFill\)/);
+  assert.match(normalizeBody, /setProperty\("fill",\s*"#000000"\)/);
+  assert.match(normalizeBody, /setAttribute\("fill",\s*"#000000"\)/);
+  assert.match(normalizeBody, /else\s*\{\s*element\.style\.setProperty\("fill",\s*"none"\)/);
+  assert.match(normalizeBody, /element\.setAttribute\("fill",\s*"none"\)/);
+});
+
+test("external identifier marker classes remain available for print fill preservation", () => {
+  assert.match(diagramCanvasSource, /className="external-identifier-terminal-marker"/);
+  assert.match(diagramCanvasSource, /className=\{`external-identifier-marker external-identifier-marker-\$\{layout\.kind\}`\}/);
 });
 
 test("PNG and SVG do not request print style by default", () => {

@@ -392,6 +392,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
               return (
                 <>
                   <circle
+                    className={isIdentifier ? "attribute-marker attribute-identifier-marker" : "attribute-marker"}
                     cx={node.x + 10}
                     cy={cy}
                     r={DIAGRAM_ATTRIBUTE_MARKER_RADIUS}
