@@ -160,7 +160,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
     usesSplitConnectorLabels
       ? getPointAlongPolyline(geometry.points, entityIsSource ? 0.68 : 0.32)
       : geometry.labelPoint;
-  const inheritanceConstraintWidth = inheritanceConstraintLabel.length * 8 + 10;
   const displayLabelWidth = displayLabel.length * 7 + 10;
   const roleLabelWidth = roleLabel.length * 7 + 10;
   const defaultDisplayLabelY = usesSplitConnectorLabels
@@ -233,16 +232,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       />
       {inheritanceConstraintLabel ? (
         <>
-          <rect
-            x={geometry.labelPoint.x - inheritanceConstraintWidth / 2}
-            y={inheritanceConstraintY - 13}
-            width={inheritanceConstraintWidth}
-            height={18}
-            rx={3}
-            fill="var(--diagram-canvas-fill)"
-            opacity={0.9}
-            pointerEvents="none"
-          />
           <text
             x={geometry.labelPoint.x}
             y={inheritanceConstraintY}
@@ -258,21 +247,17 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       ) : null}
       {displayLabel ? (
         <>
-          <rect
-            x={displayLabelPoint.x - displayLabelWidth / 2}
-            y={displayLabelY - 13}
-            width={displayLabelWidth}
-            height={18}
-            rx={3}
-            fill="var(--diagram-canvas-fill)"
-            opacity={0.9}
-            pointerEvents="none"
-          />
           <text
             x={displayLabelPoint.x}
             y={displayLabelY}
             textAnchor="middle"
-            className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
+            className={
+              props.edge.type === "connector"
+                ? "edge-label cardinality-label connector-label"
+                : props.edge.type === "attribute"
+                  ? "edge-label cardinality-label attribute-cardinality-label"
+                  : "edge-label"
+            }
             fill={selectedStrokeColor}
             opacity={labelOpacity}
             onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}

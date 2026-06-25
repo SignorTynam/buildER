@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import type { AttributeNode, DiagramDocument, DiagramEdge, EntityNode, RelationshipNode } from "../src/types/diagram.ts";
+import { DiagramEdgeView } from "../src/canvas/DiagramEdge.tsx";
 import {
   getCardinalityModalPrimaryLabel,
   shouldCancelCardinalityModalFromKeyboard,
   shouldConfirmCardinalityModalFromKeyboard,
 } from "../src/components/CardinalityModal.tsx";
+import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import {
   applyConnectorCardinalityToDiagram,
   ensureConnectorParticipation,
@@ -16,6 +21,8 @@ import {
 } from "../src/utils/cardinality.ts";
 import { canEdgeUseManualRouting } from "../src/utils/edgeRouting.ts";
 import { parseDiagram, serializeDiagram } from "../src/utils/diagram.ts";
+
+(globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 function entity(id: string): EntityNode {
   return {
@@ -76,6 +83,33 @@ function baseDiagram(edge: DiagramEdge = connector()): DiagramDocument {
   };
 }
 
+function renderEdge(edge: DiagramEdge, sourceNode: EntityNode | RelationshipNode | AttributeNode, targetNode: EntityNode | RelationshipNode | AttributeNode): string {
+  return renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      null,
+      React.createElement(
+        "svg",
+        null,
+        React.createElement(DiagramEdgeView, {
+          edge,
+          sourceNode,
+          targetNode,
+          selected: false,
+          dragging: false,
+          focused: false,
+          focusable: true,
+          onFocus: () => undefined,
+          onBlur: () => undefined,
+          onPointerDown: () => undefined,
+          onLabelPointerDown: () => undefined,
+          onDoubleClick: () => undefined,
+        }),
+      ),
+    ),
+  );
+}
+
 test("cardinality flow: connector without cardinality does not render placeholder", () => {
   const diagram = baseDiagram(connector());
   const [sourceNode, targetNode] = diagram.nodes;
@@ -105,6 +139,97 @@ test("cardinality flow: connector with cardinality renders saved value", () => {
   };
 
   assert.equal(getEdgeCardinalityLabel(nextDiagram.edges[0], nextDiagram.nodes[0], nextDiagram.nodes[1]), "(0,N)");
+});
+
+test("cardinality flow: connector cardinality renders without canvas-fill background", () => {
+  const sourceNode = {
+    ...entity("ENTITY1"),
+    relationshipParticipations: [
+      {
+        id: "participation-edge-1",
+        relationshipId: "RELATIONSHIP1",
+        cardinality: "(1,1)",
+      },
+    ],
+  };
+  const targetNode = relationship("RELATIONSHIP1");
+  const markup = renderEdge(connector("edge-1", "participation-edge-1"), sourceNode, targetNode);
+
+  assert.match(markup, /class="edge-label cardinality-label connector-label"/);
+  assert.match(markup, />\(1,1\)<\/text>/);
+  assert.doesNotMatch(markup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
+});
+
+test("cardinality flow: attribute cardinality renders without canvas-fill background", () => {
+  const sourceNode = attribute("ATTR1", "(0,N)");
+  const targetNode = entity("ENTITY1");
+  const edge: DiagramEdge = {
+    id: "attribute-edge",
+    type: "attribute",
+    sourceId: sourceNode.id,
+    targetId: targetNode.id,
+    label: "",
+    lineStyle: "solid",
+  };
+  const markup = renderEdge(edge, sourceNode, targetNode);
+
+  assert.match(markup, /class="edge-label cardinality-label attribute-cardinality-label"/);
+  assert.match(markup, />\(0,N\)<\/text>/);
+  assert.doesNotMatch(markup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
+});
+
+test("cardinality flow: cardinality labels do not use the edge-label white stroke halo", () => {
+  const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.cardinality-label\s*\{[\s\S]*?paint-order:\s*normal;[\s\S]*?stroke:\s*none;[\s\S]*?stroke-width:\s*0;[\s\S]*?\}/);
+  assert.match(
+    css,
+    /\.diagram-edge:hover \.cardinality-label,\s*\.diagram-edge:focus-within \.cardinality-label\s*\{[\s\S]*?stroke:\s*none;[\s\S]*?stroke-width:\s*0;[\s\S]*?\}/,
+  );
+});
+
+test("cardinality flow: hierarchy constraint labels do not use backgrounds or white stroke halos", () => {
+  const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+  const canvasSource = readFileSync(new URL("../src/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
+  const isaMarkup = renderEdge(
+    {
+      id: "isa-edge",
+      type: "inheritance",
+      sourceId: "ENTITY1",
+      targetId: "ENTITY2",
+      label: "",
+      lineStyle: "solid",
+      isaCompleteness: "total",
+      isaDisjointness: "disjoint",
+    },
+    entity("ENTITY1"),
+    entity("ENTITY2"),
+  );
+
+  assert.match(isaMarkup, /class="edge-label inheritance-constraint-label"/);
+  assert.match(isaMarkup, />\(t,e\)<\/text>/);
+  assert.doesNotMatch(isaMarkup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
+  assert.match(css, /\.inheritance-constraint-label\s*\{[\s\S]*?paint-order:\s*normal;[\s\S]*?stroke:\s*none;[\s\S]*?stroke-width:\s*0;[\s\S]*?\}/);
+  assert.doesNotMatch(canvasSource, /layout\.visualLayout\.labelPoint\.x\s*-\s*labelWidth\s*\/\s*2/);
+});
+
+test("cardinality flow: role labels keep their separate backgrounds", () => {
+  const sourceNode = {
+    ...entity("ENTITY1"),
+    relationshipParticipations: [
+      {
+        id: "participation-edge-1",
+        relationshipId: "RELATIONSHIP1",
+        cardinality: "(1,1)",
+        role: "owner",
+      },
+    ],
+  };
+  const targetNode = relationship("RELATIONSHIP1");
+  const roleMarkup = renderEdge(connector("edge-1", "participation-edge-1"), sourceNode, targetNode);
+
+  assert.match(roleMarkup, /class="edge-label connector-role-label"/);
+  assert.match(roleMarkup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
 });
 
 test("cardinality flow: new connector between entity and relationship opens cardinality dialog", () => {

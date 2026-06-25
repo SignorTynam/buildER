@@ -1236,10 +1236,19 @@ button:disabled {
   stroke-width: 6px;
 }
 
+.cardinality-label {
+  paint-order: normal;
+  stroke: none;
+  stroke-width: 0;
+}
+
 .inheritance-constraint-label {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
+  paint-order: normal;
+  stroke: none;
+  stroke-width: 0;
 }
 
 .connector-label {
@@ -9276,6 +9285,12 @@ textarea:focus-visible,
   stroke: rgba(255, 255, 255, 0.98);
   stroke-width: 10px;
   font-weight: 700;
+}
+
+.diagram-edge:hover .cardinality-label,
+.diagram-edge:focus-within .cardinality-label {
+  stroke: none;
+  stroke-width: 0;
 }
 
 .external-identifier,
