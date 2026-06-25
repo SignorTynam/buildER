@@ -4103,7 +4103,7 @@ export default function App() {
     let workingDiagram = history.present;
     let workingNodeId = nodeId;
     let workingPatch: Partial<DiagramNode> = patch;
-    let relationshipRenameCenter: Point | null = null;
+    let nodeRenameResize: { nodeId: string; center: Point } | null = null;
 
     if (typeof patch.label === "string") {
       const currentNode = history.present.nodes.find((node) => node.id === nodeId);
@@ -4147,16 +4147,25 @@ export default function App() {
         return;
       }
 
-      if (currentNode.type === "relationship") {
-        relationshipRenameCenter = {
-          x: currentNode.x + currentNode.width / 2,
-          y: currentNode.y + currentNode.height / 2,
+      if (currentNode.type === "entity" || currentNode.type === "relationship") {
+        nodeRenameResize = {
+          nodeId,
+          center: {
+            x: currentNode.x + currentNode.width / 2,
+            y: currentNode.y + currentNode.height / 2,
+          },
         };
       }
 
       const identityRenamed = renameNodeAsNameIdentity(history.present, nodeId, patch.label);
       workingDiagram = identityRenamed.diagram;
       workingNodeId = identityRenamed.nodeIdMap.get(nodeId) ?? nodeId;
+      if (nodeRenameResize) {
+        nodeRenameResize = {
+          ...nodeRenameResize,
+          nodeId: workingNodeId,
+        };
+      }
       if (identityRenamed.nodeIdMap.size > 0) {
         setSelection((currentSelection) => ({
           nodeIds: Array.from(
@@ -4316,12 +4325,12 @@ export default function App() {
           : workingPatch;
 
     let nextDiagram = updateNodeInDiagram(workingDiagram, workingNodeId, nextPatch);
-    if (relationshipRenameCenter) {
+    if (nodeRenameResize) {
       nextDiagram = {
         ...nextDiagram,
         nodes: nextDiagram.nodes.map((node) =>
-          node.id === workingNodeId && node.type === "relationship"
-            ? withPreferredNodeSizeForLabel(node, relationshipRenameCenter)
+          node.id === nodeRenameResize.nodeId && (node.type === "entity" || node.type === "relationship")
+            ? withPreferredNodeSizeForLabel(node, nodeRenameResize.center)
             : node,
         ),
       };

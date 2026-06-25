@@ -100,6 +100,90 @@ test("relationship preferred resize after rename shrinks and preserves center", 
   assert.equal(resized.y + resized.height / 2, center.y);
 });
 
+test("entity preferred size grows for a long label", () => {
+  const shortSize = getPreferredNodeSizeForLabel("entity", "Cliente");
+  const longSize = getPreferredNodeSizeForLabel("entity", "CLIENTE_CON_NOME_MOLTO_MOLTO_LUNGO");
+
+  assert.ok(longSize.width > shortSize.width);
+  assert.equal(longSize.height, shortSize.height);
+});
+
+test("entity preferred resize after rename shrinks and preserves center", () => {
+  const node: Extract<DiagramNode, { type: "entity" }> = {
+    id: "CLIENTE",
+    type: "entity",
+    label: "Cliente",
+    x: 100,
+    y: 80,
+    width: 560,
+    height: 64,
+    relationshipParticipations: [],
+  };
+  const center = {
+    x: node.x + node.width / 2,
+    y: node.y + node.height / 2,
+  };
+  const shortSize = getPreferredNodeSizeForLabel("entity", node.label);
+
+  const resized = withPreferredNodeSizeForLabel(node);
+
+  assert.ok(resized.width < node.width);
+  assert.equal(resized.width, shortSize.width);
+  assert.equal(resized.height, shortSize.height);
+  assert.equal(resized.x + resized.width / 2, center.x);
+  assert.equal(resized.y + resized.height / 2, center.y);
+});
+
+test("entity preferred resize after rename expands and preserves center", () => {
+  const node: Extract<DiagramNode, { type: "entity" }> = {
+    id: "CLIENTE_CON_NOME_MOLTO_MOLTO_LUNGO",
+    type: "entity",
+    label: "CLIENTE_CON_NOME_MOLTO_MOLTO_LUNGO",
+    x: 100,
+    y: 80,
+    width: getPreferredNodeSizeForLabel("entity", "Cliente").width,
+    height: getPreferredNodeSizeForLabel("entity", "Cliente").height,
+    relationshipParticipations: [],
+  };
+  const center = {
+    x: node.x + node.width / 2,
+    y: node.y + node.height / 2,
+  };
+  const longSize = getPreferredNodeSizeForLabel("entity", node.label);
+
+  const resized = withPreferredNodeSizeForLabel(node, center);
+
+  assert.ok(resized.width > node.width);
+  assert.equal(resized.width, longSize.width);
+  assert.equal(resized.height, longSize.height);
+  assert.equal(resized.x + resized.width / 2, center.x);
+  assert.equal(resized.y + resized.height / 2, center.y);
+});
+
+test("entity preferred width does not shrink below base width", () => {
+  const baseSize = getPreferredNodeSizeForLabel("entity", "");
+  const shortSize = getPreferredNodeSizeForLabel("entity", "A");
+
+  assert.equal(shortSize.width, baseSize.width);
+  assert.equal(shortSize.height, baseSize.height);
+});
+
+test("preferred label resize does not affect attributes", () => {
+  const node: Extract<DiagramNode, { type: "attribute" }> = {
+    id: "ATTRIBUTO1",
+    type: "attribute",
+    label: "ATTRIBUTO_CON_NOME_MOLTO_MOLTO_LUNGO",
+    x: 100,
+    y: 80,
+    width: 150,
+    height: 28,
+  };
+
+  const resized = withPreferredNodeSizeForLabel(node);
+
+  assert.deepEqual(resized, node);
+});
+
 test("ERS serialization does not emit project notes", () => {
   const diagram = createCodeLayoutFixture();
   diagram.notes = "Test notes";
