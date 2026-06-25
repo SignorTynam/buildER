@@ -15,6 +15,34 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [5.4] - 2026-06-25
+
+### Added
+- Aggiunta funzionalità di rename per i target di traduzione (tabelle e colonne) nel `LogicalTranslationWorkspace`, con supporto i18n in italiano, inglese e albanese.
+- Hook `useHistory` potenziato: supporto a numero massimo di voci configurabile, clonazione custom e check di uguaglianza; undo/redo rispetta il limite massimo configurato.
+- Aggiunti stili CSS dedicati per le label delle cardinalità senza sfondo rettangolare (`src/index.css`).
+- Export SVG esteso con modalità `normal` e `print`: rimozione degli elementi di validazione (halo warning/error su nodi e archi) prima dell'export.
+- Export SVG preserva i fill dei marker degli identificatori semplici (`attribute-identifier` class) in modalità stampa.
+- Estesa la copertura test per: sessione workspace (pannelli tecnici), rename traduzione, history, layout attributi, export SVG, cardinalità, resize nodi, toolbar comandi e code drawer.
+
+### Changed
+- Versione applicativa aggiornata a buildER 5.4 con `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README e changelog allineati come update fix.
+- Rimossa l'interazione legacy di drag-edge da `DiagramCanvas`: codice semplificato e test aggiornati.
+- Altezza degli attributi multivalore corretta da 44 a 34 px per coerenza di layout; normalizzazione automatica applicata ai file progetto legacy.
+- Label delle cardinalità ridisegnate senza sfondo rettangolare: rimosso il rettangolo di sfondo da `DiagramEdge`, aggiornati stili e test.
+- Logica di resize dei nodi rifattorizzata per entità e relazioni: il centro viene preservato durante la rinomina anche per relazioni a rombo.
+- Comando subattributo nella toolbar reso sempre visibile per gli attributi semplici; logica di visibilità semplificata e test aggiornati.
+- Layout degli attributi rifattorizzato per supportare sia entità che relazioni come host, con posizionamento e distribuzione migliorati.
+- Code panel rifattorizzato come drawer sovrapposto al canvas: il canvas mantiene dimensioni complete quando il drawer è aperto.
+- Rimossa la classe legacy del technical workspace shell; logica di layout aggiornata per evitare la riapertura automatica del pannello tecnico.
+- CSS `editor-refactor.css` aggiornato per supportare il nuovo layout drawer del pannello codice.
+- Gestione sessione workspace aggiornata per i pannelli tecnici (code, notes, review): ripristino corretto dello stato dalla sessione salvata.
+- Corretta la descrizione del `notesPanel` nelle traduzioni italiana, inglese e albanese per maggiore chiarezza.
+
+### Fixed
+- Corretti i casi in cui l'altezza degli attributi multivalore nei file esistenti non corrispondeva al nuovo valore compatto.
+- Corretto il resize delle relazioni a rombo che non preservava il centro durante la rinomina.
+
 ## [5.3] - 2026-06-21
 
 ### Added

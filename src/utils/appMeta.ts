@@ -1,5 +1,5 @@
 export const APP_NAME = "buildER";
-export const APP_VERSION = "5.3";
+export const APP_VERSION = "5.4";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -27,6 +27,51 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "5.4",
+    date: "2026-06-25",
+    impact: "patch",
+    headline: "buildER 5.4: canvas più fluido, export migliorato e layout attribuiti rifattorizzato",
+    summary:
+      "buildER 5.4 è un update fix della 5.3: rifinisce il rendering del canvas con label cardinalità senza sfondo, migliora l'export SVG con pulizia degli elementi di validazione e preservazione dei fill, rifattorizza il layout degli attributi per entità e relazioni, rende il code panel un drawer integrato nel canvas, aggiunge il rename dei target di traduzione e potenzia il hook useHistory.",
+    highlights: [
+      {
+        title: "Canvas più pulito",
+        description: "Le label delle cardinalità non mostrano più sfondi rettangolari. Il resize dei nodi preserva il centro durante la rinomina.",
+        tag: "Canvas",
+      },
+      {
+        title: "Export SVG migliorato",
+        description: "Gli elementi di validazione (halo warning/error) vengono rimossi dall'export. I fill dei marker degli identificatori vengono preservati correttamente in modalità stampa.",
+        tag: "Export",
+      },
+      {
+        title: "Code panel come drawer",
+        description: "Il pannello Code si apre ora come drawer sovrapposto al canvas, senza ridurre lo spazio del diagramma.",
+        tag: "UX",
+      },
+    ],
+    updates: [
+      "Versione applicativa aggiornata a buildER 5.4 con package.json, package-lock.json, src/utils/appMeta.ts, README e changelog allineati come update fix.",
+      "Rimossa l'interazione legacy di drag-edge da DiagramCanvas: il codice è stato semplificato e i test aggiornati.",
+      "Aggiunta funzionalità di rename per i target di traduzione (tabelle e colonne) nel LogicalTranslationWorkspace.",
+      "Aggiunto supporto i18n per le azioni di rename in italiano, inglese e albanese nel LogicalTranslationWorkspace.",
+      "Hook useHistory potenziato: supporto a massimo di voci cronologia configurabile, clonazione custom e check di uguaglianza; undo/redo rispetta il limite massimo.",
+      "Aggiornata la gestione delle sessioni workspace per i pannelli tecnici (code, notes, review): ripristino dello stato corretto dalla sessione salvata.",
+      "Corretta la descrizione del notesPanel nelle traduzioni italiana, inglese e albanese per maggiore chiarezza.",
+      "Altezza degli attributi multivalore corretta da 44 a 34 px per coerenza di layout; normalizzazione automatica nei file legacy.",
+      "Label delle cardinalità ridisegnate senza sfondo rettangolare: stili CSS dedicati, rendering più pulito e test di verifica aggiornati.",
+      "Logica di resize dei nodi rifattorizzata per entità e relazioni: il centro viene preservato correttamente durante la rinomina anche per relazioni a rombo.",
+      "Comando subattributo nella toolbar sempre visibile per gli attributi semplici; logica semplificata e test di visibilità aggiornati.",
+      "Layout degli attributi rifattorizzato per supportare sia entità che relazioni come host, con posizionamento e distribuzione migliorati e suite di test ridotta e più precisa.",
+      "Export SVG esteso con modalità normale e print: gli elementi di validazione (halo warning/error su nodi e archi) vengono rimossi prima dell'esportazione.",
+      "Export SVG preserva i fill dei marker degli identificatori semplici (classe attribute-identifier) in modalità stampa.",
+      "Code panel rifattorizzato come drawer sovrapposto al canvas: il canvas mantiene le dimensioni complete quando il drawer è aperto.",
+      "Rimossa la classe legacy del technical workspace shell; la logica di layout aggiornata evita la riapertura automatica del pannello tecnico.",
+      "Aggiornati i CSS di editor-refactor.css per supportare il nuovo layout drawer del pannello codice con design responsivo.",
+      "Estesa la copertura test per: sessione workspace (pannelli tecnici), rename traduzione, history, layout attributi, export SVG, cardinalità, resize nodi, toolbar comandi e code drawer.",
+    ],
+  },
   {
     version: "5.3",
     date: "2026-06-21",
