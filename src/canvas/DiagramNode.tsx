@@ -190,6 +190,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
       >
         {!isGhost && props.validationLevel ? (
           <rect
+            className="diagram-validation-halo node-validation-halo"
             x={node.x - 8}
             y={node.y - 8}
             width={node.width + 16}
@@ -262,6 +263,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
       >
         {!isGhost && props.validationLevel ? (
           <polygon
+            className="diagram-validation-halo node-validation-halo"
             points={`${cx},${node.y - 8} ${node.x + node.width + 8},${cy} ${cx},${node.y + node.height + 8} ${node.x - 8},${cy}`}
             fill="none"
             stroke={haloColor}
@@ -318,6 +320,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
       >
         {!isGhost && props.validationLevel ? (
           <rect
+            className="diagram-validation-halo node-validation-halo"
             x={node.x - 10}
             y={node.y - 8}
             width={node.width + 20}

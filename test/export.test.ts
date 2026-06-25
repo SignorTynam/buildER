@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const exportSource = readFileSync(new URL("../src/utils/export.ts", import.meta.url), "utf8");
+const diagramNodeSource = readFileSync(new URL("../src/canvas/DiagramNode.tsx", import.meta.url), "utf8");
+const diagramEdgeSource = readFileSync(new URL("../src/canvas/DiagramEdge.tsx", import.meta.url), "utf8");
 
 function functionBody(name: string): string {
   const start = exportSource.indexOf(`export async function ${name}`);
@@ -45,6 +47,7 @@ test("JPEG export exists, uses JPEG MIME, and paints a white background", () => 
 
   assert.match(downloadJpegBody, /format:\s*"jpeg"/);
   assert.match(downloadJpegBody, /background:\s*"white"/);
+  assert.match(downloadJpegBody, /styleMode:\s*"print"/);
   assert.match(exportSource, /image\/jpeg/);
   assert.match(exportSource, /JPEG_QUALITY\s*=\s*0\.92/);
   assert.match(exportSource, /fillStyle\s*=\s*["']#ffffff["']/i);
@@ -54,6 +57,45 @@ test("JPEG export exists, uses JPEG MIME, and paints a white background", () => 
 test("SVG export defaults to transparent output", () => {
   assert.match(exportSource, /downloadSvg[\s\S]*background:\s*"transparent"/);
   assert.match(exportSource, /serializeSvg[\s\S]*background:\s*options\.background\s*\?\?\s*"transparent"/);
+});
+
+test("export removes validation UI from cloned SVG", () => {
+  assert.match(diagramNodeSource, /className="diagram-validation-halo node-validation-halo"/);
+  assert.match(diagramEdgeSource, /className="diagram-validation-halo edge-validation-halo"/);
+  assert.match(exportSource, /function removeExportOnlyUi/);
+  assert.match(exportSource, /\.diagram-validation-badge/);
+  assert.match(exportSource, /\.diagram-validation-halo/);
+  assert.match(exportSource, /\.diagram-edge-hit-target/);
+  assert.match(exportSource, /removeExportOnlyUi\(clone\)/);
+});
+
+test("JPEG print mode forces monochrome transparent fills", () => {
+  assert.match(exportSource, /styleMode\s*=\s*options\.styleMode\s*\?\?\s*\(format\s*===\s*"jpeg"\s*\?\s*"print"\s*:\s*"normal"\)/);
+  assert.match(exportSource, /function applyPrintExportStyle/);
+  assert.match(exportSource, /--diagram-node-fill",\s*"transparent"/);
+  assert.match(exportSource, /--diagram-stroke",\s*"#000000"/);
+  assert.match(exportSource, /--diagram-text",\s*"#000000"/);
+  assert.match(exportSource, /--diagram-selection-fill",\s*"transparent"/);
+  assert.match(exportSource, /--diagram-warning-fill",\s*"transparent"/);
+  assert.match(exportSource, /--diagram-error-fill",\s*"transparent"/);
+  assert.match(exportSource, /function normalizePrintExportElements/);
+  assert.match(diagramEdgeSource, /className="diagram-edge-hit-target"/);
+  assert.match(exportSource, /function isTransparentPaint/);
+  assert.match(exportSource, /setProperty\("stroke",\s*"none"\)/);
+  assert.match(exportSource, /setProperty\("fill",\s*"none"\)/);
+  assert.match(exportSource, /setAttribute\("stroke",\s*"#000000"\)/);
+  assert.match(exportSource, /querySelectorAll<SVGTextElement>\("text"\)/);
+});
+
+test("PNG and SVG do not request print style by default", () => {
+  const downloadPngBody = functionBody("downloadPng");
+  const downloadSvgStart = exportSource.indexOf("export function downloadSvg");
+  assert.notEqual(downloadSvgStart, -1, "downloadSvg should exist");
+  const downloadSvgEnd = exportSource.indexOf("async function rasterizeSvg", downloadSvgStart);
+  const downloadSvgBody = exportSource.slice(downloadSvgStart, downloadSvgEnd);
+
+  assert.doesNotMatch(downloadPngBody, /styleMode:\s*"print"/);
+  assert.doesNotMatch(downloadSvgBody, /styleMode:\s*"print"/);
 });
 
 test("standalone style export covers logical diagram variables", () => {

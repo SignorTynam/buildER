@@ -199,9 +199,18 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, props.edge)}
       onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, props.edge)}
     >
-      {!isGhost ? <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} /> : null}
+      {!isGhost ? (
+        <path
+          className="diagram-edge-hit-target"
+          d={pathData}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={16}
+        />
+      ) : null}
       {!isGhost && props.validationLevel ? (
         <path
+          className="diagram-validation-halo edge-validation-halo"
           d={pathData}
           fill="none"
           stroke={haloColor}

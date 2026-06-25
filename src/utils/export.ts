@@ -1,9 +1,11 @@
 type ExportFormat = "svg" | "png" | "jpeg";
 type ExportBackground = "transparent" | "white";
+type ExportStyleMode = "normal" | "print";
 
 interface SvgExportOptions {
   format?: ExportFormat;
   background?: ExportBackground;
+  styleMode?: ExportStyleMode;
   scale?: number;
   padding?: number;
 }
@@ -211,6 +213,75 @@ function removeExportBackgrounds(clone: SVGSVGElement) {
   clone.querySelectorAll("[data-export-background=\"true\"]").forEach((element) => element.remove());
 }
 
+function removeExportOnlyUi(clone: SVGSVGElement) {
+  clone
+    .querySelectorAll(
+      [
+        ".diagram-validation-badge",
+        ".diagram-validation-halo",
+        ".diagram-edge-hit-target",
+      ].join(","),
+    )
+    .forEach((element) => element.remove());
+}
+
+function isTransparentPaint(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === "transparent" ||
+    normalized === "rgba(0, 0, 0, 0)" ||
+    normalized === "rgba(0,0,0,0)" ||
+    normalized.endsWith(", 0)") ||
+    normalized.endsWith(",0)")
+  );
+}
+
+function applyPrintExportStyle(clone: SVGSVGElement) {
+  clone.style.setProperty("--diagram-canvas-fill", "#ffffff");
+  clone.style.setProperty("--diagram-node-fill", "transparent");
+  clone.style.setProperty("--diagram-stroke", "#000000");
+  clone.style.setProperty("--diagram-text", "#000000");
+  clone.style.setProperty("--diagram-focus", "#000000");
+  clone.style.setProperty("--diagram-pending", "#000000");
+  clone.style.setProperty("--diagram-drag", "#000000");
+  clone.style.setProperty("--diagram-drag-fill", "transparent");
+  clone.style.setProperty("--diagram-warning", "#000000");
+  clone.style.setProperty("--diagram-warning-fill", "transparent");
+  clone.style.setProperty("--diagram-error", "#000000");
+  clone.style.setProperty("--diagram-error-fill", "transparent");
+  clone.style.setProperty("--diagram-selection-stroke", "#000000");
+  clone.style.setProperty("--diagram-selection-fill", "transparent");
+  clone.style.setProperty("--diagram-translation-pending", "#000000");
+  clone.style.setProperty("--diagram-translation-blocked", "#000000");
+}
+
+function normalizePrintExportElements(clone: SVGSVGElement) {
+  clone.querySelectorAll<SVGElement>("rect, polygon, ellipse, circle, path, line, polyline").forEach((element) => {
+    element.style.setProperty("fill", "none");
+    element.setAttribute("fill", "none");
+
+    const currentStroke = element.style.getPropertyValue("stroke") || element.getAttribute("stroke");
+    if (isTransparentPaint(currentStroke)) {
+      element.style.setProperty("stroke", "none");
+      element.setAttribute("stroke", "none");
+    } else if (currentStroke && currentStroke !== "none") {
+      element.style.setProperty("stroke", "#000000");
+      element.setAttribute("stroke", "#000000");
+    }
+  });
+
+  clone.querySelectorAll<SVGTextElement>("text").forEach((text) => {
+    text.style.setProperty("fill", "#000000");
+    text.setAttribute("fill", "#000000");
+    text.style.removeProperty("stroke");
+    text.removeAttribute("stroke");
+  });
+}
+
 function neutralizeWorldTransform(clone: SVGSVGElement) {
   getExportWorldGroup(clone)?.removeAttribute("transform");
 }
@@ -218,6 +289,7 @@ function neutralizeWorldTransform(clone: SVGSVGElement) {
 export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOptions = {}): PreparedSvgExport {
   const format = options.format ?? "svg";
   const background = options.background ?? (format === "jpeg" ? "white" : "transparent");
+  const styleMode = options.styleMode ?? (format === "jpeg" ? "print" : "normal");
   const padding = options.padding ?? DEFAULT_EXPORT_PADDING;
   const clone = svgElement.cloneNode(true) as SVGSVGElement;
   const fontFamily = resolveFontFamily(svgElement);
@@ -230,6 +302,11 @@ export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOp
   applyResolvedCustomProperties(svgElement, clone);
   copyComputedSvgStyles(svgElement, clone, fontFamily);
   removeExportBackgrounds(clone);
+  removeExportOnlyUi(clone);
+  if (styleMode === "print") {
+    applyPrintExportStyle(clone);
+    normalizePrintExportElements(clone);
+  }
   neutralizeWorldTransform(clone);
   appendStandaloneFontStyle(clone, fontFamily);
 
@@ -264,12 +341,13 @@ export function downloadSvg(svgElement: SVGSVGElement, fileName: string) {
 async function rasterizeSvg(
   svgElement: SVGSVGElement,
   fileName: string,
-  options: Required<Pick<SvgExportOptions, "format" | "background">> & Pick<SvgExportOptions, "scale">,
+  options: Required<Pick<SvgExportOptions, "format" | "background">> & Pick<SvgExportOptions, "scale" | "styleMode">,
 ) {
   const scale = options.scale ?? DEFAULT_RASTER_SCALE;
   const { markup, width, height } = prepareSvgExport(svgElement, {
     format: options.format,
     background: options.background,
+    styleMode: options.styleMode,
     scale,
   });
   const svgBlob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
@@ -330,5 +408,5 @@ export async function downloadPng(svgElement: SVGSVGElement, fileName: string) {
 }
 
 export async function downloadJpeg(svgElement: SVGSVGElement, fileName: string) {
-  await rasterizeSvg(svgElement, fileName, { format: "jpeg", background: "white" });
+  await rasterizeSvg(svgElement, fileName, { format: "jpeg", background: "white", styleMode: "print" });
 }
