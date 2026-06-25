@@ -28,6 +28,10 @@ import {
   type LogicalColumnSqlPatch,
 } from "../utils/logicalSqlMetadata";
 import {
+  getMultivaluedAttributeSize,
+  getPreferredNodeSizeForLabel,
+} from "../utils/diagram";
+import {
   chooseLogicalForeignKeyLabelPlacement,
   type LogicalFkLabelPlacement,
   type LogicalFkLabelReservedBox,
@@ -753,39 +757,50 @@ export function toSyntheticDiagramNode(node: LogicalTransformationNode, sourceNo
     };
   }
 
+  const center = {
+    x: node.x + node.width / 2,
+    y: node.y + node.height / 2,
+  };
+
   if (node.renderType === "relationship") {
+    const size = getPreferredNodeSizeForLabel("relationship", node.label);
     return {
       id: node.id,
       type: "relationship",
       label: node.label,
-      x: node.x,
-      y: node.y,
-      width: node.width,
-      height: node.height,
+      x: center.x - size.width / 2,
+      y: center.y - size.height / 2,
+      width: size.width,
+      height: size.height,
     };
   }
 
   if (node.renderType === "attribute" || node.renderType === "multivalued-attribute") {
+    const size =
+      node.renderType === "multivalued-attribute"
+        ? getMultivaluedAttributeSize(node.label)
+        : getPreferredNodeSizeForLabel("attribute", node.label);
     return {
       id: node.id,
       type: "attribute",
       label: node.label,
-      x: node.x,
-      y: node.y,
-      width: node.width,
-      height: node.height,
+      x: center.x - size.width / 2,
+      y: center.y - size.height / 2,
+      width: size.width,
+      height: size.height,
       isMultivalued: node.renderType === "multivalued-attribute",
     };
   }
 
+  const size = getPreferredNodeSizeForLabel("entity", node.label);
   return {
     id: node.id,
     type: "entity",
     label: node.label,
-    x: node.x,
-    y: node.y,
-    width: node.width,
-    height: node.height,
+    x: center.x - size.width / 2,
+    y: center.y - size.height / 2,
+    width: size.width,
+    height: size.height,
     isWeak: node.renderType === "weak-entity",
   };
 }

@@ -22,6 +22,7 @@ import {
   createEmptyLogicalWorkspace,
   getLogicalTranslationChoicesForItem,
 } from "../src/utils/logicalTranslation.ts";
+import { getMultivaluedAttributeSize, getPreferredNodeSizeForLabel } from "../src/utils/diagram.ts";
 import { applySimpleMultivaluedAttributeTranslation } from "../src/utils/erTranslation.ts";
 import { generateLogicalModel } from "../src/utils/logicalMapping.ts";
 import { generateLogicalSql } from "../src/utils/logicalSql.ts";
@@ -327,6 +328,80 @@ test("logical canvas preserves ER identifier metadata from source nodes", () => 
   assert.equal(synthetic.isCompositeInternal, true);
   assert.equal(synthetic.x, 30);
   assert.equal(synthetic.width, 120);
+});
+
+test("logical canvas fallback ER shapes use standard ER geometry", () => {
+  const entityNode = toSyntheticDiagramNode({
+    id: "entity-generated",
+    kind: "er-node",
+    renderType: "entity",
+    label: "ATTRIBUTO1_ATTRIBUTO3",
+    x: 10,
+    y: 20,
+    width: 160,
+    height: 120,
+    status: "unresolved",
+    generatedByDecisionIds: [],
+    relatedTargetKeys: [],
+  });
+  const relationshipNode = toSyntheticDiagramNode({
+    id: "relationship-generated",
+    kind: "er-node",
+    renderType: "relationship",
+    label: "HAS_ATTRIBUTO1_ATTRIBUTO3",
+    x: 100,
+    y: 120,
+    width: 130,
+    height: 78,
+    status: "unresolved",
+    generatedByDecisionIds: [],
+    relatedTargetKeys: [],
+  });
+  const multivaluedAttributeNode = toSyntheticDiagramNode({
+    id: "attribute-generated",
+    kind: "er-node",
+    renderType: "multivalued-attribute",
+    label: "ATTRIBUTO1_ATTRIBUTO4",
+    x: 220,
+    y: 220,
+    width: 90,
+    height: 90,
+    status: "unresolved",
+    generatedByDecisionIds: [],
+    relatedTargetKeys: [],
+  });
+
+  assert.deepEqual(
+    { width: entityNode.width, height: entityNode.height },
+    getPreferredNodeSizeForLabel("entity", "ATTRIBUTO1_ATTRIBUTO3"),
+  );
+  assert.deepEqual(
+    { width: relationshipNode.width, height: relationshipNode.height },
+    getPreferredNodeSizeForLabel("relationship", "HAS_ATTRIBUTO1_ATTRIBUTO3"),
+  );
+  assert.deepEqual(
+    { width: multivaluedAttributeNode.width, height: multivaluedAttributeNode.height },
+    getMultivaluedAttributeSize("ATTRIBUTO1_ATTRIBUTO4"),
+  );
+  assert.equal(multivaluedAttributeNode.type, "attribute");
+  assert.equal(multivaluedAttributeNode.isMultivalued, true);
+});
+
+test("logical transformation graph preserves translated ER node geometry", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(0,N)", ownerKey: "simple" });
+  const translated = applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-unique");
+  const workspace = createEmptyLogicalWorkspace(translated);
+  const generatedEntity = translated.nodes.find(
+    (node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity" && node.label === "ATTRIBUTO6",
+  );
+  assert.ok(generatedEntity);
+  const transformationNode = workspace.transformation.nodes.find((node) => node.sourceNodeId === generatedEntity.id);
+
+  assert.ok(transformationNode);
+  assert.equal(transformationNode.x, generatedEntity.x);
+  assert.equal(transformationNode.y, generatedEntity.y);
+  assert.equal(transformationNode.width, generatedEntity.width);
+  assert.equal(transformationNode.height, generatedEntity.height);
 });
 
 function createEntity(

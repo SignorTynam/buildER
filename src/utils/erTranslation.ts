@@ -24,7 +24,7 @@ import type {
   ErTranslationWorkspaceDocument,
 } from "../types/translation";
 import {
-  getMultivaluedAttributeSize,
+  getPreferredNodeSizeForLabel,
   normalizeGeneralizationGroups,
   synchronizeEntityRelationshipParticipations,
   synchronizeExternalIdentifiers,
@@ -1069,7 +1069,7 @@ function applyCompositeAttributeTranslationDetailed(
       }
       
       const nextLabel = allocateUniqueLabel(usedNames, preferredLabel);
-      const nextSize = getMultivaluedAttributeSize(nextLabel);
+      const nextSize = getPreferredNodeSizeForLabel("attribute", nextLabel);
       
       const leafId = allocateUniqueId(currentNodeIds, `translated-split-${owner.id}-${leaf.node.id}`, "attribute");
       updatedLeafIds.add(leafId);
@@ -1081,8 +1081,8 @@ function applyCompositeAttributeTranslationDetailed(
         isMultivalued: false,
         isCompositeInternal: false,
         cardinality: inheritedCardinality,
-        width: Math.max(110, nextSize.width - 16),
-        height: 44,
+        width: nextSize.width,
+        height: nextSize.height,
         x: owner.x + owner.width + 120,
         y: owner.y - 40 + index * 62,
         isIdentifier: root.isIdentifier || leaf.node.isIdentifier,
@@ -1109,7 +1109,7 @@ function applyCompositeAttributeTranslationDetailed(
     const preferredLabel = `${root.label}_${mergedLabelContent}`;
     
     const nextLabel = allocateUniqueLabel(usedNames, preferredLabel);
-    const nextSize = getMultivaluedAttributeSize(nextLabel);
+    const nextSize = getPreferredNodeSizeForLabel("attribute", nextLabel);
     
     const mergedId = allocateUniqueId(currentNodeIds, `translated-merge-${owner.id}-${root.id}`, "attribute");
     
@@ -1118,8 +1118,8 @@ function applyCompositeAttributeTranslationDetailed(
       id: mergedId,
       label: nextLabel,
       isMultivalued: false,
-      width: Math.max(110, nextSize.width - 16),
-      height: 44,
+      width: nextSize.width,
+      height: nextSize.height,
       x: owner.x + owner.width + 120,
       y: owner.y - 40,
       isIdentifier: root.isIdentifier || leafPaths.some(l => l.node.isIdentifier),
@@ -1180,17 +1180,16 @@ function findSimpleMultivaluedPlacement(
   diagram: DiagramDocument,
   owner: EntityNode,
   attribute: AttributeNode,
+  entityLabel: string,
+  relationshipLabel: string,
 ): {
   entity: Pick<EntityNode, "x" | "y" | "width" | "height">;
   relationship: Pick<Extract<DiagramNode, { type: "relationship" }>, "x" | "y" | "width" | "height">;
   attribute: Pick<AttributeNode, "x" | "y" | "width" | "height">;
 } {
-  const entitySize = { width: 160, height: 80 };
-  const relationshipSize = { width: 130, height: 78 };
-  const attributeSize = {
-    width: Math.max(110, Math.min(220, attribute.label.length * 8 + 32)),
-    height: 44,
-  };
+  const entitySize = getPreferredNodeSizeForLabel("entity", entityLabel);
+  const relationshipSize = getPreferredNodeSizeForLabel("relationship", relationshipLabel);
+  const attributeSize = getPreferredNodeSizeForLabel("attribute", attribute.label);
   const occupied = diagram.nodes.filter((node) => node.id !== attribute.id);
   const startX = owner.x + owner.width + 260;
   let candidateY = owner.y;
@@ -1319,7 +1318,7 @@ function applySimpleMultivaluedAttributeTranslationDetailed(
     `${entityId}-${relationshipId}-participation`,
     "participation",
   );
-  const placement = findSimpleMultivaluedPlacement(working, owner, attribute);
+  const placement = findSimpleMultivaluedPlacement(working, owner, attribute, entityLabel, relationshipLabel);
   const targetCardinality = rule === "simple-multivalued-shared" ? "(1,N)" : "(1,1)";
 
   const newEntity: EntityNode = {

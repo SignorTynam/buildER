@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AttributeNode, DiagramDocument, DiagramEdge, DiagramNode, EntityNode } from "../src/types/diagram.ts";
-import { validateDiagram } from "../src/utils/diagram.ts";
+import { getPreferredNodeSizeForLabel, validateDiagram } from "../src/utils/diagram.ts";
 import { parseErsDiagram } from "../src/utils/ers.ts";
 import {
   applyCompositeAttributeTranslation,
@@ -195,6 +195,12 @@ function assertSplitAttribute(
   assert.equal(attribute.cardinality, expectedCardinality);
   assert.equal(attribute.isMultivalued, expectedIsMultivalued);
   assert.equal(attribute.isCompositeInternal, false);
+  if (!expectedIsMultivalued) {
+    assert.deepEqual(
+      { width: attribute.width, height: attribute.height },
+      getPreferredNodeSizeForLabel("attribute", attribute.label),
+    );
+  }
   assert.equal(
     getDirectEntityAttributes(diagram, "ENTITY1").some((candidate) => candidate.id === attribute.id),
     true,
@@ -1217,6 +1223,42 @@ test("Fix Unique su Attribute4 (0,N) preserva (0,N) sul lato owner", () => {
   );
 
   assertSimpleMultivaluedFix(translated, "Attribute4", "(0,N)", "(1,1)");
+});
+
+test("Fix Unique/Shared dimensiona entita e relazione generate con le regole ER standard", () => {
+  for (const mode of ["simple-multivalued-unique", "simple-multivalued-shared"] as const) {
+    const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO1_ATTRIBUTO3", "(0,N)");
+    const translated = applySimpleMultivaluedAttributeTranslation(
+      diagram,
+      "attr-attributo1_attributo3",
+      mode,
+    );
+    const generatedEntity = translated.nodes.find(
+      (node): node is EntityNode => node.type === "entity" && node.label === "ATTRIBUTO1_ATTRIBUTO3",
+    );
+    const generatedRelationship = translated.nodes.find(
+      (node) => node.type === "relationship" && node.label === "HAS_ATTRIBUTO1_ATTRIBUTO3",
+    );
+    const keyAttribute = generatedEntity
+      ? getDirectEntityAttributes(translated, generatedEntity.id).find((attribute) => attribute.label === "ATTRIBUTO1_ATTRIBUTO3")
+      : undefined;
+
+    assert.ok(generatedEntity);
+    assert.ok(generatedRelationship);
+    assert.ok(keyAttribute);
+    assert.deepEqual(
+      { width: generatedEntity.width, height: generatedEntity.height },
+      getPreferredNodeSizeForLabel("entity", generatedEntity.label),
+    );
+    assert.deepEqual(
+      { width: generatedRelationship.width, height: generatedRelationship.height },
+      getPreferredNodeSizeForLabel("relationship", generatedRelationship.label),
+    );
+    assert.deepEqual(
+      { width: keyAttribute.width, height: keyAttribute.height },
+      getPreferredNodeSizeForLabel("attribute", keyAttribute.label),
+    );
+  }
 });
 
 test("attributo composto con cardinalita non espone Fix Unique/Shared", () => {
