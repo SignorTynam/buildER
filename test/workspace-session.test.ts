@@ -115,7 +115,7 @@ test("workspace session sanitizes invalid tool, viewport, and selection", () => 
   assert.deepEqual(restored.logicalSelection, { nodeId: "legacy-table", columnId: null, edgeId: "edge-l" });
 });
 
-test("workspace session restores the code technical panel", () => {
+test("workspace session restores the code drawer without reopening the technical panel", () => {
   const storage = new MemoryStorage();
   saveWorkspaceSessionSnapshot(
     createValidSnapshot({
@@ -129,7 +129,7 @@ test("workspace session restores the code technical panel", () => {
 
   const restored = readWorkspaceSessionBootstrap(storage);
 
-  assert.equal(restored.technicalPanelOpen, true);
+  assert.equal(restored.technicalPanelOpen, false);
   assert.equal(restored.technicalPanelTab, "code");
   assert.equal(restored.codePanelOpen, true);
   assert.equal(restored.notesPanelOpen, false);

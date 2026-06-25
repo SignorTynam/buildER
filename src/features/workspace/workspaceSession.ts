@@ -373,7 +373,10 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
               : storedCodePanelOpen
                 ? "code"
                 : "review";
-    const storedTechnicalPanelOpen = parsed.technicalPanelOpen === true || storedCodePanelOpen || storedNotesPanelOpen;
+    const storedLegacyCodePanelOpen = parsed.technicalPanelOpen === true && storedTechnicalPanelTab === "code";
+    const restoredNotesPanelOpen = storedNotesPanelOpen || (parsed.technicalPanelOpen === true && storedTechnicalPanelTab === "notes");
+    const storedTechnicalPanelOpen =
+      (parsed.technicalPanelOpen === true && storedTechnicalPanelTab !== "code") || restoredNotesPanelOpen;
 
     const storedTranslationWorkspace =
       parsed.version >= 3
@@ -402,12 +405,12 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
       codeDirty: parsed.codeDirty === true,
       technicalPanelOpen: storedTechnicalPanelOpen,
       technicalPanelTab: storedTechnicalPanelTab,
-      codePanelOpen: storedTechnicalPanelOpen && storedTechnicalPanelTab === "code",
+      codePanelOpen: storedCodePanelOpen || storedLegacyCodePanelOpen,
       codePanelWidth:
         typeof parsed.codePanelWidth === "number" && Number.isFinite(parsed.codePanelWidth)
           ? parsed.codePanelWidth
           : fallback.codePanelWidth,
-      notesPanelOpen: storedTechnicalPanelOpen && storedTechnicalPanelTab === "notes",
+      notesPanelOpen: restoredNotesPanelOpen,
       notesPanelWidth:
         typeof parsed.notesPanelWidth === "number" && Number.isFinite(parsed.notesPanelWidth)
           ? parsed.notesPanelWidth

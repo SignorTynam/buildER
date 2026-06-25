@@ -21,11 +21,11 @@ export const RESIZER_WIDTH = 12;
 
 export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootstrap) {
   const restoredTechnicalPanelTab: TechnicalPanelTab = sessionBootstrap.technicalPanelTab;
-  const [technicalPanelOpen, setTechnicalPanelOpen] = useState(sessionBootstrap.technicalPanelOpen);
-  const [technicalPanelTab, setTechnicalPanelTab] = useState<TechnicalPanelTab>(restoredTechnicalPanelTab);
-  const [codePanelOpen, setCodePanelOpen] = useState(
-    sessionBootstrap.codePanelOpen && restoredTechnicalPanelTab === "code",
+  const [technicalPanelOpen, setTechnicalPanelOpen] = useState(
+    sessionBootstrap.technicalPanelOpen && restoredTechnicalPanelTab !== "code",
   );
+  const [technicalPanelTab, setTechnicalPanelTab] = useState<TechnicalPanelTab>(restoredTechnicalPanelTab);
+  const [codePanelOpen, setCodePanelOpen] = useState(sessionBootstrap.codePanelOpen);
   const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
   const [notesPanelOpen, setNotesPanelOpen] = useState(
     sessionBootstrap.notesPanelOpen && restoredTechnicalPanelTab === "notes",
@@ -66,7 +66,7 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
     technicalPanelResizeBounds.min,
     technicalPanelResizeBounds.max,
   );
-  const technicalPanelVisible = technicalPanelOpen;
+  const technicalPanelVisible = technicalPanelOpen && technicalPanelTab !== "code";
   const structuredSidePanelHidden = technicalPanelVisible;
 
   function handleToggleToolRail() {
@@ -74,25 +74,23 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
   }
 
   function openTechnicalPanelTab(nextTab: TechnicalPanelTab) {
+    if (nextTab === "code") {
+      setCodePanelOpen(true);
+      return;
+    }
+
     setTechnicalPanelTab(nextTab);
     setTechnicalPanelOpen(true);
-    setCodePanelOpen(nextTab === "code");
     setNotesPanelOpen(nextTab === "notes");
   }
 
   function closeTechnicalPanel() {
     setTechnicalPanelOpen(false);
-    setCodePanelOpen(false);
     setNotesPanelOpen(false);
   }
 
   function handleToggleCodePanel() {
-    if (technicalPanelOpen && technicalPanelTab === "code") {
-      closeTechnicalPanel();
-      return;
-    }
-
-    openTechnicalPanelTab("code");
+    setCodePanelOpen((current) => !current);
   }
 
   function handleToggleNotesPanel() {

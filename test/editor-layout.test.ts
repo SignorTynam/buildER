@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const workspaceLayoutStateSource = readFileSync(
+  new URL("../src/hooks/useWorkspaceLayoutState.ts", import.meta.url),
+  "utf8",
+);
 const editorCssSource = readFileSync(new URL("../src/styles/editor-refactor.css", import.meta.url), "utf8");
 const panelsCssSource = readFileSync(new URL("../src/styles/panels.css", import.meta.url), "utf8");
 const allCssSource = `${editorCssSource}\n${panelsCssSource}`;
@@ -39,6 +43,24 @@ test("ER code panel renders as a drawer inside the canvas region", () => {
   assert.ok(quickActionsStart > codePanelStart);
 });
 
+test("ER code drawer does not activate the legacy technical side panel layout", () => {
+  assert.doesNotMatch(workspaceLayoutStateSource, /const technicalPanelVisible = technicalPanelOpen;/);
+  assert.match(
+    workspaceLayoutStateSource,
+    /const technicalPanelVisible = technicalPanelOpen && technicalPanelTab !== "code";/,
+  );
+
+  const erShellBlock = cssBlock(".app-shell-view-er .er-workspace-shell");
+  assert.match(erShellBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important/);
+  assert.doesNotMatch(erShellBlock, /--technical-panel-width/);
+  assert.doesNotMatch(erShellBlock, /--technical-panel-resizer-width/);
+
+  const erShellClassStart = appSource.indexOf("const erWorkspaceShellClassName = [");
+  const structuredShellClassStart = appSource.indexOf("const structuredWorkspaceShellClassName = [", erShellClassStart);
+  const erShellClassBlock = appSource.slice(erShellClassStart, structuredShellClassStart);
+  assert.doesNotMatch(erShellClassBlock, /technical-workspace-shell/);
+});
+
 test("ER code drawer CSS keeps the workspace at one canvas column", () => {
   assert.doesNotMatch(allCssSource, /designer-workspace\.code-open[\s\S]*grid-template-columns:\s*minmax\(320px,\s*25vw\)\s+minmax\(0,\s*1fr\)/);
   assert.match(editorCssSource, /\.designer-code-drawer\s*\{/);
@@ -50,6 +72,7 @@ test("ER code drawer CSS keeps the workspace at one canvas column", () => {
 
 test("ER canvas region remains full size when the code drawer is open", () => {
   const canvasRegionBlock = cssBlock(".designer-canvas-region");
+  const codeDrawerBlock = cssBlock(".designer-code-drawer");
 
   assert.match(canvasRegionBlock, /position:\s*relative/);
   assert.match(canvasRegionBlock, /width:\s*100%/);
@@ -57,6 +80,8 @@ test("ER canvas region remains full size when the code drawer is open", () => {
   assert.match(canvasRegionBlock, /min-width:\s*0/);
   assert.match(canvasRegionBlock, /min-height:\s*0/);
   assert.match(canvasRegionBlock, /overflow:\s*hidden/);
+  assert.match(codeDrawerBlock, /position:\s*absolute/);
+  assert.doesNotMatch(codeDrawerBlock, /width:\s*100%/);
   assert.match(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-context-toolbar/);
   assert.match(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-quick-actions-bar/);
 });

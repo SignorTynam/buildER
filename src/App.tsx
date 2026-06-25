@@ -1125,7 +1125,6 @@ export default function App() {
   } as CSSProperties;
   const erWorkspaceShellClassName = [
     "workspace-shell",
-    "technical-workspace-shell",
     "er-workspace-shell",
     effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
     focusMode ? "workspace-shell-focus" : "",
