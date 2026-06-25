@@ -1513,6 +1513,35 @@ function getPrimaryKeyColumns(table: LogicalTable): LogicalColumn[] {
   return table.columns.filter((column) => column.isPrimaryKey);
 }
 
+function getMissingPrimaryKeyParticipants(
+  context: MappingContext,
+  participants: RelationshipParticipant[],
+  entityTableByEntityId: Map<string, string>,
+): RelationshipParticipant[] {
+  return participants.filter((participant) => {
+    const tableId = entityTableByEntityId.get(participant.entity.id);
+    const table = tableId ? context.tableById.get(tableId) : undefined;
+    return !table || getPrimaryKeyColumns(table).length === 0;
+  });
+}
+
+function pushFixedSimpleMultivaluedMissingPrimaryKeyIssue(
+  context: MappingContext,
+  relationship: RelationshipNode,
+  valueParticipant: RelationshipParticipant,
+  missingParticipant: RelationshipParticipant,
+): void {
+  pushIssue(
+    context,
+    "UNRESOLVED_TRANSFORMATION",
+    `Impossibile tradurre ${valueParticipant.entity.label}: l'entita ${missingParticipant.entity.label} non ha una chiave primaria. Definisci una PK per ${missingParticipant.entity.label} prima di generare il modello logico.`,
+    "error",
+    {
+      relationshipId: relationship.id,
+    },
+  );
+}
+
 function getColumnsBySourceAttributeIds(
   table: LogicalTable,
   sourceAttributeIds: string[],
@@ -1781,6 +1810,34 @@ function getRelationshipMode(
     referencedEntityId:
       typeof configuration?.referencedEntityId === "string" ? configuration.referencedEntityId : undefined,
   };
+}
+
+function normalizeFixedMultivaluedName(value: string): string {
+  return normalizeSpaces(value)
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+}
+
+function getFixedSimpleMultivaluedRelationshipInfo(
+  relationship: RelationshipNode,
+  participants: RelationshipParticipant[],
+): { ownerParticipant: RelationshipParticipant; valueParticipant: RelationshipParticipant } | null {
+  const match = normalizeFixedMultivaluedName(relationship.label).match(/^HAS_(.+)$/);
+  if (!match || participants.length !== 2) {
+    return null;
+  }
+
+  const attributeEntityName = match[1];
+  const valueParticipant = participants.find(
+    (participant) => normalizeFixedMultivaluedName(participant.entity.label) === attributeEntityName,
+  );
+  if (!valueParticipant) {
+    return null;
+  }
+
+  const ownerParticipant = participants.find((participant) => participant !== valueParticipant);
+  return ownerParticipant ? { ownerParticipant, valueParticipant } : null;
 }
 
 function getGeneralizationMode(
@@ -2328,8 +2385,22 @@ function buildModelFromDecisions(
       const participants = buildRelationshipParticipants(diagram, relationship);
       const relationshipAttributes = getRelationshipLeafAttributes(relationship.id, ownership);
       const mode = getRelationshipMode(decision.configuration);
+      const fixedSimpleMultivaluedInfo = getFixedSimpleMultivaluedRelationshipInfo(relationship, participants);
 
       if (mode.strategy === "table" || decision.rule === "relationship-table") {
+        if (fixedSimpleMultivaluedInfo) {
+          const missingPrimaryKeyParticipants = getMissingPrimaryKeyParticipants(context, participants, entityTableByEntityId);
+          if (missingPrimaryKeyParticipants.length > 0) {
+            pushFixedSimpleMultivaluedMissingPrimaryKeyIssue(
+              context,
+              relationship,
+              fixedSimpleMultivaluedInfo.valueParticipant,
+              missingPrimaryKeyParticipants[0],
+            );
+            return;
+          }
+        }
+
         const table = createLogicalTable(context, {
           name: relationship.label,
           kind: participants.length === 2 ? "associative" : "relationship",
@@ -2379,6 +2450,22 @@ function buildModelFromDecisions(
       const carrierParticipant = mode.carrierEntityId
         ? participants.find((participant) => participant.entity.id === mode.carrierEntityId)
         : undefined;
+      if (fixedSimpleMultivaluedInfo) {
+        const missingPrimaryKeyParticipants = getMissingPrimaryKeyParticipants(
+          context,
+          [fixedSimpleMultivaluedInfo.ownerParticipant, fixedSimpleMultivaluedInfo.valueParticipant],
+          entityTableByEntityId,
+        );
+        if (missingPrimaryKeyParticipants.length > 0) {
+          pushFixedSimpleMultivaluedMissingPrimaryKeyIssue(
+            context,
+            relationship,
+            fixedSimpleMultivaluedInfo.valueParticipant,
+            missingPrimaryKeyParticipants[0],
+          );
+          return;
+        }
+      }
 
       addForeignKey(context, {
         decisionId: decision.id,

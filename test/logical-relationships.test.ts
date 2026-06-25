@@ -22,6 +22,7 @@ import {
   createEmptyLogicalWorkspace,
   getLogicalTranslationChoicesForItem,
 } from "../src/utils/logicalTranslation.ts";
+import { applySimpleMultivaluedAttributeTranslation } from "../src/utils/erTranslation.ts";
 import { generateLogicalModel } from "../src/utils/logicalMapping.ts";
 import { generateLogicalSql } from "../src/utils/logicalSql.ts";
 import { updateLogicalColumnSqlMetadata } from "../src/utils/logicalSqlMetadata.ts";
@@ -520,6 +521,141 @@ function createRelationshipRegressionDiagram(): DiagramDocument {
   };
 }
 
+function createSimpleMultivaluedAttributeSource(options: {
+  cardinality: "(0,N)" | "(1,N)" | "(1,1)";
+  ownerKey: "none" | "simple" | "composite";
+  compositeAttribute?: boolean;
+}): DiagramDocument {
+  const ownerIdentifiers =
+    options.ownerKey === "simple"
+      ? [{ id: "entity-owner-pk", attributeIds: ["attr-owner-id"] }]
+      : options.ownerKey === "composite"
+        ? [{ id: "entity-owner-pk", attributeIds: ["attr-code-a", "attr-code-b"] }]
+        : [];
+  const ownerAttributes =
+    options.ownerKey === "simple"
+      ? [{ id: "attr-owner-id", label: "ID_ENTITA1", isIdentifier: true }]
+      : options.ownerKey === "composite"
+        ? [
+            { id: "attr-code-a", label: "CODICE_A", isIdentifier: true },
+            { id: "attr-code-b", label: "CODICE_B", isIdentifier: true },
+          ]
+        : [];
+  const ownerNodes = createEntityWithIdentifiers(
+    "entity-owner",
+    "ENTITA1",
+    ownerIdentifiers,
+    [
+      ...ownerAttributes,
+      { id: "attr-normal", label: "ATTRIBUTO1" },
+      { id: "attr-value", label: "ATTRIBUTO6" },
+    ],
+  );
+  const valueAttribute = ownerNodes.find(
+    (node) => node.id === "attr-value" && node.type === "attribute",
+  ) as Extract<DiagramNode, { type: "attribute" }>;
+  valueAttribute.cardinality = options.cardinality;
+  valueAttribute.isMultivalued = options.compositeAttribute === true;
+
+  const edges: DiagramEdge[] = [
+    ...ownerAttributes.map((attribute) => createAttributeEdge(`edge-${attribute.id}`, attribute.id, "entity-owner")),
+    createAttributeEdge("edge-attr-normal", "attr-normal", "entity-owner"),
+    createAttributeEdge("edge-attr-value", "attr-value", "entity-owner"),
+  ];
+
+  if (options.compositeAttribute) {
+    ownerNodes.push({
+      id: "attr-value-child",
+      type: "attribute",
+      label: "ATTRIBUTO6_CHILD",
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 40,
+    });
+    edges.push(createAttributeEdge("edge-attr-value-child", "attr-value-child", "attr-value"));
+  }
+
+  return {
+    meta: {
+      name: "Attributo semplice multivalore",
+      version: 1,
+    },
+    notes: "",
+    nodes: ownerNodes,
+    edges,
+  };
+}
+
+function applyAllRecommendedChoices(diagram: DiagramDocument) {
+  let workspace = createEmptyLogicalWorkspace(diagram);
+  let overview = buildLogicalTranslationOverview(diagram, workspace);
+  const stepOrder = ["entities", "weak-entities", "relationships", "multivalued-attributes", "generalizations"] as const;
+
+  for (let guard = 0; guard < 40; guard += 1) {
+    const item = stepOrder.flatMap((step) => overview.itemsByStep[step]).find((candidate) => candidate.status === "pending");
+    if (!item) {
+      return { workspace, overview };
+    }
+
+    const choice = getRecommendedChoice(overview, item);
+    workspace = applyLogicalTranslationChoice(diagram, workspace, choice, item.targetType, item.id);
+    overview = buildLogicalTranslationOverview(diagram, workspace);
+  }
+
+  throw new Error("logical translation did not converge");
+}
+
+function getTableByName(model: LogicalModel, name: string) {
+  const table = model.tables.find((candidate) => candidate.name === name);
+  assert.ok(table, `Tabella ${name} non trovata`);
+  return table;
+}
+
+function getForeignKeyColumnsTo(model: LogicalModel, fromTableName: string, toTableName: string) {
+  const fromTable = getTableByName(model, fromTableName);
+  const toTable = getTableByName(model, toTableName);
+  return fromTable.columns.filter(
+    (column) =>
+      column.isForeignKey &&
+      column.references.some((reference) => reference.targetTableId === toTable.id),
+  );
+}
+
+function assertSimpleMultivaluedUniqueLogicalModel(
+  model: LogicalModel,
+  expectedOwnerFkCount: number,
+) {
+  const valueTable = getTableByName(model, "ATTRIBUTO6");
+  assert.equal(model.tables.some((table) => table.name === "HAS_ATTRIBUTO6"), false);
+  assert.equal(valueTable.columns.some((column) => column.name === "ATTRIBUTO6" && column.isPrimaryKey), true);
+  const ownerFkColumns = getForeignKeyColumnsTo(model, "ATTRIBUTO6", "ENTITA1");
+  assert.equal(ownerFkColumns.length, expectedOwnerFkCount);
+  ownerFkColumns.forEach((column) => {
+    assert.equal(column.isNullable, false);
+    assert.equal(column.isPrimaryKey, false);
+  });
+}
+
+function assertSimpleMultivaluedSharedLogicalModel(
+  model: LogicalModel,
+  expectedOwnerFkCount: number,
+) {
+  const joinTable = getTableByName(model, "HAS_ATTRIBUTO6");
+  const ownerFkColumns = getForeignKeyColumnsTo(model, "HAS_ATTRIBUTO6", "ENTITA1");
+  const valueFkColumns = getForeignKeyColumnsTo(model, "HAS_ATTRIBUTO6", "ATTRIBUTO6");
+  assert.equal(ownerFkColumns.length, expectedOwnerFkCount);
+  assert.equal(valueFkColumns.length, 1);
+  [...ownerFkColumns, ...valueFkColumns].forEach((column) => {
+    assert.equal(column.isNullable, false);
+    assert.equal(column.isPrimaryKey, true);
+  });
+  assert.deepEqual(
+    new Set(joinTable.columns.filter((column) => column.isPrimaryKey).map((column) => column.id)),
+    new Set([...ownerFkColumns, ...valueFkColumns].map((column) => column.id)),
+  );
+}
+
 function extractCreateTable(sql: string, tableName: string): string {
   const escapedName = tableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = sql.match(new RegExp(`CREATE TABLE ${escapedName} \\([\\s\\S]*?\\n\\);`, "i"));
@@ -779,6 +915,98 @@ test("la traduzione guidata 1:N assegna la FK al carrier corretto e conserva il 
         edge.relatedTargetKeys.includes("relationship:rel-docenza"),
     ),
     "Il graph logico deve esporre la FK DOCENZA da EDIZIONE CORSO a DOCENTE",
+  );
+});
+
+test("Fix Unique di attributo semplice multivalore (1,N) con PK semplice genera FK owner nella tabella valore", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(1,N)", ownerKey: "simple" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-unique");
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertSimpleMultivaluedUniqueLogicalModel(workspace.model, 1);
+  assert.equal(workspace.model.issues.some((issue) => issue.level === "error"), false);
+});
+
+test("Fix Unique di attributo semplice multivalore (0,N) mantiene FK owner NOT NULL nella tabella valore", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(0,N)", ownerKey: "simple" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-unique");
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertSimpleMultivaluedUniqueLogicalModel(workspace.model, 1);
+});
+
+test("Fix Shared di attributo semplice multivalore (1,N) con PK semplice genera entrambe le FK nella tabella HAS", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(1,N)", ownerKey: "simple" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-shared");
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertSimpleMultivaluedSharedLogicalModel(workspace.model, 1);
+  assert.equal(workspace.model.issues.some((issue) => issue.level === "error"), false);
+});
+
+test("Fix Shared di attributo semplice multivalore (0,N) con PK semplice genera entrambe le FK nella tabella HAS", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(0,N)", ownerKey: "simple" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-shared");
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertSimpleMultivaluedSharedLogicalModel(workspace.model, 1);
+});
+
+test("Fix Unique di attributo semplice multivalore copia tutta la PK composta owner come FK", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(1,N)", ownerKey: "composite" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-unique");
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertSimpleMultivaluedUniqueLogicalModel(workspace.model, 2);
+});
+
+test("Fix Shared di attributo semplice multivalore copia tutta la PK composta owner nella tabella HAS", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(1,N)", ownerKey: "composite" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-shared");
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertSimpleMultivaluedSharedLogicalModel(workspace.model, 2);
+});
+
+test("Fix Unique/Shared di attributo semplice multivalore blocca la relazione se l'owner non ha PK", () => {
+  for (const mode of ["simple-multivalued-unique", "simple-multivalued-shared"] as const) {
+    const source = createSimpleMultivaluedAttributeSource({ cardinality: "(1,N)", ownerKey: "none" });
+    const diagram = applySimpleMultivaluedAttributeTranslation(source, "attr-value", mode);
+    const { workspace } = applyAllRecommendedChoices(diagram);
+
+    assert.equal(workspace.model.foreignKeys.some((foreignKey) => foreignKey.toTableId === getTableByName(workspace.model, "ENTITA1").id), false);
+    assert.equal(workspace.model.tables.some((table) => table.name === "HAS_ATTRIBUTO6"), false);
+    assert.ok(
+      workspace.model.issues.some(
+        (issue) =>
+          issue.level === "error" &&
+          issue.code === "UNRESOLVED_TRANSFORMATION" &&
+          /Impossibile tradurre ATTRIBUTO6: l'entita ENTITA1 non ha una chiave primaria/.test(issue.message),
+      ),
+      `missing blocking issue for ${mode}`,
+    );
+  }
+});
+
+test("attributo composto con cardinalita non viene trattato come semplice multivalore nel Fix ER", () => {
+  const source = createSimpleMultivaluedAttributeSource({
+    cardinality: "(1,N)",
+    ownerKey: "simple",
+    compositeAttribute: true,
+  });
+
+  assert.throws(
+    () => applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-shared"),
+    /non e disponibile/,
+  );
+});
+
+test("attributo semplice non multivalore non viene trasformato in relazione HAS", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(1,1)", ownerKey: "simple" });
+
+  assert.throws(
+    () => applySimpleMultivaluedAttributeTranslation(source, "attr-value", "simple-multivalued-shared"),
+    /non e disponibile/,
   );
 });
 
