@@ -458,7 +458,7 @@ function getCompositeRootAttributes(diagram: DiagramDocument): AttributeNode[] {
     diagram.nodes.filter(
       (node): node is AttributeNode =>
         node.type === "attribute" &&
-        (node.isMultivalued === true || (ownership.childrenByHostId.get(node.id) ?? []).length > 0) &&
+        (ownership.childrenByHostId.get(node.id) ?? []).length > 0 &&
         ownership.parentByAttributeId.has(node.id) &&
         ownership.nodeById.get(ownership.parentByAttributeId.get(node.id) as string)?.type !== "attribute",
     ),
@@ -499,7 +499,6 @@ function isSimpleMultivaluedAttribute(
   const ownerId = ownership.parentByAttributeId.get(attribute.id);
   const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
   return (
-    attribute.isMultivalued !== true &&
     (ownership.childrenByHostId.get(attribute.id) ?? []).length === 0 &&
     owner?.type === "entity" &&
     isMultivaluedCardinality(attribute.cardinality)
@@ -1059,6 +1058,7 @@ function applyCompositeAttributeTranslationDetailed(
 
   if (rule === "composite-split") {
     const updatedLeafIds = new Set<string>();
+    const inheritedCardinality = root.cardinality;
 
     const leafNodes = leafPaths.map((leaf, index) => {
       // Split formatting: join the path labels.
@@ -1079,6 +1079,8 @@ function applyCompositeAttributeTranslationDetailed(
         id: leafId,
         label: nextLabel,
         isMultivalued: false,
+        isCompositeInternal: false,
+        cardinality: inheritedCardinality,
         width: Math.max(110, nextSize.width - 16),
         height: 44,
         x: owner.x + owner.width + 120,

@@ -182,6 +182,48 @@ function assertSimpleMultivaluedFix(
   assertNoDanglingReferences(diagram);
 }
 
+function assertSplitAttribute(
+  diagram: DiagramDocument,
+  label: string,
+  expectedCardinality: string | undefined,
+  expectedIsMultivalued: boolean,
+): AttributeNode {
+  const attribute = diagram.nodes.find(
+    (node): node is AttributeNode => node.type === "attribute" && node.label === label,
+  );
+  assert.ok(attribute, `missing split attribute ${label}`);
+  assert.equal(attribute.cardinality, expectedCardinality);
+  assert.equal(attribute.isMultivalued, expectedIsMultivalued);
+  assert.equal(attribute.isCompositeInternal, false);
+  assert.equal(
+    getDirectEntityAttributes(diagram, "ENTITY1").some((candidate) => candidate.id === attribute.id),
+    true,
+    `${label} must be connected directly to ENTITA1`,
+  );
+  return attribute;
+}
+
+function assertSplitThenSimpleMultivaluedFix(
+  rule: "simple-multivalued-unique" | "simple-multivalued-shared",
+  expectedAttributeEntityCardinality: string,
+) {
+  const splitDiagram = applyCompositeAttributeTranslation(
+    createSplitCompositeAttributeDiagram({ rootCardinality: "(0,N)", rootIsMultivalued: true }),
+    "attr-root",
+    "composite-split",
+  );
+  const splitAttribute = assertSplitAttribute(splitDiagram, "ATTRIBUTO1_ATTRIBUTO3", "(0,N)", false);
+  const fixedDiagram = applySimpleMultivaluedAttributeTranslation(splitDiagram, splitAttribute.id, rule);
+
+  const relationship = getRelationshipByLabel(fixedDiagram, "HAS_ATTRIBUTO1_ATTRIBUTO3");
+  const attributeEntity = fixedDiagram.nodes.find(
+    (node): node is EntityNode => node.type === "entity" && node.label === "ATTRIBUTO1_ATTRIBUTO3",
+  );
+  assert.ok(attributeEntity);
+  assert.equal(getConnectorCardinality(fixedDiagram, "ENTITY1", relationship.id), "(0,N)");
+  assert.equal(getConnectorCardinality(fixedDiagram, attributeEntity.id, relationship.id), expectedAttributeEntityCardinality);
+}
+
 function createCollapseUpDiagram(options: { childAttributes?: boolean; existingType?: boolean } = {}): DiagramDocument {
   const groupId = "G_ENTITY";
   const nodes: DiagramNode[] = [
@@ -385,6 +427,49 @@ function createSimpleMultivaluedAttributeDiagram(
           },
         ]
       : undefined,
+  };
+}
+
+function createSplitCompositeAttributeDiagram(options: {
+  rootCardinality?: string;
+  rootIsMultivalued?: boolean;
+  extraLeaf?: boolean;
+  nested?: boolean;
+} = {}): DiagramDocument {
+  const nodes: DiagramNode[] = [
+    createEntity("ENTITY1", "ENTITA1"),
+    createAttribute("attr-2", "ATTRIBUTO2"),
+    createAttribute("attr-root", "ATTRIBUTO1", {
+      isMultivalued: options.rootIsMultivalued ?? false,
+      cardinality: options.rootCardinality,
+      isCompositeInternal: true,
+    }),
+    createAttribute("attr-child", "ATTRIBUTO3"),
+  ];
+  const edges: DiagramEdge[] = [
+    createAttributeEdge("edge-attr-2", "attr-2", "ENTITY1"),
+    createAttributeEdge("edge-root", "attr-root", "ENTITY1"),
+    createAttributeEdge("edge-child", "attr-child", "attr-root"),
+  ];
+
+  if (options.extraLeaf) {
+    nodes.push(createAttribute("attr-child-2", "ATTRIBUTO4"));
+    edges.push(createAttributeEdge("edge-child-2", "attr-child-2", "attr-root"));
+  }
+
+  if (options.nested) {
+    nodes.push(createAttribute("attr-nested-leaf", "ATTRIBUTO4"));
+    edges.push(createAttributeEdge("edge-nested-leaf", "attr-nested-leaf", "attr-child"));
+  }
+
+  return {
+    meta: {
+      name: "Split composto multivalore",
+      version: 1,
+    },
+    notes: "",
+    nodes,
+    edges,
   };
 }
 
@@ -1067,8 +1152,8 @@ test("la pipeline ER->ER blocca gli attributi composti finche esistono generaliz
   assert.equal(canOpenLogicalView(workspace).allowed, true);
   assert.equal(workspace.translatedDiagram.edges.some((edge) => edge.type === "inheritance"), false);
   assert.equal(
-    workspace.translatedDiagram.nodes.some((node) => node.type === "attribute" && node.isMultivalued === true),
-    false,
+    buildErTranslationOverview(workspace).itemsByStep["composite-attributes"].length,
+    0,
   );
 });
 
@@ -1178,6 +1263,67 @@ test("attributo semplice non multivalore non espone Fix Unique/Shared", () => {
   assert.equal(overview.itemsByStep["composite-attributes"].some((item) => item.id === "attr-attribute5"), false);
 });
 
+test("Split di attributo composto multivalore preserva cardinalita (0,N)", () => {
+  const translated = applyCompositeAttributeTranslation(
+    createSplitCompositeAttributeDiagram({ rootCardinality: "(0,N)", rootIsMultivalued: true }),
+    "attr-root",
+    "composite-split",
+  );
+
+  assertSplitAttribute(translated, "ATTRIBUTO1_ATTRIBUTO3", "(0,N)", false);
+  assert.equal(translated.nodes.some((node) => node.id === "attr-root"), false);
+  assertNoDanglingReferences(translated);
+});
+
+test("Split di attributo composto multivalore preserva cardinalita (1,N)", () => {
+  const translated = applyCompositeAttributeTranslation(
+    createSplitCompositeAttributeDiagram({ rootCardinality: "(1,N)", rootIsMultivalued: true }),
+    "attr-root",
+    "composite-split",
+  );
+
+  assertSplitAttribute(translated, "ATTRIBUTO1_ATTRIBUTO3", "(1,N)", false);
+});
+
+test("Split di attributo composto non multivalore non inventa cardinalita", () => {
+  const translated = applyCompositeAttributeTranslation(
+    createSplitCompositeAttributeDiagram(),
+    "attr-root",
+    "composite-split",
+  );
+
+  assertSplitAttribute(translated, "ATTRIBUTO1_ATTRIBUTO3", undefined, false);
+});
+
+test("Split di composto multivalore con piu leaf copia cardinalita su ogni attributo generato", () => {
+  const translated = applyCompositeAttributeTranslation(
+    createSplitCompositeAttributeDiagram({ rootCardinality: "(0,N)", rootIsMultivalued: true, extraLeaf: true }),
+    "attr-root",
+    "composite-split",
+  );
+
+  assertSplitAttribute(translated, "ATTRIBUTO1_ATTRIBUTO3", "(0,N)", false);
+  assertSplitAttribute(translated, "ATTRIBUTO1_ATTRIBUTO4", "(0,N)", false);
+});
+
+test("Split di composto multivalore annidato eredita la cardinalita del root", () => {
+  const translated = applyCompositeAttributeTranslation(
+    createSplitCompositeAttributeDiagram({ rootCardinality: "(0,N)", rootIsMultivalued: true, nested: true }),
+    "attr-root",
+    "composite-split",
+  );
+
+  assertSplitAttribute(translated, "ATTRIBUTO1_ATTRIBUTO3_ATTRIBUTO4", "(0,N)", false);
+});
+
+test("Split seguito da Fix Unique usa la cardinalita preservata", () => {
+  assertSplitThenSimpleMultivaluedFix("simple-multivalued-unique", "(1,1)");
+});
+
+test("Split seguito da Fix Shared usa la cardinalita preservata", () => {
+  assertSplitThenSimpleMultivaluedFix("simple-multivalued-shared", "(1,N)");
+});
+
 test("applyGeneralizationTranslation risolve la gerarchia ISA dentro l'ER tradotto", () => {
   const translated = applyGeneralizationTranslation(createOrderedWorkflowDiagram(), {
     supertypeId: "entity-persona",
@@ -1207,15 +1353,12 @@ test("applyCompositeAttributeTranslation espande ricorsivamente i foglia sull'ow
 
   assert.equal(translated.nodes.some((node) => node.id === "attr-indirizzo"), false);
   assert.equal(translated.nodes.some((node) => node.id === "attr-localita"), false);
-  assert.equal(
-    translated.nodes.some((node) => node.type === "attribute" && node.isMultivalued === true),
-    false,
-  );
 
   const expectedLeafLabels = ["INDIRIZZO_LOCALITA_Via", "INDIRIZZO_LOCALITA_CAP"];
   expectedLeafLabels.forEach((label) => {
     const node = translated.nodes.find((candidate) => candidate.type === "attribute" && candidate.label === label);
     assert.ok(node, `Attributo foglia tradotto non trovato: ${label}`);
+    assert.equal(node.isMultivalued, false);
     const ownerEdge = translated.edges.find(
       (edge) =>
         edge.type === "attribute" &&
