@@ -587,6 +587,120 @@ function createSimpleMultivaluedAttributeSource(options: {
   };
 }
 
+function createCompositeMultivaluedAttributeSource(options: {
+  ownerId?: string;
+  ownerLabel?: string;
+  identifiers?: Array<{ id: string; attributeIds: string[] }>;
+  ownerAttributes?: Array<{ id: string; label: string; isIdentifier?: boolean }>;
+  attributeLabel?: string;
+  cardinality?: "(0,N)" | "(1,N)";
+  isMultivalued?: boolean;
+  leaves?: Array<{ id: string; label: string }>;
+  nestedComposite?: {
+    id: string;
+    label: string;
+    leaves: Array<{ id: string; label: string }>;
+  };
+  nestedMultivalued?: {
+    id: string;
+    label: string;
+  };
+}): DiagramDocument {
+  const ownerId = options.ownerId ?? "entity-owner";
+  const ownerLabel = options.ownerLabel ?? "ENTITA1";
+  const rootLabel = options.attributeLabel ?? "ATTRIBUTO6";
+  const ownerAttributes = options.ownerAttributes ?? [{ id: "attr-owner-id", label: "ATTRIBUTO1", isIdentifier: true }];
+  const ownerNodes = createEntityWithIdentifiers(
+    ownerId,
+    ownerLabel,
+    options.identifiers ?? [{ id: `${ownerId}-pk`, attributeIds: [ownerAttributes[0].id] }],
+    ownerAttributes,
+  );
+
+  const rootAttribute: Extract<DiagramNode, { type: "attribute" }> = {
+    id: "attr-composite-root",
+    type: "attribute",
+    label: rootLabel,
+    x: 0,
+    y: 0,
+    width: 120,
+    height: 52,
+    isCompositeInternal: true,
+    isMultivalued: options.isMultivalued ?? true,
+    cardinality: options.cardinality,
+  };
+
+  const nodes: DiagramNode[] = [...ownerNodes, rootAttribute];
+  const edges: DiagramEdge[] = [
+    ...ownerAttributes.map((attribute) => createAttributeEdge(`edge-${attribute.id}`, attribute.id, ownerId)),
+    createAttributeEdge("edge-attr-composite-root", rootAttribute.id, ownerId),
+  ];
+
+  (options.leaves ?? [{ id: "attr-composite-leaf", label: "ATTRIBUTO7" }]).forEach((leaf) => {
+    nodes.push({
+      id: leaf.id,
+      type: "attribute",
+      label: leaf.label,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 40,
+    });
+    edges.push(createAttributeEdge(`edge-${leaf.id}`, leaf.id, rootAttribute.id));
+  });
+
+  if (options.nestedComposite) {
+    nodes.push({
+      id: options.nestedComposite.id,
+      type: "attribute",
+      label: options.nestedComposite.label,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 40,
+      isCompositeInternal: true,
+    });
+    edges.push(createAttributeEdge(`edge-${options.nestedComposite.id}`, options.nestedComposite.id, rootAttribute.id));
+    options.nestedComposite.leaves.forEach((leaf) => {
+      nodes.push({
+        id: leaf.id,
+        type: "attribute",
+        label: leaf.label,
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 40,
+      });
+      edges.push(createAttributeEdge(`edge-${leaf.id}`, leaf.id, options.nestedComposite!.id));
+    });
+  }
+
+  if (options.nestedMultivalued) {
+    nodes.push({
+      id: options.nestedMultivalued.id,
+      type: "attribute",
+      label: options.nestedMultivalued.label,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 40,
+      isMultivalued: true,
+      cardinality: "(0,N)",
+    });
+    edges.push(createAttributeEdge(`edge-${options.nestedMultivalued.id}`, options.nestedMultivalued.id, rootAttribute.id));
+  }
+
+  return {
+    meta: {
+      name: "Attributo composto multivalore",
+      version: 1,
+    },
+    notes: "",
+    nodes,
+    edges,
+  };
+}
+
 function applyAllRecommendedChoices(diagram: DiagramDocument) {
   let workspace = createEmptyLogicalWorkspace(diagram);
   let overview = buildLogicalTranslationOverview(diagram, workspace);
@@ -654,6 +768,43 @@ function assertSimpleMultivaluedSharedLogicalModel(
     new Set(joinTable.columns.filter((column) => column.isPrimaryKey).map((column) => column.id)),
     new Set([...ownerFkColumns, ...valueFkColumns].map((column) => column.id)),
   );
+}
+
+function assertCompositeMultivaluedLogicalTable(
+  model: LogicalModel,
+  tableName: string,
+  ownerTableName: string,
+  valueColumnNames: string[],
+  expectedOwnerFkCount: number,
+) {
+  const table = getTableByName(model, tableName);
+  const ownerFkColumns = getForeignKeyColumnsTo(model, tableName, ownerTableName);
+  assert.equal(ownerFkColumns.length, expectedOwnerFkCount);
+  ownerFkColumns.forEach((column) => {
+    assert.equal(column.isForeignKey, true);
+    assert.equal(column.isPrimaryKey, true);
+    assert.equal(column.isNullable, false);
+  });
+
+  const valueColumns = valueColumnNames.map((columnName) => {
+    const column = table.columns.find((candidate) => candidate.name === columnName);
+    assert.ok(column, `Colonna ${columnName} non trovata in ${tableName}`);
+    assert.equal(column.isForeignKey, false);
+    assert.equal(column.isPrimaryKey, true);
+    assert.equal(column.isNullable, false);
+    return column;
+  });
+
+  const primaryKeyColumnIds = new Set(table.columns.filter((column) => column.isPrimaryKey).map((column) => column.id));
+  assert.deepEqual(primaryKeyColumnIds, new Set([...ownerFkColumns, ...valueColumns].map((column) => column.id)));
+
+  const ownerTable = getTableByName(model, ownerTableName);
+  const foreignKey = model.foreignKeys.find(
+    (candidate) => candidate.fromTableId === table.id && candidate.toTableId === ownerTable.id,
+  );
+  assert.ok(foreignKey, `FK ${tableName} -> ${ownerTableName} non trovata`);
+  assert.equal(foreignKey.required, true);
+  assert.equal(foreignKey.mappings.length, expectedOwnerFkCount);
 }
 
 function extractCreateTable(sql: string, tableName: string): string {
@@ -916,6 +1067,189 @@ test("la traduzione guidata 1:N assegna la FK al carrier corretto e conserva il 
     ),
     "Il graph logico deve esporre la FK DOCENZA da EDIZIONE CORSO a DOCENTE",
   );
+});
+
+test("attributo composto multivalore (0,N) genera tabella con FK owner e leaf in PK", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({ cardinality: "(0,N)" });
+  const { workspace, overview } = applyAllRecommendedChoices(diagram);
+
+  assertCompositeMultivaluedLogicalTable(workspace.model, "ENTITA1_ATTRIBUTO6", "ENTITA1", ["ATTRIBUTO7"], 1);
+  assert.equal(workspace.model.issues.some((issue) => issue.level === "error"), false);
+  const item = getItemByLabel(overview, "multivalued-attributes", "ATTRIBUTO6");
+  const choice = getRecommendedChoice(overview, item);
+  assert.match(choice.previewLines.join("\n"), /Valori: ATTRIBUTO7/);
+});
+
+test("il mapping diretto e il SQL generator preservano FK e PK dei composti multivalore", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({ cardinality: "(0,N)" });
+  const model = generateLogicalModel(diagram);
+  const sql = generateLogicalSql(model);
+  const tableSql = extractCreateTable(sql, "ENTITA1_ATTRIBUTO6");
+
+  assertCompositeMultivaluedLogicalTable(model, "ENTITA1_ATTRIBUTO6", "ENTITA1", ["ATTRIBUTO7"], 1);
+  assert.match(tableSql, /PRIMARY KEY \(ENTITA1_ATTRIBUTO1, ATTRIBUTO7\)/);
+  assert.match(tableSql, /FOREIGN KEY \(ENTITA1_ATTRIBUTO1\) REFERENCES ENTITA1 \(ATTRIBUTO1\)/);
+});
+
+test("attributo composto multivalore (1,N) mantiene struttura FK owner piu leaf in PK", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({ cardinality: "(1,N)" });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertCompositeMultivaluedLogicalTable(workspace.model, "ENTITA1_ATTRIBUTO6", "ENTITA1", ["ATTRIBUTO7"], 1);
+  assert.equal(workspace.model.issues.some((issue) => issue.level === "error"), false);
+});
+
+test("attributo composto multivalore con piu leaf traduce tutti i sotto-attributi foglia", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({
+    ownerId: "entity-persona",
+    ownerLabel: "PERSONA",
+    identifiers: [{ id: "persona-pk", attributeIds: ["attr-cf"] }],
+    ownerAttributes: [{ id: "attr-cf", label: "CF", isIdentifier: true }],
+    attributeLabel: "INDIRIZZO",
+    cardinality: "(0,N)",
+    leaves: [
+      { id: "attr-via", label: "VIA" },
+      { id: "attr-civico", label: "CIVICO" },
+      { id: "attr-citta", label: "CITTA" },
+      { id: "attr-cap", label: "CAP" },
+    ],
+  });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertCompositeMultivaluedLogicalTable(
+    workspace.model,
+    "PERSONA_INDIRIZZO",
+    "PERSONA",
+    ["VIA", "CIVICO", "CITTA", "CAP"],
+    1,
+  );
+});
+
+test("attributo composto multivalore copia tutta la PK composta dell'owner come FK", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({
+    ownerId: "entity-ordine",
+    ownerLabel: "ORDINE",
+    identifiers: [{ id: "ordine-pk", attributeIds: ["attr-anno", "attr-numero"] }],
+    ownerAttributes: [
+      { id: "attr-anno", label: "ANNO", isIdentifier: true },
+      { id: "attr-numero", label: "NUMERO", isIdentifier: true },
+    ],
+    attributeLabel: "RIGA_SPEDIZIONE",
+    cardinality: "(0,N)",
+    leaves: [
+      { id: "attr-data", label: "DATA" },
+      { id: "attr-stato", label: "STATO" },
+    ],
+  });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assertCompositeMultivaluedLogicalTable(
+    workspace.model,
+    "ORDINE_RIGA_SPEDIZIONE",
+    "ORDINE",
+    ["DATA", "STATO"],
+    2,
+  );
+});
+
+test("attributo composto multivalore blocca la traduzione se l'owner non ha PK", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({
+    identifiers: [],
+    ownerAttributes: [{ id: "attr-normal", label: "ATTRIBUTO_NORMALE" }],
+    cardinality: "(0,N)",
+  });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assert.equal(workspace.model.tables.some((table) => table.name === "ENTITA1_ATTRIBUTO6"), false);
+  assert.ok(
+    workspace.model.issues.some(
+      (issue) =>
+        issue.level === "error" &&
+        issue.code === "UNRESOLVED_TRANSFORMATION" &&
+        /Impossibile tradurre l'attributo composto multivalore ATTRIBUTO6: l'entita ENTITA1 non ha una chiave primaria/.test(
+          issue.message,
+        ),
+    ),
+  );
+});
+
+test("attributo composto multivalore senza sotto-attributi non genera tabella vuota", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({
+    cardinality: "(0,N)",
+    leaves: [],
+  });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assert.equal(workspace.model.tables.some((table) => table.name === "ENTITA1_ATTRIBUTO6"), false);
+  assert.ok(
+    workspace.model.issues.some(
+      (issue) =>
+        issue.level === "error" &&
+        /Impossibile tradurre ATTRIBUTO6: l'attributo composto multivalore non ha sotto-attributi/.test(issue.message),
+    ),
+  );
+});
+
+test("attributo composto multivalore annidato usa solo i leaf e non il nodo composto intermedio", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({
+    cardinality: "(0,N)",
+    leaves: [{ id: "attr-leaf-7", label: "ATTRIBUTO7" }],
+    nestedComposite: {
+      id: "attr-nested-composite",
+      label: "ATTRIBUTO8",
+      leaves: [
+        { id: "attr-leaf-9", label: "ATTRIBUTO9" },
+        { id: "attr-leaf-10", label: "ATTRIBUTO10" },
+      ],
+    },
+  });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+  const table = getTableByName(workspace.model, "ENTITA1_ATTRIBUTO6");
+
+  assertCompositeMultivaluedLogicalTable(
+    workspace.model,
+    "ENTITA1_ATTRIBUTO6",
+    "ENTITA1",
+    ["ATTRIBUTO7", "ATTRIBUTO9", "ATTRIBUTO10"],
+    1,
+  );
+  assert.equal(table.columns.some((column) => column.name === "ATTRIBUTO8"), false);
+});
+
+test("attributo composto multivalore con sotto-attributo multivalore annidato viene bloccato", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({
+    cardinality: "(0,N)",
+    nestedMultivalued: {
+      id: "attr-nested-multivalued",
+      label: "ATTRIBUTO8",
+    },
+  });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+
+  assert.equal(workspace.model.tables.some((table) => table.name === "ENTITA1_ATTRIBUTO6"), false);
+  assert.ok(
+    workspace.model.issues.some(
+      (issue) =>
+        issue.level === "error" &&
+        /ATTRIBUTO6 contiene un sotto-attributo multivalore annidato/.test(issue.message),
+    ),
+  );
+});
+
+test("attributo composto non multivalore viene appiattito nella tabella owner", () => {
+  const diagram = createCompositeMultivaluedAttributeSource({
+    isMultivalued: false,
+    leaves: [
+      { id: "attr-leaf-7", label: "ATTRIBUTO7" },
+      { id: "attr-leaf-8", label: "ATTRIBUTO8" },
+    ],
+  });
+  const { workspace } = applyAllRecommendedChoices(diagram);
+  const ownerTable = getTableByName(workspace.model, "ENTITA1");
+
+  assert.equal(workspace.model.tables.some((table) => table.name === "ENTITA1_ATTRIBUTO6"), false);
+  assert.equal(ownerTable.columns.some((column) => column.name === "ATTRIBUTO7"), true);
+  assert.equal(ownerTable.columns.some((column) => column.name === "ATTRIBUTO8"), true);
 });
 
 test("Fix Unique di attributo semplice multivalore (1,N) con PK semplice genera FK owner nella tabella valore", () => {

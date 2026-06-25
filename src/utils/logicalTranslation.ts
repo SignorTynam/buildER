@@ -426,18 +426,56 @@ function getMultivaluedRootAttributes(
     diagram.nodes.filter(
       (node): node is AttributeNode =>
         node.type === "attribute" &&
-        node.isMultivalued === true &&
+        isAttributeMultivalued(node) &&
+        isCompositeAttribute(node, ownership) &&
         ownership.parentByAttributeId.has(node.id) === false,
     ),
   );
 }
 
-function getMultivaluedAttributeLeafAttributes(
+function getCompositeMultivaluedAttributeLeafAttributes(
   attributeId: string,
   ownership: AttributeOwnershipContext,
 ): AttributeNode[] {
-  const attribute = ownership.nodeById.get(attributeId);
-  return attribute?.type === "attribute" ? collectLeafAttributes(attribute, ownership) : [];
+  return getAttributeChildren(attributeId, ownership).flatMap((child) => collectLeafAttributes(child, ownership));
+}
+
+function isAttributeMultivalued(attribute: AttributeNode): boolean {
+  return attribute.isMultivalued === true || parseConnectorCardinality(attribute.cardinality).isMany;
+}
+
+function isCompositeAttribute(
+  attribute: AttributeNode,
+  ownership: AttributeOwnershipContext,
+): boolean {
+  return attribute.isCompositeInternal === true || getAttributeChildren(attribute.id, ownership).length > 0;
+}
+
+function getNestedMultivaluedAttributes(
+  attributeId: string,
+  ownership: AttributeOwnershipContext,
+): AttributeNode[] {
+  const nested: AttributeNode[] = [];
+
+  const visit = (currentId: string) => {
+    getAttributeChildren(currentId, ownership).forEach((child) => {
+      if (isAttributeMultivalued(child)) {
+        nested.push(child);
+      }
+      visit(child.id);
+    });
+  };
+
+  visit(attributeId);
+  return nested;
+}
+
+function isCompositeMultivaluedRootAttribute(
+  attribute: AttributeNode,
+  ownership: AttributeOwnershipContext,
+): boolean {
+  const owner = getAttributeOwner(attribute.id, ownership);
+  return isAttributeMultivalued(attribute) && isCompositeAttribute(attribute, ownership) && owner?.type === "entity";
 }
 
 function getAttributeOwner(
@@ -1176,7 +1214,7 @@ function buildMultivaluedChoices(
   owner: DiagramNode | undefined,
   ownership: AttributeOwnershipContext,
 ): TranslationChoiceRecord[] {
-  const leafAttributes = getMultivaluedAttributeLeafAttributes(attribute.id, ownership);
+  const leafAttributes = getCompositeMultivaluedAttributeLeafAttributes(attribute.id, ownership);
   return [
     {
       id: `multivalued-${attribute.id}`,
@@ -1540,6 +1578,99 @@ function pushFixedSimpleMultivaluedMissingPrimaryKeyIssue(
       relationshipId: relationship.id,
     },
   );
+}
+
+function pushCompositeMultivaluedIssue(
+  context: MappingContext,
+  message: string,
+): void {
+  pushIssue(context, "UNRESOLVED_TRANSFORMATION", message, "error");
+}
+
+function translateCompositeMultivaluedAttribute(
+  context: MappingContext,
+  attribute: AttributeNode,
+  owner: EntityNode,
+  ownership: AttributeOwnershipContext,
+  decision: LogicalTranslationDecision,
+  entityTableByEntityId: Map<string, string>,
+): void {
+  if (!isCompositeMultivaluedRootAttribute(attribute, ownership)) {
+    return;
+  }
+
+  const ownerTableId = entityTableByEntityId.get(owner.id);
+  if (!ownerTableId) {
+    pushIssue(
+      context,
+      "UNRESOLVED_TRANSFORMATION",
+      `L'attributo multivalore "${attribute.label}" dipende da un owner non ancora trasformato.`,
+      "warning",
+    );
+    return;
+  }
+
+  const ownerTable = context.tableById.get(ownerTableId);
+  if (!ownerTable) {
+    return;
+  }
+
+  if (getPrimaryKeyColumns(ownerTable).length === 0) {
+    pushCompositeMultivaluedIssue(
+      context,
+      `Impossibile tradurre l'attributo composto multivalore ${attribute.label}: l'entita ${owner.label} non ha una chiave primaria.`,
+    );
+    return;
+  }
+
+  if (getAttributeChildren(attribute.id, ownership).length === 0) {
+    pushCompositeMultivaluedIssue(
+      context,
+      `Impossibile tradurre ${attribute.label}: l'attributo composto multivalore non ha sotto-attributi.`,
+    );
+    return;
+  }
+
+  const nestedMultivaluedAttributes = getNestedMultivaluedAttributes(attribute.id, ownership);
+  if (nestedMultivaluedAttributes.length > 0) {
+    pushCompositeMultivaluedIssue(
+      context,
+      `${attribute.label} contiene un sotto-attributo multivalore annidato. La traduzione dei multivalori annidati non e ancora supportata.`,
+    );
+    return;
+  }
+
+  const valueLeaves = getCompositeMultivaluedAttributeLeafAttributes(attribute.id, ownership);
+  if (valueLeaves.length === 0) {
+    pushCompositeMultivaluedIssue(
+      context,
+      `Impossibile tradurre ${attribute.label}: l'attributo composto multivalore non ha sotto-attributi.`,
+    );
+    return;
+  }
+
+  const table = createLogicalTable(context, {
+    name: `${owner.label}_${attribute.label}`,
+    kind: "relationship",
+    decisionId: decision.id,
+    sourceEntityId: owner.id,
+    sourceAttributeId: attribute.id,
+    originLabel: attribute.label,
+  });
+  addForeignKey(context, {
+    decisionId: decision.id,
+    fromTableId: table.id,
+    toTableId: ownerTableId,
+    required: true,
+    includeInPrimaryKey: true,
+  });
+
+  const pkLeafIds = new Set(valueLeaves.map((leaf) => leaf.id));
+  addOwnedLeafAttributes(context, table.id, valueLeaves, {
+    decisionId: decision.id,
+    primaryKeyAttributeIds: pkLeafIds,
+    nonNullableAttributeIds: pkLeafIds,
+  });
 }
 
 function getColumnsBySourceAttributeIds(
@@ -2496,39 +2627,7 @@ function buildModelFromDecisions(
         return;
       }
 
-      const ownerTableId = entityTableByEntityId.get(owner.id);
-      if (!ownerTableId) {
-        pushIssue(
-          context,
-          "UNRESOLVED_TRANSFORMATION",
-          `L'attributo multivalore "${attribute.label}" dipende da un owner non ancora trasformato.`,
-          "warning",
-        );
-        return;
-      }
-
-      const table = createLogicalTable(context, {
-        name: `${owner.label}_${attribute.label}`,
-        kind: "relationship",
-        decisionId: decision.id,
-        sourceEntityId: owner.id,
-        sourceAttributeId: attribute.id,
-        originLabel: attribute.label,
-      });
-      addForeignKey(context, {
-        decisionId: decision.id,
-        fromTableId: table.id,
-        toTableId: ownerTableId,
-        required: true,
-        includeInPrimaryKey: true,
-      });
-      const valueLeaves = getMultivaluedAttributeLeafAttributes(attribute.id, ownership);
-      const pkLeafIds = new Set(valueLeaves.map((leaf) => leaf.id));
-      addOwnedLeafAttributes(context, table.id, valueLeaves, {
-        decisionId: decision.id,
-        primaryKeyAttributeIds: pkLeafIds,
-        nonNullableAttributeIds: pkLeafIds,
-      });
+      translateCompositeMultivaluedAttribute(context, attribute, owner, ownership, decision, entityTableByEntityId);
     });
 
   return normalizeLogicalModelGeometry({
