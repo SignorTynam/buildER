@@ -5244,21 +5244,23 @@ export default function App() {
             }
           >
           {diagramView === "er" ? (
-            <div className={codePanelOpen ? "designer-workspace code-open" : "designer-workspace"}>
-              {codePanelOpen ? (
-                <CodePanel
-                  embedded
-                  code={codeDraft}
-                  editable={mode === "edit"}
-                  parseError={codeError}
-                  onCodeChange={updateCodeDraft}
-                  onFocus={handleCodeEditorFocus}
-                  onBlur={handleCodeEditorBlur}
-                  onClose={handleToggleCodePanel}
-                />
-              ) : null}
+            <div className="designer-workspace">
+              <div className={codePanelOpen ? "designer-canvas-region code-drawer-open" : "designer-canvas-region"}>
+                {codePanelOpen ? (
+                  <div className="designer-code-drawer">
+                    <CodePanel
+                      embedded
+                      code={codeDraft}
+                      editable={mode === "edit"}
+                      parseError={codeError}
+                      onCodeChange={updateCodeDraft}
+                      onFocus={handleCodeEditorFocus}
+                      onBlur={handleCodeEditorBlur}
+                      onClose={handleToggleCodePanel}
+                    />
+                  </div>
+                ) : null}
 
-              <div className="designer-canvas-region">
                 <div className="designer-quick-actions-bar designer-side-toggle-group" aria-label="Pannelli rapidi">
                   <button
                     type="button"
