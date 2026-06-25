@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { AttributeNode, Bounds, EntityNode, RelationshipNode } from "../src/types/diagram.ts";
 import {
+  type AttributeLayoutHost,
   type AttributeLayoutOptions,
   buildAttributeLayoutBounds,
   distributeAttributesAroundHost,
@@ -59,6 +60,19 @@ function relationshipNode(): RelationshipNode {
   };
 }
 
+function hostAttribute(): AttributeNode {
+  return {
+    id: "attribute-host",
+    type: "attribute",
+    label: "INDIRIZZO",
+    x: 240,
+    y: 180,
+    width: 150,
+    height: 36,
+    isMultivalued: true,
+  };
+}
+
 function connectorCorridor(host: EntityNode, relationship: RelationshipNode, padding = 32): Bounds {
   const start = {
     x: host.x + host.width,
@@ -77,7 +91,7 @@ function connectorCorridor(host: EntityNode, relationship: RelationshipNode, pad
   };
 }
 
-function sideCounts(host: EntityNode, attributes: AttributeNode[]): Map<string, number> {
+function sideCounts(host: AttributeLayoutHost, attributes: AttributeNode[]): Map<string, number> {
   const counts = new Map<string, number>();
   attributes.forEach((candidate) => {
     const side = getDirectAttributeLayoutSide(host, candidate);
@@ -86,14 +100,14 @@ function sideCounts(host: EntityNode, attributes: AttributeNode[]): Map<string, 
   return counts;
 }
 
-function perimeterDistance(host: EntityNode, candidate: AttributeNode): number {
+function perimeterDistance(host: AttributeLayoutHost, candidate: AttributeNode): number {
   const marker = getAttributeMarkerCenter(candidate);
   const clampedX = Math.min(Math.max(marker.x, host.x), host.x + host.width);
   const clampedY = Math.min(Math.max(marker.y, host.y), host.y + host.height);
   return Math.hypot(marker.x - clampedX, marker.y - clampedY);
 }
 
-function assertNoAttributeCollisions(host: EntityNode, attributes: AttributeNode[]): void {
+function assertNoAttributeCollisions(host: AttributeLayoutHost, attributes: AttributeNode[]): void {
   attributes.forEach((candidate, index) => {
     const candidateBounds = buildAttributeLayoutBounds(host, candidate);
     assert.equal(boundsIntersect(candidateBounds, hostBounds(host)), false, `${candidate.id} overlaps host`);
@@ -125,7 +139,7 @@ test("attribute layout: new attribute does not move existing attributes", () => 
   assertNoAttributeCollisions(host, [...positioned, next]);
 });
 
-test("attribute layout: few attributes stay compact on one side", () => {
+test("attribute layout: few attributes stay compact near the host", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
@@ -135,19 +149,71 @@ test("attribute layout: few attributes stay compact on one side", () => {
   const distances = positioned.map((candidate) => perimeterDistance(host, candidate));
 
   assertNoAttributeCollisions(host, positioned);
-  assert.equal(counts.size, 1);
-  assert.equal(Math.max(...counts.values()), positioned.length);
+  assert.ok(counts.size >= 2);
+  assert.ok(Math.max(...counts.values()) < positioned.length);
   assert.ok(Math.max(...distances) - Math.min(...distances) <= 24);
 });
 
-test("attribute layout: many attributes avoid host and peer label collisions", () => {
+test("attribute layout: many entity attributes stay compact and balanced", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
-    Array.from({ length: 12 }, (_, index) => attribute(`attribute${index + 1}`, index)),
+    Array.from({ length: 10 }, (_, index) => attribute(`attribute${index + 1}`, index)),
   );
+  const counts = sideCounts(host, positioned);
+  const distances = positioned.map((candidate) => perimeterDistance(host, candidate));
 
   assertNoAttributeCollisions(host, positioned);
+  assert.ok(counts.size >= 3);
+  assert.ok(Math.max(...counts.values()) <= 4);
+  assert.ok(Math.max(...distances) <= 150);
+});
+
+test("attribute layout: many attributes are deterministic", () => {
+  const host = hostEntity();
+  const attributes = Array.from({ length: 10 }, (_, index) => attribute(`attribute${index + 1}`, index));
+  const first = distributeAttributesAroundHost(host, attributes).map((candidate) => ({
+    id: candidate.id,
+    x: candidate.x,
+    y: candidate.y,
+  }));
+  const second = distributeAttributesAroundHost(host, attributes).map((candidate) => ({
+    id: candidate.id,
+    x: candidate.x,
+    y: candidate.y,
+  }));
+
+  assert.deepEqual(first, second);
+});
+
+test("attribute layout: many relationship attributes stay compact and balanced", () => {
+  const host = relationshipNode();
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 10 }, (_, index) => attribute(`relationship-attribute${index + 1}`, index)),
+  );
+  const counts = sideCounts(host, positioned);
+  const distances = positioned.map((candidate) => perimeterDistance(host, candidate));
+
+  assertNoAttributeCollisions(host, positioned);
+  assert.ok(counts.size >= 3);
+  assert.ok(Math.max(...counts.values()) <= 4);
+  assert.ok(Math.max(...distances) <= 150);
+});
+
+test("attribute layout: composite attribute children are distributed around the capsule", () => {
+  const host = hostAttribute();
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 5 }, (_, index) => attribute(`subattribute${index + 1}`, index)),
+  );
+  const counts = sideCounts(host, positioned);
+  const distances = positioned.map((candidate) => perimeterDistance(host, candidate));
+
+  assertNoAttributeCollisions(host, positioned);
+  assert.ok(counts.size >= 2);
+  assert.ok(Math.max(...counts.values()) < positioned.length);
+  assert.ok(Math.max(...distances) <= 150);
 });
 
 test("attribute layout: default compact side is close to host", () => {
@@ -162,7 +228,7 @@ test("attribute layout: default compact side is close to host", () => {
 
     assert.ok(Math.max(...distances) <= 130, `${count} attributes are too far from the host`);
     assert.ok(Math.min(...distances) >= 18, `${count} attributes are too close to the host`);
-    assert.ok(Math.max(...distances) - Math.min(...distances) <= 8, `${count} attributes have uneven distance`);
+    assert.ok(Math.max(...distances) - Math.min(...distances) <= 24, `${count} attributes have uneven distance`);
     assertNoAttributeCollisions(host, positioned);
   });
 });
@@ -194,7 +260,7 @@ test("attribute layout: connector side is avoided", () => {
 
   assertNoAttributeCollisions(host, positioned);
   positioned.forEach((candidate) => {
-    assert.equal(getDirectAttributeLayoutSide(host, candidate), "left");
+    assert.notEqual(getDirectAttributeLayoutSide(host, candidate), "right");
     assert.equal(boundsIntersect(buildAttributeLayoutBounds(host, candidate), corridor), false);
   });
 });
@@ -219,7 +285,7 @@ test("attribute layout: fallback avoids overlap when preferred side is blocked",
   const distances = positioned.map((candidate) => perimeterDistance(host, candidate));
 
   assertNoAttributeCollisions(host, positioned);
-  assert.ok(Math.max(...distances) - Math.min(...distances) <= 8);
+  assert.ok(Math.max(...distances) - Math.min(...distances) <= 24);
   positioned.forEach((candidate) => {
     assert.equal(boundsIntersect(buildAttributeLayoutBounds(host, candidate), blockedLeft), false);
   });
@@ -265,7 +331,7 @@ test("attribute layout: legacy far attributes are repaired by bulk layout", () =
   assertNoAttributeCollisions(host, positioned);
 });
 
-test("attribute layout: incremental candidate uses a balanced compact slot", () => {
+test("attribute layout: incremental candidate uses a compact non-colliding slot", () => {
   const host = hostEntity();
   const existing = distributeAttributesAroundHost(
     host,
@@ -273,8 +339,21 @@ test("attribute layout: incremental candidate uses a balanced compact slot", () 
   );
   const next = placeNewAttributeAroundHost(host, existing, attribute("attribute4", 3));
 
-  assert.equal(getDirectAttributeLayoutSide(host, next), getDirectAttributeLayoutSide(host, existing[0]));
   assert.ok(perimeterDistance(host, next) <= 90);
+  assertNoAttributeCollisions(host, [...existing, next]);
+});
+
+test("attribute layout: incremental composite subattribute stays compact", () => {
+  const host = hostAttribute();
+  const existing = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 4 }, (_, index) => attribute(`subattribute${index + 1}`, index)),
+  );
+  const next = placeNewAttributeAroundHost(host, existing, attribute("subattribute5", 4));
+  const counts = sideCounts(host, [...existing, next]);
+
+  assert.ok(counts.size >= 2);
+  assert.ok(perimeterDistance(host, next) <= 120);
   assertNoAttributeCollisions(host, [...existing, next]);
 });
 

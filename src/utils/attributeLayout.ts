@@ -4,7 +4,7 @@ import { GRID_SIZE, snapValue } from "./geometry";
 
 export type AttributeLayoutSide = "top" | "right" | "bottom" | "left";
 
-type AttributeLayoutHost = EntityNode | RelationshipNode;
+export type AttributeLayoutHost = EntityNode | RelationshipNode | AttributeNode;
 
 export interface AttributeLayoutSlot {
   side: AttributeLayoutSide;
@@ -26,12 +26,12 @@ export interface AttributeLayoutOptions {
 const ATTRIBUTE_MARKER_OFFSET_X = 10;
 const ATTRIBUTE_MARKER_RADIUS = 8;
 const DEFAULT_MARKER_GAP = 28;
-const DEFAULT_LANE_GAP = 44;
-const COLLISION_PADDING = 5;
-const MIN_SIDE_SPACING = 38;
-const MIN_ROW_SPACING = 86;
-const MAX_LANE_COUNT = 6;
-const EXTRA_SLOT_COUNT = 8;
+const DEFAULT_LANE_GAP = 20;
+const COLLISION_PADDING = 2;
+const MIN_SIDE_SPACING = 20;
+const MIN_ROW_SPACING = 50;
+const MAX_LANE_COUNT = 10;
+const EXTRA_SLOT_COUNT = 16;
 const CANDIDATE_SIDE_ORDER: AttributeLayoutSide[] = ["left", "right", "top", "bottom"];
 
 export function getAttributeMarkerCenter(attribute: AttributeNode): Point {
@@ -333,102 +333,6 @@ function buildSlotForSide(options: {
   };
 }
 
-function splitClusterCounts(count: number): { beforeCount: number; middleCount: number; afterCount: number } {
-  if (count <= 3) {
-    return { beforeCount: 0, middleCount: count, afterCount: 0 };
-  }
-
-  if (count <= 5) {
-    return { beforeCount: 1, middleCount: count - 2, afterCount: 1 };
-  }
-
-  const middleCount = 2;
-  const remainingCount = count - middleCount;
-  const beforeCount = Math.floor(remainingCount / 2);
-
-  return {
-    beforeCount,
-    middleCount,
-    afterCount: remainingCount - beforeCount,
-  };
-}
-
-function buildClusterSlotForSide(options: {
-  host: AttributeLayoutHost;
-  attributes: AttributeNode[];
-  side: AttributeLayoutSide;
-  lane: number;
-  index: number;
-  layoutOptions?: AttributeLayoutOptions;
-}): AttributeLayoutSlot {
-  const hostCenterX = options.host.x + options.host.width / 2;
-  const hostCenterY = options.host.y + options.host.height / 2;
-  const markerGap = options.layoutOptions?.markerGap ?? DEFAULT_MARKER_GAP;
-  const sideSpacing = getSideSpacing(options.attributes);
-  const rowSpacing = getRowSpacing(options.attributes);
-  const horizontalLaneGap = getHorizontalLaneGap(options.attributes, options.layoutOptions);
-  const verticalLaneGap = getVerticalLaneGap(options.layoutOptions);
-  const { beforeCount, middleCount } = splitClusterCounts(options.attributes.length);
-  let marker: Point;
-
-  if (options.side === "left" || options.side === "right") {
-    const distance = markerGap + options.lane * horizontalLaneGap;
-    const sideX = options.side === "left" ? options.host.x - distance : options.host.x + options.host.width + distance;
-    const rowStartX = options.side === "left" ? options.host.x : options.host.x + options.host.width;
-    const rowDirection = options.side === "left" ? 1 : -1;
-
-    if (options.index < beforeCount) {
-      marker = {
-        x: rowStartX + rowDirection * options.index * rowSpacing,
-        y: options.host.y - distance,
-      };
-    } else if (options.index < beforeCount + middleCount) {
-      const middleIndex = options.index - beforeCount;
-      marker = {
-        x: sideX,
-        y: hostCenterY + (middleIndex - (middleCount - 1) / 2) * sideSpacing,
-      };
-    } else {
-      const afterIndex = options.index - beforeCount - middleCount;
-      marker = {
-        x: rowStartX + rowDirection * afterIndex * rowSpacing,
-        y: options.host.y + options.host.height + distance,
-      };
-    }
-  } else {
-    const distance = markerGap + options.lane * verticalLaneGap;
-    const sideY = options.side === "top" ? options.host.y - distance : options.host.y + options.host.height + distance;
-    const columnStartY = options.side === "top" ? options.host.y : options.host.y + options.host.height;
-    const columnDirection = options.side === "top" ? 1 : -1;
-
-    if (options.index < beforeCount) {
-      marker = {
-        x: options.host.x - distance,
-        y: columnStartY + columnDirection * options.index * sideSpacing,
-      };
-    } else if (options.index < beforeCount + middleCount) {
-      const middleIndex = options.index - beforeCount;
-      marker = {
-        x: hostCenterX + (middleIndex - (middleCount - 1) / 2) * rowSpacing,
-        y: sideY,
-      };
-    } else {
-      const afterIndex = options.index - beforeCount - middleCount;
-      marker = {
-        x: options.host.x + options.host.width + distance,
-        y: columnStartY + columnDirection * afterIndex * sideSpacing,
-      };
-    }
-  }
-
-  return {
-    side: options.side,
-    lane: options.lane,
-    offsetIndex: options.index,
-    marker,
-  };
-}
-
 export function buildCompactAttributeSlots(
   host: AttributeLayoutHost,
   attributes: AttributeNode[],
@@ -455,20 +359,93 @@ function countCollisions(bounds: Bounds, occupiedBounds: Bounds[]): number {
   return occupiedBounds.filter((occupied) => boundsIntersect(bounds, occupied)).length;
 }
 
-function countPeerCollisions(bounds: Bounds, boundsList: Bounds[], ownIndex: number): number {
-  return boundsList.reduce((count, otherBounds, otherIndex) => {
-    if (otherIndex <= ownIndex) {
-      return count;
-    }
-
-    return boundsIntersect(bounds, otherBounds) ? count + 1 : count;
-  }, 0);
-}
-
 function getHostPerimeterDistance(host: AttributeLayoutHost, marker: Point): number {
   const clampedX = Math.min(Math.max(marker.x, host.x), host.x + host.width);
   const clampedY = Math.min(Math.max(marker.y, host.y), host.y + host.height);
   return Math.hypot(marker.x - clampedX, marker.y - clampedY);
+}
+
+function getPreferredSideSpread(attributeCount: number): number {
+  if (attributeCount >= 9) {
+    return 4;
+  }
+
+  if (attributeCount >= 6) {
+    return 3;
+  }
+
+  if (attributeCount >= 4) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function getSlotKey(slot: AttributeLayoutSlot): string {
+  return `${slot.side}:${slot.lane}:${slot.offsetIndex}`;
+}
+
+function incrementSideCount(
+  sideCounts: Partial<Record<AttributeLayoutSide, number>>,
+  side: AttributeLayoutSide,
+): void {
+  if (side === "top") {
+    sideCounts.top = (sideCounts.top ?? 0) + 1;
+  } else if (side === "right") {
+    sideCounts.right = (sideCounts.right ?? 0) + 1;
+  } else if (side === "bottom") {
+    sideCounts.bottom = (sideCounts.bottom ?? 0) + 1;
+  } else {
+    sideCounts.left = (sideCounts.left ?? 0) + 1;
+  }
+}
+
+function scoreSlot(options: {
+  host: AttributeLayoutHost;
+  attribute: AttributeNode;
+  slot: AttributeLayoutSlot;
+  slotIndex: number;
+  attributesCount: number;
+  sideCounts: Partial<Record<AttributeLayoutSide, number>>;
+  placedBounds: Bounds[];
+  occupiedBounds: Bounds[];
+  layoutOptions?: AttributeLayoutOptions;
+}): number {
+  const collisionPadding = options.layoutOptions?.collisionPadding ?? COLLISION_PADDING;
+  const candidateBounds = buildAttributeLayoutBounds(options.host, options.attribute, collisionPadding);
+  const hostBounds = getHostBounds(options.host, collisionPadding);
+  const hostCollisions = boundsIntersect(candidateBounds, hostBounds) ? 1 : 0;
+  const peerCollisions = countCollisions(candidateBounds, options.placedBounds);
+  const externalCollisions = countCollisions(candidateBounds, options.occupiedBounds);
+  const sidePenalty = options.layoutOptions?.sidePenalties?.[options.slot.side] ?? 0;
+  const perimeterDistance = getHostPerimeterDistance(options.host, getAttributeMarkerCenter(options.attribute));
+  const sideCount = options.sideCounts[options.slot.side] ?? 0;
+  const preferredSideSpread = getPreferredSideSpread(options.attributesCount);
+  const targetPerSide = Math.ceil(options.attributesCount / preferredSideSpread);
+  const usedSideCount = CANDIDATE_SIDE_ORDER.filter((side) => (options.sideCounts[side] ?? 0) > 0).length;
+  const shouldOpenUnusedSide =
+    options.attributesCount >= 6 &&
+    usedSideCount < preferredSideSpread &&
+    sideCount > 0;
+  const sideOverTarget = Math.max(0, sideCount + 1 - targetPerSide);
+  const balancePenalty =
+    options.attributesCount >= 6
+      ? sideCount * 2600 + sideOverTarget * 12000 + (shouldOpenUnusedSide ? 9000 : 0)
+      : options.attributesCount >= 4
+        ? sideCount * 850 + sideOverTarget * 4000
+        : sideCount * 120;
+
+  return (
+    hostCollisions * 10000000 +
+    peerCollisions * 6000000 +
+    externalCollisions * 6000000 +
+    sidePenalty +
+    options.slot.lane * 18000 +
+    perimeterDistance * 42 +
+    options.slot.offsetIndex * 480 +
+    balancePenalty +
+    options.slotIndex / 1000
+  );
 }
 
 export function placeNewAttributeAroundHost<T extends AttributeNode>(
@@ -493,7 +470,7 @@ export function placeNewAttributeAroundHost<T extends AttributeNode>(
   let bestScore = Number.POSITIVE_INFINITY;
 
   slots.forEach((slot, index) => {
-    const candidate = placeAttributeMarker(newAttribute, slot.marker, false) as T;
+    const candidate = placeAttributeMarker(newAttribute, slot.marker, true) as T;
     const candidateBounds = buildAttributeLayoutBounds(
       host,
       candidate,
@@ -502,18 +479,21 @@ export function placeNewAttributeAroundHost<T extends AttributeNode>(
     const hostCollisions = boundsIntersect(candidateBounds, hostBounds) ? 1 : 0;
     const attributeCollisions = countCollisions(candidateBounds, occupiedBounds);
     const externalCollisions = countCollisions(candidateBounds, externalOccupiedBounds);
-    const perimeterDistance = getHostPerimeterDistance(host, getAttributeMarkerCenter(candidate));
-    const existingSideMisses = existingAttributes.length - (existingSideCounts[slot.side] ?? 0);
     const sidePenalty = options?.sidePenalties?.[slot.side] ?? 0;
+    const perimeterDistance = getHostPerimeterDistance(host, getAttributeMarkerCenter(candidate));
+    const sideCount = existingSideCounts[slot.side] ?? 0;
+    const preferredSideSpread = getPreferredSideSpread(layoutAttributes.length);
+    const targetPerSide = Math.ceil(layoutAttributes.length / preferredSideSpread);
+    const sideOverTarget = Math.max(0, sideCount + 1 - targetPerSide);
     const score =
-      hostCollisions * 100000 +
-      attributeCollisions * 50000 +
-      externalCollisions * 50000 +
+      hostCollisions * 10000000 +
+      attributeCollisions * 6000000 +
+      externalCollisions * 6000000 +
       sidePenalty +
-      existingSideMisses * 80 +
-      slot.lane * 700 +
-      slot.offsetIndex * 35 +
-      perimeterDistance * 1.5 +
+      slot.lane * 18000 +
+      perimeterDistance * 42 +
+      slot.offsetIndex * 480 +
+      (layoutAttributes.length >= 6 ? sideCount * 2600 + sideOverTarget * 12000 : sideCount * 850) +
       index / 1000;
 
     if (score < bestScore) {
@@ -523,78 +503,6 @@ export function placeNewAttributeAroundHost<T extends AttributeNode>(
   });
 
   return bestAttribute ?? newAttribute;
-}
-
-interface AttributeGroupLayoutCandidate<T extends AttributeNode> {
-  side: AttributeLayoutSide;
-  lane: number;
-  positionedAttributes: T[];
-  bounds: Bounds[];
-  score: number;
-}
-
-function buildGroupLayoutCandidate<T extends AttributeNode>(options: {
-  host: AttributeLayoutHost;
-  attributes: T[];
-  side: AttributeLayoutSide;
-  lane: number;
-  sideRank: number;
-  layoutOptions?: AttributeLayoutOptions;
-}): AttributeGroupLayoutCandidate<T> {
-  const positionedAttributes = options.attributes.map((attribute, index) => {
-    const slot = buildClusterSlotForSide({
-      host: options.host,
-      attributes: options.attributes,
-      side: options.side,
-      lane: options.lane,
-      index,
-      layoutOptions: options.layoutOptions,
-    });
-
-    return placeAttributeMarker(attribute, slot.marker, false) as T;
-  });
-  const collisionPadding = options.layoutOptions?.collisionPadding ?? COLLISION_PADDING;
-  const hostBounds = getHostBounds(options.host, collisionPadding);
-  const externalOccupiedBounds = options.layoutOptions?.occupiedBounds ?? [];
-  const bounds = positionedAttributes.map((attribute) =>
-    buildAttributeLayoutBounds(options.host, attribute, collisionPadding),
-  );
-  const markers = positionedAttributes.map(getAttributeMarkerCenter);
-  const distances = markers.map((marker) => getHostPerimeterDistance(options.host, marker));
-  const maxDistance = Math.max(...distances);
-  const minDistance = Math.min(...distances);
-  const hostCollisions = bounds.filter((bound) => boundsIntersect(bound, hostBounds)).length;
-  const externalCollisions = bounds.reduce(
-    (count, bound) => count + countCollisions(bound, externalOccupiedBounds),
-    0,
-  );
-  const peerCollisions = bounds.reduce(
-    (count, bound, index) => count + countPeerCollisions(bound, bounds, index),
-    0,
-  );
-  const span =
-    options.side === "left" || options.side === "right"
-      ? Math.max(...markers.map((marker) => marker.y)) - Math.min(...markers.map((marker) => marker.y))
-      : Math.max(...markers.map((marker) => marker.x)) - Math.min(...markers.map((marker) => marker.x));
-  const sidePenalty = options.layoutOptions?.sidePenalties?.[options.side] ?? 0;
-  const score =
-    hostCollisions * 1000000 +
-    peerCollisions * 750000 +
-    externalCollisions * 750000 +
-    sidePenalty +
-    options.lane * 2500 +
-    options.sideRank * 60 +
-    maxDistance * 3 +
-    (maxDistance - minDistance) * 2 +
-    span * 0.05;
-
-  return {
-    side: options.side,
-    lane: options.lane,
-    positionedAttributes,
-    bounds,
-    score,
-  };
 }
 
 export function distributeAttributesAroundHost<T extends AttributeNode>(
@@ -611,43 +519,64 @@ export function distributeAttributesAroundHost<T extends AttributeNode>(
       ? [...attributes].sort((left, right) => left.id.localeCompare(right.id))
       : [...attributes];
   const sideOrder = getCandidateSideOrder(options);
-  let bestCandidate: AttributeGroupLayoutCandidate<T> | null = null;
+  const slots = buildCompactAttributeSlots(host, layoutAttributes, {
+    ...options,
+    preferredSides: sideOrder,
+  });
+  const occupiedBounds = options?.occupiedBounds ?? [];
+  const sideCounts: Partial<Record<AttributeLayoutSide, number>> = {};
+  const usedSlots = new Set<string>();
+  const placedBounds: Bounds[] = [];
+  const positionedAttributes: T[] = [];
 
-  for (let lane = 0; lane < MAX_LANE_COUNT; lane += 1) {
-    for (let sideRank = 0; sideRank < sideOrder.length; sideRank += 1) {
-      const side = sideOrder[sideRank];
-      const candidate = buildGroupLayoutCandidate({
+  layoutAttributes.forEach((attribute) => {
+    let bestAttribute: T | null = null;
+    let bestSlotKey: string | null = null;
+    let bestSlotSide: AttributeLayoutSide | null = null;
+    let bestBounds: Bounds | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    slots.forEach((slot, slotIndex) => {
+      if (usedSlots.has(getSlotKey(slot))) {
+        return;
+      }
+
+      const candidate = placeAttributeMarker(attribute, slot.marker, true) as T;
+      const candidateBounds = buildAttributeLayoutBounds(
         host,
-        attributes: layoutAttributes,
-        side,
-        lane,
-        sideRank,
+        candidate,
+        options?.collisionPadding ?? COLLISION_PADDING,
+      );
+      const score = scoreSlot({
+        host,
+        attribute: candidate,
+        slot,
+        slotIndex,
+        attributesCount: layoutAttributes.length,
+        sideCounts,
+        placedBounds,
+        occupiedBounds,
         layoutOptions: options,
       });
 
-      if (!bestCandidate || candidate.score < bestCandidate.score) {
-        bestCandidate = candidate;
+      if (score < bestScore) {
+        bestScore = score;
+        bestAttribute = candidate;
+        bestSlotKey = getSlotKey(slot);
+        bestSlotSide = slot.side;
+        bestBounds = candidateBounds;
       }
-    }
+    });
 
-    const currentBest = bestCandidate;
-    if (
-      currentBest?.lane === lane &&
-      currentBest.bounds.every((bound, index) => {
-        const hostBounds = getHostBounds(host, options?.collisionPadding ?? COLLISION_PADDING);
-        const occupiedBounds = options?.occupiedBounds ?? [];
-        return (
-          !boundsIntersect(bound, hostBounds) &&
-          countCollisions(bound, occupiedBounds) === 0 &&
-          countPeerCollisions(bound, currentBest.bounds, index) === 0
-        );
-      })
-    ) {
-      break;
+    if (bestAttribute && bestSlotKey && bestSlotSide && bestBounds) {
+      positionedAttributes.push(bestAttribute);
+      placedBounds.push(bestBounds);
+      usedSlots.add(bestSlotKey);
+      incrementSideCount(sideCounts, bestSlotSide);
+    } else {
+      positionedAttributes.push(attribute);
     }
-  }
-
-  const positionedAttributes = bestCandidate ? bestCandidate.positionedAttributes : layoutAttributes;
+  });
   const positionedById = new Map<string, AttributeNode>(
     positionedAttributes.map((attribute) => [attribute.id, attribute]),
   );

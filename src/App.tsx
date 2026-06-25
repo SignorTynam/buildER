@@ -326,9 +326,6 @@ interface SqlReverseWorkflowState {
   isPreviewReady: boolean;
 }
 
-const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
-const COMPOSITE_CHILD_VERTICAL_GAP = 80;
-const COMPOSITE_CHILD_VERTICAL_STEP = 44;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
 const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 1200);
 
@@ -735,7 +732,7 @@ function getConnectionFailureReason(
 
 type AttributeCreationHost = Extract<DiagramNode, { type: "entity" | "relationship" | "attribute" }>;
 type AttributeNodeDraft = Extract<DiagramNode, { type: "attribute" }>;
-type DirectAttributeLayoutHost = EntityNode | RelationshipNode;
+type DirectAttributeLayoutHost = EntityNode | RelationshipNode | AttributeNode;
 
 function padBounds(bounds: Bounds, padding: number): Bounds {
   return {
@@ -782,7 +779,11 @@ function buildAttributeLayoutOptionsForHost(
   });
 
   diagram.edges.forEach((edge) => {
-    if (edge.type !== "connector" || (edge.sourceId !== hostNode.id && edge.targetId !== hostNode.id)) {
+    if (
+      hostNode.type === "attribute" ||
+      edge.type !== "connector" ||
+      (edge.sourceId !== hostNode.id && edge.targetId !== hostNode.id)
+    ) {
       return;
     }
 
@@ -841,33 +842,22 @@ function getNextAttributePosition(
   nextAttribute: AttributeNodeDraft,
 ): Point {
   const hostedAttributes = findDirectHostedAttributes(diagram, hostNode.id);
-
-  if (hostNode.type === "attribute") {
-    const hostSize =
-      hostNode.isMultivalued === true
-        ? { width: hostNode.width, height: hostNode.height }
-        : getMultivaluedAttributeSize(hostNode.label);
-    const compositeIndex = hostedAttributes.length;
-
-    return {
-      x: snapValue(
-        hostNode.x + hostSize.width / 2 - nextAttribute.width / 2 + compositeIndex * COMPOSITE_CHILD_HORIZONTAL_STEP,
-        GRID_SIZE,
-      ),
-      y: snapValue(
-        hostNode.y + hostSize.height + COMPOSITE_CHILD_VERTICAL_GAP + compositeIndex * COMPOSITE_CHILD_VERTICAL_STEP,
-        GRID_SIZE,
-      ),
-    };
-  }
+  const layoutHost =
+    hostNode.type === "attribute" && hostNode.isMultivalued !== true
+      ? {
+          ...hostNode,
+          ...getMultivaluedAttributeSize(hostNode.label),
+          isMultivalued: true,
+        }
+      : hostNode;
 
   const positionedNextAttribute = placeNewAttributeAroundHost(
-    hostNode,
+    layoutHost,
     hostedAttributes,
     nextAttribute,
     buildAttributeLayoutOptionsForHost(
       diagram,
-      hostNode,
+      layoutHost,
       hostedAttributes.map((attribute) => attribute.id),
     ),
   );
@@ -883,7 +873,11 @@ function layoutDirectAttributesAroundHost(
   hostNode: AttributeCreationHost,
   attributeIds: string[],
 ): DiagramDocument {
-  if (hostNode.type === "attribute" || attributeIds.length === 0) {
+  if (attributeIds.length === 0) {
+    return diagram;
+  }
+
+  if (hostNode.type === "attribute" && hostNode.isMultivalued !== true) {
     return diagram;
   }
 
@@ -3101,20 +3095,28 @@ export default function App() {
             } as Partial<DiagramNode>);
           })()
         : nextDiagramBase;
-    const directAttributeHost =
-      type === "attribute" && sourceNode.type !== "attribute" && targetNode.type === "attribute"
-        ? sourceNode
-        : type === "attribute" && targetNode.type !== "attribute" && sourceNode.type === "attribute"
-          ? targetNode
-          : undefined;
-    const nextDiagram =
-      directAttributeHost?.type === "entity" || directAttributeHost?.type === "relationship"
-        ? layoutDirectAttributesAroundHost(
-            nextDiagramWithEdge,
-            directAttributeHost,
-            findDirectHostedAttributes(nextDiagramWithEdge, directAttributeHost.id).map((attribute) => attribute.id),
-          )
-        : nextDiagramWithEdge;
+    const directAttributeHostId =
+      type === "attribute" && sourceNode.type === "attribute" && targetNode.type === "attribute"
+        ? targetNode.id
+        : type === "attribute" && sourceNode.type !== "attribute" && targetNode.type === "attribute"
+          ? sourceNode.id
+          : type === "attribute" && targetNode.type !== "attribute" && sourceNode.type === "attribute"
+            ? targetNode.id
+            : undefined;
+    const directAttributeHost = directAttributeHostId
+      ? nextDiagramWithEdge.nodes.find(
+          (node): node is AttributeCreationHost =>
+            node.id === directAttributeHostId &&
+            (node.type === "entity" || node.type === "relationship" || node.type === "attribute"),
+        )
+      : undefined;
+    const nextDiagram = directAttributeHost
+      ? layoutDirectAttributesAroundHost(
+          nextDiagramWithEdge,
+          directAttributeHost,
+          findDirectHostedAttributes(nextDiagramWithEdge, directAttributeHost.id).map((attribute) => attribute.id),
+        )
+      : nextDiagramWithEdge;
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [edgeToSelect.id] });
@@ -3990,7 +3992,7 @@ export default function App() {
       nodes: [...history.present.nodes, nextAttribute],
       edges: [...history.present.edges, nextEdge],
     };
-    const nextDiagram =
+    const nextDiagramWithHostResize =
       hostNode.type === "attribute"
         ? (() => {
             const nextSize = getMultivaluedAttributeSize(hostNode.label);
@@ -4001,6 +4003,17 @@ export default function App() {
             } as Partial<DiagramNode>);
           })()
         : nextDiagramBase;
+    const layoutHost = nextDiagramWithHostResize.nodes.find(
+      (node): node is AttributeCreationHost =>
+        node.id === hostNode.id && (node.type === "entity" || node.type === "relationship" || node.type === "attribute"),
+    );
+    const nextDiagram = layoutHost
+      ? layoutDirectAttributesAroundHost(
+          nextDiagramWithHostResize,
+          layoutHost,
+          findDirectHostedAttributes(nextDiagramWithHostResize, layoutHost.id).map((attribute) => attribute.id),
+        )
+      : nextDiagramWithHostResize;
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
@@ -4353,6 +4366,23 @@ export default function App() {
 
       if (subAttributeIds.length > 0) {
         nextDiagram = removeSelection(nextDiagram, { nodeIds: subAttributeIds, edgeIds: [] });
+      }
+    }
+
+    if (
+      currentNode?.type === "attribute" &&
+      attributeWillBeMultivalued &&
+      normalizedAttributePatch.isMultivalued !== false
+    ) {
+      const layoutHost = nextDiagram.nodes.find(
+        (node): node is AttributeNode => node.id === workingNodeId && node.type === "attribute",
+      );
+      if (layoutHost?.isMultivalued === true) {
+        nextDiagram = layoutDirectAttributesAroundHost(
+          nextDiagram,
+          layoutHost,
+          findDirectHostedAttributes(nextDiagram, layoutHost.id).map((attribute) => attribute.id),
+        );
       }
     }
 

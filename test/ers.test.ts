@@ -190,8 +190,8 @@ test("multivalued attribute size uses compact capsule height and adaptive width"
   const shortSize = getMultivaluedAttributeSize("ATTRIBUTO1");
   const longSize = getMultivaluedAttributeSize("ATTRIBUTO_CON_NOME_MOLTO_MOLTO_LUNGO");
 
-  assert.equal(shortSize.height, 36);
-  assert.equal(longSize.height, 36);
+  assert.equal(shortSize.height, 34);
+  assert.equal(longSize.height, 34);
   assert.ok(longSize.width > shortSize.width);
 });
 
@@ -234,7 +234,7 @@ test("parseDiagram normalizes legacy multivalued attributes to compact height", 
       node.type === "attribute" && node.isMultivalued !== true,
   );
 
-  assert.equal(composite?.height, 36);
+  assert.equal(composite?.height, 34);
   assert.equal(composite?.width, getMultivaluedAttributeSize("INDIRIZZO").width);
   assert.equal(simple?.height, 28);
   assert.equal(simple?.width, 150);
