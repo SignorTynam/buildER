@@ -434,6 +434,133 @@ test("Code panel serializza attributi collegati a una relazione", () => {
   assert.match(reparsedCode, /^    prezzo \(one\.\.many\)$/m);
 });
 
+test("Code panel lascia senza blocco attributi le relazioni senza attributi", () => {
+  const diagram = parseErsDiagram(`entity ENTITA1
+entity ENTITA2
+
+relationship RELAZIONE1 (
+    ENTITA1: one..one,
+    ENTITA2: one..one
+)`);
+
+  const code = serializeDiagramToErs(diagram);
+
+  assert.match(
+    code,
+    /relationship RELAZIONE1 \(\n    ENTITA1: one\.\.one,\n    ENTITA2: one\.\.one\n\)/,
+  );
+  assert.doesNotMatch(code, /relationship RELAZIONE1 \([^]*?\) \{/);
+});
+
+test("Code panel serializza attributi composti collegati a una relazione", () => {
+  const diagram: DiagramDocument = {
+    meta: { name: "Relationship composite attributes", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "ENTITA1",
+        type: "entity",
+        label: "ENTITA1",
+        x: 80,
+        y: 240,
+        width: 140,
+        height: 64,
+        relationshipParticipations: [
+          { id: "participation-entita1-relazione1", relationshipId: "RELAZIONE1", cardinality: "(1,1)" },
+        ],
+      },
+      {
+        id: "ENTITA2",
+        type: "entity",
+        label: "ENTITA2",
+        x: 460,
+        y: 240,
+        width: 140,
+        height: 64,
+        relationshipParticipations: [
+          { id: "participation-entita2-relazione1", relationshipId: "RELAZIONE1", cardinality: "(1,1)" },
+        ],
+      },
+      { id: "RELAZIONE1", type: "relationship", label: "RELAZIONE1", x: 280, y: 160, width: 150, height: 86 },
+      {
+        id: "ATTRIBUTO1",
+        type: "attribute",
+        label: "ATTRIBUTO1",
+        x: 280,
+        y: 80,
+        width: 150,
+        height: 34,
+        isMultivalued: true,
+      },
+      { id: "ATTRIBUTO2", type: "attribute", label: "ATTRIBUTO2", x: 120, y: 40, width: 150, height: 28 },
+      { id: "ATTRIBUTO3", type: "attribute", label: "ATTRIBUTO3", x: 460, y: 40, width: 150, height: 28 },
+      { id: "ENTITA1.ATTRIBUTO4", type: "attribute", label: "ATTRIBUTO4", x: 80, y: 120, width: 150, height: 28 },
+      { id: "ENTITA1.ATTRIBUTO5", type: "attribute", label: "ATTRIBUTO5", x: 20, y: 60, width: 150, height: 28 },
+      { id: "ENTITA1.ATTRIBUTO6", type: "attribute", label: "ATTRIBUTO6", x: 160, y: 60, width: 150, height: 28 },
+    ],
+    edges: [
+      {
+        id: "connector-entita1-relazione1",
+        type: "connector",
+        sourceId: "ENTITA1",
+        targetId: "RELAZIONE1",
+        label: "",
+        lineStyle: "solid",
+        participationId: "participation-entita1-relazione1",
+      },
+      {
+        id: "connector-entita2-relazione1",
+        type: "connector",
+        sourceId: "ENTITA2",
+        targetId: "RELAZIONE1",
+        label: "",
+        lineStyle: "solid",
+        participationId: "participation-entita2-relazione1",
+      },
+      { id: "attribute-relazione1-attributo1", type: "attribute", sourceId: "RELAZIONE1", targetId: "ATTRIBUTO1", label: "", lineStyle: "solid" },
+      { id: "attribute-attributo1-attributo2", type: "attribute", sourceId: "ATTRIBUTO2", targetId: "ATTRIBUTO1", label: "", lineStyle: "solid" },
+      { id: "attribute-attributo1-attributo3", type: "attribute", sourceId: "ATTRIBUTO3", targetId: "ATTRIBUTO1", label: "", lineStyle: "solid" },
+      { id: "attribute-entita1-attributo4", type: "attribute", sourceId: "ENTITA1", targetId: "ENTITA1.ATTRIBUTO4", label: "", lineStyle: "solid" },
+      { id: "attribute-attributo4-attributo5", type: "attribute", sourceId: "ENTITA1.ATTRIBUTO5", targetId: "ENTITA1.ATTRIBUTO4", label: "", lineStyle: "solid" },
+      { id: "attribute-attributo4-attributo6", type: "attribute", sourceId: "ENTITA1.ATTRIBUTO6", targetId: "ENTITA1.ATTRIBUTO4", label: "", lineStyle: "solid" },
+    ],
+  };
+
+  const code = serializeDiagramForCodePanel(diagram);
+
+  assert.match(
+    code,
+    /relationship RELAZIONE1 \(\n    ENTITA1: one\.\.one,\n    ENTITA2: one\.\.one\n\) \{\n    ATTRIBUTO1 \(multi\) \{\n        ATTRIBUTO2,\n        ATTRIBUTO3\n    \}\n\}/,
+  );
+  assert.match(
+    code,
+    /entity ENTITA1 \{\n    ATTRIBUTO4 \{\n        ATTRIBUTO5,\n        ATTRIBUTO6\n    \}\n\}/,
+  );
+
+  const parsed = parseErsDiagram(code);
+  const parsedParent = findRelationshipAttribute(parsed, "RELAZIONE1", "ATTRIBUTO1");
+  assert.ok(parsedParent);
+  assert.equal(parsedParent.isMultivalued, true);
+  assert.deepEqual(
+    parsed.nodes
+      .filter((node): node is Extract<DiagramNode, { type: "attribute" }> =>
+        node.type === "attribute" &&
+        parsed.edges.some(
+          (edge) => edge.type === "attribute" && edge.sourceId === node.id && edge.targetId === parsedParent.id,
+        ),
+      )
+      .map((node) => node.label)
+      .sort(),
+    ["ATTRIBUTO2", "ATTRIBUTO3"],
+  );
+
+  const reparsedCode = serializeDiagramToErs(parsed);
+  assert.match(
+    reparsedCode,
+    /relationship RELAZIONE1 \(\n    ENTITA1: one\.\.one,\n    ENTITA2: one\.\.one\n\) \{\n    ATTRIBUTO1 \(multi\) \{\n        ATTRIBUTO2,\n        ATTRIBUTO3\n    \}\n\}/,
+  );
+});
+
 function createCodeLayoutFixture(): DiagramDocument {
   return {
     meta: { name: "Code layout fixture", version: 3 },

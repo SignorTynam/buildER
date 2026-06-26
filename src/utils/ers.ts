@@ -1316,6 +1316,7 @@ function expandDesignerRelationship(
     { line, text: buildLegacyRelationshipLine(alias, label) },
   ];
   let isAttributeBlock = false;
+  let activeCompositeAlias: string | undefined;
 
   for (let index = startIndex + 1; index < rawLines.length; index += 1) {
     const currentLine = index + 1;
@@ -1328,7 +1329,29 @@ function expandDesignerRelationship(
     const compact = current.trim();
     if (isAttributeBlock) {
       if (compact === "}" || compact === "},") {
+        if (activeCompositeAlias) {
+          activeCompositeAlias = undefined;
+          continue;
+        }
+
         return { nextIndex: index, emitted };
+      }
+
+      if (activeCompositeAlias) {
+        const child = buildDesignerAttributeLegacyLines(
+          qualifyAttributeAlias(alias, activeCompositeAlias),
+          compact,
+          currentLine,
+        );
+        child.emitted.forEach((text) => emitted.push({ line: currentLine, text }));
+        continue;
+      }
+
+      if (compact.endsWith("{")) {
+        const parent = buildDesignerAttributeLegacyLines(alias, compact.slice(0, -1), currentLine);
+        parent.emitted.forEach((text) => emitted.push({ line: currentLine, text }));
+        activeCompositeAlias = parent.alias;
+        continue;
       }
 
       const attribute = buildDesignerAttributeLegacyLines(alias, compact, currentLine);
@@ -2718,10 +2741,31 @@ function buildRelationLines(
 
   lines.push(")");
   if (attributes.length > 0) {
-    lines[lines.length - 1] = ") {";
-    attributes.forEach((attribute, index) => {
+    const entries = attributes.map((attribute) => {
+      const childAttributes = (attributesByHostId.get(attribute.id) ?? [])
+        .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
+        .sort(compareNodes);
       const declaration = buildDesignerAttributeDeclaration(attribute, relationAlias, aliasByNodeId);
-      lines.push(`    ${declaration}${index < attributes.length - 1 ? "," : ""}`);
+
+      if (childAttributes.length === 0) {
+        return `    ${declaration}`;
+      }
+
+      const parentAlias = aliasByNodeId.get(attribute.id) ?? attribute.id;
+      const childLines = childAttributes.map((childAttribute, childIndex) => {
+        const childDeclaration = buildDesignerAttributeDeclaration(
+          childAttribute,
+          parentAlias,
+          aliasByNodeId,
+        );
+        return `        ${childDeclaration}${childIndex < childAttributes.length - 1 ? "," : ""}`;
+      });
+      return [`    ${declaration} {`, ...childLines, "    }"].join("\n");
+    });
+
+    lines[lines.length - 1] = ") {";
+    entries.forEach((entry, index) => {
+      lines.push(appendDesignerComma(entries, index, entries.length));
     });
     lines.push("}");
   }
