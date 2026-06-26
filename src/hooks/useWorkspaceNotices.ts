@@ -224,18 +224,6 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     setStatusMessage(message);
     if (!message.trim()) {
       dismissStickyNotices("source-selection");
-      return;
-    }
-
-    if (notices.some((notice) => notice.sticky)) {
-      showNotice(
-        {
-          title: "Completato",
-          message,
-          tone: "success",
-        },
-        STATUS_FOLLOWUP_NOTICE_MS,
-      );
     }
   }
 
@@ -244,9 +232,8 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     showWarningNotice(message, { ...options, title: options?.title ?? "Operazione non valida" });
   }
 
-  function setStatusSuccess(message: string, options?: WorkspaceNoticeOptions) {
+  function setStatusSuccess(message: string) {
     setStatusMessage(message);
-    showSuccessNotice(message, { ...options, title: options?.title ?? "Completato" });
   }
 
   function setStatusError(message: string, options?: WorkspaceNoticeOptions) {

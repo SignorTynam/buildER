@@ -1239,7 +1239,6 @@ export default function App() {
 
     restoredSessionNoticeShownRef.current = true;
     setStatusMessage("Sessione precedente ripristinata automaticamente.");
-    showSuccessNotice("Sessione precedente ripristinata automaticamente.");
   }, [sessionBootstrap.restored]);
 
   useEffect(() => {
@@ -1546,7 +1545,7 @@ export default function App() {
     markOnboardingCompleted();
     setOnboardingOpen(false);
     onboardingPreviousSnapshotRef.current = null;
-    showSuccessNotice("Tour chiuso. Ora puoi modellare liberamente.");
+    setStatus("Tour chiuso. Ora puoi modellare liberamente.");
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
   function markDocumentBaseline(diagram: DiagramDocument) {
@@ -4652,7 +4651,6 @@ export default function App() {
     setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
     setTool("select");
     setStatus("Entita rimossa dalla gerarchia.");
-    showSuccessNotice("Entita rimossa dalla gerarchia.");
   }
 
   function handleDeleteNodeById(nodeId: string) {
@@ -4885,6 +4883,7 @@ export default function App() {
         markCodeSaved(serializeDiagramToErs(history.present));
       }
       setStatus("Progetto salvato.");
+      showSuccessNotice("Il file progetto e stato scaricato.", { title: "Download completato" });
     } catch (error) {
       console.error(error);
       setStatusError(formatProjectFileErrorMessage(error));
@@ -4899,12 +4898,16 @@ export default function App() {
       markDiagramSaved(history.present);
     }
     setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
+    showSuccessNotice(codeDirtyRef.current ? "La bozza ERS e stata scaricata." : "Il codice ERS e stato scaricato.", {
+      title: "Download completato",
+    });
   }
 
   function handleSaveRestructuredErs() {
     const source = serializeDiagramToErs(translationHistory.present.translatedDiagram);
     downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}-restructured.ers`);
     setStatus("Codice ERS ristrutturato scaricato.");
+    showSuccessNotice("Il codice ERS ristrutturato e stato scaricato.", { title: "Download completato" });
   }
 
   function handleSaveLogicalSql() {
@@ -4919,6 +4922,7 @@ export default function App() {
       "text/sql;charset=utf-8",
     );
     setStatus("SQL scaricato.");
+    showSuccessNotice("Il file SQL e stato scaricato.", { title: "Download completato" });
   }
 
   async function handleLoadProjectRequest() {
@@ -5009,6 +5013,7 @@ export default function App() {
     try {
       await downloadPng(svgRef.current, "builder-diagram.png");
       setStatus("PNG esportato.");
+      showSuccessNotice("Il diagramma PNG e stato esportato.", { title: "Export completato" });
     } catch (error) {
       console.error(error);
       setStatusError(
@@ -5030,6 +5035,7 @@ export default function App() {
     try {
       await downloadJpeg(svgRef.current, "builder-diagram.jpeg");
       setStatus("JPEG esportato.");
+      showSuccessNotice("Il diagramma JPEG e stato esportato.", { title: "Export completato" });
     } catch (error) {
       console.error(error);
       setStatusError(
@@ -5050,6 +5056,7 @@ export default function App() {
 
     downloadSvg(svgRef.current, "builder-diagram.svg");
     setStatus("SVG esportato.");
+    showSuccessNotice("Il diagramma SVG e stato esportato.", { title: "Export completato" });
   }
 
   function handleUndoAction() {
