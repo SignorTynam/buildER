@@ -4,8 +4,10 @@ import test from "node:test";
 import type { AttributeNode, Bounds, EntityNode, RelationshipNode } from "../src/types/diagram.ts";
 import {
   type AttributeLayoutHost,
+  type AttributeLayoutSide,
   FIXED_ATTRIBUTE_MARKER_GAP,
   buildCenterOutOffsets,
+  buildLeftPriorityPerimeterSlots,
   distributeAttributesAroundHost,
   getAttributeMarkerCenter,
   getDirectAttributeLayoutSide,
@@ -63,32 +65,33 @@ function attribute(id: string, index: number): AttributeNode {
   };
 }
 
-function markerOffsets(host: AttributeLayoutHost, attributes: AttributeNode[]): number[] {
-  const hostCenterY = host.y + host.height / 2;
-  const markers = attributes.map((candidate) => getAttributeMarkerCenter(candidate));
-  const positiveSteps = markers
-    .map((marker) => Math.abs(marker.y - hostCenterY))
-    .filter((distance) => distance > 0);
-  const verticalStep = Math.min(...positiveSteps);
-
-  return markers.map((marker) => {
-    if (Math.abs(marker.y - hostCenterY) < 0.001) {
-      return 0;
-    }
-    return Math.round((marker.y - hostCenterY) / verticalStep);
-  });
+function layoutSides(host: AttributeLayoutHost, attributes: AttributeNode[]): AttributeLayoutSide[] {
+  return attributes.map((candidate) => getDirectAttributeLayoutSide(host, candidate));
 }
 
-function assertLeftCenterOut(
-  host: AttributeLayoutHost,
-  attributes: AttributeNode[],
-  expectedOffsets: number[],
-): void {
-  assert.deepEqual(markerOffsets(host, attributes), expectedOffsets);
+function assertConstantPerimeterGap(host: AttributeLayoutHost, attributes: AttributeNode[]): void {
   attributes.forEach((candidate) => {
     const marker = getAttributeMarkerCenter(candidate);
-    assert.equal(getDirectAttributeLayoutSide(host, candidate), "left");
-    assert.equal(marker.x, host.x - FIXED_ATTRIBUTE_MARKER_GAP);
+    const side = getDirectAttributeLayoutSide(host, candidate);
+
+    if (side === "left") {
+      assert.equal(marker.x, host.x - FIXED_ATTRIBUTE_MARKER_GAP);
+      assert.ok(marker.y >= host.y - 0.001, `${candidate.id} left marker is too high`);
+      assert.ok(marker.y <= host.y + host.height + 0.001, `${candidate.id} left marker is too low`);
+      return;
+    }
+
+    if (side === "top") {
+      assert.equal(marker.y, host.y - FIXED_ATTRIBUTE_MARKER_GAP);
+      return;
+    }
+
+    if (side === "bottom") {
+      assert.equal(marker.y, host.y + host.height + FIXED_ATTRIBUTE_MARKER_GAP);
+      return;
+    }
+
+    assert.fail(`${candidate.id} unexpectedly used right-side fallback`);
   });
 }
 
@@ -96,25 +99,49 @@ test("attribute layout: center-out offsets are stable", () => {
   assert.deepEqual(buildCenterOutOffsets(7), [0, -1, 1, -2, 2, -3, 3]);
 });
 
-test("attribute layout: entity attributes use left center-out slots", () => {
+test("attribute layout: perimeter slots start left and then turn to top and bottom", () => {
   const host = hostEntity();
-  const positioned = distributeAttributesAroundHost(
+  const slots = buildLeftPriorityPerimeterSlots(
     host,
-    Array.from({ length: 5 }, (_, index) => attribute(`attribute${index + 1}`, index)),
+    Array.from({ length: 9 }, (_, index) => attribute(`attribute${index + 1}`, index)),
   );
 
-  assertLeftCenterOut(host, positioned, [0, -1, 1, -2, 2]);
+  assert.deepEqual(
+    slots.map((slot) => slot.side),
+    ["left", "left", "left", "top", "bottom", "top", "bottom", "top", "bottom"],
+  );
+  assert.deepEqual(slots.slice(0, 3).map((slot) => slot.offsetIndex), [0, -1, 1]);
 });
 
-test("attribute layout: entity attributes keep the fixed left marker gap", () => {
+test("attribute layout: entity attributes follow the left-priority perimeter", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
-    Array.from({ length: 5 }, (_, index) => attribute(`attribute${index + 1}`, index)),
+    Array.from({ length: 9 }, (_, index) => attribute(`attribute${index + 1}`, index)),
   );
 
-  positioned.forEach((candidate) => {
-    assert.equal(getAttributeMarkerCenter(candidate).x, host.x - FIXED_ATTRIBUTE_MARKER_GAP);
+  assert.deepEqual(
+    layoutSides(host, positioned),
+    ["left", "left", "left", "top", "bottom", "top", "bottom", "top", "bottom"],
+  );
+  assertConstantPerimeterGap(host, positioned);
+});
+
+test("attribute layout: saturated left side does not create an infinite vertical column", () => {
+  const host = hostEntity();
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 9 }, (_, index) => attribute(`attribute${index + 1}`, index)),
+  );
+
+  const leftMarkers = positioned
+    .filter((candidate) => getDirectAttributeLayoutSide(host, candidate) === "left")
+    .map((candidate) => getAttributeMarkerCenter(candidate));
+
+  assert.equal(leftMarkers.length, 3);
+  leftMarkers.forEach((marker) => {
+    assert.ok(marker.y >= host.y - 0.001);
+    assert.ok(marker.y <= host.y + host.height + 0.001);
   });
 });
 
@@ -122,15 +149,16 @@ test("attribute layout: incremental placement does not move existing attributes"
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
-    Array.from({ length: 3 }, (_, index) => attribute(`attribute${index + 1}`, index)),
+    Array.from({ length: 5 }, (_, index) => attribute(`attribute${index + 1}`, index)),
   );
   const frozenPositions = new Map(positioned.map((candidate) => [candidate.id, { x: candidate.x, y: candidate.y }]));
-  const next = placeNewAttributeAroundHost(host, positioned, attribute("attribute4", 3));
+  const next = placeNewAttributeAroundHost(host, positioned, attribute("attribute6", 5));
 
   positioned.forEach((candidate) => {
     assert.deepEqual({ x: candidate.x, y: candidate.y }, frozenPositions.get(candidate.id));
   });
-  assertLeftCenterOut(host, [...positioned, next], [0, -1, 1, -2]);
+  assert.deepEqual(layoutSides(host, [...positioned, next]), ["left", "left", "left", "top", "bottom", "top"]);
+  assertConstantPerimeterGap(host, [next]);
 });
 
 test("attribute layout: left connector corridor reserves the center slot", () => {
@@ -148,38 +176,58 @@ test("attribute layout: left connector corridor reserves the center slot", () =>
     { occupiedBounds: [reservedCenter] },
   );
 
-  assertLeftCenterOut(host, positioned, [-1, 1, -2, 2]);
+  assert.deepEqual(layoutSides(host, positioned), ["left", "left", "top", "bottom"]);
+  positioned
+    .filter((candidate) => getDirectAttributeLayoutSide(host, candidate) === "left")
+    .forEach((candidate) => {
+      assert.notEqual(getAttributeMarkerCenter(candidate).y, centerY);
+    });
+  assertConstantPerimeterGap(host, positioned);
 });
 
-test("attribute layout: relationship attributes use left center-out slots", () => {
-  const host = relationshipNode();
-  const positioned = distributeAttributesAroundHost(
-    host,
-    Array.from({ length: 5 }, (_, index) => attribute(`relationship-attribute${index + 1}`, index)),
-  );
-
-  assertLeftCenterOut(host, positioned, [0, -1, 1, -2, 2]);
-});
-
-test("attribute layout: composite attribute children use left center-out slots", () => {
-  const host = hostAttribute();
-  const positioned = distributeAttributesAroundHost(
-    host,
-    Array.from({ length: 5 }, (_, index) => attribute(`subattribute${index + 1}`, index)),
-  );
-
-  assertLeftCenterOut(host, positioned, [0, -1, 1, -2, 2]);
-});
-
-test("attribute layout: many attributes stay on the left center-out sequence", () => {
+test("attribute layout: many attributes follow the perimeter without using right as normal layout", () => {
   const host = hostEntity();
   const attributes = Array.from({ length: 20 }, (_, index) => attribute(`attribute${index + 1}`, index));
   const positioned = distributeAttributesAroundHost(host, attributes);
+  const sides = layoutSides(host, positioned);
 
-  assertLeftCenterOut(host, positioned, buildCenterOutOffsets(20));
+  assert.equal(sides.includes("right"), false);
+  assert.notDeepEqual(sides, Array.from({ length: 20 }, () => "left"));
+  assert.equal(sides.filter((side) => side === "left").length, 3);
+  assert.ok(sides.filter((side) => side === "top").length > 0);
+  assert.ok(sides.filter((side) => side === "bottom").length > 0);
+  assertConstantPerimeterGap(host, positioned);
 });
 
-test("attribute layout: preserveInputOrder false keeps deterministic id order on left slots", () => {
+test("attribute layout: relationship attributes use the same perimeter strategy", () => {
+  const host = relationshipNode();
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 6 }, (_, index) => attribute(`relationship-attribute${index + 1}`, index)),
+  );
+  const sides = layoutSides(host, positioned);
+
+  assert.equal(sides[0], "left");
+  assert.ok(sides.includes("top"));
+  assert.ok(sides.includes("bottom"));
+  assertConstantPerimeterGap(host, positioned);
+});
+
+test("attribute layout: composite attribute children use the same perimeter strategy", () => {
+  const host = hostAttribute();
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 6 }, (_, index) => attribute(`subattribute${index + 1}`, index)),
+  );
+  const sides = layoutSides(host, positioned);
+
+  assert.equal(sides[0], "left");
+  assert.ok(sides.includes("top"));
+  assert.ok(sides.includes("bottom"));
+  assertConstantPerimeterGap(host, positioned);
+});
+
+test("attribute layout: preserveInputOrder false keeps deterministic id order on perimeter slots", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
@@ -188,18 +236,17 @@ test("attribute layout: preserveInputOrder false keeps deterministic id order on
   );
 
   assert.deepEqual(positioned.map((candidate) => candidate.id), ["attribute-c", "attribute-a", "attribute-b"]);
-  assertLeftCenterOut(
-    host,
-    [
+  assert.deepEqual(
+    layoutSides(host, [
       positioned.find((candidate) => candidate.id === "attribute-a")!,
       positioned.find((candidate) => candidate.id === "attribute-b")!,
       positioned.find((candidate) => candidate.id === "attribute-c")!,
-    ],
-    [0, -1, 1],
+    ]),
+    ["left", "left", "left"],
   );
 });
 
-test("sql reverse diagram uses left center-out attribute layout", () => {
+test("sql reverse diagram uses left-priority perimeter attribute layout", () => {
   const result = reverseSqlToDiagram(`
     CREATE TABLE WideEntity (
       id INTEGER PRIMARY KEY,
@@ -227,8 +274,6 @@ test("sql reverse diagram uses left center-out attribute layout", () => {
   );
 
   assert.equal(attributes.length, 10);
-  attributes.forEach((candidate) => {
-    assert.equal(getDirectAttributeLayoutSide(host, candidate), "left");
-    assert.equal(getAttributeMarkerCenter(candidate).x, host.x - FIXED_ATTRIBUTE_MARKER_GAP);
-  });
+  assert.notDeepEqual(layoutSides(host, attributes), Array.from({ length: attributes.length }, () => "left"));
+  assertConstantPerimeterGap(host, attributes);
 });

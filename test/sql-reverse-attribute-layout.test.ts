@@ -94,8 +94,7 @@ export function assertFixedGeneratedAttributeDistances(diagram: DiagramDocument)
   nodesByType(diagram, "attribute").forEach((attribute) => {
     const owner = findAttributeOwner(diagram, attribute.id);
     assert.ok(owner, `${attribute.label} has no owner`);
-    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
-    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
+    assertFixedPerimeterGap(owner, attribute);
   });
 }
 
@@ -106,9 +105,32 @@ export function assertCompactAttributeDistances(
   nodesByType(diagram, "attribute").forEach((attribute) => {
     const owner = findAttributeOwner(diagram, attribute.id);
     assert.ok(owner, `${attribute.label} has no owner`);
-    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
-    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
+    assertFixedPerimeterGap(owner, attribute);
   });
+}
+
+function assertFixedPerimeterGap(owner: EntityNode | RelationshipNode, attribute: AttributeNode): void {
+  const marker = getAttributeMarkerCenter(attribute);
+  const side = getDirectAttributeLayoutSide(owner, attribute);
+
+  if (side === "left") {
+    assert.equal(marker.x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
+    assert.ok(marker.y >= owner.y - 0.001);
+    assert.ok(marker.y <= owner.y + owner.height + 0.001);
+    return;
+  }
+
+  if (side === "top") {
+    assert.equal(marker.y, owner.y - FIXED_ATTRIBUTE_MARKER_GAP);
+    return;
+  }
+
+  if (side === "bottom") {
+    assert.equal(marker.y, owner.y + owner.height + FIXED_ATTRIBUTE_MARKER_GAP);
+    return;
+  }
+
+  assert.fail(`${attribute.label} unexpectedly used right-side fallback`);
 }
 
 function buildLargeUniversitySchemaSql(): string {
@@ -288,7 +310,7 @@ test("sql reverse attribute layout: large university schema stays compact and fi
   assert.deepEqual(secondCoordinates, firstCoordinates);
 });
 
-test("sql reverse attribute layout: owner with many attributes stays on the left side", () => {
+test("sql reverse attribute layout: owner with many attributes follows the perimeter", () => {
   const columns = Array.from({ length: 16 }, (_, index) => {
     const columnNumber = String(index + 1).padStart(2, "0");
     return `col_${columnNumber} VARCHAR(80)`;
@@ -311,10 +333,10 @@ test("sql reverse attribute layout: owner with many attributes stays on the left
   });
 
   assert.equal(attributes.length, 17);
-  attributes.forEach((attribute) => {
-    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
-    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
-  });
+  assert.equal(attributes.some((attribute) => getDirectAttributeLayoutSide(owner, attribute) === "top"), true);
+  assert.equal(attributes.some((attribute) => getDirectAttributeLayoutSide(owner, attribute) === "bottom"), true);
+  assert.equal(attributes.some((attribute) => getDirectAttributeLayoutSide(owner, attribute) === "right"), false);
+  attributes.forEach((attribute) => assertFixedPerimeterGap(owner, attribute));
   assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
   assertFixedGeneratedAttributeDistances(result.diagram);
 });
@@ -373,10 +395,7 @@ test("sql reverse attribute layout: dense foreign key hub keeps central attribut
   const hubAttributes = nodesByType(result.diagram, "attribute").filter((attribute) => {
     return findAttributeOwner(result.diagram, attribute.id)?.id === hub.id;
   });
-  hubAttributes.forEach((attribute) => {
-    assert.equal(getDirectAttributeLayoutSide(hub, attribute), "left");
-    assert.equal(getAttributeMarkerCenter(attribute).x, hub.x - FIXED_ATTRIBUTE_MARKER_GAP);
-  });
+  hubAttributes.forEach((attribute) => assertFixedPerimeterGap(hub, attribute));
   assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
   assertFixedGeneratedAttributeDistances(result.diagram);
 });
@@ -440,10 +459,9 @@ test("sql reverse attribute layout: single owner with up to ten attributes stays
     return findAttributeOwner(result.diagram, attribute.id)?.id === owner.id;
   });
   assert.equal(ownerAttributes.length, 11);
-  ownerAttributes.forEach((attribute) => {
-    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
-    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
-  });
+  assert.equal(ownerAttributes.some((attribute) => getDirectAttributeLayoutSide(owner, attribute) === "top"), true);
+  assert.equal(ownerAttributes.some((attribute) => getDirectAttributeLayoutSide(owner, attribute) === "bottom"), true);
+  ownerAttributes.forEach((attribute) => assertFixedPerimeterGap(owner, attribute));
   assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
   assertFixedGeneratedAttributeDistances(result.diagram);
 });

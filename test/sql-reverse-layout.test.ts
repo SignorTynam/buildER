@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { DiagramDocument, DiagramNode } from "../src/types/diagram.ts";
-import { FIXED_ATTRIBUTE_MARKER_GAP, getAttributeMarkerCenter } from "../src/utils/attributeLayout.ts";
+import {
+  FIXED_ATTRIBUTE_MARKER_GAP,
+  getAttributeMarkerCenter,
+  getDirectAttributeLayoutSide,
+} from "../src/utils/attributeLayout.ts";
 import { reverseSqlToDiagram } from "../src/utils/sqlReverseDiagram.ts";
 
 interface TestBounds {
@@ -55,9 +59,35 @@ function attributeOwnerId(diagram: DiagramDocument, attributeId: string): string
   })?.sourceId;
 }
 
-function markerLeftGapFromOwner(owner: DiagramNode, attribute: Extract<DiagramNode, { type: "attribute" }>): number {
+function assertFixedPerimeterGap(owner: DiagramNode, attribute: Extract<DiagramNode, { type: "attribute" }>): void {
   const marker = getAttributeMarkerCenter(attribute);
-  return owner.x - marker.x;
+  const side = getDirectAttributeLayoutSide(owner, attribute);
+
+  if (side === "left") {
+    assert.ok(
+      Math.abs(owner.x - marker.x - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+      `${attribute.label} is not at the fixed left marker gap`,
+    );
+    return;
+  }
+
+  if (side === "top") {
+    assert.ok(
+      Math.abs(owner.y - marker.y - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+      `${attribute.label} is not at the fixed top marker gap`,
+    );
+    return;
+  }
+
+  if (side === "bottom") {
+    assert.ok(
+      Math.abs(marker.y - (owner.y + owner.height) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+      `${attribute.label} is not at the fixed bottom marker gap`,
+    );
+    return;
+  }
+
+  assert.fail(`${attribute.label} unexpectedly used right-side fallback`);
 }
 
 function assertValidEdges(diagram: DiagramDocument): void {
@@ -136,10 +166,7 @@ test("sql reverse layout: attributes keep fixed marker distance from their owner
 
   nodesByType(result.diagram, "attribute").forEach((attribute) => {
     if (attributeOwnerId(result.diagram, attribute.id) === owner.id) {
-      assert.ok(
-        Math.abs(markerLeftGapFromOwner(owner, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
-        `${attribute.label} is not at the fixed marker gap`,
-      );
+      assertFixedPerimeterGap(owner, attribute);
     }
   });
 });
@@ -298,10 +325,7 @@ test("sql reverse layout: long labels resize nodes and keep direct attributes at
   assert.equal(entity.width > 140, true);
   assert.equal(idAttribute.width > 112, true);
   directAttributes.forEach((attribute) => {
-    assert.ok(
-      Math.abs(markerLeftGapFromOwner(entity, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
-      `${attribute.label} is not at the fixed marker gap`,
-    );
+    assertFixedPerimeterGap(entity, attribute);
     assert.equal(Number.isFinite(attribute.x), true);
     assert.equal(Number.isFinite(attribute.y), true);
   });
