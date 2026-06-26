@@ -1,5 +1,12 @@
-import type { DiagramDocument, Viewport } from "../types/diagram";
-import type { LogicalModel, LogicalStage, LogicalTranslationState, LogicalWorkspaceDocument } from "../types/logical";
+import type { TechnicalPanelTab } from "../components/TechnicalDockPanel";
+import type { DiagramDocument, EditorMode, SelectionState, ToolKind, Viewport } from "../types/diagram";
+import type {
+  LogicalModel,
+  LogicalSelection,
+  LogicalStage,
+  LogicalTranslationState,
+  LogicalWorkspaceDocument,
+} from "../types/logical";
 import type { ErTranslationState, ErTranslationWorkspaceDocument, WorkspaceView } from "../types/translation";
 import {
   buildProjectCommitStats,
@@ -14,6 +21,7 @@ import type {
   ProjectVersioningState,
 } from "../features/versioning/projectCommitSnapshot";
 import { parseDiagram, serializeDiagram } from "./diagram";
+import { serializeDiagramToErs } from "./ers";
 import { createEmptyErTranslationWorkspace, refreshErTranslationWorkspace } from "./erTranslation";
 import { createEmptyLogicalModel, createEmptyLogicalWorkspace, refreshLogicalWorkspace } from "./logicalWorkspace";
 
@@ -42,6 +50,26 @@ export interface ProjectFileViewState {
   erViewport: Viewport;
   translationViewport: Viewport;
   logicalViewport: Viewport;
+}
+
+export interface ProjectFileWorkspaceState {
+  tool: ToolKind;
+  mode: EditorMode;
+  selection: SelectionState;
+  translationSelection: SelectionState;
+  logicalSelection: LogicalSelection;
+  codeDraft: string;
+  codeDirty: boolean;
+  technicalPanelOpen: boolean;
+  technicalPanelTab: TechnicalPanelTab;
+  codePanelOpen: boolean;
+  codePanelWidth: number;
+  notesPanelOpen: boolean;
+  notesPanelWidth: number;
+  toolbarCollapsed: boolean;
+  focusMode: boolean;
+  toolbarWidth: number;
+  showDiagnostics: boolean;
 }
 
 export type {
@@ -77,6 +105,7 @@ export interface ProjectFileState {
   logicalViewport: Viewport;
   savedAt?: string;
   versioning?: ProjectVersioningState;
+  workspace?: ProjectFileWorkspaceState;
 }
 
 export interface ProjectFileDocument {
@@ -89,6 +118,7 @@ export interface ProjectFileDocument {
   logicalGenerated: boolean;
   logicalStage?: LogicalStage;
   view: ProjectFileViewState;
+  workspace: ProjectFileWorkspaceState;
   versioning: ProjectVersioningState;
 }
 
@@ -135,6 +165,7 @@ type LegacyProjectFileDocument = {
   logicalGenerated?: unknown;
   logicalStage?: unknown;
   view?: unknown;
+  workspace?: unknown;
   versioning?: unknown;
 };
 
@@ -466,7 +497,7 @@ function sanitizeProjectVersioningSettings(value: unknown): ProjectVersioningSet
   };
 }
 
-function sanitizeProjectVersioningState(value: unknown, options?: ParseProjectFileOptions): ProjectVersioningState {
+export function sanitizeProjectVersioningState(value: unknown, options?: ParseProjectFileOptions): ProjectVersioningState {
   const fallback = createEmptyProjectVersioningState();
   if (!isRecord(value)) {
     return fallback;
@@ -516,6 +547,81 @@ function cloneProjectVersioningState(value: ProjectVersioningState | undefined):
   return sanitizeProjectVersioningState(value);
 }
 
+function pickProjectFileWorkspaceState(snapshot: ProjectCommitSnapshot): ProjectFileWorkspaceState {
+  return {
+    tool: snapshot.tool,
+    mode: snapshot.mode,
+    selection: snapshot.selection,
+    translationSelection: snapshot.translationSelection,
+    logicalSelection: snapshot.logicalSelection,
+    codeDraft: snapshot.codeDraft,
+    codeDirty: snapshot.codeDirty,
+    technicalPanelOpen: snapshot.technicalPanelOpen,
+    technicalPanelTab: snapshot.technicalPanelTab,
+    codePanelOpen: snapshot.codePanelOpen,
+    codePanelWidth: snapshot.codePanelWidth,
+    notesPanelOpen: snapshot.notesPanelOpen,
+    notesPanelWidth: snapshot.notesPanelWidth,
+    toolbarCollapsed: snapshot.toolbarCollapsed,
+    focusMode: snapshot.focusMode,
+    toolbarWidth: snapshot.toolbarWidth,
+    showDiagnostics: snapshot.showDiagnostics,
+  };
+}
+
+function createFallbackProjectFileWorkspaceState(diagram: DiagramDocument): ProjectFileWorkspaceState {
+  return {
+    tool: "select",
+    mode: "edit",
+    selection: { nodeIds: [], edgeIds: [] },
+    translationSelection: { nodeIds: [], edgeIds: [] },
+    logicalSelection: { nodeId: null, columnId: null, edgeId: null },
+    codeDraft: serializeDiagramToErs(diagram),
+    codeDirty: false,
+    technicalPanelOpen: false,
+    technicalPanelTab: "review",
+    codePanelOpen: false,
+    codePanelWidth: 330,
+    notesPanelOpen: false,
+    notesPanelWidth: 320,
+    toolbarCollapsed: false,
+    focusMode: false,
+    toolbarWidth: 208,
+    showDiagnostics: true,
+  };
+}
+
+function sanitizeProjectFileWorkspaceState(
+  value: unknown,
+  context: {
+    diagram: DiagramDocument;
+    translationWorkspace: ErTranslationWorkspaceDocument;
+    logicalWorkspace: LogicalWorkspaceDocument;
+    logicalGenerated: boolean;
+    logicalStage: LogicalStage;
+    diagramView: ProjectFileWorkspaceView;
+    view: ProjectFileViewState;
+  },
+): ProjectFileWorkspaceState {
+  const fallback = createFallbackProjectFileWorkspaceState(context.diagram);
+  const candidate = isRecord(value) ? value : {};
+  const snapshot = normalizeProjectCommitSnapshot({
+    diagram: context.diagram,
+    translationWorkspace: context.translationWorkspace,
+    logicalWorkspace: context.logicalWorkspace,
+    logicalGenerated: context.logicalGenerated,
+    logicalStage: context.logicalStage,
+    diagramView: context.diagramView,
+    viewport: context.view.erViewport,
+    translationViewport: context.view.translationViewport,
+    logicalViewport: context.view.logicalViewport,
+    ...fallback,
+    ...candidate,
+  });
+
+  return snapshot ? pickProjectFileWorkspaceState(snapshot) : fallback;
+}
+
 function sanitizeCurrentProjectView(
   value: unknown,
   options?: ParseProjectFileOptions,
@@ -553,6 +659,7 @@ function normalizeProjectState(
   savedAt: string,
   view: ProjectFileViewState,
   versioning: ProjectVersioningState,
+  workspace: ProjectFileWorkspaceState,
 ): ParsedProjectFileState {
   const diagramView =
     view.current === "logical" && logicalGenerated
@@ -572,6 +679,7 @@ function normalizeProjectState(
     logicalViewport: cloneViewport(view.logicalViewport),
     savedAt,
     versioning,
+    workspace,
   };
 }
 
@@ -584,6 +692,7 @@ function createProjectFileDocument(
   savedAt: string,
   view: ProjectFileViewState,
   versioning: ProjectVersioningState,
+  workspace: ProjectFileWorkspaceState,
 ): ProjectFileDocument {
   return {
     version: CURRENT_PROJECT_FILE_VERSION,
@@ -598,6 +707,7 @@ function createProjectFileDocument(
       ...view,
       logicalStage: logicalGenerated && logicalStage === "schema" ? "schema" : "translation",
     },
+    workspace,
     versioning,
   };
 }
@@ -631,6 +741,15 @@ function parseLegacyProjectFile(
       ? value.savedAt
       : new Date().toISOString();
   const versioning = createEmptyProjectVersioningState();
+  const workspace = sanitizeProjectFileWorkspaceState(value.workspace, {
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage: "translation",
+    diagramView: legacyCurrent,
+    view,
+  });
   const document = createProjectFileDocument(
     diagram,
     translationWorkspace,
@@ -640,6 +759,7 @@ function parseLegacyProjectFile(
     savedAt,
     view,
     versioning,
+    workspace,
   );
 
   return {
@@ -653,6 +773,7 @@ function parseLegacyProjectFile(
       savedAt,
       view,
       versioning,
+      workspace,
     ),
     source: "legacy-project-json",
   };
@@ -675,6 +796,21 @@ function parseCurrentProjectFile(
       ? value.savedAt
       : new Date().toISOString();
   const versioning = sanitizeProjectVersioningState(value.versioning, options);
+  const diagramView =
+    view.current === "logical" && logicalGenerated
+      ? "logical"
+      : view.current === "translation"
+        ? "translation"
+        : "er";
+  const workspace = sanitizeProjectFileWorkspaceState(value.workspace, {
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage,
+    diagramView,
+    view,
+  });
   const document = createProjectFileDocument(
     diagram,
     translationWorkspace,
@@ -684,6 +820,7 @@ function parseCurrentProjectFile(
     savedAt,
     view,
     versioning,
+    workspace,
   );
 
   return {
@@ -697,6 +834,7 @@ function parseCurrentProjectFile(
       savedAt,
       view,
       versioning,
+      workspace,
     ),
     source: "project-file",
   };
@@ -716,6 +854,15 @@ function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptio
     logicalViewport: cloneViewport(fallbackViewport),
   };
   const versioning = createEmptyProjectVersioningState();
+  const workspace = sanitizeProjectFileWorkspaceState(undefined, {
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage: "translation",
+    diagramView: view.current,
+    view,
+  });
   const document = createProjectFileDocument(
     diagram,
     translationWorkspace,
@@ -725,6 +872,7 @@ function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptio
     savedAt,
     view,
     versioning,
+    workspace,
   );
 
   return {
@@ -738,6 +886,7 @@ function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptio
       savedAt,
       view,
       versioning,
+      workspace,
     ),
     source: "legacy-diagram-json",
   };
@@ -756,6 +905,7 @@ export function isProjectFileDocument(value: unknown): value is ProjectFileDocum
     isRecord(value.view.erViewport) &&
     isRecord(value.view.translationViewport) &&
     isRecord(value.view.logicalViewport) &&
+    isRecord(value.workspace) &&
     isRecord(value.versioning)
   );
 }
@@ -778,6 +928,16 @@ export function serializeProjectFile(state: ProjectFileState): string {
     translationViewport: cloneViewport(state.translationViewport),
     logicalViewport: cloneViewport(state.logicalViewport),
   };
+  const diagramView = view.current;
+  const workspace = sanitizeProjectFileWorkspaceState(state.workspace, {
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage: view.logicalStage ?? "translation",
+    diagramView,
+    view,
+  });
   const document = createProjectFileDocument(
     diagram,
     translationWorkspace,
@@ -787,6 +947,7 @@ export function serializeProjectFile(state: ProjectFileState): string {
     state.savedAt ?? new Date().toISOString(),
     view,
     versioning,
+    workspace,
   );
 
   return JSON.stringify(document, null, 2);

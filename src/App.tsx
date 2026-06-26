@@ -177,6 +177,7 @@ import {
   PROJECT_FILE_EXTENSION,
   PROJECT_FILE_MIME_TYPE,
   serializeProjectFile,
+  type ProjectFileWorkspaceState,
   type ProjectVersioningState,
 } from "./utils/projectFile";
 import {
@@ -913,6 +914,36 @@ function layoutDirectAttributesAroundHost(
   };
 }
 
+function createProjectFileWorkspaceStateFromBootstrap(
+  sessionBootstrap: WorkspaceSessionBootstrap,
+): ProjectFileWorkspaceState {
+  return {
+    tool: sessionBootstrap.tool,
+    mode: sessionBootstrap.mode,
+    selection: {
+      nodeIds: [...sessionBootstrap.selection.nodeIds],
+      edgeIds: [...sessionBootstrap.selection.edgeIds],
+    },
+    translationSelection: {
+      nodeIds: [...sessionBootstrap.translationSelection.nodeIds],
+      edgeIds: [...sessionBootstrap.translationSelection.edgeIds],
+    },
+    logicalSelection: { ...sessionBootstrap.logicalSelection },
+    codeDraft: sessionBootstrap.codeDraft,
+    codeDirty: sessionBootstrap.codeDirty,
+    technicalPanelOpen: sessionBootstrap.technicalPanelOpen,
+    technicalPanelTab: sessionBootstrap.technicalPanelTab,
+    codePanelOpen: sessionBootstrap.codePanelOpen,
+    codePanelWidth: sessionBootstrap.codePanelWidth,
+    notesPanelOpen: sessionBootstrap.notesPanelOpen,
+    notesPanelWidth: sessionBootstrap.notesPanelWidth,
+    toolbarCollapsed: sessionBootstrap.toolbarCollapsed,
+    focusMode: sessionBootstrap.focusMode,
+    toolbarWidth: sessionBootstrap.toolbarWidth,
+    showDiagnostics: sessionBootstrap.showDiagnostics,
+  };
+}
+
 export default function App() {
   const { t } = useI18n();
   const appChangelog = useMemo(() => getAppChangelog(t), [t]);
@@ -1004,16 +1035,23 @@ export default function App() {
   const [codeError, setCodeError] = useState("");
   const {
     technicalPanelOpen,
+    setTechnicalPanelOpen,
     technicalPanelTab,
+    setTechnicalPanelTab,
     codePanelOpen,
+    setCodePanelOpen,
     codePanelWidth,
+    setCodePanelWidth,
     notesPanelOpen,
     setNotesPanelOpen,
     notesPanelWidth,
+    setNotesPanelWidth,
     toolbarCollapsed,
+    setToolbarCollapsed,
     focusMode,
     setFocusMode,
     toolbarWidth,
+    setToolbarWidth,
     effectiveToolbarCollapsed,
     visibleToolbarWidth,
     visibleTechnicalPanelWidth,
@@ -1030,7 +1068,7 @@ export default function App() {
     createInitialSqlReverseWorkflowState(),
   );
   const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
-  const projectVersioning = useProjectVersioning();
+  const projectVersioning = useProjectVersioning(sessionBootstrap.versioning);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -1054,7 +1092,10 @@ export default function App() {
   const [, setHasDiagramClipboard] = useState(false);
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
-  const lastSavedVersioningRef = useRef(JSON.stringify(createEmptyProjectVersioningState()));
+  const lastSavedVersioningRef = useRef(JSON.stringify(sessionBootstrap.versioning));
+  const lastSavedWorkspaceRef = useRef(
+    JSON.stringify(createProjectFileWorkspaceStateFromBootstrap(sessionBootstrap)),
+  );
   const hasUnsavedChangesRef = useRef(false);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
@@ -1119,6 +1160,54 @@ export default function App() {
     diagramView === "er" ? history.canUndo : diagramView === "translation" ? translationHistory.canUndo : logicalHistory.canUndo;
   const activeCanRedo =
     diagramView === "er" ? history.canRedo : diagramView === "translation" ? translationHistory.canRedo : logicalHistory.canRedo;
+  const currentProjectWorkspaceState = useMemo<ProjectFileWorkspaceState>(
+    () => ({
+      tool,
+      mode,
+      selection: {
+        nodeIds: [...selection.nodeIds],
+        edgeIds: [...selection.edgeIds],
+      },
+      translationSelection: {
+        nodeIds: [...translationSelection.nodeIds],
+        edgeIds: [...translationSelection.edgeIds],
+      },
+      logicalSelection: { ...logicalSelection },
+      codeDraft,
+      codeDirty,
+      technicalPanelOpen,
+      technicalPanelTab,
+      codePanelOpen,
+      codePanelWidth,
+      notesPanelOpen,
+      notesPanelWidth,
+      toolbarCollapsed,
+      focusMode,
+      toolbarWidth,
+      showDiagnostics,
+    }),
+    [
+      codeDirty,
+      codeDraft,
+      codePanelOpen,
+      codePanelWidth,
+      focusMode,
+      logicalSelection,
+      mode,
+      notesPanelOpen,
+      notesPanelWidth,
+      selection.edgeIds,
+      selection.nodeIds,
+      showDiagnostics,
+      technicalPanelOpen,
+      technicalPanelTab,
+      toolbarCollapsed,
+      toolbarWidth,
+      tool,
+      translationSelection.edgeIds,
+      translationSelection.nodeIds,
+    ],
+  );
   const currentProjectCommitSnapshot = useMemo(
     () =>
       createProjectCommitSnapshot({
@@ -1128,52 +1217,20 @@ export default function App() {
         logicalGenerated,
         logicalStage,
         diagramView,
-        tool,
-        mode,
         viewport,
-        selection,
         translationViewport,
-        translationSelection,
         logicalViewport,
-        logicalSelection,
-        codeDraft,
-        codeDirty,
-        technicalPanelOpen,
-        technicalPanelTab,
-        codePanelOpen,
-        codePanelWidth,
-        notesPanelOpen,
-        notesPanelWidth,
-        toolbarCollapsed,
-        focusMode,
-        toolbarWidth,
-        showDiagnostics,
+        ...currentProjectWorkspaceState,
       }),
     [
-      codeDirty,
-      codeDraft,
-      codePanelOpen,
-      codePanelWidth,
+      currentProjectWorkspaceState,
       diagramView,
-      focusMode,
       history.present,
       logicalGenerated,
       logicalHistory.present,
-      logicalSelection,
       logicalStage,
       logicalViewport,
-      mode,
-      notesPanelOpen,
-      notesPanelWidth,
-      selection,
-      showDiagnostics,
-      technicalPanelOpen,
-      technicalPanelTab,
-      toolbarCollapsed,
-      toolbarWidth,
-      tool,
       translationHistory.present,
-      translationSelection,
       translationViewport,
       viewport,
     ],
@@ -1334,11 +1391,13 @@ export default function App() {
   useEffect(() => {
     const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
     const currentVersioning = JSON.stringify(projectVersioning.versioning);
+    const currentWorkspace = JSON.stringify(currentProjectWorkspaceState);
     hasUnsavedChangesRef.current =
       serializeDiagram(history.present) !== lastSavedDiagramRef.current ||
       currentCode !== lastSavedCodeRef.current ||
-      currentVersioning !== lastSavedVersioningRef.current;
-  }, [history.present, codeDraft, projectVersioning.versioning]);
+      currentVersioning !== lastSavedVersioningRef.current ||
+      currentWorkspace !== lastSavedWorkspaceRef.current;
+  }, [history.present, codeDraft, currentProjectWorkspaceState, projectVersioning.versioning]);
 
   useEffect(() => {
     latestSessionSnapshotRef.current = serializeWorkspaceSessionSnapshot({
@@ -1374,6 +1433,7 @@ export default function App() {
       focusMode,
       toolbarWidth,
       showDiagnostics,
+      versioning: projectVersioning.versioning,
     });
   }, [
     codeDraft,
@@ -1402,6 +1462,7 @@ export default function App() {
     toolbarWidth,
     showDiagnostics,
     viewport,
+    projectVersioning.versioning,
   ]);
 
   useEffect(() => {
@@ -1632,10 +1693,16 @@ export default function App() {
     setStatus("Tour chiuso. Ora puoi modellare liberamente.");
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
-  function markDocumentBaseline(diagram: DiagramDocument, serializedVersioning = JSON.stringify(projectVersioning.versioning)) {
+  function markDocumentBaseline(
+    diagram: DiagramDocument,
+    serializedVersioning = JSON.stringify(projectVersioning.versioning),
+    serializedWorkspace = JSON.stringify(currentProjectWorkspaceState),
+    savedCode = serializeDiagramToErs(diagram),
+  ) {
     lastSavedDiagramRef.current = serializeDiagram(diagram);
-    lastSavedCodeRef.current = serializeDiagramToErs(diagram);
+    lastSavedCodeRef.current = savedCode;
     lastSavedVersioningRef.current = serializedVersioning;
+    lastSavedWorkspaceRef.current = serializedWorkspace;
     hasUnsavedChangesRef.current = false;
   }
 
@@ -1649,6 +1716,10 @@ export default function App() {
 
   function markVersioningSaved() {
     lastSavedVersioningRef.current = JSON.stringify(projectVersioning.versioning);
+  }
+
+  function markWorkspaceSaved(workspace: ProjectFileWorkspaceState) {
+    lastSavedWorkspaceRef.current = JSON.stringify(workspace);
   }
 
   async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
@@ -2165,6 +2236,18 @@ export default function App() {
     setCodeError("");
   }
 
+  function restoreCodeDraftFromWorkspace(workspace: ProjectFileWorkspaceState, diagram: DiagramDocument) {
+    const serializedDiagram = serializeDiagramToErs(diagram);
+    const nextCode = workspace.codeDraft;
+    codeDraftRef.current = nextCode;
+    codeDirtyRef.current = workspace.codeDirty;
+    codeLayoutMemoryRef.current = workspace.codeDirty ? diagram : null;
+    lastSerializedCodeRef.current = serializedDiagram;
+    setCodeDraft(nextCode);
+    setCodeDirty(workspace.codeDirty);
+    setCodeError("");
+  }
+
   function applyWorkspaceDocument(
     nextDiagram: DiagramDocument,
     status: string,
@@ -2178,6 +2261,7 @@ export default function App() {
       translationViewport?: Viewport;
       logicalViewport?: Viewport;
       versioning?: ProjectVersioningState;
+      workspace?: ProjectFileWorkspaceState;
     },
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
@@ -2217,18 +2301,49 @@ export default function App() {
     setLogicalGenerated(nextLogicalGenerated);
     setLogicalStage(options?.logicalStage === "schema" && nextLogicalGenerated ? "schema" : "translation");
     setDiagramView(nextDiagramView);
-    setTranslationSelection({ nodeIds: [], edgeIds: [] });
+    const nextWorkspace = options?.workspace;
+    setTranslationSelection(nextWorkspace?.translationSelection ?? { nodeIds: [], edgeIds: [] });
     setTranslationViewport(options?.translationViewport ? { ...options.translationViewport } : { ...DEFAULT_VIEWPORT });
-    setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+    setLogicalSelection(nextWorkspace?.logicalSelection ?? EMPTY_LOGICAL_SELECTION);
     setLogicalViewport(options?.logicalViewport ? { ...options.logicalViewport } : { ...DEFAULT_VIEWPORT });
-    syncCodeDraftWithDiagram(normalizedIncoming.diagram);
+    if (nextWorkspace) {
+      restoreCodeDraftFromWorkspace(nextWorkspace, normalizedIncoming.diagram);
+      setTechnicalPanelTab(nextWorkspace.technicalPanelTab);
+      setTechnicalPanelOpen(nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab !== "code");
+      setCodePanelOpen(nextWorkspace.codePanelOpen || (nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab === "code"));
+      setCodePanelWidth(nextWorkspace.codePanelWidth);
+      setNotesPanelOpen(
+        nextWorkspace.notesPanelOpen || (nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab === "notes"),
+      );
+      setNotesPanelWidth(nextWorkspace.notesPanelWidth);
+      setToolbarCollapsed(nextWorkspace.toolbarCollapsed);
+      setFocusMode(nextWorkspace.focusMode);
+      setToolbarWidth(nextWorkspace.toolbarWidth);
+      setShowDiagnostics(nextWorkspace.showDiagnostics);
+    } else {
+      syncCodeDraftWithDiagram(normalizedIncoming.diagram);
+    }
     const nextVersioning = options?.versioning ?? createEmptyProjectVersioningState();
     projectVersioning.setVersioning(nextVersioning);
-    markDocumentBaseline(normalizedIncoming.diagram, JSON.stringify(nextVersioning));
-    setSelection({ nodeIds: [], edgeIds: [] });
+    const baselineWorkspace = nextWorkspace ?? {
+      ...currentProjectWorkspaceState,
+      tool: "select",
+      selection: { nodeIds: [], edgeIds: [] },
+      translationSelection: { nodeIds: [], edgeIds: [] },
+      logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+      codeDraft: serializeDiagramToErs(normalizedIncoming.diagram),
+      codeDirty: false,
+    };
+    markDocumentBaseline(
+      normalizedIncoming.diagram,
+      JSON.stringify(nextVersioning),
+      JSON.stringify(baselineWorkspace),
+      baselineWorkspace.codeDirty ? baselineWorkspace.codeDraft : serializeDiagramToErs(normalizedIncoming.diagram),
+    );
+    setSelection(nextWorkspace?.selection ?? { nodeIds: [], edgeIds: [] });
     setIdentifierSelection(null);
     setViewport(options?.viewport ? { ...options.viewport } : { ...DEFAULT_VIEWPORT });
-    setTool("select");
+    setTool(nextWorkspace?.tool ?? "select");
     setStatus(status);
     reportExternalIdentifierInvalidations(normalizedIncoming.invalidations, "notice");
   }
@@ -4972,6 +5087,7 @@ export default function App() {
         translationViewport,
         logicalViewport,
         versioning: projectVersioning.versioning,
+        workspace: currentProjectWorkspaceState,
       });
       downloadTextFile(
         serializedProject,
@@ -4979,10 +5095,10 @@ export default function App() {
         PROJECT_FILE_MIME_TYPE,
       );
       markDiagramSaved(history.present);
-      if (!codeDirtyRef.current) {
-        markCodeSaved(serializeDiagramToErs(history.present));
-      }
+      markCodeSaved(codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present));
       markVersioningSaved();
+      markWorkspaceSaved(currentProjectWorkspaceState);
+      hasUnsavedChangesRef.current = false;
       setStatus(t("workspace.projectSaved"));
       showSuccessNotice(t("workspace.downloads.projectDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
     } catch (error) {
@@ -5110,6 +5226,7 @@ export default function App() {
         translationViewport: parsedProject.state.translationViewport,
         logicalViewport: parsedProject.state.logicalViewport,
         versioning: parsedProject.state.versioning,
+        workspace: parsedProject.state.workspace,
       });
     } catch (error) {
       console.error(error);

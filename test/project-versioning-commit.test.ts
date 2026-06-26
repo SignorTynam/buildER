@@ -209,6 +209,49 @@ test("versioning con commit viene mantenuto dopo serializeProjectFile e parsePro
   assert.equal(parsed.state.versioning.commits[0]?.snapshot.codePanelOpen, true);
 });
 
+test("versioning con due commit preserva HEAD e snapshot completi nel project file", async () => {
+  const firstProject = createSnapshot("A");
+  const firstResult = await createProjectCommitInState(createEmptyProjectVersioningState(), {
+    snapshot: firstProject.snapshot,
+    message: "Schema iniziale",
+  });
+  assert.equal(firstResult.status, "created");
+  if (firstResult.status !== "created") {
+    return;
+  }
+
+  const secondProject = createSnapshot("B");
+  const secondResult = await createProjectCommitInState(firstResult.versioning, {
+    snapshot: secondProject.snapshot,
+    message: "Layout e logico aggiornati",
+  });
+  assert.equal(secondResult.status, "created");
+  if (secondResult.status !== "created") {
+    return;
+  }
+
+  const parsed = parseProjectFile(serializeProjectFile({
+    diagram: secondProject.diagram,
+    translationWorkspace: secondProject.translationWorkspace,
+    logicalWorkspace: secondProject.logicalWorkspace,
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "er",
+    viewport: VIEWPORT,
+    translationViewport: VIEWPORT,
+    logicalViewport: VIEWPORT,
+    versioning: secondResult.versioning,
+  }));
+
+  assert.equal(parsed.state.versioning.headCommitId, secondResult.commit.id);
+  assert.equal(parsed.state.versioning.commits.length, 2);
+  assert.equal(parsed.state.versioning.commits[0]?.id, firstResult.commit.id);
+  assert.equal(parsed.state.versioning.commits[1]?.parentId, firstResult.commit.id);
+  assert.equal(parsed.state.versioning.commits[1]?.snapshot.codeDraft, "entity B");
+  assert.equal(parsed.state.versioning.commits[1]?.snapshot.codePanelOpen, true);
+  assert.equal(parsed.state.versioning.commits[1]?.snapshot.toolbarWidth, 208);
+});
+
 test("vecchio progetto senza versioning continua a caricarsi", () => {
   const project = createSnapshot("Legacy");
   const document = JSON.parse(serializeProjectFile({

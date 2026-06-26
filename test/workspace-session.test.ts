@@ -9,6 +9,7 @@ import {
   saveWorkspaceSessionSnapshot,
   serializeWorkspaceSessionSnapshot,
 } from "../src/features/workspace/workspaceSession.ts";
+import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
 import type { WorkspaceView } from "../src/types/translation.ts";
 
 class MemoryStorage {
@@ -53,6 +54,7 @@ function createValidSnapshot(overrides: Partial<Parameters<typeof serializeWorks
     focusMode: bootstrap.focusMode,
     toolbarWidth: bootstrap.toolbarWidth,
     showDiagnostics: bootstrap.showDiagnostics,
+    versioning: bootstrap.versioning,
     ...overrides,
   });
 }
@@ -186,4 +188,59 @@ test("workspace session keeps compatibility with older saved versions", () => {
   assert.equal(restored.diagramView, "translation");
   assert.equal(restored.tool, "attribute");
   assert.equal(restored.logicalGenerated, false);
+});
+
+test("workspace session serializza e ripristina versioning", () => {
+  const storage = new MemoryStorage();
+  const versioning = {
+    ...createEmptyProjectVersioningState(),
+    enabled: false,
+    settings: {
+      maxCommits: 12,
+      keepTaggedCommits: false,
+      includeAutomaticCommits: true,
+    },
+  };
+  const snapshot = createValidSnapshot({ versioning });
+  saveWorkspaceSessionSnapshot(snapshot, storage);
+
+  const raw = storage.getItem(WORKSPACE_SESSION_STORAGE_KEY);
+  assert.ok(raw);
+  assert.deepEqual(JSON.parse(raw).versioning, versioning);
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+  assert.equal(restored.restored, true);
+  assert.deepEqual(restored.versioning, versioning);
+});
+
+test("workspace session senza versioning usa uno stato vuoto", () => {
+  const storage = new MemoryStorage();
+  const snapshot = createValidSnapshot();
+  storage.setItem(WORKSPACE_SESSION_STORAGE_KEY, JSON.stringify({ ...snapshot, version: 4, versioning: undefined }));
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+
+  assert.equal(restored.restored, true);
+  assert.deepEqual(restored.versioning, createEmptyProjectVersioningState());
+});
+
+test("workspace session con versioning malformato non crasha", () => {
+  const storage = new MemoryStorage();
+  const snapshot = createValidSnapshot();
+  storage.setItem(
+    WORKSPACE_SESSION_STORAGE_KEY,
+    JSON.stringify({
+      ...snapshot,
+      versioning: {
+        enabled: "yes",
+        headCommitId: "missing",
+        commits: [{ id: "", snapshot: null }],
+      },
+    }),
+  );
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+
+  assert.equal(restored.restored, true);
+  assert.deepEqual(restored.versioning, createEmptyProjectVersioningState());
 });

@@ -12,6 +12,7 @@ import {
   PROJECT_FILE_KIND,
   ProjectFileError,
   serializeProjectFile,
+  type ProjectFileWorkspaceState,
 } from "../src/utils/projectFile.ts";
 
 const DEFAULT_VIEWPORT = { x: 180, y: 110, zoom: 1 };
@@ -56,6 +57,29 @@ function createFullProjectSnapshot(name: string) {
     toolbarWidth: 220,
     showDiagnostics: false,
   });
+}
+
+function createWorkspaceState(overrides: Partial<ProjectFileWorkspaceState> = {}): ProjectFileWorkspaceState {
+  return {
+    tool: "attribute",
+    mode: "edit",
+    selection: { nodeIds: ["entity-a"], edgeIds: ["edge-a"] },
+    translationSelection: { nodeIds: ["translated-a"], edgeIds: [] },
+    logicalSelection: { nodeId: "table-a", columnId: "column-a", edgeId: "logical-edge-a" },
+    codeDraft: "entity Cliente",
+    codeDirty: true,
+    technicalPanelOpen: true,
+    technicalPanelTab: "notes",
+    codePanelOpen: true,
+    codePanelWidth: 348,
+    notesPanelOpen: true,
+    notesPanelWidth: 336,
+    toolbarCollapsed: true,
+    focusMode: true,
+    toolbarWidth: 220,
+    showDiagnostics: false,
+    ...overrides,
+  };
 }
 
 test("il formato .ersp salva e ripristina vista corrente e viewport del progetto", () => {
@@ -299,6 +323,78 @@ test("il formato .ersp serializza uno stato versioning vuoto valido", () => {
 
   assert.equal(document.version, CURRENT_PROJECT_FILE_VERSION);
   assert.deepEqual(document.versioning, createEmptyProjectVersioningState());
+});
+
+test("il formato .ersp serializza e ripristina lo stato workspace corrente", () => {
+  const workspace = createWorkspaceState();
+  const serialized = serializeProjectFile({
+    ...createSerializableProject("Workspace completo"),
+    workspace,
+  });
+  const document = JSON.parse(serialized);
+  const parsed = parseProjectFile(serialized);
+
+  assert.deepEqual(document.workspace, workspace);
+  assert.deepEqual(parsed.state.workspace, workspace);
+});
+
+test("project file senza workspace usa fallback sicuri", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Senza workspace"));
+  const document = JSON.parse(serialized);
+  delete document.workspace;
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.workspace.tool, "select");
+  assert.equal(parsed.state.workspace.mode, "edit");
+  assert.deepEqual(parsed.state.workspace.selection, { nodeIds: [], edgeIds: [] });
+  assert.equal(parsed.state.workspace.codeDirty, false);
+  assert.equal(typeof parsed.state.workspace.codeDraft, "string");
+  assert.equal(parsed.state.workspace.technicalPanelOpen, false);
+  assert.equal(parsed.state.workspace.technicalPanelTab, "review");
+  assert.equal(parsed.state.workspace.showDiagnostics, true);
+});
+
+test("project file con workspace malformato usa fallback sanitizzati", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Workspace malformato"));
+  const document = JSON.parse(serialized);
+  document.workspace = {
+    tool: "bad-tool",
+    selection: { nodeIds: ["node-a", 42], edgeIds: [false, "edge-a"] },
+    logicalSelection: { tableId: "legacy-table", columnId: 99, edgeId: "edge-a" },
+    codeDraft: 42,
+    codeDirty: "yes",
+    technicalPanelOpen: "yes",
+    technicalPanelTab: "missing",
+    codePanelOpen: true,
+    codePanelWidth: -1,
+    notesPanelWidth: Number.NaN,
+    toolbarCollapsed: true,
+    focusMode: "no",
+    toolbarWidth: 0,
+    showDiagnostics: "yes",
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.workspace.tool, "select");
+  assert.deepEqual(parsed.state.workspace.selection, { nodeIds: ["node-a"], edgeIds: ["edge-a"] });
+  assert.deepEqual(parsed.state.workspace.logicalSelection, {
+    nodeId: "legacy-table",
+    columnId: null,
+    edgeId: "edge-a",
+  });
+  assert.equal(parsed.state.workspace.codeDraft, "");
+  assert.equal(parsed.state.workspace.codeDirty, false);
+  assert.equal(parsed.state.workspace.technicalPanelOpen, false);
+  assert.equal(parsed.state.workspace.technicalPanelTab, "review");
+  assert.equal(parsed.state.workspace.codePanelOpen, true);
+  assert.equal(typeof parsed.state.workspace.codePanelWidth, "number");
+  assert.equal(typeof parsed.state.workspace.notesPanelWidth, "number");
+  assert.equal(parsed.state.workspace.toolbarCollapsed, true);
+  assert.equal(parsed.state.workspace.focusMode, false);
+  assert.equal(typeof parsed.state.workspace.toolbarWidth, "number");
+  assert.equal(parsed.state.workspace.showDiagnostics, true);
 });
 
 test("il formato .ersp carica uno stato versioning vuoto", () => {
