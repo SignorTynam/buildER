@@ -834,6 +834,46 @@ export const en: DeepPartialMessages = {
           "1": "Targeted improvements to editor, workflows, and stability.",
           "2": "Regression coverage updated for the main flows.",
           "3": "Interface refinements and compatibility with existing projects.",
+          "4": "Compatibility updates to keep the release history readable.",
+          "5": "Metadata consolidation for the changelog and version announcement.",
+        },
+      },
+      v6_1: {
+        headline: "buildER 6.1: complete Code panel, stable layout, and multilingual UI",
+        summary: "buildER 6.1 collects the upgrades after 6.0: broader ERS serialization, perimeter attribute layout, Code/workspace sync, cleaner toolbar behavior, targeted toasts, and complete i18n coverage.",
+        hero: {
+          eyebrow: "Major upgrade",
+          title: "buildER 6.1",
+          subtitle: "A broad stabilization release: the Code panel preserves ER semantics better, the canvas stays organized while editing, and the main interface is available in Italian, English, and Albanian.",
+        },
+        highlights: {
+          code: {
+            title: "Complete ERS relationships",
+            description: "Attributes linked to relationships, including multivalued and composite attributes, appear in the Code panel and survive the ERS round-trip.",
+            tag: "Code",
+          },
+          layout: {
+            title: "Perimeter attribute layout",
+            description: "Automatic placement starts from the left side and follows the host perimeter, avoiding infinite columns and movement of already placed attributes.",
+            tag: "Canvas",
+          },
+          experience: {
+            title: "Clearer workspace experience",
+            description: "Toolbar behavior, export menus, targeted toasts, and localized text make daily editing flows easier to read.",
+            tag: "UX",
+          },
+        },
+        updates: {
+          "0": "The Code panel serializes attributes linked to ER relationships.",
+          "1": "Composite relationship attributes use the same syntax as composite entity attributes.",
+          "2": "The diagram -> ERS -> diagram round-trip preserves relationship attributes, multivalue markers, and child attributes.",
+          "3": "Automatic attribute layout now follows a left-priority perimeter strategy instead of balanced top/right/bottom/left distribution.",
+          "4": "Incremental attribute creation no longer moves attributes that were already positioned.",
+          "5": "SQL reverse layout and subattribute placement use the same perimeter strategy.",
+          "6": "Changes made directly in the workspace synchronize correctly back to the Code panel.",
+          "7": "Toolbar, toolbox, and export menu hide non-applicable commands instead of rendering disabled controls.",
+          "8": "Toasts are available for invalid operations and downloads while avoiding generic or noisy notifications.",
+          "9": "Inspector, identifiers, ISA dialog, intro, about, changelog, and static pages now have Italian, English, and Albanian i18n coverage.",
         },
       },
       v6_0: {

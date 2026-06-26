@@ -834,6 +834,46 @@ export const sq: DeepPartialMessages = {
           "1": "Përmirësime të synuara për editorin, rrjedhat e punës dhe stabilitetin.",
           "2": "Mbulimi i regresionit u përditësua për rrjedhat kryesore.",
           "3": "Rafinime të ndërfaqes dhe përputhshmëri me projektet ekzistuese.",
+          "4": "Përditësime përputhshmërie për ta mbajtur të lexueshëm historikun e release-ve.",
+          "5": "Konsolidim i metadatave të përdorura nga changelog-u dhe njoftimi i versionit.",
+        },
+      },
+      v6_1: {
+        headline: "buildER 6.1: Code panel i plotë, layout i qëndrueshëm dhe UI shumëgjuhëshe",
+        summary: "buildER 6.1 mbledh përmirësimet pas 6.0: serializim ERS më të gjerë, layout perimetral për atributet, sinkronizim Code/workspace, toolbar më të pastër, toast-e të synuara dhe mbulim të plotë i18n.",
+        hero: {
+          eyebrow: "Përditësim major",
+          title: "buildER 6.1",
+          subtitle: "Një release i gjerë stabilizimi: Code panel ruan më mirë semantikën ER, canvas-i mbetet i organizuar gjatë editimit dhe ndërfaqja kryesore është në italisht, anglisht dhe shqip.",
+        },
+        highlights: {
+          code: {
+            title: "Marrëdhënie ERS të plota",
+            description: "Atributet e lidhura me marrëdhëniet, përfshirë atributet shumëvlerëshe dhe të përbëra, shfaqen në Code panel dhe ruhen në round-trip ERS.",
+            tag: "Code",
+          },
+          layout: {
+            title: "Layout perimetral i atributeve",
+            description: "Vendosja automatike nis nga ana e majtë dhe ndjek perimetrin e host-it, duke shmangur kolona pa fund dhe lëvizjen e atributeve ekzistuese.",
+            tag: "Canvas",
+          },
+          experience: {
+            title: "Përvojë më e qartë në workspace",
+            description: "Toolbar-i, menutë e eksportit, toast-et e synuara dhe tekstet e lokalizuara i bëjnë rrjedhat e përditshme më të lexueshme.",
+            tag: "UX",
+          },
+        },
+        updates: {
+          "0": "Code panel serializon atributet e lidhura me marrëdhëniet ER.",
+          "1": "Atributet e përbëra të marrëdhënieve përdorin të njëjtën sintaksë si atributet e përbëra të entiteteve.",
+          "2": "Round-trip diagram -> ERS -> diagram ruan atributet e marrëdhënieve, marker-at shumëvlerësh dhe nën-atributet.",
+          "3": "Layout-i automatik i atributeve tani ndjek strategji perimetrale me prioritet majtas, jo shpërndarje të balancuar top/right/bottom/left.",
+          "4": "Krijimi incremental i atributeve nuk lëviz më atributet që janë vendosur tashmë.",
+          "5": "Layout-i i SQL reverse dhe vendosja e nën-atributeve përdorin të njëjtën strategji perimetrale.",
+          "6": "Ndryshimet e bëra direkt në workspace sinkronizohen saktë në Code panel.",
+          "7": "Toolbar-i, toolbox-i dhe menuja e eksportit fshehin komandat jo të aplikueshme në vend që t'i shfaqin disabled.",
+          "8": "Toast-et janë të disponueshme për operacione të pavlefshme dhe shkarkime, pa njoftime gjenerike ose të tepërta.",
+          "9": "Inspector, identifikatorët, dialogu ISA, intro, about, changelog-u dhe faqet statike tani kanë mbulim i18n në italisht, anglisht dhe shqip.",
         },
       },
       v6_0: {

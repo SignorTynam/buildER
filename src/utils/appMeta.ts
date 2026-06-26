@@ -1,7 +1,7 @@
 import type { MessageKey, TranslationParams } from "../i18n";
 
 export const APP_NAME = "buildER";
-export const APP_VERSION = "6.0";
+export const APP_VERSION = "6.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -38,6 +38,7 @@ interface ChangelogMetaEntry {
 }
 
 const CHANGELOG_META: ChangelogMetaEntry[] = [
+  { version: "6.1", date: "2026-06-26", impact: "major", updateCount: 10 },
   { version: "6.0", date: "2026-06-25", impact: "major", updateCount: 6 },
   { version: "5.4", date: "2026-06-25", impact: "patch", updateCount: 4 },
   { version: "5.3", date: "2026-06-21", impact: "minor", updateCount: 4 },
@@ -106,7 +107,7 @@ export function getAppChangelog(t: AppTranslator): AppChangelogEntry[] {
         title: t(`${baseKey}.hero.title`),
         subtitle: t(`${baseKey}.hero.subtitle`),
       };
-      localized.highlights = ["translation", "logical", "schema"].map((highlightKey) => ({
+      localized.highlights = ["code", "layout", "experience"].map((highlightKey) => ({
         title: t(`${baseKey}.highlights.${highlightKey}.title`),
         description: t(`${baseKey}.highlights.${highlightKey}.description`),
         tag: t(`${baseKey}.highlights.${highlightKey}.tag`),

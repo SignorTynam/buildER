@@ -15,6 +15,35 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [6.1] - 2026-06-26
+
+### Added
+- Major upgrade buildER 6.1: aggiunta nuova entry `impact: "major"` nel changelog applicativo e nell'annuncio versione.
+- Aggiunta serializzazione ERS degli attributi collegati alle relazioni nel Code panel.
+- Aggiunto supporto agli attributi composti e multivalore collegati alle relazioni con sintassi uniforme rispetto agli attributi delle entità.
+- Aggiunto round-trip ERS per preservare attributi di relazione, marker `(multi)` e sotto-attributi.
+- Aggiunto layout attributi perimetrale con priorità sinistra per entità, relazioni e attributi composti.
+- Aggiunto sistema toast visibile basato su `useWorkspaceNotices`, con stack, dismiss, deduplica e toni success/warning/error/info.
+- Aggiunta copertura i18n completa in italiano, inglese e albanese per Inspector, identificatori, dialog ISA, intro, about, changelog e pagine statiche.
+
+### Changed
+- Versione applicativa aggiornata a buildER 6.1 in `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README e changelog.
+- Il layout automatico degli attributi non usa più la vecchia distribuzione bilanciata top/right/bottom/left.
+- L'aggiunta incrementale di attributi non riposiziona più gli attributi già presenti.
+- Reverse SQL e sotto-attributi usano la stessa strategia perimetrale del canvas principale.
+- Toolbar, toolbox ed export menu nascondono i comandi non applicabili invece di mostrarli come disabled.
+- Le notifiche toast sono limitate a operazioni non valide e download, evitando notifiche generiche troppo frequenti.
+- Il changelog runtime ora usa la nuova entry localizzata `changelog.entries.v6_1` e mantiene `6.0` come storico.
+- README aggiornato alla nuova versione 6.1 con riepilogo delle modifiche successive alla 6.0.
+
+### Fixed
+- Corretto il Code panel quando una relazione contiene attributi semplici, multivalore o composti.
+- Corretto il caso in cui il parser/serializer ERS perdeva attributi di relazione nel round-trip.
+- Corretto il layout che poteva creare colonne verticali troppo lunghe di attributi sul lato sinistro.
+- Corretto il comportamento in cui modifiche effettuate direttamente nel workspace non venivano sincronizzate nel Code panel.
+- Corretto il rendering di separator vuoti nella toolbar quando un gruppo conteneva solo comandi non applicabili.
+- Corretto il rischio di fallback italiani nel changelog localizzato inglese/albanese.
+
 ## [6.0] - 2026-06-25
 
 ### Added

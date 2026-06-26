@@ -832,6 +832,46 @@ export const it = {
           "1": "Miglioramenti mirati a editor, workflow e stabilita.",
           "2": "Copertura di regressione aggiornata per i flussi principali.",
           "3": "Rifiniture di interfaccia e compatibilita con i progetti esistenti.",
+          "4": "Aggiornamenti di compatibilita per mantenere leggibile lo storico release.",
+          "5": "Consolidamento dei metadati usati da changelog e annuncio versione.",
+        },
+      },
+      v6_1: {
+        headline: "buildER 6.1: Code panel completo, layout stabile e interfaccia multilingua",
+        summary: "buildER 6.1 raccoglie gli upgrade successivi alla 6.0: serializzazione ERS piu completa, layout degli attributi perimetrale, sincronizzazione Code/workspace, toolbar piu pulita, toast mirati e copertura i18n completa.",
+        hero: {
+          eyebrow: "Major Upgrade",
+          title: "buildER 6.1",
+          subtitle: "Una release di stabilizzazione ampia: il Code panel conserva meglio la semantica ER, il canvas resta ordinato durante l'editing e l'interfaccia principale e disponibile in italiano, inglese e albanese.",
+        },
+        highlights: {
+          code: {
+            title: "Relazioni ERS complete",
+            description: "Gli attributi collegati alle relazioni, inclusi multivalore e composti, vengono mostrati nel Code panel e conservati nel round-trip ERS.",
+            tag: "Code",
+          },
+          layout: {
+            title: "Layout attributi perimetrale",
+            description: "La disposizione automatica usa una priorita sinistra e gira sul perimetro dell'host, evitando colonne infinite e spostamenti degli attributi gia presenti.",
+            tag: "Canvas",
+          },
+          experience: {
+            title: "Esperienza piu chiara",
+            description: "Toolbar, export menu, toast mirati e testi localizzati rendono l'editor piu leggibile nelle operazioni quotidiane.",
+            tag: "UX",
+          },
+        },
+        updates: {
+          "0": "Il Code panel serializza gli attributi collegati alle relazioni ER.",
+          "1": "Gli attributi composti delle relazioni usano la stessa sintassi degli attributi composti delle entita.",
+          "2": "Il round-trip diagramma -> ERS -> diagramma conserva attributi di relazione, marker multivalore e sotto-attributi.",
+          "3": "Il layout automatico degli attributi e diventato perimetrale con priorita sinistra, senza distribuzione bilanciata top/right/bottom/left.",
+          "4": "L'aggiunta incrementale di attributi non sposta piu gli attributi gia posizionati.",
+          "5": "Il layout usato dal reverse SQL e dai sotto-attributi segue la stessa strategia perimetrale.",
+          "6": "Le modifiche fatte direttamente nel workspace vengono sincronizzate correttamente nel Code panel.",
+          "7": "Toolbar, toolbox ed export menu nascondono i comandi non applicabili invece di mostrarli disabilitati.",
+          "8": "I toast sono disponibili per operazioni non valide e download, evitando notifiche generiche o troppo frequenti.",
+          "9": "Inspector, identificatori, dialog ISA, intro, about, changelog e pagine statiche sono coperti da i18n italiano, inglese e albanese.",
         },
       },
       v6_0: {
