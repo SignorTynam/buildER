@@ -274,6 +274,53 @@ const EXTERNAL_IDENTIFIER_SECTION_KEYS = [
   "inspector.externalIdentifierSection.kindImportedOnlyLower",
   "inspector.externalIdentifierSection.kindImportedLocalLower",
 ] as const;
+const INSPECTOR_I18N_KEYS = [
+  "inspector.heading.entity.title",
+  "inspector.heading.relationship.subtitle",
+  "inspector.isa.constraints.totalDisjoint",
+  "inspector.isa.missingConstraint",
+  "inspector.isa.detachFromGroup",
+  "inspector.panel.compactSelectionCount",
+  "inspector.panel.activeSelectionCount",
+  "inspector.quickActions.title",
+  "inspector.multiSelection.needTwoNodes",
+  "inspector.entity.noParticipations",
+  "inspector.relationship.externalIdentifiersManagedOnHost",
+  "inspector.attribute.internalIdentifierNotice",
+  "inspector.edge.connectorCardinalityManagedOnEntity",
+  "inspector.quickGuide.addAttributes",
+  "inspector.internalIdentifier.modal.description",
+  "inspector.internalIdentifier.empty",
+] as const;
+const APP_MODAL_I18N_KEYS = [
+  "workspace.generalizationGroupDialog.title",
+  "workspace.generalizationGroupDialog.editHint",
+  "workspace.generalizationGroupDialog.errors.selectGroup",
+  "workspace.generalizationGroupDialog.status.groupCreated",
+  "intro.title",
+  "intro.cards.create.description",
+  "intro.startDrawing",
+  "about.title",
+  "about.sections.tools.items.shortcuts",
+  "about.sections.code.items.live",
+  "about.sections.notation.items.available",
+  "changelog.entries.v6_0.hero.title",
+  "changelog.entries.v6_0.highlights.translation.description",
+  "changelog.entries.generic.updates.0",
+] as const;
+const APP_STATUS_I18N_KEYS = [
+  "workspace.noticeTitles.invalidConnection",
+  "workspace.noticeTitles.downloadCompleted",
+  "workspace.logicalNoApplicableItems",
+  "workspace.selectValidAttributeHost",
+  "workspace.externalIdentifierNoImportedParts",
+  "workspace.connectionMissingEndpoint",
+  "workspace.errors.connectionNotCreated",
+  "workspace.downloads.pngExported",
+  "workspace.quickPanels.openErrorsAria",
+  "errors.closeAria",
+  "errors.empty",
+] as const;
 const CANVAS_HARDCODED_ITALIAN_PHRASES = [
   "Sorgente selezionata",
   "Seleziona prima",
@@ -323,6 +370,43 @@ const CONNECTED_COMPONENT_HARDCODED_ITALIAN_PHRASES = [
   "Ho capito",
   "Altre novita",
   "Versione precedente",
+] as const;
+const FORBIDDEN_VISIBLE_ITALIAN_TERMS = [
+  "Entita",
+  "Entità",
+  "Relazione",
+  "Associazione",
+  "Attributo",
+  "Collegamento",
+  "Cardinalita",
+  "Cardinalità",
+  "Seleziona",
+  "Aggiungi",
+  "Modifica",
+  "Elimina",
+  "Conferma",
+  "Annulla",
+  "Chiudi",
+  "Informazioni",
+  "Guida",
+  "Nessuna",
+  "Nessun",
+  "Pannello",
+  "Vincolo",
+  "Gerarchia",
+  "Identificatore",
+  "Benvenuto",
+  "Inizia",
+  "Diagramma",
+  "Progetto",
+] as const;
+const FILES_WITH_VISIBLE_I18N_COVERAGE = [
+  "../src/inspector/InspectorPanel.tsx",
+  "../src/inspector/InternalIdentifierSection.tsx",
+  "../src/App.tsx",
+  "../src/utils/appMeta.ts",
+  "../index.html",
+  "../public/about.html",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -443,12 +527,30 @@ test("plural and interpolation paths work for every locale", () => {
 
 test("new localized UI sections resolve for every locale", () => {
   for (const locale of SUPPORTED_LOCALES) {
-    for (const key of [...NEW_I18N_SECTIONS, ...CANVAS_I18N_KEYS, ...EXTERNAL_IDENTIFIER_SECTION_KEYS]) {
+    for (const key of [
+      ...NEW_I18N_SECTIONS,
+      ...CANVAS_I18N_KEYS,
+      ...EXTERNAL_IDENTIFIER_SECTION_KEYS,
+      ...INSPECTOR_I18N_KEYS,
+      ...APP_MODAL_I18N_KEYS,
+      ...APP_STATUS_I18N_KEYS,
+    ]) {
       const value = translate(key, { count: 2, current: 1, total: 3, sourceKind: "A", targetKind: "B", attributes: "id", entity: "User" }, locale);
       assert.notEqual(value, key, `${locale}.${key} was not resolved`);
       assert.notEqual(value.trim(), "", `${locale}.${key} resolved to an empty string`);
     }
   }
+});
+
+test("priority runtime files do not keep frequent Italian UI terms hardcoded", () => {
+  const findings = FILES_WITH_VISIBLE_I18N_COVERAGE.flatMap((file) => {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    return FORBIDDEN_VISIBLE_ITALIAN_TERMS
+      .filter((term) => new RegExp(`\\b${term}\\b`, "u").test(source))
+      .map((term) => `${file}: ${term}`);
+  });
+
+  assert.deepEqual(findings, []);
 });
 
 test("new canvas and external identifier keys exist in every raw locale", () => {

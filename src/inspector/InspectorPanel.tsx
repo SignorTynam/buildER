@@ -32,6 +32,8 @@ import {
 import { ExternalIdentifierSection } from "./ExternalIdentifierSection";
 import { InternalIdentifierSection } from "./InternalIdentifierSection";
 import { PanelCard, PanelShell } from "../components/panels";
+import type { I18nContextValue } from "../i18n/I18nProvider";
+import { useI18n } from "../i18n/useI18n";
 
 interface InspectorPanelProps {
   diagram: DiagramDocument;
@@ -74,48 +76,49 @@ function findDirectAttributeHost(diagram: DiagramDocument, attributeId: string):
 }
 
 function getSelectionHeading(
+  t: I18nContextValue["t"],
   selectedNode?: DiagramNode,
   selectedEdge?: DiagramEdge,
   selectionCount = 0,
 ): { title: string; subtitle: string } {
   if (selectedNode?.type === "entity") {
     return {
-      title: "Entita",
-      subtitle: "Modifica solo le proprieta dell'entita corrente e aggiungi attributi quando serve.",
+      title: t("inspector.heading.entity.title"),
+      subtitle: t("inspector.heading.entity.subtitle"),
     };
   }
 
   if (selectedNode?.type === "relationship") {
     return {
-      title: "Associazione",
-      subtitle: "Pannello focalizzato sull'associazione selezionata e sui suoi attributi collegati.",
+      title: t("inspector.heading.relationship.title"),
+      subtitle: t("inspector.heading.relationship.subtitle"),
     };
   }
 
   if (selectedNode?.type === "attribute") {
     return {
-      title: "Attributo",
-      subtitle: "Sono visibili solo le opzioni dell'attributo attivo.",
+      title: t("inspector.heading.attribute.title"),
+      subtitle: t("inspector.heading.attribute.subtitle"),
     };
   }
 
   if (selectedEdge) {
     return {
-      title: "Collegamento",
-      subtitle: "Configura soltanto il link selezionato.",
+      title: t("inspector.heading.edge.title"),
+      subtitle: t("inspector.heading.edge.subtitle"),
     };
   }
 
   if (selectionCount > 1) {
     return {
-      title: "Selezione multipla",
-      subtitle: "Azioni di gruppo per riallineare o ripulire la selezione.",
+      title: t("inspector.heading.multiSelection.title"),
+      subtitle: t("inspector.heading.multiSelection.subtitle"),
     };
   }
 
   return {
-    title: "Canvas",
-    subtitle: "Seleziona un elemento per vedere solo le impostazioni pertinenti.",
+    title: t("inspector.heading.canvas.title"),
+    subtitle: t("inspector.heading.canvas.subtitle"),
   };
 }
 
@@ -123,17 +126,21 @@ const ISA_CONSTRAINT_OPTIONS: Array<{
   value: string;
   completeness: IsaCompleteness;
   disjointness: IsaDisjointness;
-  label: string;
+  labelKey: Parameters<I18nContextValue["t"]>[0];
 }> = [
-  { value: "t,e", completeness: "total", disjointness: "disjoint", label: "(t,e) - totale esclusiva" },
-  { value: "t,o", completeness: "total", disjointness: "overlap", label: "(t,o) - totale sovrapposta" },
-  { value: "p,e", completeness: "partial", disjointness: "disjoint", label: "(p,e) - parziale esclusiva" },
-  { value: "p,o", completeness: "partial", disjointness: "overlap", label: "(p,o) - parziale sovrapposta" },
+  { value: "t,e", completeness: "total", disjointness: "disjoint", labelKey: "inspector.isa.constraints.totalDisjoint" },
+  { value: "t,o", completeness: "total", disjointness: "overlap", labelKey: "inspector.isa.constraints.totalOverlap" },
+  { value: "p,e", completeness: "partial", disjointness: "disjoint", labelKey: "inspector.isa.constraints.partialDisjoint" },
+  { value: "p,o", completeness: "partial", disjointness: "overlap", labelKey: "inspector.isa.constraints.partialOverlap" },
 ];
 
-function formatIsaConstraint(completeness?: IsaCompleteness, disjointness?: IsaDisjointness): string {
+function formatIsaConstraint(
+  completeness: IsaCompleteness | undefined,
+  disjointness: IsaDisjointness | undefined,
+  t: I18nContextValue["t"],
+): string {
   if (!completeness || !disjointness) {
-    return "vincolo mancante";
+    return t("inspector.isa.missingConstraint");
   }
   return `(${completeness === "total" ? "t" : "p"},${disjointness === "disjoint" ? "e" : "o"})`;
 }
@@ -147,6 +154,7 @@ function parseIsaConstraint(value: string): { completeness: IsaCompleteness; dis
 }
 
 export function InspectorPanel(props: InspectorPanelProps) {
+  const { t } = useI18n();
   const isEmbedded = props.embedded === true;
   const showQuickActions = props.hideQuickActions !== true && !isEmbedded;
   const isCollapsed = props.collapsed === true && !isEmbedded;
@@ -181,7 +189,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const selectedAttributeCanHaveCardinality =
     selectedNode?.type === "attribute" ? canAttributeHaveCardinality(props.diagram, selectedNode) : false;
 
-  const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
+  const heading = getSelectionHeading(t, selectedNode, selectedEdge, selectionCount);
   const isIdleContext = selectionCount === 0;
   const canRenameCurrentSelection = selectedNode !== undefined || selectedEdge?.type === "inheritance";
 
@@ -197,7 +205,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
     const nextCount = nextDiagram.generalizationGroups?.length ?? 0;
     const stillExists = nextDiagram.generalizationGroups?.some((group) => group.id === groupId) ?? false;
     if (props.onStatusMessageChange && !stillExists && nextCount < previousCount) {
-      props.onStatusMessageChange("Gerarchia ISA aggiornata e unificata con il gruppo esistente.");
+      props.onStatusMessageChange(t("inspector.isa.mergedStatus"));
     }
     props.onDiagramChange(nextDiagram);
   }
@@ -210,14 +218,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
 
     return (
       <div key={group.id} className="context-card-list">
-        <strong>{group.label ?? `Gerarchia ISA ${formatIsaConstraint(group.isaCompleteness, group.isaDisjointness)}`}</strong>
-        <span>{formatIsaConstraint(group.isaCompleteness, group.isaDisjointness)}</span>
+        <strong>{group.label ?? t("inspector.isa.groupFallback", { constraint: formatIsaConstraint(group.isaCompleteness, group.isaDisjointness, t) })}</strong>
+        <span>{formatIsaConstraint(group.isaCompleteness, group.isaDisjointness, t)}</span>
         <label className="field">
-          <span>Modifica vincolo</span>
+          <span>{t("inspector.isa.editConstraint")}</span>
           <select value={value} disabled={!canEdit} onChange={(event) => updateGroupConstraint(group.id, event.target.value)}>
             {ISA_CONSTRAINT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </select>
@@ -230,17 +238,17 @@ export function InspectorPanel(props: InspectorPanelProps) {
               disabled={!canEdit}
               onClick={() => props.onDiagramChange(removeSubtypeFromGeneralizationGroup(props.diagram, group.id, subtype.id))}
             >
-              {currentSubtypeId === subtype.id ? "Scollega dal gruppo ISA" : "Rimuovi sottotipo"}
+              {currentSubtypeId === subtype.id ? t("inspector.isa.detachFromGroup") : t("inspector.isa.removeSubtype")}
             </button>
           </div>
         ))}
-        {subtypes.length === 0 ? <span>Nessun sottotipo configurato.</span> : null}
+        {subtypes.length === 0 ? <span>{t("inspector.isa.noSubtypes")}</span> : null}
         <button
           type="button"
           disabled={!canEdit}
           onClick={() => props.onDiagramChange(deleteGeneralizationGroup(props.diagram, group.id))}
         >
-          Elimina gruppo ISA
+          {t("inspector.isa.deleteGroup")}
         </button>
       </div>
     );
@@ -255,16 +263,16 @@ export function InspectorPanel(props: InspectorPanelProps) {
     return (
       <>
         <section className="context-card">
-          <div className="context-card-title">Gerarchie ISA</div>
+          <div className="context-card-title">{t("inspector.isa.hierarchies")}</div>
           <div className="inspector-stack">
             {supertypeGroups.length > 0
               ? supertypeGroups.map((group) => renderGroupSummary(group))
-              : <p className="action-hint">Nessuna gerarchia ISA usa questa entita come padre.</p>}
+              : <p className="action-hint">{t("inspector.isa.noSupertypeGroups")}</p>}
           </div>
         </section>
         {subtypeEdges.length > 0 ? (
           <section className="context-card">
-            <div className="context-card-title">Partecipazione come sottotipo</div>
+            <div className="context-card-title">{t("inspector.isa.subtypeParticipation")}</div>
             <div className="inspector-stack">
               {subtypeEdges.map((edge) => {
                 const parent = props.diagram.nodes.find((node) => node.id === edge.targetId);
@@ -272,14 +280,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 return (
                   <div key={edge.id} className="context-card-list">
                     <strong>{parent?.label ?? edge.targetId}</strong>
-                    <span>{group ? formatIsaConstraint(group.isaCompleteness, group.isaDisjointness) : "Gerarchia ISA non configurata"}</span>
+                    <span>{group ? formatIsaConstraint(group.isaCompleteness, group.isaDisjointness, t) : t("inspector.isa.unconfiguredHierarchy")}</span>
                     {group ? (
                       <button
                         type="button"
                         disabled={!canEdit}
                         onClick={() => props.onDiagramChange(removeSubtypeFromGeneralizationGroup(props.diagram, group.id, entity.id))}
                       >
-                        Scollega dal gruppo ISA
+                        {t("inspector.isa.detachFromGroup")}
                       </button>
                     ) : null}
                   </div>
@@ -295,14 +303,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
   if (isCollapsed) {
     if (isIdleContext) {
       return (
-        <PanelShell className="inspector-panel collapsed inspector-panel-idle" ariaLabel="Pannello contesto" collapsed>
+        <PanelShell className="inspector-panel collapsed inspector-panel-idle" ariaLabel={t("inspector.panel.contextPanel")} collapsed>
           <div className="panel-head-row panel-head-row-compact">
             <button
               type="button"
               className="panel-toggle"
               onClick={props.onToggleCollapse}
-              aria-label="Espandi pannello contesto"
-              title="Espandi"
+              aria-label={t("inspector.panel.expandContextPanel")}
+              title={t("common.actions.expand")}
             >
               {"<"}
             </button>
@@ -312,14 +320,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
     }
 
     return (
-      <PanelShell className="inspector-panel collapsed" ariaLabel="Pannello contesto" collapsed>
+      <PanelShell className="inspector-panel collapsed" ariaLabel={t("inspector.panel.contextPanel")} collapsed>
         <div className="panel-head-row panel-head-row-compact">
           <button
             type="button"
             className="panel-toggle"
             onClick={props.onToggleCollapse}
-            aria-label="Espandi pannello contesto"
-            title="Espandi"
+            aria-label={t("inspector.panel.expandContextPanel")}
+            title={t("common.actions.expand")}
           >
             {"<"}
           </button>
@@ -328,7 +336,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
         <div className="inspector-compact-stack">
           <div className="inspector-compact-card">
             <strong>{heading.title}</strong>
-            <span>{selectionCount === 0 ? "Nessuna selezione" : `${selectionCount} elementi`}</span>
+            <span>{t("inspector.panel.compactSelectionCount", { count: selectionCount })}</span>
           </div>
         </div>
       </PanelShell>
@@ -342,26 +350,26 @@ export function InspectorPanel(props: InspectorPanelProps) {
 
     return (
       <section className="context-card">
-        <div className="context-card-title">Azioni rapide</div>
+        <div className="context-card-title">{t("inspector.quickActions.title")}</div>
         <div className="action-grid">
           {selectedNode && (selectedNode.type === "entity" || selectedNode.type === "relationship" || selectedNode.type === "attribute") ? (
             <button type="button" onClick={props.onCreateAttributeForSelection} disabled={!canEdit}>
-              {selectedNode.type === "attribute" ? "Aggiungi sotto-attributo" : "Aggiungi attributo"}
+              {selectedNode.type === "attribute" ? t("inspector.quickActions.addSubAttribute") : t("inspector.quickActions.addAttribute")}
             </button>
           ) : null}
           {canRenameCurrentSelection ? (
             <button type="button" onClick={props.onRenameSelection} disabled={!canEdit}>
-              Rinomina
+              {t("inspector.quickActions.rename")}
             </button>
           ) : null}
           {selectionCount > 0 ? (
             <button type="button" onClick={props.onDuplicateSelection} disabled={!canEdit}>
-              Duplica
+              {t("inspector.quickActions.duplicate")}
             </button>
           ) : null}
           {selectionCount > 0 ? (
             <button type="button" onClick={props.onDeleteSelection} disabled={!canEdit}>
-              Elimina
+              {t("inspector.quickActions.delete")}
             </button>
           ) : null}
         </div>
@@ -374,28 +382,28 @@ export function InspectorPanel(props: InspectorPanelProps) {
       <>
         {showQuickActions ? (
           <section className="context-card">
-            <div className="context-card-title">Azioni di gruppo</div>
+            <div className="context-card-title">{t("inspector.multiSelection.title")}</div>
             <div className="action-grid">
               <button type="button" onClick={() => props.onAlign("left")} disabled={!canAlign}>
-                Allinea a sinistra
+                {t("inspector.multiSelection.alignLeft")}
               </button>
               <button type="button" onClick={() => props.onAlign("center")} disabled={!canAlign}>
-                Allinea al centro
+                {t("inspector.multiSelection.alignCenter")}
               </button>
               <button type="button" onClick={() => props.onAlign("top")} disabled={!canAlign}>
-                Allinea in alto
+                {t("inspector.multiSelection.alignTop")}
               </button>
               <button type="button" onClick={() => props.onAlign("middle")} disabled={!canAlign}>
-                Allinea a meta
+                {t("inspector.multiSelection.alignMiddle")}
               </button>
               <button type="button" onClick={props.onDuplicateSelection} disabled={!canEdit}>
-                Duplica selezione
+                {t("inspector.multiSelection.duplicateSelection")}
               </button>
               <button type="button" onClick={props.onDeleteSelection} disabled={!canEdit}>
-                Elimina selezione
+                {t("inspector.multiSelection.deleteSelection")}
               </button>
             </div>
-            {!canAlign ? <p className="action-hint">Servono almeno due nodi per usare gli allineamenti.</p> : null}
+            {!canAlign ? <p className="action-hint">{t("inspector.multiSelection.needTwoNodes")}</p> : null}
           </section>
         ) : null}
       </>
@@ -446,10 +454,10 @@ export function InspectorPanel(props: InspectorPanelProps) {
       return (
         <>
           <section className="context-card">
-            <div className="context-card-title">Impostazioni entita</div>
+            <div className="context-card-title">{t("inspector.entity.settings")}</div>
             <div className="inspector-stack">
               <label className="field">
-                <span>Nome entita</span>
+                <span>{t("inspector.entity.name")}</span>
                 <input
                   value={node.label}
                   disabled={!canEdit}
@@ -460,7 +468,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 connectorRows.map((row, index) => (
                   <label key={row.edge.id} className="field">
                     <span>
-                      Cardinalita {row.relationship.label}
+                      {t("inspector.entity.cardinalityForRelationship", { relationship: row.relationship.label })}
                       {row.duplicateCount > 0 ? ` #${index + 1}` : ""}
                     </span>
                     <select
@@ -483,7 +491,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                         })
                       }
                     >
-                      <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
+                      <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>{t("inspector.entity.selectCardinality")}</option>
                       {CONNECTOR_CARDINALITIES.map((value) => (
                         <option key={value} value={value}>
                           {value}
@@ -493,7 +501,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   </label>
                 ))
               ) : (
-                <p className="action-hint">Nessuna partecipazione relazionale collegata a questa entita.</p>
+                <p className="action-hint">{t("inspector.entity.noParticipations")}</p>
               )}
             </div>
           </section>
@@ -519,9 +527,9 @@ export function InspectorPanel(props: InspectorPanelProps) {
       return (
         <>
           <section className="context-card">
-            <div className="context-card-title">Stato associazione</div>
+            <div className="context-card-title">{t("inspector.relationship.status")}</div>
             <p className="action-hint">
-              Gli identificatori esterni che dipendono da questa associazione si gestiscono dal pannello dell&apos;entita host.
+              {t("inspector.relationship.externalIdentifiersManagedOnHost")}
             </p>
           </section>
           {renderSelectionActions()}
@@ -533,10 +541,10 @@ export function InspectorPanel(props: InspectorPanelProps) {
       return (
         <>
           <section className="context-card">
-            <div className="context-card-title">Impostazioni attributo</div>
+            <div className="context-card-title">{t("inspector.attribute.settings")}</div>
             <div className="inspector-stack">
               <label className="field">
-                <span>Nome attributo</span>
+                <span>{t("inspector.attribute.name")}</span>
                 <input
                   value={node.label}
                   disabled={!canEdit}
@@ -544,7 +552,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 />
               </label>
               <label className="field">
-                <span>Cardinalita</span>
+                <span>{t("inspector.attribute.cardinality")}</span>
                 <select
                   value={node.cardinality ?? ""}
                   disabled={!canEdit || !selectedAttributeCanHaveCardinality}
@@ -554,7 +562,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                     })
                   }
                 >
-                  <option value="">Nessuna cardinalita</option>
+                  <option value="">{t("inspector.attribute.noCardinality")}</option>
                   {CONNECTOR_CARDINALITIES.map((value) => (
                     <option key={value} value={value}>
                       {value}
@@ -566,14 +574,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
           </section>
           {selectedAttributeIsInternalIdentifier ? (
             <section className="context-card">
-              <div className="context-card-title">Stato attributo</div>
-              <p className="action-hint">Parte di identificatore interno: la cardinalita del nodo viene rimossa.</p>
+              <div className="context-card-title">{t("inspector.attribute.status")}</div>
+              <p className="action-hint">{t("inspector.attribute.internalIdentifierNotice")}</p>
             </section>
           ) : null}
           {!selectedAttributeCanHaveCardinality && !selectedAttributeIsInternalIdentifier ? (
             <section className="context-card">
-              <div className="context-card-title">Stato attributo</div>
-              <p className="action-hint">Parte di identificatore: la cardinalita del nodo viene rimossa.</p>
+              <div className="context-card-title">{t("inspector.attribute.status")}</div>
+              <p className="action-hint">{t("inspector.attribute.identifierNotice")}</p>
             </section>
           ) : null}
           {renderSelectionActions()}
@@ -647,17 +655,17 @@ export function InspectorPanel(props: InspectorPanelProps) {
     return (
       <>
         <section className="context-card">
-          <div className="context-card-title">Impostazioni collegamento</div>
+          <div className="context-card-title">{t("inspector.edge.settings")}</div>
           <div className="inspector-stack">
             {edge.type === "connector" && connectorContext ? (
               <p className="action-hint">
-                La cardinalita di questo collegamento si modifica nell&apos;entita "{connectorContext.entity.label}".
+                {t("inspector.edge.connectorCardinalityManagedOnEntity", { entity: connectorContext.entity.label })}
               </p>
             ) : null}
 
             {edge.type === "connector" && connectorContext ? (
               <label className="field">
-                <span>Role</span>
+                <span>{t("inspector.edge.role")}</span>
                 <input
                   value={connectorParticipation?.role ?? ""}
                   disabled={!canEdit}
@@ -668,13 +676,13 @@ export function InspectorPanel(props: InspectorPanelProps) {
 
             {edge.type === "attribute" && attributeOwner ? (
               <p className="action-hint">
-                La cardinalita di questo collegamento si modifica nell&apos;attributo "{attributeOwner.label}".
+                {t("inspector.edge.attributeCardinalityManagedOnAttribute", { attribute: attributeOwner.label })}
               </p>
             ) : null}
 
             {edge.type === "attribute" && !attributeOwner ? (
               <p className="action-hint">
-                L&apos;attributo associato non e disponibile: ricollega il nodo per ripristinare la proprieta.
+                {t("inspector.edge.attributeOwnerMissing")}
               </p>
             ) : null}
 
@@ -688,18 +696,18 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 return group ? (
                   <>
                     <p className="action-hint">
-                      Questo ramo appartiene al gruppo ISA {formatIsaConstraint(group.isaCompleteness, group.isaDisjointness)}.
+                      {t("inspector.isa.branchBelongsToGroup", { constraint: formatIsaConstraint(group.isaCompleteness, group.isaDisjointness, t) })}
                     </p>
                     {renderGroupSummary(group, edge.sourceId)}
                   </>
                 ) : (
                   <>
-                    <div className="context-card-title">Gerarchia ISA non configurata</div>
+                    <div className="context-card-title">{t("inspector.isa.unconfiguredHierarchy")}</div>
                     <p className="action-hint">
-                      Figlio: "{sourceNode?.label ?? edge.sourceId}". Padre: "{targetNode?.label ?? edge.targetId}".
+                      {t("inspector.isa.childParentSummary", { child: sourceNode?.label ?? edge.sourceId, parent: targetNode?.label ?? edge.targetId })}
                     </p>
                     <label className="field">
-                      <span>Vincolo ISA</span>
+                      <span>{t("inspector.isa.constraint")}</span>
                       <select
                         value={currentValue}
                         disabled={!canEdit}
@@ -707,13 +715,13 @@ export function InspectorPanel(props: InspectorPanelProps) {
                       >
                         {ISA_CONSTRAINT_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>
-                            {option.label}
+                            {t(option.labelKey)}
                           </option>
                         ))}
                       </select>
                     </label>
                     <button type="button" disabled={!canEdit} onClick={() => assignConstraint(edge.id, currentValue)}>
-                      Assegna vincolo
+                      {t("inspector.isa.assignConstraint")}
                     </button>
                   </>
                 );
@@ -721,7 +729,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
             ) : null}
 
             <label className="field">
-              <span>Stile linea</span>
+              <span>{t("inspector.edge.lineStyle")}</span>
               <select
                 value={edge.lineStyle}
                 disabled={!canEdit}
@@ -731,8 +739,8 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   })
                 }
               >
-                <option value="solid">Continua</option>
-                <option value="dashed">Tratteggiata</option>
+                <option value="solid">{t("inspector.edge.lineStyleSolid")}</option>
+                <option value="dashed">{t("inspector.edge.lineStyleDashed")}</option>
               </select>
             </label>
           </div>
@@ -749,7 +757,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
           ? "inspector-panel inspector-panel-context inspector-panel-embedded"
           : "inspector-panel inspector-panel-context"
       }
-      ariaLabel="Pannello proprieta"
+      ariaLabel={t("inspector.panel.propertiesPanel")}
     >
       {!isEmbedded ? (
         <>
@@ -762,19 +770,19 @@ export function InspectorPanel(props: InspectorPanelProps) {
               type="button"
               className="panel-toggle"
               onClick={props.onToggleCollapse}
-              aria-label="Comprimi pannello contesto"
-              title="Comprimi"
+              aria-label={t("inspector.panel.collapseContextPanel")}
+              title={t("common.actions.collapse")}
             >
               {">"}
             </button>
           </div>
 
           <PanelCard className="context-card context-card-hero">
-            <div className="context-card-title">{selectionCount === 0 ? "Nessuna selezione attiva" : `${selectionCount} elementi attivi`}</div>
+            <div className="context-card-title">{t("inspector.panel.activeSelectionCount", { count: selectionCount })}</div>
             <p className="context-card-subtitle">
               {selectionCount === 0
-                ? "Usa il rail a sinistra per creare entita o associazioni, poi seleziona l'elemento da rifinire."
-                : "Le azioni e i campi qui sotto sono limitati al contesto corrente."}
+                ? t("inspector.panel.emptyHero")
+                : t("inspector.panel.scopedHero")}
             </p>
           </PanelCard>
         </>
@@ -785,11 +793,11 @@ export function InspectorPanel(props: InspectorPanelProps) {
       {!selectedNode && !selectedEdge && selectionCount > 1 ? renderMultiSelection() : null}
       {!selectedNode && !selectedEdge && selectionCount === 0 ? (
         <section className="context-card">
-          <div className="context-card-title">Guida rapida</div>
+          <div className="context-card-title">{t("inspector.quickGuide.title")}</div>
           <div className="context-card-list">
-            <span>1. Crea entita o associazioni dal rail sinistro.</span>
-            <span>2. Seleziona un elemento per far comparire solo il suo pannello dedicato.</span>
-            <span>3. Aggiungi attributi direttamente dal contesto dell'host selezionato.</span>
+            <span>{t("inspector.quickGuide.create")}</span>
+            <span>{t("inspector.quickGuide.select")}</span>
+            <span>{t("inspector.quickGuide.addAttributes")}</span>
           </div>
         </section>
       ) : null}
