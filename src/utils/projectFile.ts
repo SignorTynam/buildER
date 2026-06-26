@@ -1,6 +1,18 @@
 import type { DiagramDocument, Viewport } from "../types/diagram";
 import type { LogicalModel, LogicalStage, LogicalTranslationState, LogicalWorkspaceDocument } from "../types/logical";
 import type { ErTranslationState, ErTranslationWorkspaceDocument, WorkspaceView } from "../types/translation";
+import {
+  buildProjectCommitStats,
+  normalizeProjectCommitSnapshot,
+} from "../features/versioning/projectCommitSnapshot";
+import type {
+  ProjectCommit,
+  ProjectCommitSnapshot,
+  ProjectCommitStats,
+  ProjectCommitTag,
+  ProjectVersioningSettings,
+  ProjectVersioningState,
+} from "../features/versioning/projectCommitSnapshot";
 import { parseDiagram, serializeDiagram } from "./diagram";
 import { createEmptyErTranslationWorkspace, refreshErTranslationWorkspace } from "./erTranslation";
 import { createEmptyLogicalModel, createEmptyLogicalWorkspace, refreshLogicalWorkspace } from "./logicalWorkspace";
@@ -32,66 +44,26 @@ export interface ProjectFileViewState {
   logicalViewport: Viewport;
 }
 
-export interface ProjectCommitSnapshot {
-  diagram: DiagramDocument;
-  translationWorkspace: ErTranslationWorkspaceDocument;
-  logicalWorkspace: LogicalWorkspaceDocument;
-  logicalGenerated: boolean;
-  logicalStage: LogicalStage;
-  diagramView: ProjectFileWorkspaceView;
-  viewport: Viewport;
-  translationViewport: Viewport;
-  logicalViewport: Viewport;
-  workspaceInfo?: Record<string, unknown>;
-}
-
-export interface ProjectCommitStats {
-  entityCount: number;
-  relationshipCount: number;
-  attributeCount: number;
-  edgeCount: number;
-  tableCount?: number;
-  warningCount?: number;
-  errorCount?: number;
-}
-
-export interface ProjectCommitTag {
-  id: string;
-  name: string;
-  commitId: string;
-  createdAt: string;
-  description?: string;
-  color?: string;
-}
-
-export interface ProjectVersioningSettings {
-  maxCommits?: number;
-  keepTaggedCommits?: boolean;
-  includeAutomaticCommits?: boolean;
-}
-
-export interface ProjectCommit {
-  id: string;
-  parentId: string | null;
-  message: string;
-  description?: string;
-  createdAt: string;
-  author?: string;
-  snapshot: ProjectCommitSnapshot;
-  checksum: string;
-  stats: ProjectCommitStats;
-  tags?: string[];
-  automatic?: boolean;
-}
-
-export interface ProjectVersioningState {
-  version: number;
-  enabled: boolean;
-  headCommitId: string | null;
-  commits: ProjectCommit[];
-  tags: ProjectCommitTag[];
-  settings: ProjectVersioningSettings;
-}
+export type {
+  BuildProjectCommitDraftInput,
+  NormalizeProjectCommitSnapshotOptions,
+  ProjectCommit,
+  ProjectCommitSnapshot,
+  ProjectCommitSnapshotInput,
+  ProjectCommitStats,
+  ProjectCommitTag,
+  ProjectVersioningSettings,
+  ProjectVersioningState,
+} from "../features/versioning/projectCommitSnapshot";
+export {
+  areProjectCommitSnapshotsEqual,
+  buildProjectCommitDraft,
+  buildProjectCommitStats,
+  calculateProjectCommitSnapshotChecksum,
+  cloneProjectCommitSnapshot,
+  createProjectCommitSnapshot,
+  normalizeProjectCommitSnapshot,
+} from "../features/versioning/projectCommitSnapshot";
 
 export interface ProjectFileState {
   diagram: DiagramDocument;
@@ -170,10 +142,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
 function cloneViewport(viewport: Viewport): Viewport {
   return { x: viewport.x, y: viewport.y, zoom: viewport.zoom };
 }
@@ -228,14 +196,6 @@ function sanitizeStringList(value: unknown): string[] | undefined {
 
   const values = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
   return values.length > 0 ? Array.from(new Set(values)) : undefined;
-}
-
-function sanitizePlainRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-
-  return cloneJson(value);
 }
 
 function assertProjectFileRoot(value: unknown): asserts value is Record<string, unknown> {
@@ -414,50 +374,8 @@ export function createEmptyProjectVersioningState(): ProjectVersioningState {
   };
 }
 
-function buildCommitStats(snapshot: ProjectCommitSnapshot): ProjectCommitStats {
-  const warningCount = snapshot.logicalWorkspace.model.issues.filter((issue) => issue.level === "warning").length;
-  const errorCount = snapshot.logicalWorkspace.model.issues.filter((issue) => issue.level === "error").length;
-
-  return {
-    entityCount: snapshot.diagram.nodes.filter((node) => node.type === "entity").length,
-    relationshipCount: snapshot.diagram.nodes.filter((node) => node.type === "relationship").length,
-    attributeCount: snapshot.diagram.nodes.filter((node) => node.type === "attribute").length,
-    edgeCount: snapshot.diagram.edges.length,
-    tableCount: snapshot.logicalWorkspace.model.tables.length,
-    warningCount,
-    errorCount,
-  };
-}
-
 function sanitizeProjectCommitSnapshot(value: unknown, fallbackViewport: Viewport): ProjectCommitSnapshot | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  try {
-    assertDiagramPayload(value.diagram);
-    const diagram = parseDiagram(JSON.stringify(value.diagram));
-    const translationWorkspace = sanitizeTranslationWorkspace(value.translationWorkspace, diagram);
-    const logicalWorkspace = sanitizeLogicalWorkspace(value.logicalWorkspace, translationWorkspace.translatedDiagram);
-    const logicalGenerated = value.logicalGenerated === true;
-    const logicalStage = value.logicalStage === "schema" && logicalGenerated ? "schema" : "translation";
-    const diagramView = sanitizeDiagramView(value.diagramView, "er");
-
-    return {
-      diagram,
-      translationWorkspace,
-      logicalWorkspace,
-      logicalGenerated,
-      logicalStage,
-      diagramView: diagramView === "logical" && !logicalGenerated ? "er" : diagramView,
-      viewport: sanitizeViewport(value.viewport, fallbackViewport),
-      translationViewport: sanitizeViewport(value.translationViewport, fallbackViewport),
-      logicalViewport: sanitizeViewport(value.logicalViewport, fallbackViewport),
-      workspaceInfo: sanitizePlainRecord(value.workspaceInfo),
-    };
-  } catch {
-    return null;
-  }
+  return normalizeProjectCommitSnapshot(value, { fallbackViewport });
 }
 
 function sanitizeProjectCommitStats(value: unknown, fallback: ProjectCommitStats): ProjectCommitStats {
@@ -491,7 +409,7 @@ function sanitizeProjectCommit(value: unknown, fallbackViewport: Viewport): Proj
     return null;
   }
 
-  const stats = sanitizeProjectCommitStats(value.stats, buildCommitStats(snapshot));
+  const stats = sanitizeProjectCommitStats(value.stats, buildProjectCommitStats(snapshot));
   const tags = sanitizeStringList(value.tags);
 
   return {

@@ -6,6 +6,7 @@ import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts
 import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
 import {
   CURRENT_PROJECT_FILE_VERSION,
+  createProjectCommitSnapshot,
   createEmptyProjectVersioningState,
   parseProjectFile,
   PROJECT_FILE_KIND,
@@ -32,6 +33,29 @@ function createSerializableProject(name: string) {
     logicalViewport: DEFAULT_VIEWPORT,
     savedAt: "2026-06-26T10:00:00.000Z",
   };
+}
+
+function createFullProjectSnapshot(name: string) {
+  return createProjectCommitSnapshot({
+    ...createSerializableProject(name),
+    tool: "attribute",
+    mode: "edit",
+    selection: { nodeIds: ["entity-a"], edgeIds: [] },
+    translationSelection: { nodeIds: ["translated-a"], edgeIds: [] },
+    logicalSelection: { nodeId: "table-a", columnId: null, edgeId: null },
+    codeDraft: "entity A",
+    codeDirty: true,
+    technicalPanelOpen: true,
+    technicalPanelTab: "code",
+    codePanelOpen: true,
+    codePanelWidth: 348,
+    notesPanelOpen: false,
+    notesPanelWidth: 336,
+    toolbarCollapsed: true,
+    focusMode: true,
+    toolbarWidth: 220,
+    showDiagnostics: false,
+  });
 }
 
 test("il formato .ersp salva e ripristina vista corrente e viewport del progetto", () => {
@@ -351,6 +375,27 @@ test("il formato .ersp carica un commit fittizio nel versioning", () => {
   assert.equal(parsed.state.versioning.commits.length, 1);
   assert.equal(parsed.state.versioning.commits[0]?.message, "Snapshot iniziale");
   assert.equal(parsed.state.versioning.commits[0]?.snapshot.diagram.meta.name, "Commit fittizio");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.tool, "select");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.mode, "edit");
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.selection, { nodeIds: [], edgeIds: [] });
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.translationSelection, { nodeIds: [], edgeIds: [] });
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.logicalSelection, {
+    nodeId: null,
+    columnId: null,
+    edgeId: null,
+  });
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDraft, "");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDirty, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.technicalPanelOpen, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.technicalPanelTab, "review");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codePanelOpen, false);
+  assert.equal(typeof parsed.state.versioning.commits[0]?.snapshot.codePanelWidth, "number");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.notesPanelOpen, false);
+  assert.equal(typeof parsed.state.versioning.commits[0]?.snapshot.notesPanelWidth, "number");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.toolbarCollapsed, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.focusMode, false);
+  assert.equal(typeof parsed.state.versioning.commits[0]?.snapshot.toolbarWidth, "number");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.showDiagnostics, true);
   assert.equal(parsed.state.versioning.tags[0]?.name, "initial");
 });
 
@@ -431,6 +476,10 @@ test("versioning malformato viene sanitizzato senza impedire il caricamento", ()
   assert.equal(parsed.state.versioning.commits[0]?.parentId, null);
   assert.equal(parsed.state.versioning.commits[0]?.message, "");
   assert.deepEqual(parsed.state.versioning.commits[0]?.tags, ["tag-a"]);
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.selection, { nodeIds: [], edgeIds: [] });
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDraft, "");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDirty, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codePanelOpen, false);
   assert.deepEqual(parsed.state.versioning.tags, []);
   assert.deepEqual(parsed.state.versioning.settings, {
     maxCommits: 200,
@@ -461,6 +510,58 @@ test("versioning viene mantenuto dopo serialize e parse", () => {
     keepTaggedCommits: false,
     includeAutomaticCommits: true,
   });
+});
+
+test("serialize e parse mantengono snapshot completo dentro versioning", () => {
+  const snapshot = createFullProjectSnapshot("Snapshot completo ersp");
+  const serialized = serializeProjectFile({
+    ...createSerializableProject("Snapshot completo ersp"),
+    versioning: {
+      ...createEmptyProjectVersioningState(),
+      headCommitId: "commit-full",
+      commits: [
+        {
+          id: "commit-full",
+          parentId: null,
+          message: "Commit completo",
+          createdAt: "2026-06-26T12:15:00.000Z",
+          snapshot,
+          checksum: "checksum-full",
+          stats: {
+            entityCount: 0,
+            relationshipCount: 0,
+            attributeCount: 0,
+            edgeCount: 0,
+            tableCount: 0,
+            warningCount: 0,
+            errorCount: 0,
+          },
+        },
+      ],
+    },
+  });
+
+  const parsed = parseProjectFile(serialized);
+  const parsedSnapshot = parsed.state.versioning.commits[0]?.snapshot;
+
+  assert.equal(parsed.state.versioning.headCommitId, "commit-full");
+  assert.equal(parsedSnapshot?.diagram.meta.name, "Snapshot completo ersp");
+  assert.equal(parsedSnapshot?.tool, "attribute");
+  assert.deepEqual(parsedSnapshot?.selection, { nodeIds: ["entity-a"], edgeIds: [] });
+  assert.deepEqual(parsedSnapshot?.translationSelection, { nodeIds: ["translated-a"], edgeIds: [] });
+  assert.deepEqual(parsedSnapshot?.logicalSelection, { nodeId: "table-a", columnId: null, edgeId: null });
+  assert.equal(parsedSnapshot?.codeDraft, "entity A");
+  assert.equal(parsedSnapshot?.codeDirty, true);
+  assert.equal(parsedSnapshot?.technicalPanelOpen, true);
+  assert.equal(parsedSnapshot?.technicalPanelTab, "code");
+  assert.equal(parsedSnapshot?.codePanelOpen, true);
+  assert.equal(parsedSnapshot?.codePanelWidth, 348);
+  assert.equal(parsedSnapshot?.notesPanelOpen, false);
+  assert.equal(parsedSnapshot?.notesPanelWidth, 336);
+  assert.equal(parsedSnapshot?.toolbarCollapsed, true);
+  assert.equal(parsedSnapshot?.focusMode, true);
+  assert.equal(parsedSnapshot?.toolbarWidth, 220);
+  assert.equal(parsedSnapshot?.showDiagnostics, false);
 });
 
 test("un file con kind errato viene rifiutato con errore strutturato", () => {
