@@ -1315,6 +1315,7 @@ function expandDesignerRelationship(
   const emitted: Array<{ line: number; text: string }> = [
     { line, text: buildLegacyRelationshipLine(alias, label) },
   ];
+  let isAttributeBlock = false;
 
   for (let index = startIndex + 1; index < rawLines.length; index += 1) {
     const currentLine = index + 1;
@@ -1325,8 +1326,22 @@ function expandDesignerRelationship(
     }
 
     const compact = current.trim();
+    if (isAttributeBlock) {
+      if (compact === "}" || compact === "},") {
+        return { nextIndex: index, emitted };
+      }
+
+      const attribute = buildDesignerAttributeLegacyLines(alias, compact, currentLine);
+      attribute.emitted.forEach((text) => emitted.push({ line: currentLine, text }));
+      continue;
+    }
+
     if (compact === ")") {
       return { nextIndex: index, emitted };
+    }
+    if (/^\)\s*\{\s*$/.test(compact)) {
+      isAttributeBlock = true;
+      continue;
     }
 
     const connectionMatch = stripDesignerTrailingComma(compact).match(/^([A-Za-z_][\w.-]*)\s*:\s*(.+)$/);
@@ -2428,6 +2443,10 @@ function buildDesignerAttributeDeclaration(
   const alias = getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId);
   const flags: string[] = [];
 
+  if (attribute.isMultivalued === true) {
+    flags.push("multi");
+  }
+
   if (attribute.cardinality) {
     flags.push(formatDesignerCardinality(attribute.cardinality));
   }
@@ -2655,9 +2674,13 @@ function buildRelationLines(
   relationship: Extract<DiagramNode, { type: "relationship" }>,
   diagram: DiagramDocument,
   aliasByNodeId: Map<string, string>,
+  attributesByHostId: Map<string, DiagramNode[]>,
 ): string[] {
   const relationAlias = aliasByNodeId.get(relationship.id) ?? relationship.id;
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const attributes = (attributesByHostId.get(relationship.id) ?? [])
+    .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
+    .sort(compareNodes);
   const connectors = diagram.edges
     .filter(
       (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
@@ -2694,6 +2717,14 @@ function buildRelationLines(
   });
 
   lines.push(")");
+  if (attributes.length > 0) {
+    lines[lines.length - 1] = ") {";
+    attributes.forEach((attribute, index) => {
+      const declaration = buildDesignerAttributeDeclaration(attribute, relationAlias, aliasByNodeId);
+      lines.push(`    ${declaration}${index < attributes.length - 1 ? "," : ""}`);
+    });
+    lines.push("}");
+  }
   return lines;
 }
 
@@ -2733,7 +2764,9 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
   const relationLines = [...normalizedDiagram.nodes]
     .filter((node): node is Extract<DiagramNode, { type: "relationship" }> => node.type === "relationship")
     .sort(compareNodes)
-    .flatMap((relationship) => buildRelationLines(relationship, normalizedDiagram, aliasByNodeId));
+    .flatMap((relationship) =>
+      buildRelationLines(relationship, normalizedDiagram, aliasByNodeId, attributesByHostId),
+    );
   const orphanAttributeLines = [...normalizedDiagram.nodes]
     .filter(
       (node): node is Extract<DiagramNode, { type: "attribute" }> =>

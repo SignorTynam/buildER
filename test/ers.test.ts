@@ -61,6 +61,39 @@ function findDirectAttribute(
   );
 }
 
+function findRelationship(
+  diagram: DiagramDocument,
+  label: string,
+): Extract<DiagramNode, { type: "relationship" }> | undefined {
+  return diagram.nodes.find(
+    (node): node is Extract<DiagramNode, { type: "relationship" }> =>
+      node.type === "relationship" && node.label === label,
+  );
+}
+
+function findRelationshipAttribute(
+  diagram: DiagramDocument,
+  relationshipLabel: string,
+  attributeLabel: string,
+): Extract<DiagramNode, { type: "attribute" }> | undefined {
+  const relationship = findRelationship(diagram, relationshipLabel);
+  if (!relationship) {
+    return undefined;
+  }
+
+  return diagram.nodes.find(
+    (node): node is Extract<DiagramNode, { type: "attribute" }> =>
+      node.type === "attribute" &&
+      node.label === attributeLabel &&
+      diagram.edges.some(
+        (edge) =>
+          edge.type === "attribute" &&
+          ((edge.sourceId === node.id && edge.targetId === relationship.id) ||
+            (edge.sourceId === relationship.id && edge.targetId === node.id)),
+      ),
+  );
+}
+
 test("relationship preferred size stays close to base for a short label", () => {
   const size = getPreferredNodeSizeForLabel("relationship", "RELAZIONE1");
 
@@ -268,6 +301,137 @@ test("code panel serialization does not show project notes", () => {
 
   assert.doesNotMatch(code, /\bnotes\b/i);
   assert.equal(code.includes("Test notes"), false);
+});
+
+test("Code panel serializza attributi collegati a una relazione", () => {
+  const diagram: DiagramDocument = {
+    meta: { name: "Relationship attributes", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "CLIENTE",
+        type: "entity",
+        label: "Cliente",
+        x: 80,
+        y: 240,
+        width: 140,
+        height: 64,
+        relationshipParticipations: [
+          { id: "participation-cliente-prenotazione", relationshipId: "PRENOTAZIONE", cardinality: "(1,N)" },
+        ],
+      },
+      {
+        id: "CAMERA",
+        type: "entity",
+        label: "Camera",
+        x: 460,
+        y: 240,
+        width: 140,
+        height: 64,
+        relationshipParticipations: [
+          { id: "participation-camera-prenotazione", relationshipId: "PRENOTAZIONE", cardinality: "(1,N)" },
+        ],
+      },
+      { id: "PRENOTAZIONE", type: "relationship", label: "Prenotazione", x: 280, y: 160, width: 150, height: 86 },
+      { id: "CLIENTE.NOME", type: "attribute", label: "nome", x: 80, y: 120, width: 150, height: 28 },
+      { id: "PRENOTAZIONE.DATA", type: "attribute", label: "data", x: 280, y: 80, width: 150, height: 28 },
+      {
+        id: "PRENOTAZIONE.NOTE",
+        type: "attribute",
+        label: "note",
+        x: 460,
+        y: 80,
+        width: 150,
+        height: 34,
+        isMultivalued: true,
+      },
+      {
+        id: "PRENOTAZIONE.PREZZO",
+        type: "attribute",
+        label: "prezzo",
+        x: 640,
+        y: 80,
+        width: 150,
+        height: 28,
+        cardinality: "(1,N)",
+      },
+    ],
+    edges: [
+      {
+        id: "connector-cliente-prenotazione",
+        type: "connector",
+        sourceId: "CLIENTE",
+        targetId: "PRENOTAZIONE",
+        label: "",
+        lineStyle: "solid",
+        participationId: "participation-cliente-prenotazione",
+      },
+      {
+        id: "connector-camera-prenotazione",
+        type: "connector",
+        sourceId: "CAMERA",
+        targetId: "PRENOTAZIONE",
+        label: "",
+        lineStyle: "solid",
+        participationId: "participation-camera-prenotazione",
+      },
+      { id: "attribute-cliente-nome", type: "attribute", sourceId: "CLIENTE", targetId: "CLIENTE.NOME", label: "", lineStyle: "solid" },
+      {
+        id: "attribute-prenotazione-data",
+        type: "attribute",
+        sourceId: "PRENOTAZIONE",
+        targetId: "PRENOTAZIONE.DATA",
+        label: "",
+        lineStyle: "solid",
+      },
+      {
+        id: "attribute-prenotazione-note",
+        type: "attribute",
+        sourceId: "PRENOTAZIONE",
+        targetId: "PRENOTAZIONE.NOTE",
+        label: "",
+        lineStyle: "solid",
+      },
+      {
+        id: "attribute-prenotazione-prezzo",
+        type: "attribute",
+        sourceId: "PRENOTAZIONE",
+        targetId: "PRENOTAZIONE.PREZZO",
+        label: "",
+        lineStyle: "solid",
+      },
+    ],
+  };
+
+  const code = serializeDiagramForCodePanel(diagram);
+
+  assert.match(code, /^relationship Prenotazione \($/m);
+  assert.match(code, /^    Camera: one\.\.many,$/m);
+  assert.match(code, /^    Cliente: one\.\.many$/m);
+  assert.match(code, /^\) \{$/m);
+  assert.match(code, /^    data,$/m);
+  assert.match(code, /^    note \(multi\),$/m);
+  assert.match(code, /^    prezzo \(one\.\.many\)$/m);
+  assert.match(code, /^entity Cliente \{$/m);
+  assert.match(code, /^    nome$/m);
+
+  const parsed = parseErsDiagram(code);
+  const parsedRelationship = findRelationship(parsed, "Prenotazione");
+  const parsedData = findRelationshipAttribute(parsed, "Prenotazione", "data");
+  const parsedNote = findRelationshipAttribute(parsed, "Prenotazione", "note");
+  const parsedPrezzo = findRelationshipAttribute(parsed, "Prenotazione", "prezzo");
+
+  assert.ok(parsedRelationship);
+  assert.ok(findEntity(parsed, "Cliente"));
+  assert.ok(findEntity(parsed, "Camera"));
+  assert.ok(parsedData);
+  assert.equal(parsedNote?.isMultivalued, true);
+  assert.equal(parsedPrezzo?.cardinality, "(1,N)");
+  assert.ok(findDirectAttribute(parsed, "Cliente", "nome"));
+
+  const reparsedCode = serializeDiagramToErs(parsed);
+  assert.match(reparsedCode, /^    note \(multi\),$/m);
+  assert.match(reparsedCode, /^    prezzo \(one\.\.many\)$/m);
 });
 
 function createCodeLayoutFixture(): DiagramDocument {
