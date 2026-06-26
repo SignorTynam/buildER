@@ -5,8 +5,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { DEFAULT_LOCALE, setCurrentLocale } from "../src/i18n/index.ts";
-import { Toolbar, findSimpleInternalIdentifierForAttribute } from "../src/toolbar/Toolbar.tsx";
-import type { AttributeNode, DiagramDocument, DiagramNode, EditorMode, EntityNode, RelationshipNode, SelectionState } from "../src/types/diagram.ts";
+import { getVisibleExportMenuItems } from "../src/components/FloatingExportMenu.tsx";
+import { Toolbar, findSimpleInternalIdentifierForAttribute, getVisibleToolbarCommands } from "../src/toolbar/Toolbar.tsx";
+import type {
+  AttributeNode,
+  DiagramDocument,
+  DiagramEdge,
+  DiagramNode,
+  EditorMode,
+  EntityNode,
+  RelationshipNode,
+  SelectionState,
+} from "../src/types/diagram.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -64,8 +74,9 @@ function diagramWithAttribute(attributeNode: AttributeNode, entityNode: EntityNo
 function renderToolbar(
   diagram: DiagramDocument,
   selection: SelectionState,
-  selectedNode: DiagramNode,
+  selectedNode?: DiagramNode,
   mode: EditorMode | "readonly" = "edit",
+  options: { selectedEdge?: DiagramEdge; canUndo?: boolean; canRedo?: boolean } = {},
 ): string {
   return renderToStaticMarkup(
     <I18nProvider>
@@ -78,6 +89,9 @@ function renderToolbar(
         selectionItemCount={selection.nodeIds.length + selection.edgeIds.length}
         issues={[]}
         selectedNode={selectedNode}
+        selectedEdge={options.selectedEdge}
+        canUndo={options.canUndo}
+        canRedo={options.canRedo}
         onExportPng={() => undefined}
         onExportJpeg={() => undefined}
         onToolChange={() => undefined}
@@ -91,6 +105,10 @@ function renderToolbar(
       />
     </I18nProvider>,
   );
+}
+
+function buttonMarkup(markup: string, title: string): string | undefined {
+  return markup.match(new RegExp(`<button[^>]*title="${title}"[\\s\\S]*?<\\/button>`))?.[0];
 }
 
 test("findSimpleInternalIdentifierForAttribute finds one-attribute internal identifiers", () => {
@@ -175,7 +193,7 @@ test("subattribute command remains visible for an existing composite attribute",
   };
 
   const markup = renderToolbar(diagram, { nodeIds: [selectedAttribute.id], edgeIds: [] }, selectedAttribute);
-  const subattributeButton = markup.match(/<button[^>]*title="Subattribute"[\s\S]*?<\/button>/)?.[0];
+  const subattributeButton = buttonMarkup(markup, "Subattribute");
 
   assert.match(markup, />Subattribute</);
   assert.ok(subattributeButton);
@@ -194,7 +212,7 @@ test("attribute command is visible for a selected relationship", () => {
   };
 
   const markup = renderToolbar(diagram, { nodeIds: [selectedRelationship.id], edgeIds: [] }, selectedRelationship);
-  const attributeButton = markup.match(/<button[^>]*title="Attribute"[\s\S]*?<\/button>/)?.[0];
+  const attributeButton = buttonMarkup(markup, "Attribute");
 
   assert.match(markup, />Attribute</);
   assert.ok(attributeButton);
@@ -202,7 +220,7 @@ test("attribute command is visible for a selected relationship", () => {
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
-test("attribute command for a selected relationship is disabled in read-only mode", () => {
+test("attribute command for a selected relationship is hidden in read-only mode", () => {
   setCurrentLocale("en");
   const selectedRelationship = relationship();
   const diagram: DiagramDocument = {
@@ -218,10 +236,129 @@ test("attribute command for a selected relationship is disabled in read-only mod
     selectedRelationship,
     "readonly",
   );
-  const attributeButton = markup.match(/<button[^>]*title="Attribute"[\s\S]*?<\/button>/)?.[0];
 
-  assert.ok(attributeButton);
-  assert.match(attributeButton, /disabled/);
+  assert.doesNotMatch(markup, />Attribute</);
+  assert.doesNotMatch(markup, /\sdisabled(=| |>)/);
   setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("toolbar hides disabled commands and does not render an empty disabled-only create group", () => {
+  setCurrentLocale("en");
+  const markup = renderToolbar(
+    { meta: { name: "Readonly", version: 1 }, notes: "", nodes: [], edges: [] },
+    { nodeIds: [], edgeIds: [] },
+    undefined,
+    "readonly",
+  );
+  const separatorCount = (markup.match(/designer-toolbar-separator/g) ?? []).length;
+
+  assert.doesNotMatch(markup, />Entity</);
+  assert.doesNotMatch(markup, />Relationship</);
+  assert.doesNotMatch(markup, />Undo</);
+  assert.doesNotMatch(markup, />Redo</);
+  assert.doesNotMatch(markup, /\sdisabled(=| |>)/);
+  assert.equal(separatorCount, 1);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("toolbar shows undo and redo only when they are available", () => {
+  setCurrentLocale("en");
+  const emptyDiagram: DiagramDocument = { meta: { name: "History", version: 1 }, notes: "", nodes: [], edges: [] };
+  const unavailable = renderToolbar(emptyDiagram, { nodeIds: [], edgeIds: [] }, undefined, "edit", {
+    canUndo: false,
+    canRedo: false,
+  });
+  const available = renderToolbar(emptyDiagram, { nodeIds: [], edgeIds: [] }, undefined, "edit", {
+    canUndo: true,
+    canRedo: true,
+  });
+
+  assert.doesNotMatch(unavailable, />Undo</);
+  assert.doesNotMatch(unavailable, />Redo</);
+  assert.match(available, />Undo</);
+  assert.match(available, />Redo</);
+  assert.doesNotMatch(unavailable, /\sdisabled(=| |>)/);
+  assert.doesNotMatch(available, /\sdisabled(=| |>)/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("attribute-only unavailable detail commands are hidden instead of disabled", () => {
+  setCurrentLocale("en");
+  const parentAttribute = attribute({ id: "attr-parent", label: "ATTRIBUTO_PARENT", isMultivalued: true });
+  const selectedAttribute = attribute({ id: "attr-child", label: "ATTRIBUTO_CHILD" });
+  const entityNode = entity();
+  const diagram: DiagramDocument = {
+    meta: { name: "Nested attribute", version: 1 },
+    notes: "",
+    nodes: [entityNode, parentAttribute, selectedAttribute],
+    edges: [
+      { id: "edge-parent", type: "attribute", sourceId: entityNode.id, targetId: parentAttribute.id, label: "", lineStyle: "solid" },
+      { id: "edge-child", type: "attribute", sourceId: selectedAttribute.id, targetId: parentAttribute.id, label: "", lineStyle: "solid" },
+    ],
+  };
+  const markup = renderToolbar(diagram, { nodeIds: [selectedAttribute.id], edgeIds: [] }, selectedAttribute);
+
+  assert.doesNotMatch(markup, />Subattribute</);
+  assert.doesNotMatch(markup, />Simple ID</);
+  assert.doesNotMatch(markup, />Composite ID</);
+  assert.doesNotMatch(markup, /\sdisabled(=| |>)/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("connector mixed identifier command is hidden when cardinality is not one-one", () => {
+  setCurrentLocale("en");
+  const entityNode = entity({
+    relationshipParticipations: [
+      { id: "participation-1", relationshipId: "relationship-1", cardinality: "(0,N)" },
+    ],
+  });
+  const relationshipNode = relationship();
+  const connector: DiagramEdge = {
+    id: "connector-1",
+    type: "connector",
+    sourceId: entityNode.id,
+    targetId: relationshipNode.id,
+    label: "",
+    lineStyle: "solid",
+    participationId: "participation-1",
+  };
+  const diagram: DiagramDocument = {
+    meta: { name: "Connector", version: 1 },
+    notes: "",
+    nodes: [entityNode, relationshipNode],
+    edges: [connector],
+  };
+  const markup = renderToolbar(
+    diagram,
+    { nodeIds: [], edgeIds: [connector.id] },
+    undefined,
+    "edit",
+    { selectedEdge: connector },
+  );
+
+  assert.doesNotMatch(markup, />External ID</);
+  assert.match(markup, />Card</);
+  assert.match(markup, />Role</);
+  assert.doesNotMatch(markup, /\sdisabled(=| |>)/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("toolbar command visibility helper filters disabled commands", () => {
+  const visible = getVisibleToolbarCommands([
+    { key: "enabled", label: "Enabled", icon: "E", onClick: () => undefined },
+    { key: "disabled", label: "Disabled", icon: "D", onClick: () => undefined, disabled: true },
+  ]);
+
+  assert.deepEqual(visible.map((command) => command.key), ["enabled"]);
+});
+
+test("floating export menu visibility helper filters disabled items", () => {
+  const visible = getVisibleExportMenuItems([
+    { key: "project", label: "Project", onClick: () => undefined, disabled: true },
+    { key: "png", label: "PNG", onClick: () => undefined },
+    { key: "svg", label: "SVG", onClick: () => undefined, disabled: false },
+  ]);
+
+  assert.deepEqual(visible.map((item) => item.key), ["png", "svg"]);
 });
 

@@ -66,7 +66,7 @@ interface ToolbarProps {
   onToggleCollapse?: unknown;
 }
 
-type ToolbarCommand = {
+export type ToolbarCommand = {
   key: string;
   label: string;
   icon: ReactNode;
@@ -80,6 +80,14 @@ type ToolbarCommand = {
   ariaHasPopup?: "menu";
   ariaExpanded?: boolean;
 };
+
+export function isToolbarCommandVisible(command: ToolbarCommand): boolean {
+  return command.disabled !== true;
+}
+
+export function getVisibleToolbarCommands(commands: ToolbarCommand[]): ToolbarCommand[] {
+  return commands.filter(isToolbarCommandVisible);
+}
 
 function findAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
@@ -209,6 +217,10 @@ function connectorHasCardinalityOneOne(diagram: DiagramDocument, edge: DiagramEd
 }
 
 function CommandButton({ command }: { command: ToolbarCommand }) {
+  if (!isToolbarCommandVisible(command)) {
+    return null;
+  }
+
   const className = [
     "designer-toolbar-button",
     command.active ? "active" : "",
@@ -221,7 +233,6 @@ function CommandButton({ command }: { command: ToolbarCommand }) {
       className={className}
       ref={command.buttonRef}
       onClick={command.onClick}
-      disabled={command.disabled}
       title={command.title ?? command.label}
       aria-label={command.ariaLabel ?? command.label}
       aria-haspopup={command.ariaHasPopup}
@@ -525,35 +536,50 @@ export function Toolbar(props: ToolbarProps) {
     detailCommands = [];
   }
 
+  const visibleNavigateCommands = getVisibleToolbarCommands(navigateCommands);
+  const visibleCreateCommands = getVisibleToolbarCommands(createCommands);
+  const visibleConnectCommands = getVisibleToolbarCommands(connectCommands);
+  const visibleEditCommands = getVisibleToolbarCommands(editCommands);
+  const visibleDetailCommands = getVisibleToolbarCommands(detailCommands);
+  const visibleWorkflowCommands = getVisibleToolbarCommands(workflowCommands);
+
   const renderCommands = (groupKey: string, commands: ToolbarCommand[]) =>
     commands.map((command) => <CommandButton key={`${groupKey}-${command.key}`} command={command} />);
 
   return (
     <>
       <nav className="designer-context-toolbar designer-er-toolbar" aria-label={t("toolbar.commands.aria")}>
-        {renderCommands("navigate", navigateCommands)}
-        {createCommands.length > 0 ? (
+        {renderCommands("navigate", visibleNavigateCommands)}
+        {visibleCreateCommands.length > 0 ? (
           <>
             <span className="designer-toolbar-separator" aria-hidden="true" />
-            {renderCommands("create", createCommands)}
+            {renderCommands("create", visibleCreateCommands)}
           </>
         ) : null}
-        {connectCommands.length > 0 ? (
+        {visibleConnectCommands.length > 0 ? (
           <>
             <span className="designer-toolbar-separator" aria-hidden="true" />
-            {renderCommands("connect", connectCommands)}
+            {renderCommands("connect", visibleConnectCommands)}
           </>
         ) : null}
-        <span className="designer-toolbar-separator" aria-hidden="true" />
-        {renderCommands("edit", editCommands)}
-        {detailCommands.length > 0 ? (
+        {visibleEditCommands.length > 0 ? (
           <>
             <span className="designer-toolbar-separator" aria-hidden="true" />
-            {renderCommands("details", detailCommands)}
+            {renderCommands("edit", visibleEditCommands)}
           </>
         ) : null}
-        <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
-        {renderCommands("workflow", workflowCommands)}
+        {visibleDetailCommands.length > 0 ? (
+          <>
+            <span className="designer-toolbar-separator" aria-hidden="true" />
+            {renderCommands("details", visibleDetailCommands)}
+          </>
+        ) : null}
+        {visibleWorkflowCommands.length > 0 ? (
+          <>
+            <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
+            {renderCommands("workflow", visibleWorkflowCommands)}
+          </>
+        ) : null}
       </nav>
       <FloatingExportMenu
         open={exportMenuOpen}

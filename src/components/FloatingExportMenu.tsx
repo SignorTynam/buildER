@@ -51,13 +51,18 @@ function getMenuPosition(anchorRect: DOMRect, menuRect: DOMRect): MenuPosition {
   };
 }
 
+export function getVisibleExportMenuItems(items: FloatingExportMenuItem[]): FloatingExportMenuItem[] {
+  return items.filter((item) => item.disabled !== true);
+}
+
 export function FloatingExportMenu(props: FloatingExportMenuProps) {
   const { open, anchorRef, ariaLabel, items, onClose } = props;
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<MenuPosition | null>(null);
+  const visibleItems = getVisibleExportMenuItems(items);
 
   useIsomorphicLayoutEffect(() => {
-    if (!open) {
+    if (!open || visibleItems.length === 0) {
       setPosition(null);
       return;
     }
@@ -80,7 +85,7 @@ export function FloatingExportMenu(props: FloatingExportMenuProps) {
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [anchorRef, open, items.length]);
+  }, [anchorRef, open, visibleItems.length]);
 
   useEffect(() => {
     if (!open) {
@@ -114,7 +119,7 @@ export function FloatingExportMenu(props: FloatingExportMenuProps) {
     };
   }, [anchorRef, onClose, open]);
 
-  if (!open || typeof document === "undefined") {
+  if (!open || visibleItems.length === 0 || typeof document === "undefined") {
     return null;
   }
 
@@ -130,18 +135,13 @@ export function FloatingExportMenu(props: FloatingExportMenuProps) {
         visibility: position ? "visible" : "hidden",
       }}
     >
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <button
           key={item.key}
           type="button"
           role="menuitem"
-          disabled={item.disabled}
           title={item.title}
           onClick={() => {
-            if (item.disabled) {
-              return;
-            }
-
             onClose();
             item.onClick();
           }}
