@@ -6,6 +6,8 @@ import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { ChangelogModal } from "./components/ChangelogModal";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
+import { CommitDialog } from "./components/versioning/CommitDialog";
+import { VersioningPanel } from "./components/versioning/VersioningPanel";
 import {
   CardinalityModal,
   type CardinalityDialogState,
@@ -167,13 +169,20 @@ import { generateLogicalSql } from "./utils/logicalSql";
 import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
 import { validateSqlReverseBetaSource } from "./utils/sqlReverseBetaValidation";
 import {
+  createEmptyProjectVersioningState,
+  createProjectCommitSnapshot,
   parseProjectFile,
   ProjectFileError,
   PROJECT_FILE_ACCEPT,
   PROJECT_FILE_EXTENSION,
   PROJECT_FILE_MIME_TYPE,
   serializeProjectFile,
+  type ProjectVersioningState,
 } from "./utils/projectFile";
+import {
+  hasProjectUncommittedChanges,
+  useProjectVersioning,
+} from "./features/versioning/useProjectVersioning";
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
@@ -958,6 +967,10 @@ export default function App() {
     dismissStickyNotices,
   } = useWorkspaceNotices({ formatErrorMessage: (message) => formatErrorFromRawMessage(message, t) });
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
+  const [versioningPanelOpen, setVersioningPanelOpen] = useState(false);
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [commitDialogError, setCommitDialogError] = useState("");
+  const [commitDialogBusy, setCommitDialogBusy] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -1017,6 +1030,7 @@ export default function App() {
     createInitialSqlReverseWorkflowState(),
   );
   const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
+  const projectVersioning = useProjectVersioning();
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -1040,6 +1054,7 @@ export default function App() {
   const [, setHasDiagramClipboard] = useState(false);
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
+  const lastSavedVersioningRef = useRef(JSON.stringify(createEmptyProjectVersioningState()));
   const hasUnsavedChangesRef = useRef(false);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
@@ -1104,6 +1119,69 @@ export default function App() {
     diagramView === "er" ? history.canUndo : diagramView === "translation" ? translationHistory.canUndo : logicalHistory.canUndo;
   const activeCanRedo =
     diagramView === "er" ? history.canRedo : diagramView === "translation" ? translationHistory.canRedo : logicalHistory.canRedo;
+  const currentProjectCommitSnapshot = useMemo(
+    () =>
+      createProjectCommitSnapshot({
+        diagram: history.present,
+        translationWorkspace: translationHistory.present,
+        logicalWorkspace: logicalHistory.present,
+        logicalGenerated,
+        logicalStage,
+        diagramView,
+        tool,
+        mode,
+        viewport,
+        selection,
+        translationViewport,
+        translationSelection,
+        logicalViewport,
+        logicalSelection,
+        codeDraft,
+        codeDirty,
+        technicalPanelOpen,
+        technicalPanelTab,
+        codePanelOpen,
+        codePanelWidth,
+        notesPanelOpen,
+        notesPanelWidth,
+        toolbarCollapsed,
+        focusMode,
+        toolbarWidth,
+        showDiagnostics,
+      }),
+    [
+      codeDirty,
+      codeDraft,
+      codePanelOpen,
+      codePanelWidth,
+      diagramView,
+      focusMode,
+      history.present,
+      logicalGenerated,
+      logicalHistory.present,
+      logicalSelection,
+      logicalStage,
+      logicalViewport,
+      mode,
+      notesPanelOpen,
+      notesPanelWidth,
+      selection,
+      showDiagnostics,
+      technicalPanelOpen,
+      technicalPanelTab,
+      toolbarCollapsed,
+      toolbarWidth,
+      tool,
+      translationHistory.present,
+      translationSelection,
+      translationViewport,
+      viewport,
+    ],
+  );
+  const hasVersioningUncommittedChanges = useMemo(
+    () => hasProjectUncommittedChanges(projectVersioning.versioning, currentProjectCommitSnapshot),
+    [currentProjectCommitSnapshot, projectVersioning.versioning],
+  );
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -1153,6 +1231,8 @@ export default function App() {
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
   const versionAnnouncementBlocked =
     commandMenuOpen ||
+    versioningPanelOpen ||
+    commitDialogOpen ||
     keyboardShortcutsOpen ||
     aboutOpen ||
     whatsNewOpen ||
@@ -1253,9 +1333,12 @@ export default function App() {
 
   useEffect(() => {
     const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
+    const currentVersioning = JSON.stringify(projectVersioning.versioning);
     hasUnsavedChangesRef.current =
-      serializeDiagram(history.present) !== lastSavedDiagramRef.current || currentCode !== lastSavedCodeRef.current;
-  }, [history.present, codeDraft]);
+      serializeDiagram(history.present) !== lastSavedDiagramRef.current ||
+      currentCode !== lastSavedCodeRef.current ||
+      currentVersioning !== lastSavedVersioningRef.current;
+  }, [history.present, codeDraft, projectVersioning.versioning]);
 
   useEffect(() => {
     latestSessionSnapshotRef.current = serializeWorkspaceSessionSnapshot({
@@ -1549,9 +1632,10 @@ export default function App() {
     setStatus("Tour chiuso. Ora puoi modellare liberamente.");
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
-  function markDocumentBaseline(diagram: DiagramDocument) {
+  function markDocumentBaseline(diagram: DiagramDocument, serializedVersioning = JSON.stringify(projectVersioning.versioning)) {
     lastSavedDiagramRef.current = serializeDiagram(diagram);
     lastSavedCodeRef.current = serializeDiagramToErs(diagram);
+    lastSavedVersioningRef.current = serializedVersioning;
     hasUnsavedChangesRef.current = false;
   }
 
@@ -1561,6 +1645,10 @@ export default function App() {
 
   function markCodeSaved(code: string) {
     lastSavedCodeRef.current = code;
+  }
+
+  function markVersioningSaved() {
+    lastSavedVersioningRef.current = JSON.stringify(projectVersioning.versioning);
   }
 
   async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
@@ -1581,6 +1669,8 @@ export default function App() {
     setWhatsNewOpen(false);
     setIntroOpen(false);
     setKeyboardShortcutsOpen(false);
+    setVersioningPanelOpen(false);
+    setCommitDialogOpen(false);
     setCommandMenuOpen(true);
   }
 
@@ -1589,6 +1679,8 @@ export default function App() {
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
+    setVersioningPanelOpen(false);
+    setCommitDialogOpen(false);
     setKeyboardShortcutsOpen(true);
   }
 
@@ -2085,6 +2177,7 @@ export default function App() {
       viewport?: Viewport;
       translationViewport?: Viewport;
       logicalViewport?: Viewport;
+      versioning?: ProjectVersioningState;
     },
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
@@ -2129,7 +2222,9 @@ export default function App() {
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
     setLogicalViewport(options?.logicalViewport ? { ...options.logicalViewport } : { ...DEFAULT_VIEWPORT });
     syncCodeDraftWithDiagram(normalizedIncoming.diagram);
-    markDocumentBaseline(normalizedIncoming.diagram);
+    const nextVersioning = options?.versioning ?? createEmptyProjectVersioningState();
+    projectVersioning.setVersioning(nextVersioning);
+    markDocumentBaseline(normalizedIncoming.diagram, JSON.stringify(nextVersioning));
     setSelection({ nodeIds: [], edgeIds: [] });
     setIdentifierSelection(null);
     setViewport(options?.viewport ? { ...options.viewport } : { ...DEFAULT_VIEWPORT });
@@ -4876,6 +4971,7 @@ export default function App() {
         viewport,
         translationViewport,
         logicalViewport,
+        versioning: projectVersioning.versioning,
       });
       downloadTextFile(
         serializedProject,
@@ -4886,6 +4982,7 @@ export default function App() {
       if (!codeDirtyRef.current) {
         markCodeSaved(serializeDiagramToErs(history.present));
       }
+      markVersioningSaved();
       setStatus(t("workspace.projectSaved"));
       showSuccessNotice(t("workspace.downloads.projectDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
     } catch (error) {
@@ -4929,6 +5026,48 @@ export default function App() {
     showSuccessNotice(t("workspace.downloads.sqlDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
   }
 
+  async function handleCreateProjectCommit(message: string, description?: string) {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      setCommitDialogError(t("versioning.messageRequired"));
+      return;
+    }
+
+    setCommitDialogBusy(true);
+    setCommitDialogError("");
+
+    try {
+      const result = await projectVersioning.createCommit({
+        snapshot: currentProjectCommitSnapshot,
+        message: trimmedMessage,
+        description,
+      });
+
+      if (result.status === "empty-message") {
+        setCommitDialogError(t("versioning.messageRequired"));
+        return;
+      }
+
+      if (result.status === "unchanged") {
+        setCommitDialogError(t("versioning.noChangesToCommit"));
+        showWarningNotice(t("versioning.noChangesToCommit"), { title: t("versioning.commit") });
+        return;
+      }
+
+      setCommitDialogOpen(false);
+      setCommitDialogError("");
+      setVersioningPanelOpen(true);
+      setStatus(t("versioning.commitCreated"));
+      showSuccessNotice(t("versioning.commitCreated"), { title: t("versioning.commit") });
+    } catch (error) {
+      console.error(error);
+      setCommitDialogError(t("versioning.commitFailed"));
+      showErrorNotice(t("versioning.commitFailed"), { title: t("versioning.commit") });
+    } finally {
+      setCommitDialogBusy(false);
+    }
+  }
+
   async function handleLoadProjectRequest() {
     if (!(await confirmDiscardChanges(t("workspace.unsavedActions.loadProject")))) {
       return;
@@ -4970,6 +5109,7 @@ export default function App() {
         viewport: parsedProject.state.viewport,
         translationViewport: parsedProject.state.translationViewport,
         logicalViewport: parsedProject.state.logicalViewport,
+        versioning: parsedProject.state.versioning,
       });
     } catch (error) {
       console.error(error);
@@ -5255,7 +5395,9 @@ export default function App() {
         notesPanelOpen={notesPanelOpen}
         logicalOutOfDate={logicalOutOfDate}
         focusMode={focusMode}
+        hasUncommittedChanges={hasVersioningUncommittedChanges}
         onNewProject={handleNewProject}
+        onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
         onToggleCodePanel={handleToggleCodePanel}
         onToggleNotesPanel={handleToggleNotesPanel}
         onSaveProject={handleSaveProject}
@@ -5546,6 +5688,31 @@ export default function App() {
         onChange={handleLoadErsFile}
       />
 
+      <VersioningPanel
+        open={versioningPanelOpen}
+        commits={projectVersioning.commitsNewestFirst}
+        headCommitId={projectVersioning.versioning.headCommitId}
+        hasUncommittedChanges={hasVersioningUncommittedChanges}
+        onClose={() => setVersioningPanelOpen(false)}
+        onNewCommit={() => {
+          setCommitDialogError("");
+          setCommitDialogOpen(true);
+        }}
+      />
+
+      <CommitDialog
+        open={commitDialogOpen}
+        busy={commitDialogBusy}
+        error={commitDialogError}
+        onClose={() => {
+          if (!commitDialogBusy) {
+            setCommitDialogOpen(false);
+            setCommitDialogError("");
+          }
+        }}
+        onSubmit={handleCreateProjectCommit}
+      />
+
       <NotesModal
         open={notesPanelOpen}
         notes={history.present.notes}
@@ -5584,6 +5751,7 @@ export default function App() {
           canRedo={activeCanRedo}
           logicalOutOfDate={logicalOutOfDate}
           focusMode={focusMode}
+          hasUncommittedChanges={hasVersioningUncommittedChanges}
           toolRailCollapsed={effectiveToolbarCollapsed}
           selectionItemCount={selectionItemCount}
           onClose={() => setCommandMenuOpen(false)}
@@ -5602,6 +5770,7 @@ export default function App() {
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
+          onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}

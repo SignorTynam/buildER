@@ -14,7 +14,9 @@ interface AppHeaderProps {
   notesPanelOpen: boolean;
   logicalOutOfDate: boolean;
   focusMode: boolean;
+  hasUncommittedChanges: boolean;
   onNewProject: () => void;
+  onOpenVersioningPanel: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
   onSaveProject: () => void;
@@ -113,6 +115,19 @@ export function AppHeader(props: AppHeaderProps) {
           <StudioIcon name="openProject" aria-hidden="true" />
           <span className="desktop-label">{t("appHeader.actions.openProject")}</span>
           <span className="mobile-label" aria-hidden="true">{t("appHeader.actions.openProjectShort")}</span>
+        </button>
+        <button
+          type="button"
+          className={props.hasUncommittedChanges ? "designer-versioning-button has-uncommitted" : "designer-versioning-button"}
+          onClick={props.onOpenVersioningPanel}
+          aria-label={t("appHeader.actions.versioningAria")}
+          data-testid="app-header-versioning"
+        >
+          <StudioIcon name="history" aria-hidden="true" />
+          <span className="desktop-label">{t("versioning.versions")}</span>
+          {props.hasUncommittedChanges ? (
+            <span className="versioning-dot" aria-label={t("versioning.uncommittedChanges")} />
+          ) : null}
         </button>
         <button
           type="button"

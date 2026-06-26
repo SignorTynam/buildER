@@ -16,6 +16,7 @@ interface CommandMenuModalProps {
   canRedo: boolean;
   logicalOutOfDate: boolean;
   focusMode: boolean;
+  hasUncommittedChanges: boolean;
   toolRailCollapsed: boolean;
   selectionItemCount: number;
   onClose: () => void;
@@ -34,6 +35,7 @@ interface CommandMenuModalProps {
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
   onOpenSqlReverseWorkflow: () => void;
+  onOpenVersioningPanel: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
   onSaveProject: () => void;
@@ -239,6 +241,17 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
         icon: "databaseReverse",
         disabled: !isErView,
         action: props.onOpenSqlReverseWorkflow,
+      },
+      {
+        id: "workspace-versioning",
+        category: "workspace",
+        label: t("commandMenu.commands.workspaceVersioning.label"),
+        detail: props.hasUncommittedChanges
+          ? t("versioning.uncommittedChanges")
+          : t("commandMenu.commands.workspaceVersioning.detail"),
+        icon: "history",
+        active: props.hasUncommittedChanges,
+        action: props.onOpenVersioningPanel,
       },
       {
         id: "workspace-code",

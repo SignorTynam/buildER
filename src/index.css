@@ -77,6 +77,112 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.designer-versioning-button {
+  position: relative;
+}
+
+.versioning-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-warning, #d97706);
+  box-shadow: 0 0 0 2px var(--surface-panel, #fff);
+}
+
+.versioning-panel {
+  max-width: 760px;
+}
+
+.versioning-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.versioning-panel-actions .mode-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.versioning-panel-body {
+  max-height: min(68vh, 680px);
+  overflow: auto;
+}
+
+.versioning-unsaved {
+  color: var(--color-warning, #b45309);
+}
+
+.versioning-empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+}
+
+.versioning-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.versioning-commit-card {
+  border: 1px solid var(--border-subtle, #d8dee8);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-panel, #fff);
+}
+
+.versioning-commit-main,
+.versioning-commit-title-row,
+.versioning-commit-meta,
+.versioning-commit-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.versioning-commit-title-row {
+  flex-wrap: wrap;
+}
+
+.versioning-commit-meta,
+.versioning-commit-stats {
+  flex-wrap: wrap;
+  margin-top: 6px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.82rem;
+}
+
+.versioning-commit-description {
+  margin: 10px 0 0;
+  color: var(--text-secondary, #475569);
+}
+
+.versioning-head-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft, #e0f2fe);
+  color: var(--accent-strong, #0369a1);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.versioning-commit-dialog textarea {
+  resize: vertical;
+}
+
 * {
   box-sizing: border-box;
 }
