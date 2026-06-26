@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AttributeNode, EntityNode, RelationshipNode } from "../src/types/diagram.ts";
+import type { AttributeNode, Bounds, EntityNode, RelationshipNode } from "../src/types/diagram.ts";
 import {
   type AttributeLayoutHost,
   FIXED_ATTRIBUTE_MARKER_GAP,
+  buildCenterOutOffsets,
   distributeAttributesAroundHost,
   getAttributeMarkerCenter,
   getDirectAttributeLayoutSide,
@@ -62,113 +63,62 @@ function attribute(id: string, index: number): AttributeNode {
   };
 }
 
-function perimeterDistance(host: AttributeLayoutHost, candidate: AttributeNode): number {
-  const marker = getAttributeMarkerCenter(candidate);
-  const clampedX = Math.min(Math.max(marker.x, host.x), host.x + host.width);
-  const clampedY = Math.min(Math.max(marker.y, host.y), host.y + host.height);
-  return Math.hypot(marker.x - clampedX, marker.y - clampedY);
-}
+function markerOffsets(host: AttributeLayoutHost, attributes: AttributeNode[]): number[] {
+  const hostCenterY = host.y + host.height / 2;
+  const markers = attributes.map((candidate) => getAttributeMarkerCenter(candidate));
+  const positiveSteps = markers
+    .map((marker) => Math.abs(marker.y - hostCenterY))
+    .filter((distance) => distance > 0);
+  const verticalStep = Math.min(...positiveSteps);
 
-function assertFixedDistance(host: AttributeLayoutHost, attributes: AttributeNode[]): void {
-  attributes.forEach((candidate) => {
-    assert.ok(
-      Math.abs(perimeterDistance(host, candidate) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
-      `${candidate.id} is not at the fixed marker gap`,
-    );
+  return markers.map((marker) => {
+    if (Math.abs(marker.y - hostCenterY) < 0.001) {
+      return 0;
+    }
+    return Math.round((marker.y - hostCenterY) / verticalStep);
   });
 }
 
-function serialSides(host: AttributeLayoutHost, attributes: AttributeNode[]): string[] {
-  return attributes.map((candidate) => getDirectAttributeLayoutSide(host, candidate));
+function assertLeftCenterOut(
+  host: AttributeLayoutHost,
+  attributes: AttributeNode[],
+  expectedOffsets: number[],
+): void {
+  assert.deepEqual(markerOffsets(host, attributes), expectedOffsets);
+  attributes.forEach((candidate) => {
+    const marker = getAttributeMarkerCenter(candidate);
+    assert.equal(getDirectAttributeLayoutSide(host, candidate), "left");
+    assert.equal(marker.x, host.x - FIXED_ATTRIBUTE_MARKER_GAP);
+  });
 }
 
-test("attribute layout: entity attributes use a fixed marker distance", () => {
+test("attribute layout: center-out offsets are stable", () => {
+  assert.deepEqual(buildCenterOutOffsets(7), [0, -1, 1, -2, 2, -3, 3]);
+});
+
+test("attribute layout: entity attributes use left center-out slots", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
-    Array.from({ length: 10 }, (_, index) => attribute(`attribute${index + 1}`, index)),
+    Array.from({ length: 5 }, (_, index) => attribute(`attribute${index + 1}`, index)),
   );
 
-  assertFixedDistance(host, positioned);
-  assert.ok(Math.max(...positioned.map((candidate) => perimeterDistance(host, candidate))) <= FIXED_ATTRIBUTE_MARKER_GAP + 1);
+  assertLeftCenterOut(host, positioned, [0, -1, 1, -2, 2]);
 });
 
-test("attribute layout: entity attributes follow a deterministic serial order", () => {
-  const host = hostEntity();
-  const attributes = Array.from({ length: 10 }, (_, index) => attribute(`attribute${index + 1}`, index));
-  const first = distributeAttributesAroundHost(host, attributes);
-  const second = distributeAttributesAroundHost(host, attributes);
-
-  assert.deepEqual(
-    first.map((candidate) => ({ id: candidate.id, x: candidate.x, y: candidate.y })),
-    second.map((candidate) => ({ id: candidate.id, x: candidate.x, y: candidate.y })),
-  );
-  assert.deepEqual(serialSides(host, first), [
-    "top",
-    "top",
-    "top",
-    "right",
-    "right",
-    "right",
-    "bottom",
-    "bottom",
-    "left",
-    "left",
-  ]);
-  assert.ok(getAttributeMarkerCenter(first[0]).x < getAttributeMarkerCenter(first[1]).x);
-  assert.ok(getAttributeMarkerCenter(first[1]).x < getAttributeMarkerCenter(first[2]).x);
-  assert.ok(getAttributeMarkerCenter(first[3]).y < getAttributeMarkerCenter(first[4]).y);
-  assert.ok(getAttributeMarkerCenter(first[6]).x > getAttributeMarkerCenter(first[7]).x);
-  assert.ok(getAttributeMarkerCenter(first[8]).y > getAttributeMarkerCenter(first[9]).y);
-});
-
-test("attribute layout: fixed layout does not create far lanes when labels are dense", () => {
+test("attribute layout: entity attributes keep the fixed left marker gap", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
-    Array.from({ length: 20 }, (_, index) => ({
-      ...attribute(`attribute${index + 1}`, index),
-      label: `ATTRIBUTO_CON_LABEL_LUNGA_${index + 1}`,
-    })),
+    Array.from({ length: 5 }, (_, index) => attribute(`attribute${index + 1}`, index)),
   );
 
-  assertFixedDistance(host, positioned);
+  positioned.forEach((candidate) => {
+    assert.equal(getAttributeMarkerCenter(candidate).x, host.x - FIXED_ATTRIBUTE_MARKER_GAP);
+  });
 });
 
-test("attribute layout: relationship attributes use the same fixed serial layout", () => {
-  const host = relationshipNode();
-  const positioned = distributeAttributesAroundHost(
-    host,
-    Array.from({ length: 10 }, (_, index) => attribute(`relationship-attribute${index + 1}`, index)),
-  );
-
-  assertFixedDistance(host, positioned);
-  assert.deepEqual(serialSides(host, positioned), [
-    "top",
-    "top",
-    "top",
-    "right",
-    "right",
-    "right",
-    "bottom",
-    "bottom",
-    "left",
-    "left",
-  ]);
-});
-
-test("attribute layout: composite attribute children use the same fixed serial layout", () => {
-  const host = hostAttribute();
-  const positioned = distributeAttributesAroundHost(
-    host,
-    Array.from({ length: 5 }, (_, index) => attribute(`subattribute${index + 1}`, index)),
-  );
-
-  assertFixedDistance(host, positioned);
-  assert.deepEqual(serialSides(host, positioned), ["top", "top", "right", "bottom", "left"]);
-});
-
-test("attribute layout: incremental placement uses the serial position for the new attribute", () => {
+test("attribute layout: incremental placement does not move existing attributes", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
@@ -180,11 +130,56 @@ test("attribute layout: incremental placement uses the serial position for the n
   positioned.forEach((candidate) => {
     assert.deepEqual({ x: candidate.x, y: candidate.y }, frozenPositions.get(candidate.id));
   });
-  assertFixedDistance(host, [next]);
-  assert.equal(getDirectAttributeLayoutSide(host, next), "left");
+  assertLeftCenterOut(host, [...positioned, next], [0, -1, 1, -2]);
 });
 
-test("attribute layout: preserveInputOrder false keeps deterministic id order", () => {
+test("attribute layout: left connector corridor reserves the center slot", () => {
+  const host = hostEntity();
+  const centerY = host.y + host.height / 2;
+  const reservedCenter: Bounds = {
+    x: host.x - 160,
+    y: centerY - 14,
+    width: 180,
+    height: 28,
+  };
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 4 }, (_, index) => attribute(`attribute${index + 1}`, index)),
+    { occupiedBounds: [reservedCenter] },
+  );
+
+  assertLeftCenterOut(host, positioned, [-1, 1, -2, 2]);
+});
+
+test("attribute layout: relationship attributes use left center-out slots", () => {
+  const host = relationshipNode();
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 5 }, (_, index) => attribute(`relationship-attribute${index + 1}`, index)),
+  );
+
+  assertLeftCenterOut(host, positioned, [0, -1, 1, -2, 2]);
+});
+
+test("attribute layout: composite attribute children use left center-out slots", () => {
+  const host = hostAttribute();
+  const positioned = distributeAttributesAroundHost(
+    host,
+    Array.from({ length: 5 }, (_, index) => attribute(`subattribute${index + 1}`, index)),
+  );
+
+  assertLeftCenterOut(host, positioned, [0, -1, 1, -2, 2]);
+});
+
+test("attribute layout: many attributes stay on the left center-out sequence", () => {
+  const host = hostEntity();
+  const attributes = Array.from({ length: 20 }, (_, index) => attribute(`attribute${index + 1}`, index));
+  const positioned = distributeAttributesAroundHost(host, attributes);
+
+  assertLeftCenterOut(host, positioned, buildCenterOutOffsets(20));
+});
+
+test("attribute layout: preserveInputOrder false keeps deterministic id order on left slots", () => {
   const host = hostEntity();
   const positioned = distributeAttributesAroundHost(
     host,
@@ -193,12 +188,18 @@ test("attribute layout: preserveInputOrder false keeps deterministic id order", 
   );
 
   assert.deepEqual(positioned.map((candidate) => candidate.id), ["attribute-c", "attribute-a", "attribute-b"]);
-  assert.equal(getDirectAttributeLayoutSide(host, positioned.find((candidate) => candidate.id === "attribute-a")!), "top");
-  assert.equal(getDirectAttributeLayoutSide(host, positioned.find((candidate) => candidate.id === "attribute-b")!), "right");
-  assert.equal(getDirectAttributeLayoutSide(host, positioned.find((candidate) => candidate.id === "attribute-c")!), "bottom");
+  assertLeftCenterOut(
+    host,
+    [
+      positioned.find((candidate) => candidate.id === "attribute-a")!,
+      positioned.find((candidate) => candidate.id === "attribute-b")!,
+      positioned.find((candidate) => candidate.id === "attribute-c")!,
+    ],
+    [0, -1, 1],
+  );
 });
 
-test("sql reverse diagram uses fixed-distance attribute layout", () => {
+test("sql reverse diagram uses left center-out attribute layout", () => {
   const result = reverseSqlToDiagram(`
     CREATE TABLE WideEntity (
       id INTEGER PRIMARY KEY,
@@ -226,5 +227,8 @@ test("sql reverse diagram uses fixed-distance attribute layout", () => {
   );
 
   assert.equal(attributes.length, 10);
-  assertFixedDistance(host, attributes);
+  attributes.forEach((candidate) => {
+    assert.equal(getDirectAttributeLayoutSide(host, candidate), "left");
+    assert.equal(getAttributeMarkerCenter(candidate).x, host.x - FIXED_ATTRIBUTE_MARKER_GAP);
+  });
 });

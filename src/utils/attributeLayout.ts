@@ -15,11 +15,8 @@ export interface AttributeLayoutSlot {
 
 export interface AttributeLayoutOptions {
   markerGap?: number;
-  laneGap?: number;
   collisionPadding?: number;
   occupiedBounds?: Bounds[];
-  sidePenalties?: Partial<Record<AttributeLayoutSide, number>>;
-  preferredSides?: AttributeLayoutSide[];
   preserveInputOrder?: boolean;
 }
 
@@ -28,8 +25,7 @@ const ATTRIBUTE_MARKER_RADIUS = 8;
 export const FIXED_ATTRIBUTE_MARKER_GAP = 28;
 const DEFAULT_MARKER_GAP = FIXED_ATTRIBUTE_MARKER_GAP;
 const COLLISION_PADDING = 2;
-const SERIAL_SIDE_ORDER: AttributeLayoutSide[] = ["top", "right", "bottom", "left"];
-const SIDE_COUNT_REMAINDER_ORDER: AttributeLayoutSide[] = ["top", "right", "bottom", "left"];
+const MIN_VERTICAL_STEP = 48;
 
 export function getAttributeMarkerCenter(attribute: AttributeNode): Point {
   return {
@@ -59,6 +55,19 @@ export function getDirectAttributeLayoutSide(
   attribute: AttributeNode,
 ): AttributeLayoutSide {
   const marker = getAttributeMarkerCenter(attribute);
+  if (marker.x < host.x) {
+    return "left";
+  }
+  if (marker.x > host.x + host.width) {
+    return "right";
+  }
+  if (marker.y < host.y) {
+    return "top";
+  }
+  if (marker.y > host.y + host.height) {
+    return "bottom";
+  }
+
   const hostCenterX = host.x + host.width / 2;
   const hostCenterY = host.y + host.height / 2;
   const deltaX = marker.x - hostCenterX;
@@ -92,18 +101,6 @@ function unionBounds(bounds: Bounds[]): Bounds {
     width: right - left,
     height: bottom - top,
   };
-}
-
-function getHostBounds(host: AttributeLayoutHost, padding = COLLISION_PADDING): Bounds {
-  return padBounds(
-    {
-      x: host.x,
-      y: host.y,
-      width: host.width,
-      height: host.height,
-    },
-    padding,
-  );
 }
 
 function getAttributeLabelLayoutForSide(attribute: AttributeNode, side: AttributeLayoutSide) {
@@ -176,61 +173,126 @@ export function buildAttributeLayoutBounds(
   return unionBounds([markerBounds, labelBounds]);
 }
 
-function getSerialSideCounts(attributeCount: number): Record<AttributeLayoutSide, number> {
-  const baseCount = Math.floor(attributeCount / SERIAL_SIDE_ORDER.length);
-  let remainder = attributeCount % SERIAL_SIDE_ORDER.length;
-  const counts: Record<AttributeLayoutSide, number> = {
-    top: baseCount,
-    right: baseCount,
-    bottom: baseCount,
-    left: baseCount,
-  };
+export function buildCenterOutOffsets(count: number): number[] {
+  const offsets: number[] = [];
+  for (let index = 0; offsets.length < count; index += 1) {
+    if (index === 0) {
+      offsets.push(0);
+      continue;
+    }
 
-  SIDE_COUNT_REMAINDER_ORDER.forEach((side) => {
-    if (remainder <= 0) {
+    offsets.push(-index);
+    if (offsets.length < count) {
+      offsets.push(index);
+    }
+  }
+  return offsets;
+}
+
+function getVerticalStep(attributes: AttributeNode[]): number {
+  const maxHeight = attributes.reduce((max, attribute) => Math.max(max, attribute.height), 0);
+  return Math.max(MIN_VERTICAL_STEP, maxHeight + 12);
+}
+
+function getLeftSlotMarker(
+  host: AttributeLayoutHost,
+  offsetIndex: number,
+  markerGap: number,
+  verticalStep: number,
+): Point {
+  return {
+    x: host.x - markerGap,
+    y: host.y + host.height / 2 + offsetIndex * verticalStep,
+  };
+}
+
+function boundsIntersect(left: Bounds, right: Bounds): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
+}
+
+function isSlotAvailable(
+  host: AttributeLayoutHost,
+  attribute: AttributeNode,
+  marker: Point,
+  occupiedBounds: Bounds[],
+  collisionPadding: number,
+): boolean {
+  if (occupiedBounds.length === 0) {
+    return true;
+  }
+
+  const candidate = placeAttributeMarker(attribute, marker, false);
+  const bounds = buildAttributeLayoutBounds(host, candidate, collisionPadding);
+  return occupiedBounds.every((occupied) => !boundsIntersect(bounds, occupied));
+}
+
+function getOccupiedOffsetIndexes(
+  host: AttributeLayoutHost,
+  existingAttributes: AttributeNode[],
+  verticalStep: number,
+): Set<number> {
+  const hostCenterY = host.y + host.height / 2;
+  const occupied = new Set<number>();
+
+  existingAttributes.forEach((attribute) => {
+    if (getDirectAttributeLayoutSide(host, attribute) !== "left") {
       return;
     }
 
-    counts[side] += 1;
-    remainder -= 1;
+    const marker = getAttributeMarkerCenter(attribute);
+    occupied.add(Math.round((marker.y - hostCenterY) / verticalStep));
   });
 
-  return counts;
+  return occupied;
 }
 
-function getSerialSlotMarker(
+function findFirstAvailableLeftSlot(
   host: AttributeLayoutHost,
-  side: AttributeLayoutSide,
-  indexOnSide: number,
-  countOnSide: number,
-  markerGap: number,
-): Point {
-  const progress = countOnSide <= 1 ? 0.5 : (indexOnSide + 1) / (countOnSide + 1);
+  attribute: AttributeNode,
+  attributesForStep: AttributeNode[],
+  occupiedBounds: Bounds[],
+  occupiedOffsets: Set<number>,
+  options?: AttributeLayoutOptions,
+): AttributeLayoutSlot {
+  const markerGap = options?.markerGap ?? DEFAULT_MARKER_GAP;
+  const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
+  const verticalStep = getVerticalStep(attributesForStep);
+  let candidateCount = Math.max(attributesForStep.length + occupiedOffsets.size + occupiedBounds.length + 8, 12);
 
-  if (side === "top") {
-    return {
-      x: host.x + host.width * progress,
-      y: host.y - markerGap,
-    };
+  while (candidateCount < 256) {
+    const offsets = buildCenterOutOffsets(candidateCount);
+    for (const offset of offsets) {
+      if (occupiedOffsets.has(offset)) {
+        continue;
+      }
+
+      const marker = getLeftSlotMarker(host, offset, markerGap, verticalStep);
+      if (!isSlotAvailable(host, attribute, marker, occupiedBounds, collisionPadding)) {
+        continue;
+      }
+
+      return {
+        side: "left",
+        lane: 0,
+        offsetIndex: offset,
+        marker,
+      };
+    }
+
+    candidateCount *= 2;
   }
 
-  if (side === "right") {
-    return {
-      x: host.x + host.width + markerGap,
-      y: host.y + host.height * progress,
-    };
-  }
-
-  if (side === "bottom") {
-    return {
-      x: host.x + host.width * (1 - progress),
-      y: host.y + host.height + markerGap,
-    };
-  }
-
+  const fallbackOffset = buildCenterOutOffsets(candidateCount).find((offset) => !occupiedOffsets.has(offset)) ?? 0;
   return {
-    x: host.x - markerGap,
-    y: host.y + host.height * (1 - progress),
+    side: "left",
+    lane: 0,
+    offsetIndex: fallbackOffset,
+    marker: getLeftSlotMarker(host, fallbackOffset, markerGap, verticalStep),
   };
 }
 
@@ -240,21 +302,14 @@ export function buildCompactAttributeSlots(
   options?: AttributeLayoutOptions,
 ): AttributeLayoutSlot[] {
   const markerGap = options?.markerGap ?? DEFAULT_MARKER_GAP;
-  const sideCounts = getSerialSideCounts(attributes.length);
-  const slots: AttributeLayoutSlot[] = [];
+  const verticalStep = getVerticalStep(attributes);
 
-  SERIAL_SIDE_ORDER.forEach((side) => {
-    for (let index = 0; index < sideCounts[side]; index += 1) {
-      slots.push({
-        side,
-        lane: 0,
-        offsetIndex: index,
-        marker: getSerialSlotMarker(host, side, index, sideCounts[side], markerGap),
-      });
-    }
-  });
-
-  return slots;
+  return buildCenterOutOffsets(attributes.length).map((offsetIndex) => ({
+    side: "left" as const,
+    lane: 0,
+    offsetIndex,
+    marker: getLeftSlotMarker(host, offsetIndex, markerGap, verticalStep),
+  }));
 }
 
 export function placeNewAttributeAroundHost<T extends AttributeNode>(
@@ -263,11 +318,23 @@ export function placeNewAttributeAroundHost<T extends AttributeNode>(
   newAttribute: T,
   options?: AttributeLayoutOptions,
 ): T {
-  const layoutAttributes = [...existingAttributes, newAttribute];
-  const positioned = distributeAttributesAroundHost(host, layoutAttributes, options);
-  const bestAttribute = positioned.find((attribute) => attribute.id === newAttribute.id) as T | undefined;
+  const attributesForStep = [...existingAttributes, newAttribute];
+  const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
+  const occupiedBounds = [
+    ...(options?.occupiedBounds ?? []),
+    ...existingAttributes.map((attribute) => buildAttributeLayoutBounds(host, attribute, collisionPadding)),
+  ];
+  const occupiedOffsets = getOccupiedOffsetIndexes(host, existingAttributes, getVerticalStep(attributesForStep));
+  const slot = findFirstAvailableLeftSlot(
+    host,
+    newAttribute,
+    attributesForStep,
+    occupiedBounds,
+    occupiedOffsets,
+    options,
+  );
 
-  return bestAttribute ?? newAttribute;
+  return placeAttributeMarker(newAttribute, slot.marker, false) as T;
 }
 
 export function distributeAttributesAroundHost<T extends AttributeNode>(
@@ -283,10 +350,23 @@ export function distributeAttributesAroundHost<T extends AttributeNode>(
     options?.preserveInputOrder === false
       ? [...attributes].sort((left, right) => left.id.localeCompare(right.id))
       : [...attributes];
-  const slots = buildCompactAttributeSlots(host, layoutAttributes, options);
-  const positionedAttributes = layoutAttributes.map((attribute, index) =>
-    placeAttributeMarker(attribute, slots[index]?.marker ?? getAttributeMarkerCenter(attribute), false) as T,
-  );
+  const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
+  const occupiedBounds = [...(options?.occupiedBounds ?? [])];
+  const occupiedOffsets = new Set<number>();
+  const positionedAttributes = layoutAttributes.map((attribute) => {
+    const slot = findFirstAvailableLeftSlot(
+      host,
+      attribute,
+      layoutAttributes,
+      occupiedBounds,
+      occupiedOffsets,
+      options,
+    );
+    const positioned = placeAttributeMarker(attribute, slot.marker, false) as T;
+    occupiedOffsets.add(slot.offsetIndex);
+    occupiedBounds.push(buildAttributeLayoutBounds(host, positioned, collisionPadding));
+    return positioned;
+  });
   const positionedById = new Map<string, AttributeNode>(
     positionedAttributes.map((attribute) => [attribute.id, attribute]),
   );

@@ -55,11 +55,9 @@ function attributeOwnerId(diagram: DiagramDocument, attributeId: string): string
   })?.sourceId;
 }
 
-function markerDistanceFromOwner(owner: DiagramNode, attribute: Extract<DiagramNode, { type: "attribute" }>): number {
+function markerLeftGapFromOwner(owner: DiagramNode, attribute: Extract<DiagramNode, { type: "attribute" }>): number {
   const marker = getAttributeMarkerCenter(attribute);
-  const clampedX = Math.min(Math.max(marker.x, owner.x), owner.x + owner.width);
-  const clampedY = Math.min(Math.max(marker.y, owner.y), owner.y + owner.height);
-  return Math.hypot(marker.x - clampedX, marker.y - clampedY);
+  return owner.x - marker.x;
 }
 
 function assertValidEdges(diagram: DiagramDocument): void {
@@ -139,7 +137,7 @@ test("sql reverse layout: attributes keep fixed marker distance from their owner
   nodesByType(result.diagram, "attribute").forEach((attribute) => {
     if (attributeOwnerId(result.diagram, attribute.id) === owner.id) {
       assert.ok(
-        Math.abs(markerDistanceFromOwner(owner, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+        Math.abs(markerLeftGapFromOwner(owner, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
         `${attribute.label} is not at the fixed marker gap`,
       );
     }
@@ -301,7 +299,7 @@ test("sql reverse layout: long labels resize nodes and keep direct attributes at
   assert.equal(idAttribute.width > 112, true);
   directAttributes.forEach((attribute) => {
     assert.ok(
-      Math.abs(markerDistanceFromOwner(entity, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
+      Math.abs(markerLeftGapFromOwner(entity, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
       `${attribute.label} is not at the fixed marker gap`,
     );
     assert.equal(Number.isFinite(attribute.x), true);

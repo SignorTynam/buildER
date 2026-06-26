@@ -14,7 +14,6 @@ import {
   getAttributeMarkerCenter,
   getDirectAttributeLayoutSide,
 } from "../src/utils/attributeLayout.ts";
-import { perimeterDistance } from "../src/utils/sqlReverseAttributeLayout.ts";
 import { reverseSqlToDiagram } from "../src/utils/sqlReverseDiagram.ts";
 
 interface TestBounds {
@@ -95,44 +94,21 @@ export function assertFixedGeneratedAttributeDistances(diagram: DiagramDocument)
   nodesByType(diagram, "attribute").forEach((attribute) => {
     const owner = findAttributeOwner(diagram, attribute.id);
     assert.ok(owner, `${attribute.label} has no owner`);
-    assert.ok(
-      Math.abs(perimeterDistance(owner, attribute) - FIXED_ATTRIBUTE_MARKER_GAP) <= 0.001,
-      `${attribute.label} is not at the fixed marker gap`,
-    );
+    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
+    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
   });
 }
 
 export function assertCompactAttributeDistances(
   diagram: DiagramDocument,
-  options: { maxDistance: number; averageDistance: number },
+  _options: { maxDistance: number; averageDistance: number },
 ): void {
-  const attributes = nodesByType(diagram, "attribute");
-  const distances = attributes.map((attribute) => {
+  nodesByType(diagram, "attribute").forEach((attribute) => {
     const owner = findAttributeOwner(diagram, attribute.id);
     assert.ok(owner, `${attribute.label} has no owner`);
-    return perimeterDistance(owner, attribute);
+    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
+    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
   });
-
-  const maxDistance = Math.max(...distances);
-  const averageDistance = distances.reduce((sum, distance) => sum + distance, 0) / distances.length;
-
-  assert.ok(
-    maxDistance <= options.maxDistance,
-    `max attribute distance ${maxDistance.toFixed(1)} exceeds ${options.maxDistance}`,
-  );
-  assert.ok(
-    averageDistance <= options.averageDistance,
-    `average attribute distance ${averageDistance.toFixed(1)} exceeds ${options.averageDistance}`,
-  );
-}
-
-function sideCountsForOwner(owner: EntityNode | RelationshipNode, attributes: AttributeNode[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  attributes.forEach((attribute) => {
-    const side = getDirectAttributeLayoutSide(owner, attribute);
-    counts.set(side, (counts.get(side) ?? 0) + 1);
-  });
-  return counts;
 }
 
 function buildLargeUniversitySchemaSql(): string {
@@ -312,7 +288,7 @@ test("sql reverse attribute layout: large university schema stays compact and fi
   assert.deepEqual(secondCoordinates, firstCoordinates);
 });
 
-test("sql reverse attribute layout: owner with many attributes uses multiple sides", () => {
+test("sql reverse attribute layout: owner with many attributes stays on the left side", () => {
   const columns = Array.from({ length: 16 }, (_, index) => {
     const columnNumber = String(index + 1).padStart(2, "0");
     return `col_${columnNumber} VARCHAR(80)`;
@@ -333,20 +309,14 @@ test("sql reverse attribute layout: owner with many attributes uses multiple sid
   const attributes = nodesByType(result.diagram, "attribute").filter((attribute) => {
     return findAttributeOwner(result.diagram, attribute.id)?.id === owner.id;
   });
-  const counts = sideCountsForOwner(owner, attributes);
 
   assert.equal(attributes.length, 17);
-  assert.ok(counts.size >= 3, "expected at least three sides");
-  assert.notEqual(counts.get("right"), attributes.length);
-  assert.notEqual(counts.get("bottom"), attributes.length);
+  attributes.forEach((attribute) => {
+    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
+    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
+  });
   assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
   assertFixedGeneratedAttributeDistances(result.diagram);
-  const distances = attributes.map((attribute) => perimeterDistance(owner, attribute));
-  assert.ok(Math.max(...distances) <= FIXED_ATTRIBUTE_MARKER_GAP + 1, `max distance ${Math.max(...distances)} exceeds fixed gap`);
-  assert.ok(
-    distances.reduce((sum, distance) => sum + distance, 0) / distances.length <= FIXED_ATTRIBUTE_MARKER_GAP + 1,
-    "average distance too high for dense owner",
-  );
 });
 
 test("sql reverse attribute layout: dense foreign key hub keeps central attributes near owner", () => {
@@ -403,9 +373,10 @@ test("sql reverse attribute layout: dense foreign key hub keeps central attribut
   const hubAttributes = nodesByType(result.diagram, "attribute").filter((attribute) => {
     return findAttributeOwner(result.diagram, attribute.id)?.id === hub.id;
   });
-  const hubDistances = hubAttributes.map((attribute) => perimeterDistance(hub, attribute));
-
-  assert.ok(Math.max(...hubDistances) <= FIXED_ATTRIBUTE_MARKER_GAP + 1);
+  hubAttributes.forEach((attribute) => {
+    assert.equal(getDirectAttributeLayoutSide(hub, attribute), "left");
+    assert.equal(getAttributeMarkerCenter(attribute).x, hub.x - FIXED_ATTRIBUTE_MARKER_GAP);
+  });
   assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
   assertFixedGeneratedAttributeDistances(result.diagram);
 });
@@ -468,11 +439,11 @@ test("sql reverse attribute layout: single owner with up to ten attributes stays
   const ownerAttributes = nodesByType(result.diagram, "attribute").filter((attribute) => {
     return findAttributeOwner(result.diagram, attribute.id)?.id === owner.id;
   });
-  const distances = ownerAttributes.map((attribute) => perimeterDistance(owner, attribute));
-
   assert.equal(ownerAttributes.length, 11);
-  assert.ok(Math.max(...distances) <= FIXED_ATTRIBUTE_MARKER_GAP + 1);
-  assert.ok(distances.reduce((sum, distance) => sum + distance, 0) / distances.length <= FIXED_ATTRIBUTE_MARKER_GAP + 1);
+  ownerAttributes.forEach((attribute) => {
+    assert.equal(getDirectAttributeLayoutSide(owner, attribute), "left");
+    assert.equal(getAttributeMarkerCenter(attribute).x, owner.x - FIXED_ATTRIBUTE_MARKER_GAP);
+  });
   assertGeneratedAttributesHaveOwnersAndBounds(result.diagram);
   assertFixedGeneratedAttributeDistances(result.diagram);
 });

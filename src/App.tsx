@@ -135,7 +135,6 @@ import {
   distributeAttributesAroundHost,
   placeNewAttributeAroundHost,
   type AttributeLayoutOptions,
-  type AttributeLayoutSide,
 } from "./utils/attributeLayout";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
 import {
@@ -760,7 +759,6 @@ function buildAttributeLayoutOptionsForHost(
   const layoutAttributeIds = new Set(attributeIdsBeingLaidOut);
   const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
   const occupiedBounds: Bounds[] = [];
-  const sidePenalties: Partial<Record<AttributeLayoutSide, number>> = {};
   const nodePadding = 14;
   const connectorPadding = 28;
 
@@ -793,9 +791,6 @@ function buildAttributeLayoutOptionsForHost(
     }
 
     const otherCenter = getNodeCenter(otherNode);
-    const side = getNodeConnectionSide(hostNode, otherCenter) as AttributeLayoutSide;
-    sidePenalties[side] = (sidePenalties[side] ?? 0) + 12000;
-
     const hostEndpoint = clipPointToNodePerimeter(hostNode, otherCenter);
     const otherEndpoint = clipPointToNodePerimeter(otherNode, getNodeCenter(hostNode));
     occupiedBounds.push(buildConnectorCorridor(hostEndpoint, otherEndpoint, connectorPadding));
@@ -803,8 +798,6 @@ function buildAttributeLayoutOptionsForHost(
 
   return {
     occupiedBounds,
-    sidePenalties,
-    preferredSides: ["left", "right", "top", "bottom"],
     preserveInputOrder: true,
   };
 }
