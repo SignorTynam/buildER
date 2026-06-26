@@ -6,6 +6,7 @@ import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts
 import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
 import {
   CURRENT_PROJECT_FILE_VERSION,
+  createEmptyProjectVersioningState,
   parseProjectFile,
   PROJECT_FILE_KIND,
   ProjectFileError,
@@ -13,6 +14,25 @@ import {
 } from "../src/utils/projectFile.ts";
 
 const DEFAULT_VIEWPORT = { x: 180, y: 110, zoom: 1 };
+
+function createSerializableProject(name: string) {
+  const diagram = createEmptyDiagram(name);
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+
+  return {
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated: false,
+    logicalStage: "translation" as const,
+    diagramView: "er" as const,
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+    savedAt: "2026-06-26T10:00:00.000Z",
+  };
+}
 
 test("il formato .ersp salva e ripristina vista corrente e viewport del progetto", () => {
   const diagram = createEmptyDiagram("Progetto completo");
@@ -247,6 +267,200 @@ test("un diagramma JSON legacy viene accettato solo come fallback compatibile e 
   assert.equal(parsed.state.logicalWorkspace.model.tables.length, 0);
   assert.equal(parsed.state.translationWorkspace.translatedDiagram.meta.name, "Legacy diagram");
   assert.deepEqual(parsed.state.viewport, DEFAULT_VIEWPORT);
+});
+
+test("il formato .ersp serializza uno stato versioning vuoto valido", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Versioning vuoto"));
+  const document = JSON.parse(serialized);
+
+  assert.equal(document.version, CURRENT_PROJECT_FILE_VERSION);
+  assert.deepEqual(document.versioning, createEmptyProjectVersioningState());
+});
+
+test("il formato .ersp carica uno stato versioning vuoto", () => {
+  const parsed = parseProjectFile(serializeProjectFile({
+    ...createSerializableProject("Parse versioning vuoto"),
+    versioning: createEmptyProjectVersioningState(),
+  }));
+
+  assert.equal(parsed.state.versioning.enabled, true);
+  assert.equal(parsed.state.versioning.headCommitId, null);
+  assert.deepEqual(parsed.state.versioning.commits, []);
+  assert.deepEqual(parsed.document.versioning, createEmptyProjectVersioningState());
+});
+
+test("il formato .ersp carica un commit fittizio nel versioning", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Commit fittizio"));
+  const document = JSON.parse(serialized);
+  document.versioning = {
+    version: 1,
+    enabled: true,
+    headCommitId: "commit-1",
+    commits: [
+      {
+        id: "commit-1",
+        parentId: null,
+        message: "Snapshot iniziale",
+        description: "Commit di test",
+        createdAt: "2026-06-26T10:05:00.000Z",
+        author: "buildER",
+        snapshot: {
+          diagram: document.diagram,
+          translationWorkspace: document.translationWorkspace,
+          logicalWorkspace: document.logicalWorkspace,
+          logicalGenerated: false,
+          logicalStage: "translation",
+          diagramView: "er",
+          viewport: DEFAULT_VIEWPORT,
+          translationViewport: DEFAULT_VIEWPORT,
+          logicalViewport: DEFAULT_VIEWPORT,
+          workspaceInfo: { source: "test" },
+        },
+        checksum: "checksum-1",
+        stats: {
+          entityCount: 0,
+          relationshipCount: 0,
+          attributeCount: 0,
+          edgeCount: 0,
+          tableCount: 0,
+          warningCount: 0,
+          errorCount: 0,
+        },
+        tags: ["initial"],
+        automatic: true,
+      },
+    ],
+    tags: [
+      {
+        id: "tag-1",
+        name: "initial",
+        commitId: "commit-1",
+        createdAt: "2026-06-26T10:06:00.000Z",
+      },
+    ],
+    settings: {
+      maxCommits: 50,
+      keepTaggedCommits: true,
+      includeAutomaticCommits: true,
+    },
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.versioning.headCommitId, "commit-1");
+  assert.equal(parsed.state.versioning.commits.length, 1);
+  assert.equal(parsed.state.versioning.commits[0]?.message, "Snapshot iniziale");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.diagram.meta.name, "Commit fittizio");
+  assert.equal(parsed.state.versioning.tags[0]?.name, "initial");
+});
+
+test("un project file versione 4 senza versioning viene migrato al formato corrente", () => {
+  const document = JSON.parse(serializeProjectFile(createSerializableProject("Versione 4")));
+  document.version = 4;
+  delete document.versioning;
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.source, "project-file");
+  assert.equal(parsed.document.version, CURRENT_PROJECT_FILE_VERSION);
+  assert.deepEqual(parsed.state.versioning, createEmptyProjectVersioningState());
+});
+
+test("i formati legacy creano versioning vuoto senza crash", () => {
+  const diagram = createEmptyDiagram("Legacy senza versioning");
+  const parsed = parseProjectFile(serializeDiagram(diagram), {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "er",
+  });
+
+  assert.equal(parsed.source, "legacy-diagram-json");
+  assert.deepEqual(parsed.state.versioning, createEmptyProjectVersioningState());
+});
+
+test("versioning malformato viene sanitizzato senza impedire il caricamento", () => {
+  const document = JSON.parse(serializeProjectFile(createSerializableProject("Versioning malformato")));
+  document.versioning = {
+    version: "wrong",
+    enabled: "yes",
+    headCommitId: "missing",
+    commits: [
+      { id: "", snapshot: null },
+      {
+        id: "valid-commit",
+        parentId: 42,
+        message: "",
+        createdAt: "",
+        snapshot: {
+          diagram: document.diagram,
+          translationWorkspace: document.translationWorkspace,
+          logicalWorkspace: document.logicalWorkspace,
+          logicalGenerated: false,
+          logicalStage: "translation",
+          diagramView: "invalid",
+          viewport: { x: "bad", y: 1, zoom: -1 },
+          translationViewport: null,
+          logicalViewport: DEFAULT_VIEWPORT,
+        },
+        checksum: 123,
+        stats: {
+          entityCount: -1,
+          relationshipCount: 10,
+          attributeCount: "bad",
+          edgeCount: 4,
+        },
+        tags: ["tag-a", "tag-a", 3],
+      },
+    ],
+    tags: [{ id: "tag-a", name: "Tag A", commitId: "missing", createdAt: "" }],
+    settings: {
+      maxCommits: -1,
+      keepTaggedCommits: "yes",
+      includeAutomaticCommits: true,
+    },
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document), {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "er",
+  });
+
+  assert.equal(parsed.state.versioning.version, 1);
+  assert.equal(parsed.state.versioning.enabled, true);
+  assert.equal(parsed.state.versioning.headCommitId, null);
+  assert.equal(parsed.state.versioning.commits.length, 1);
+  assert.equal(parsed.state.versioning.commits[0]?.parentId, null);
+  assert.equal(parsed.state.versioning.commits[0]?.message, "");
+  assert.deepEqual(parsed.state.versioning.commits[0]?.tags, ["tag-a"]);
+  assert.deepEqual(parsed.state.versioning.tags, []);
+  assert.deepEqual(parsed.state.versioning.settings, {
+    maxCommits: 200,
+    keepTaggedCommits: true,
+    includeAutomaticCommits: true,
+  });
+});
+
+test("versioning viene mantenuto dopo serialize e parse", () => {
+  const initial = {
+    ...createSerializableProject("Roundtrip versioning"),
+    versioning: {
+      ...createEmptyProjectVersioningState(),
+      enabled: false,
+      settings: {
+        maxCommits: 12,
+        keepTaggedCommits: false,
+        includeAutomaticCommits: true,
+      },
+    },
+  };
+
+  const parsed = parseProjectFile(serializeProjectFile(initial));
+
+  assert.equal(parsed.document.versioning.enabled, false);
+  assert.deepEqual(parsed.state.versioning.settings, {
+    maxCommits: 12,
+    keepTaggedCommits: false,
+    includeAutomaticCommits: true,
+  });
 });
 
 test("un file con kind errato viene rifiutato con errore strutturato", () => {
