@@ -1,4 +1,8 @@
 import type { ProjectCommit } from "../../features/versioning/projectCommitSnapshot";
+import type {
+  ProjectUncommittedChangeCategories,
+  ProjectUncommittedChangeState,
+} from "../../features/versioning/useProjectVersioning";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 
@@ -6,7 +10,7 @@ interface VersioningPanelProps {
   open: boolean;
   commits: ProjectCommit[];
   headCommitId: string | null;
-  hasUncommittedChanges: boolean;
+  changeState: ProjectUncommittedChangeState;
   onClose: () => void;
   onNewCommit: () => void;
 }
@@ -24,11 +28,15 @@ function shortCommitId(id: string) {
   return id.slice(0, 8);
 }
 
+function getChangedCategoryKeys(categories: ProjectUncommittedChangeCategories) {
+  return (["er", "layout", "logical", "code", "workspace"] as const).filter((key) => categories[key]);
+}
+
 export function VersioningPanel({
   open,
   commits,
   headCommitId,
-  hasUncommittedChanges,
+  changeState,
   onClose,
   onNewCommit,
 }: VersioningPanelProps) {
@@ -51,16 +59,33 @@ export function VersioningPanel({
         <div className="studio-modal__header">
           <div>
             <h2 id="versioning-panel-title" className="studio-modal__title">{t("versioning.versions")}</h2>
-            {hasUncommittedChanges ? (
-              <p className="studio-modal__subtitle versioning-unsaved" data-testid="versioning-uncommitted">
-                {t("versioning.uncommittedChanges")}
-              </p>
-            ) : null}
+            <p
+              className={
+                changeState.hasChanges
+                  ? "studio-modal__subtitle versioning-unsaved"
+                  : "studio-modal__subtitle versioning-clean"
+              }
+              data-testid={changeState.hasChanges ? "versioning-uncommitted" : "versioning-clean"}
+            >
+              {changeState.status === "no-head-empty"
+                ? t("versioning.emptyProject")
+                : changeState.status === "no-head-with-content"
+                  ? t("versioning.noHeadWithContent")
+                  : changeState.status === "dirty"
+                    ? t("versioning.uncommittedChanges")
+                    : t("versioning.cleanWorkingCopy")}
+            </p>
           </div>
           <div className="versioning-panel-actions">
-            <button type="button" className="mode-button active" onClick={onNewCommit} data-testid="open-commit-dialog">
+            <button
+              type="button"
+              className="mode-button active"
+              onClick={onNewCommit}
+              disabled={!changeState.summary.canCommit}
+              data-testid="open-commit-dialog"
+            >
               <StudioIcon name="history" aria-hidden="true" />
-              {t("versioning.newCommit")}
+              {changeState.status === "no-head-with-content" ? t("versioning.createFirstCommit") : t("versioning.newCommit")}
             </button>
             <button type="button" className="studio-modal__close" onClick={onClose} aria-label={t("common.actions.close")}>
               <StudioIcon name="close" aria-hidden="true" />
@@ -69,10 +94,31 @@ export function VersioningPanel({
         </div>
 
         <div className="studio-modal__body versioning-panel-body">
+          {changeState.hasChanges ? (
+            <div className="versioning-change-summary" data-testid="versioning-change-categories">
+              <strong>{t("versioning.uncommittedChanges")}</strong>
+              <div className="versioning-category-list">
+                {getChangedCategoryKeys(changeState.categories).map((key) => (
+                  <span key={key} className="versioning-category-pill">
+                    {t(`versioning.categories.${key}`)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : changeState.hasHead ? (
+            <div className="versioning-change-summary is-clean" data-testid="versioning-clean-summary">
+              <strong>{t("versioning.noChangesComparedToHead")}</strong>
+            </div>
+          ) : null}
+
           {commits.length === 0 ? (
             <div className="versioning-empty" data-testid="versioning-empty">
               <StudioIcon name="history" aria-hidden="true" />
-              <strong>{t("versioning.noVersions")}</strong>
+              <strong>
+                {changeState.status === "no-head-with-content"
+                  ? t("versioning.noHeadWithContent")
+                  : t("versioning.noVersions")}
+              </strong>
             </div>
           ) : (
             <ol className="versioning-timeline" data-testid="versioning-timeline">

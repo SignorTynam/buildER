@@ -6,11 +6,13 @@ interface CommitDialogProps {
   open: boolean;
   busy: boolean;
   error: string;
+  canCommit: boolean;
+  hint: string;
   onClose: () => void;
   onSubmit: (message: string, description?: string) => void;
 }
 
-export function CommitDialog({ open, busy, error, onClose, onSubmit }: CommitDialogProps) {
+export function CommitDialog({ open, busy, error, canCommit, hint, onClose, onSubmit }: CommitDialogProps) {
   const { t } = useI18n();
   const [message, setMessage] = useState("");
   const [description, setDescription] = useState("");
@@ -75,12 +77,18 @@ export function CommitDialog({ open, busy, error, onClose, onSubmit }: CommitDia
               data-testid="commit-description-input"
             />
           </label>
+          {hint ? <p className={canCommit ? "action-modal-hint" : "action-modal-error"}>{hint}</p> : null}
           {error ? <p className="action-modal-error">{error}</p> : null}
           <div className="action-modal-actions">
             <button type="button" className="header-button" onClick={onClose} disabled={busy}>
               {t("common.actions.cancel")}
             </button>
-            <button type="submit" className="mode-button active" disabled={busy} data-testid="create-commit-button">
+            <button
+              type="submit"
+              className="mode-button active"
+              disabled={busy || !canCommit}
+              data-testid="create-commit-button"
+            >
               {t("versioning.createCommit")}
             </button>
           </div>

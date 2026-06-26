@@ -181,7 +181,7 @@ import {
   type ProjectVersioningState,
 } from "./utils/projectFile";
 import {
-  hasProjectUncommittedChanges,
+  getProjectUncommittedChangeState,
   useProjectVersioning,
 } from "./features/versioning/useProjectVersioning";
 import type { SqlReverseIssue } from "./types/sqlReverse";
@@ -1235,10 +1235,19 @@ export default function App() {
       viewport,
     ],
   );
-  const hasVersioningUncommittedChanges = useMemo(
-    () => hasProjectUncommittedChanges(projectVersioning.versioning, currentProjectCommitSnapshot),
+  const versioningChangeState = useMemo(
+    () => getProjectUncommittedChangeState(projectVersioning.versioning, currentProjectCommitSnapshot),
     [currentProjectCommitSnapshot, projectVersioning.versioning],
   );
+  const hasVersioningUncommittedChanges = versioningChangeState.hasChanges;
+  const commitDialogHint =
+    versioningChangeState.status === "no-head-empty"
+      ? t("versioning.emptyProject")
+      : versioningChangeState.status === "no-head-with-content"
+        ? t("versioning.createFirstCommit")
+        : versioningChangeState.status === "clean"
+          ? t("versioning.noChangesComparedToHead")
+          : "";
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -5143,6 +5152,15 @@ export default function App() {
   }
 
   async function handleCreateProjectCommit(message: string, description?: string) {
+    if (!versioningChangeState.summary.canCommit) {
+      setCommitDialogError(
+        versioningChangeState.status === "no-head-empty"
+          ? t("versioning.emptyProject")
+          : t("versioning.noChangesToCommit"),
+      );
+      return;
+    }
+
     const trimmedMessage = message.trim();
     if (!trimmedMessage) {
       setCommitDialogError(t("versioning.messageRequired"));
@@ -5809,7 +5827,7 @@ export default function App() {
         open={versioningPanelOpen}
         commits={projectVersioning.commitsNewestFirst}
         headCommitId={projectVersioning.versioning.headCommitId}
-        hasUncommittedChanges={hasVersioningUncommittedChanges}
+        changeState={versioningChangeState}
         onClose={() => setVersioningPanelOpen(false)}
         onNewCommit={() => {
           setCommitDialogError("");
@@ -5821,6 +5839,8 @@ export default function App() {
         open={commitDialogOpen}
         busy={commitDialogBusy}
         error={commitDialogError}
+        canCommit={versioningChangeState.summary.canCommit}
+        hint={commitDialogHint}
         onClose={() => {
           if (!commitDialogBusy) {
             setCommitDialogOpen(false);

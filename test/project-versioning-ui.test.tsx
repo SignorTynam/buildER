@@ -8,9 +8,14 @@ import { VersioningPanel } from "../src/components/versioning/VersioningPanel.ts
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { DEFAULT_LOCALE, setCurrentLocale } from "../src/i18n/index.ts";
 import { buildProjectCommitDraft, createProjectCommitSnapshot } from "../src/features/versioning/projectCommitSnapshot.ts";
+import {
+  createProjectCommitInState,
+  getProjectUncommittedChangeState,
+} from "../src/features/versioning/useProjectVersioning.ts";
 import { createEmptyDiagram } from "../src/utils/diagram.ts";
 import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts";
 import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
+import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -76,6 +81,8 @@ test("dialog commit si apre con input messaggio, descrizione ed errore", () => {
       open
       busy={false}
       error="Messaggio obbligatorio"
+      canCommit
+      hint=""
       onClose={() => undefined}
       onSubmit={() => undefined}
     />,
@@ -90,24 +97,58 @@ test("dialog commit si apre con input messaggio, descrizione ed errore", () => {
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
-test("pannello Versioni mostra modifiche non committate, HEAD, messaggio e statistiche", async () => {
+test("dialog commit disabilita la creazione quando non ci sono modifiche", () => {
   setCurrentLocale("it");
+  const markup = renderWithI18n(
+    <CommitDialog
+      open
+      busy={false}
+      error=""
+      canCommit={false}
+      hint="Nessuna modifica rispetto a HEAD"
+      onClose={() => undefined}
+      onSubmit={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /Nessuna modifica rispetto a HEAD/);
+  assert.match(markup, /<button type="submit" class="mode-button active" disabled="" data-testid="create-commit-button"/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messaggio e statistiche", async () => {
+  setCurrentLocale("it");
+  const snapshot = createSnapshot();
   const commit = await buildProjectCommitDraft({
     id: "commit-ui-test",
     parentId: null,
     message: "Schema iniziale",
     description: "Prima versione stabile",
     createdAt: "2026-06-26T10:00:00.000Z",
-    snapshot: createSnapshot(),
+    snapshot,
     automatic: false,
     tags: [],
   });
+  const changedSnapshot = createProjectCommitSnapshot({
+    ...snapshot,
+    codeDraft: "entity Cliente\nentity Ordine",
+    codeDirty: true,
+    codePanelOpen: false,
+  });
+  const changeState = getProjectUncommittedChangeState(
+    {
+      ...createEmptyProjectVersioningState(),
+      headCommitId: commit.id,
+      commits: [commit],
+    },
+    changedSnapshot,
+  );
   const markup = renderWithI18n(
     <VersioningPanel
       open
       commits={[commit]}
       headCommitId={commit.id}
-      hasUncommittedChanges
+      changeState={changeState}
       onClose={() => undefined}
       onNewCommit={() => undefined}
     />,
@@ -115,7 +156,10 @@ test("pannello Versioni mostra modifiche non committate, HEAD, messaggio e stati
 
   assert.match(markup, /data-testid="versioning-panel"/);
   assert.match(markup, /data-testid="versioning-uncommitted"/);
+  assert.match(markup, /data-testid="versioning-change-categories"/);
   assert.match(markup, /data-testid="versioning-timeline"/);
+  assert.match(markup, /Modifiche al codice/);
+  assert.match(markup, /Modifiche al workspace/);
   assert.match(markup, /Schema iniziale/);
   assert.match(markup, /Prima versione stabile/);
   assert.match(markup, /HEAD/);
@@ -128,12 +172,19 @@ test("pannello Versioni mostra modifiche non committate, HEAD, messaggio e stati
 
 test("pannello Versioni mostra lo stato vuoto", () => {
   setCurrentLocale("it");
+  const emptyState = getProjectUncommittedChangeState(createEmptyProjectVersioningState(), createSnapshot());
+  const noContentState = {
+    ...emptyState,
+    status: "no-head-empty" as const,
+    hasChanges: false,
+    summary: { changedCategoryCount: 0, canCommit: false },
+  };
   const markup = renderWithI18n(
     <VersioningPanel
       open
       commits={[]}
       headCommitId={null}
-      hasUncommittedChanges={false}
+      changeState={noContentState}
       onClose={() => undefined}
       onNewCommit={() => undefined}
     />,
@@ -141,5 +192,54 @@ test("pannello Versioni mostra lo stato vuoto", () => {
 
   assert.match(markup, /data-testid="versioning-empty"/);
   assert.match(markup, /Nessuna versione salvata/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("pannello Versioni mostra CTA primo commit quando manca HEAD ma c'e contenuto", () => {
+  setCurrentLocale("it");
+  const snapshot = createSnapshot();
+  const changeState = getProjectUncommittedChangeState(createEmptyProjectVersioningState(), snapshot);
+  const markup = renderWithI18n(
+    <VersioningPanel
+      open
+      commits={[]}
+      headCommitId={null}
+      changeState={changeState}
+      onClose={() => undefined}
+      onNewCommit={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /Questo progetto non ha ancora commit/);
+  assert.match(markup, /Crea primo commit/);
+  assert.match(markup, /Modifiche allo schema ER/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("pannello Versioni mostra working copy pulita quando HEAD e invariato", async () => {
+  setCurrentLocale("it");
+  const snapshot = createSnapshot();
+  const result = await createProjectCommitInState(createEmptyProjectVersioningState(), {
+    snapshot,
+    message: "Schema iniziale",
+  });
+  assert.equal(result.status, "created");
+  if (result.status !== "created") {
+    return;
+  }
+  const markup = renderWithI18n(
+    <VersioningPanel
+      open
+      commits={result.versioning.commits}
+      headCommitId={result.commit.id}
+      changeState={getProjectUncommittedChangeState(result.versioning, snapshot)}
+      onClose={() => undefined}
+      onNewCommit={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /data-testid="versioning-clean"/);
+  assert.match(markup, /Working copy pulita/);
+  assert.match(markup, /Nessuna modifica rispetto a HEAD/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
