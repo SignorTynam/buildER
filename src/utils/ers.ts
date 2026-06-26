@@ -29,6 +29,10 @@ import {
   validateDiagram,
 } from "./diagram";
 import { GRID_SIZE, snapValue } from "./geometry";
+import {
+  buildAttributeLayoutBounds,
+  distributeAttributesAroundHost,
+} from "./attributeLayout";
 
 const DEFAULT_NODE_SIZES: Record<NodeKind, { width: number; height: number }> = {
   entity: { width: 140, height: 64 },
@@ -3238,35 +3242,16 @@ function autoPlaceDiagram(diagram: DiagramDocument, lockedNodeIds: Set<string>):
     attributes: Array<Extract<DiagramNode, { type: "attribute" }>>,
   ) {
     const host = getNode(hostId);
-    let identifierIndex = 0;
-    let regularIndex = 0;
-    let compositeIndex = 0;
+    const lockedAttributes = attributes.filter((attribute) => lockedNodeIds.has(attribute.id));
+    const movableAttributes = attributes.filter((attribute) => !lockedNodeIds.has(attribute.id));
+    const occupiedBounds = lockedAttributes.map((attribute) => buildAttributeLayoutBounds(host, attribute));
+    const positionedAttributes = distributeAttributesAroundHost(host, movableAttributes, {
+      occupiedBounds,
+      preserveInputOrder: true,
+    });
 
-    attributes.forEach((attribute) => {
-      if (lockedNodeIds.has(attribute.id)) {
-        return;
-      }
-
-      let x = host.x + host.width + 80;
-      let y = host.y + regularIndex * 56;
-
-      if (attribute.isIdentifier === true) {
-        x = host.x - attribute.width - 80;
-        y = host.y + identifierIndex * 56;
-        identifierIndex += 1;
-      } else if (attribute.isCompositeInternal === true) {
-        x = host.x + host.width / 2 - attribute.width / 2 + compositeIndex * 24;
-        y = host.y + host.height + 80 + compositeIndex * 44;
-        compositeIndex += 1;
-      } else {
-        regularIndex += 1;
-      }
-
-      setNode({
-        ...attribute,
-        x: snapValue(x, GRID_SIZE),
-        y: snapValue(y, GRID_SIZE),
-      });
+    positionedAttributes.forEach((attribute) => {
+      setNode(attribute);
     });
   }
 
