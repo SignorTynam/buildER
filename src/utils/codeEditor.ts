@@ -52,5 +52,5 @@ export function shouldSyncCodeDraftFromDiagram(options: {
   dirty: boolean;
   source: CodeDraftSyncSource;
 }): boolean {
-  return options.source === "external" && !options.focused && !options.dirty;
+  return options.source === "external" && !options.focused;
 }

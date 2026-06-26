@@ -1006,7 +1006,7 @@ export default function App() {
     structuredSidePanelHidden,
     handleToggleToolRail,
     closeTechnicalPanel,
-    handleToggleCodePanel,
+    handleToggleCodePanel: toggleWorkspaceCodePanel,
     handleToggleNotesPanel,
     handlePanelResizeStart,
     resetPanelWidth,
@@ -2163,6 +2163,14 @@ export default function App() {
     }
   }
 
+  function handleToggleCodePanel() {
+    if (codePanelOpen) {
+      handleCodeEditorBlur();
+    }
+
+    toggleWorkspaceCodePanel();
+  }
+
   function rememberCodeLayout(diagram: DiagramDocument) {
     const currentMemory = codeLayoutMemoryRef.current;
     if (!currentMemory) {
@@ -2252,8 +2260,9 @@ export default function App() {
 
     // While the code editor owns the text, never replace the draft with the
     // canonical serializer output; that rewrite moves the caret and can erase
-    // in-progress input. External canvas/project changes sync only when the
-    // draft is clean and the editor is not active.
+    // in-progress input. Once focus leaves the editor, external canvas/project
+    // changes should be reflected in Code even if the previous draft was not
+    // canonical serializer output.
     if (
       shouldSyncCodeDraftFromDiagram({
         focused: codeEditorFocusedRef.current,
@@ -2263,6 +2272,7 @@ export default function App() {
     ) {
       codeDraftRef.current = nextSerializedCode;
       codeDirtyRef.current = false;
+      codeLayoutMemoryRef.current = null;
       setCodeDraft(nextSerializedCode);
       setCodeDirty(false);
       setCodeError("");

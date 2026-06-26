@@ -61,9 +61,10 @@ test("code editor: edit helpers do not remove unselected text", () => {
   assert.equal(pairEdit.value.endsWith("-after"), true);
 });
 
-test("code editor: diagram serialization does not sync over active or dirty editing", () => {
+test("code editor: diagram serialization does not sync over active editing", () => {
   assert.equal(shouldSyncCodeDraftFromDiagram({ focused: true, dirty: false, source: "external" }), false);
-  assert.equal(shouldSyncCodeDraftFromDiagram({ focused: false, dirty: true, source: "external" }), false);
+  assert.equal(shouldSyncCodeDraftFromDiagram({ focused: true, dirty: true, source: "external" }), false);
   assert.equal(shouldSyncCodeDraftFromDiagram({ focused: false, dirty: false, source: "code-parse" }), false);
   assert.equal(shouldSyncCodeDraftFromDiagram({ focused: false, dirty: false, source: "external" }), true);
+  assert.equal(shouldSyncCodeDraftFromDiagram({ focused: false, dirty: true, source: "external" }), true);
 });
