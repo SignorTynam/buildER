@@ -3,7 +3,7 @@ import type { WorkspaceView } from "../types/translation";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
 
-type NoticeTone = "success" | "warning" | "error";
+type NoticeTone = "success" | "warning" | "error" | "info";
 
 interface WorkspaceNoticeItem {
   id: number;

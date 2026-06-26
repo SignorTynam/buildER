@@ -18,6 +18,7 @@ import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
 import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
 import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
 import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
+import { WorkspaceToastStack } from "./components/WorkspaceToastStack";
 import { StudioIcon } from "./components/icons/StudioIcon";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
@@ -2245,7 +2246,9 @@ export default function App() {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Codice ERS non valido.";
-        setCodeError(formatErsErrorMessage(message));
+        const formattedMessage = formatErsErrorMessage(message);
+        setCodeError(formattedMessage);
+        showErrorNotice(formattedMessage, { title: "Errore nel codice ERS" });
       }
     }, 850);
 
@@ -3016,6 +3019,10 @@ export default function App() {
     let targetNode = findNode(history.present, resolvedTargetId);
 
     if (!sourceNode || !targetNode) {
+      showWarningNotice(
+        "Manca il nodo sorgente o destinazione. Seleziona due nodi validi e riprova.",
+        { title: "Collegamento non valido" },
+      );
       return {
         success: false,
         message: buildStructuredErrorMessage(
@@ -3045,6 +3052,10 @@ export default function App() {
       targetNode.type === "attribute" &&
       !canAttributeBecomeComposite(history.present, targetNode)
     ) {
+      showWarningNotice(
+        `L'attributo "${targetNode.label}" appartiene gia a un attributo composto e non puo diventare composto. Collega il nuovo attributo direttamente all'attributo composto principale.`,
+        { title: "Sotto-attributo non consentito" },
+      );
       return {
         success: false,
         message: buildStructuredErrorMessage(
@@ -3057,6 +3068,10 @@ export default function App() {
 
     if (!canConnect(type, sourceNode, targetNode)) {
       const failureReason = getConnectionFailureReason(type, sourceNode, targetNode);
+      showWarningNotice(
+        `${normalizeMessagePart(failureReason.replace(/^errore[:\s]*/i, ""))}. Collega solo elementi compatibili con la notazione Chen.`,
+        { title: "Collegamento non valido" },
+      );
       return {
         success: false,
         message: buildStructuredErrorMessage(
@@ -3068,6 +3083,7 @@ export default function App() {
     }
 
     if (edgeAlreadyExists(history.present, type, resolvedSourceId, resolvedTargetId)) {
+      showWarningNotice("Questo collegamento esiste gia nel diagramma.", { title: "Collegamento gia presente" });
       return { success: false, message: "Collegamento gia presente." };
     }
 
@@ -3210,13 +3226,15 @@ export default function App() {
   function handleOpenCardinalityControl(edgeId?: string) {
     const target = getCardinalityTargetFromSelection(edgeId);
     if (!target) {
-      setStatusWarning("Seleziona prima un attributo o un connector entita-relazione.");
+      setStatusWarning("Seleziona prima un attributo o un connector entita-relazione.", {
+        title: "Cardinalita non applicabile",
+      });
       return;
     }
 
     const blockReason = getCardinalityBlockReason(target);
     if (blockReason) {
-      setStatusWarning(blockReason);
+      setStatusWarning(blockReason, { title: "Cardinalita non applicabile" });
       return;
     }
 
@@ -3515,23 +3533,30 @@ export default function App() {
 
   function handleToggleSimpleIdentifierFromSelection() {
     if (!selectedNode || selectedNode.type !== "attribute") {
+      setStatusWarning("Seleziona un attributo semplice collegato direttamente a un'entita.", {
+        title: "Identificatore non valido",
+      });
       return;
     }
 
     const context = getDirectEntityAttributeContext(selectedNode.id);
     if (!context) {
-      setStatusWarning("Simple Id e disponibile solo per attributi semplici collegati direttamente a un'entita.");
+      setStatusWarning("Simple Id e disponibile solo per attributi semplici collegati direttamente a un'entita.", {
+        title: "Identificatore non valido",
+      });
       return;
     }
 
     const result = createSimpleInternalIdentifierForAttribute(history.present, context.attribute.id);
     if (result.status === "already-exists") {
-      setStatusWarning(t("workspace.identifierAlreadyExistsUseDelete"));
+      setStatusWarning(t("workspace.identifierAlreadyExistsUseDelete"), { title: "Identificatore gia presente" });
       return;
     }
 
     if (result.status !== "created") {
-      setStatusWarning("Simple Id e disponibile solo per attributi semplici non usati in altri identificatori.");
+      setStatusWarning("Simple Id e disponibile solo per attributi semplici non usati in altri identificatori.", {
+        title: "Identificatore non valido",
+      });
       return;
     }
 
@@ -3549,7 +3574,9 @@ export default function App() {
   function handleCreateCompositeIdentifierFromSelection() {
     const context = getCompositeIdentifierSelectionContext();
     if (!context) {
-      setStatusWarning("Composite Id richiede almeno due attributi semplici della stessa entita selezionati con Ctrl/Cmd+click.");
+      setStatusWarning("Composite Id richiede almeno due attributi semplici della stessa entita selezionati con Ctrl/Cmd+click.", {
+        title: "Identificatore composito non valido",
+      });
       return;
     }
 
@@ -3610,7 +3637,9 @@ export default function App() {
     }
 
     if (!hostEntity) {
-      setStatusWarning("External Id richiede un'entita host o un connector entita-relazione.");
+      setStatusWarning("External Id richiede un'entita host o un connector entita-relazione.", {
+        title: "Identificatore esterno non disponibile",
+      });
       return;
     }
 
@@ -3624,7 +3653,9 @@ export default function App() {
     });
 
     if (selectedImportParts.length === 0) {
-      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.");
+      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.", {
+        title: "Identificatore esterno non disponibile",
+      });
       return;
     }
 
@@ -3697,19 +3728,25 @@ export default function App() {
   function handleOpenMixedIdentifierModal() {
     const connectorContext = getConnectorContextFromSelectedEdge();
     if (!connectorContext) {
-      setStatusWarning("External Id richiede un connector entita-relazione selezionato.");
+      setStatusWarning("External Id richiede un connector entita-relazione selezionato.", {
+        title: "Identificatore esterno non disponibile",
+      });
       return;
     }
 
     if (!selectedConnectorRequiresMixedIdentifierCardinality()) {
-      setStatusWarning("Gli identificatori esterni richiedono cardinalita (1,1) sul lato dell'entita.");
+      setStatusWarning("Gli identificatori esterni richiedono cardinalita (1,1) sul lato dell'entita.", {
+        title: "Identificatore esterno non disponibile",
+      });
       return;
     }
 
     const hostEntity = connectorContext.entity;
     const importOptions = getEligibleImportedIdentifierParts(history.present, hostEntity.id);
     if (importOptions.length === 0) {
-      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.");
+      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.", {
+        title: "Identificatore esterno non disponibile",
+      });
       return;
     }
 
@@ -3959,13 +3996,17 @@ export default function App() {
 
   function handleCreateAttributeFromSelection() {
     if (selection.nodeIds.length !== 1 || selection.edgeIds.length > 0) {
-      setStatusWarning("Seleziona prima un'entita o una relazione.");
+      setStatusWarning("Seleziona una entita, una relazione o un attributo multivalore per aggiungere un attributo.", {
+        title: "Attributo non applicabile",
+      });
       return;
     }
 
     const hostNode = history.present.nodes.find((node) => node.id === selection.nodeIds[0]);
     if (!hostNode || (hostNode.type !== "entity" && hostNode.type !== "relationship" && hostNode.type !== "attribute")) {
-      setStatusWarning("Seleziona prima un'entita o una relazione.");
+      setStatusWarning("Seleziona una entita, una relazione o un attributo multivalore per aggiungere un attributo.", {
+        title: "Attributo non applicabile",
+      });
       return;
     }
 
@@ -3976,6 +4017,7 @@ export default function App() {
           `l'attributo "${hostNode.label}" appartiene gia a un attributo composto e non puo diventare composto`,
           "seleziona l'attributo composto principale e aggiungi li il nuovo attributo",
         ),
+        { title: "Sotto-attributo non consentito" },
       );
       return;
     }
@@ -5211,6 +5253,8 @@ export default function App() {
         onOpenShortcuts={openKeyboardShortcuts}
         onDiagramNameChange={handleDiagramNameChange}
       />
+
+      <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
 
       <div className={workspaceRegionClassName}>
         <div className="workspace-overlay-region">

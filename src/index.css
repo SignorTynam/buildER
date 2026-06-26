@@ -12352,6 +12352,163 @@ summary:focus-visible,
   }
 }
 
+.workspace-toast-viewport {
+  position: fixed;
+  top: 86px;
+  right: 18px;
+  z-index: 72;
+  width: min(380px, calc(100vw - 36px));
+  pointer-events: none;
+}
+
+.workspace-toast-viewport .workspace-toast-stack {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.workspace-toast-viewport .workspace-toast {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--panel-border, var(--studio-border));
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--panel-surface, #ffffff);
+  box-shadow: 0 14px 28px rgba(17, 31, 49, 0.14);
+  color: var(--panel-text, var(--studio-ink));
+  pointer-events: auto;
+  animation: workspace-toast-enter 160ms ease-out;
+}
+
+.workspace-toast-viewport .workspace-toast-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--panel-border, var(--studio-border));
+  background: var(--panel-bg, #f6faf5);
+}
+
+.workspace-toast-viewport .workspace-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: currentColor;
+}
+
+.workspace-toast-viewport .workspace-toast-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--panel-text, var(--studio-ink));
+  font-size: 0.86rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-toast-viewport .workspace-toast-time {
+  color: var(--panel-muted, var(--studio-muted));
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.workspace-toast-viewport .workspace-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--panel-muted, var(--studio-muted));
+}
+
+.workspace-toast-viewport .workspace-toast-close:hover {
+  border-color: var(--panel-border, var(--studio-border));
+  background: var(--panel-surface-active, #eef4f0);
+  color: var(--panel-text, var(--studio-ink));
+}
+
+.workspace-toast-viewport .workspace-toast-close:focus-visible,
+.workspace-toast-viewport .workspace-toast-action:focus-visible {
+  outline: 2px solid var(--panel-border-strong, var(--studio-accent));
+  outline-offset: 2px;
+}
+
+.workspace-toast-viewport .workspace-toast-body {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+.workspace-toast-viewport .workspace-toast-body p {
+  margin: 0;
+  color: var(--panel-text, var(--studio-ink));
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.workspace-toast-viewport .workspace-toast-action {
+  justify-self: start;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--panel-border-strong, var(--studio-accent));
+  border-radius: 6px;
+  background: var(--panel-surface, #ffffff);
+  color: var(--panel-border-strong, var(--studio-accent));
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.workspace-toast-viewport .workspace-toast.tone-success {
+  border-color: rgba(47, 115, 83, 0.5);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-success .workspace-toast-icon {
+  color: #2f7353;
+}
+
+.workspace-toast-viewport .workspace-toast.tone-warning {
+  border-color: rgba(169, 111, 22, 0.58);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-warning .workspace-toast-icon {
+  color: var(--studio-warning);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-error {
+  border-color: rgba(182, 66, 54, 0.58);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-error .workspace-toast-icon {
+  color: var(--studio-danger);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-info {
+  border-color: rgba(59, 99, 123, 0.48);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-info .workspace-toast-icon {
+  color: #3b637b;
+}
+
+@media (max-width: 760px) {
+  .workspace-toast-viewport {
+    top: 76px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+}
+
 @media (max-width: 760px) {
 .workspace-stage-tab-label,
   .studio-topbar-button span,

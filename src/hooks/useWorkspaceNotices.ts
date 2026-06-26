@@ -3,19 +3,47 @@ import type { ValidationIssue } from "../types/diagram";
 
 export interface WorkspaceNotice {
   id: number;
+  title?: string;
   message: string;
-  tone: "success" | "warning" | "error";
+  tone: "success" | "warning" | "error" | "info";
   sticky?: boolean;
   stickyType?: "source-selection" | "selection-warning";
   targetId?: string;
+  createdAt: number;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 export const NOTICE_DURATION_MS = {
   success: 3200,
+  info: 3600,
   warning: 4400,
   error: 6200,
 } as const;
 export const STATUS_FOLLOWUP_NOTICE_MS = 2600;
+export const MAX_NOTICE_HISTORY = 8;
+
+type WorkspaceNoticeOptions = {
+  title?: string;
+  sticky?: boolean;
+  stickyType?: WorkspaceNotice["stickyType"];
+  targetId?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+
+export function getWorkspaceNoticeDeduplicationKey(
+  notice: Pick<WorkspaceNotice, "message" | "tone"> &
+    Partial<Pick<WorkspaceNotice, "title" | "stickyType" | "targetId">>,
+): string {
+  return [
+    notice.tone,
+    notice.title ?? "",
+    notice.message,
+    notice.stickyType ?? "",
+    notice.targetId ?? "",
+  ].join("\u001f");
+}
 
 interface UseWorkspaceNoticesOptions {
   formatErrorMessage: (message: string) => string;
@@ -80,33 +108,52 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
       return [
         {
           id: nextNoticeIdRef.current++,
+          title: "Avviso di validazione",
           message: issue.message,
           tone: "warning",
           sticky: true,
           stickyType: "selection-warning",
           targetId: issue.targetId,
+          createdAt: Date.now(),
         },
         ...retained,
       ];
     });
   }
 
-  function showNotice(notice: Omit<WorkspaceNotice, "id">, duration: number | null = NOTICE_DURATION_MS[notice.tone]) {
-    const id = nextNoticeIdRef.current++;
+  function showNotice(notice: Omit<WorkspaceNotice, "id" | "createdAt">, duration: number | null = NOTICE_DURATION_MS[notice.tone]) {
+    let id = nextNoticeIdRef.current++;
+    const createdAt = Date.now();
 
     setNotices((current) => {
+      const nextKey = getWorkspaceNoticeDeduplicationKey(notice);
+      const duplicate = current.find((item) => getWorkspaceNoticeDeduplicationKey(item) === nextKey);
+      if (duplicate) {
+        id = duplicate.id;
+        clearNoticeTimer(id);
+        const updated: WorkspaceNotice = {
+          ...duplicate,
+          ...notice,
+          id,
+          createdAt,
+        };
+        return [updated, ...current.filter((item) => item.id !== id)];
+      }
+
       const preservedSelectionWarningNotices =
         notice.stickyType === "selection-warning"
           ? []
           : current.filter((item) => item.stickyType === "selection-warning");
-      const retained = current.filter((item) => item.message !== notice.message && !item.sticky).slice(0, 1);
+      const retained = current
+        .filter((item) => item.message !== notice.message && !item.sticky)
+        .slice(0, MAX_NOTICE_HISTORY - preservedSelectionWarningNotices.length - 1);
       const removed = current.filter(
         (item) =>
           !retained.some((kept) => kept.id === item.id) &&
           !preservedSelectionWarningNotices.some((kept) => kept.id === item.id),
       );
       removed.forEach((item) => clearNoticeTimer(item.id));
-      return [{ id, ...notice }, ...preservedSelectionWarningNotices, ...retained];
+      return [{ id, createdAt, ...notice }, ...preservedSelectionWarningNotices, ...retained];
     });
 
     if (duration !== null) {
@@ -117,30 +164,59 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     }
   }
 
-  function showErrorNotice(message: string) {
+  function showErrorNotice(message: string, options?: WorkspaceNoticeOptions) {
     showNotice({
+      title: options?.title,
       message: formatErrorMessage(message),
       tone: "error",
+      sticky: options?.sticky,
+      stickyType: options?.stickyType,
+      targetId: options?.targetId,
+      actionLabel: options?.actionLabel,
+      onAction: options?.onAction,
     });
   }
 
-  function showWarningNotice(message: string, options?: { stickyType?: WorkspaceNotice["stickyType"] }) {
-    const sticky = options?.stickyType !== undefined;
+  function showWarningNotice(message: string, options?: WorkspaceNoticeOptions) {
+    const sticky = options?.sticky === true || options?.stickyType !== undefined;
     showNotice(
       {
+        title: options?.title,
         message,
         tone: "warning",
         sticky,
         stickyType: options?.stickyType,
+        targetId: options?.targetId,
+        actionLabel: options?.actionLabel,
+        onAction: options?.onAction,
       },
       sticky ? null : NOTICE_DURATION_MS.warning,
     );
   }
 
-  function showSuccessNotice(message: string) {
+  function showSuccessNotice(message: string, options?: WorkspaceNoticeOptions) {
     showNotice({
+      title: options?.title,
       message,
       tone: "success",
+      sticky: options?.sticky,
+      stickyType: options?.stickyType,
+      targetId: options?.targetId,
+      actionLabel: options?.actionLabel,
+      onAction: options?.onAction,
+    });
+  }
+
+  function showInfoNotice(message: string, options?: WorkspaceNoticeOptions) {
+    showNotice({
+      title: options?.title,
+      message,
+      tone: "info",
+      sticky: options?.sticky,
+      stickyType: options?.stickyType,
+      targetId: options?.targetId,
+      actionLabel: options?.actionLabel,
+      onAction: options?.onAction,
     });
   }
 
@@ -154,6 +230,7 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     if (notices.some((notice) => notice.sticky)) {
       showNotice(
         {
+          title: "Completato",
           message,
           tone: "success",
         },
@@ -162,20 +239,20 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     }
   }
 
-  function setStatusWarning(message: string) {
+  function setStatusWarning(message: string, options?: WorkspaceNoticeOptions) {
     setStatusMessage(message);
-    showWarningNotice(message);
+    showWarningNotice(message, { ...options, title: options?.title ?? "Operazione non valida" });
   }
 
-  function setStatusSuccess(message: string) {
+  function setStatusSuccess(message: string, options?: WorkspaceNoticeOptions) {
     setStatusMessage(message);
-    showSuccessNotice(message);
+    showSuccessNotice(message, { ...options, title: options?.title ?? "Completato" });
   }
 
-  function setStatusError(message: string) {
+  function setStatusError(message: string, options?: WorkspaceNoticeOptions) {
     const normalizedError = formatErrorMessage(message);
     setStatusMessage(normalizedError);
-    showErrorNotice(normalizedError);
+    showErrorNotice(normalizedError, { ...options, title: options?.title ?? "Errore" });
   }
 
   useEffect(() => {
@@ -211,6 +288,7 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     showErrorNotice,
     showWarningNotice,
     showSuccessNotice,
+    showInfoNotice,
     showSelectionWarningNotice,
     removeNotice,
     clearNotices,
