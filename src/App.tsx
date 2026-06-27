@@ -7,6 +7,7 @@ import { ChangelogModal } from "./components/ChangelogModal";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
 import { CommitDialog } from "./components/versioning/CommitDialog";
+import { VersionDiffDialog } from "./components/versioning/VersionDiffDialog";
 import { VersioningPanel } from "./components/versioning/VersioningPanel";
 import {
   CardinalityModal,
@@ -184,6 +185,11 @@ import {
   getProjectUncommittedChangeState,
   useProjectVersioning,
 } from "./features/versioning/useProjectVersioning";
+import {
+  createProjectVersionDiffFromCommitAndSnapshot,
+  createProjectVersionDiffFromCommits,
+  type ProjectVersionDiffResult,
+} from "./features/versioning/projectVersionDiff";
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
@@ -1000,6 +1006,8 @@ export default function App() {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [versioningPanelOpen, setVersioningPanelOpen] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [versionDiff, setVersionDiff] = useState<ProjectVersionDiffResult | null>(null);
+  const [versionDiffOpen, setVersionDiffOpen] = useState(false);
   const [commitDialogError, setCommitDialogError] = useState("");
   const [commitDialogBusy, setCommitDialogBusy] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
@@ -5202,6 +5210,49 @@ export default function App() {
     }
   }
 
+  function handleMissingDiffCommit(commitId: string) {
+    const message = t("versioning.diff.commitNotFound", { commitId });
+    setStatusError(message);
+    showErrorNotice(message, { title: t("versioning.diff.title") });
+  }
+
+  function openVersionDiff(diff: ProjectVersionDiffResult) {
+    setVersionDiff(diff);
+    setVersionDiffOpen(true);
+  }
+
+  function handleCompareCommitWithCurrent(commitId: string) {
+    const result = createProjectVersionDiffFromCommitAndSnapshot(
+      projectVersioning.versioning,
+      commitId,
+      currentProjectCommitSnapshot,
+      t("versioning.diff.workingCopy"),
+    );
+
+    if (result.status === "missing-commit") {
+      handleMissingDiffCommit(result.commitId);
+      return;
+    }
+
+    openVersionDiff(result.diff);
+  }
+
+  function handleCompareCommitWithHead(commitId: string) {
+    const headCommitId = projectVersioning.versioning.headCommitId;
+    if (!headCommitId) {
+      handleMissingDiffCommit(commitId);
+      return;
+    }
+
+    const result = createProjectVersionDiffFromCommits(projectVersioning.versioning, commitId, headCommitId);
+    if (result.status === "missing-commit") {
+      handleMissingDiffCommit(result.commitId);
+      return;
+    }
+
+    openVersionDiff(result.diff);
+  }
+
   async function handleLoadProjectRequest() {
     if (!(await confirmDiscardChanges(t("workspace.unsavedActions.loadProject")))) {
       return;
@@ -5833,6 +5884,14 @@ export default function App() {
           setCommitDialogError("");
           setCommitDialogOpen(true);
         }}
+        onCompareWithCurrent={handleCompareCommitWithCurrent}
+        onCompareWithHead={handleCompareCommitWithHead}
+      />
+
+      <VersionDiffDialog
+        open={versionDiffOpen}
+        diff={versionDiff}
+        onClose={() => setVersionDiffOpen(false)}
       />
 
       <CommitDialog

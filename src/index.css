@@ -205,6 +205,13 @@
   color: var(--text-secondary, #475569);
 }
 
+.versioning-commit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .versioning-head-badge {
   display: inline-flex;
   align-items: center;
@@ -225,6 +232,104 @@
   margin: 0;
   color: var(--studio-muted);
   font-size: 0.86rem;
+}
+
+.version-diff-dialog {
+  max-width: 900px;
+}
+
+.version-diff-body {
+  display: grid;
+  gap: 14px;
+  max-height: min(72vh, 760px);
+  overflow: auto;
+}
+
+.version-diff-summary,
+.version-diff-section {
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--studio-surface);
+}
+
+.version-diff-summary h3,
+.version-diff-section h3,
+.version-diff-group h4 {
+  margin: 0 0 8px;
+}
+
+.version-diff-summary-grid,
+.version-diff-before-after {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.version-diff-summary-grid span,
+.version-diff-item-head span {
+  color: var(--studio-muted);
+  font-size: 0.82rem;
+}
+
+.version-diff-empty {
+  margin: 0;
+  color: var(--studio-muted);
+}
+
+.version-diff-group {
+  display: grid;
+  gap: 8px;
+}
+
+.version-diff-group + .version-diff-group {
+  margin-top: 12px;
+}
+
+.version-diff-group ul {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.version-diff-item {
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--studio-surface-muted);
+}
+
+.version-diff-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.version-diff-details {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.version-diff-details div {
+  display: grid;
+  gap: 2px;
+}
+
+.version-diff-details dt {
+  color: var(--studio-muted);
+  font-size: 0.78rem;
+}
+
+.version-diff-details dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.82rem;
 }
 
 * {

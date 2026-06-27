@@ -4,10 +4,16 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { CommitDialog } from "../src/components/versioning/CommitDialog.tsx";
+import { VersionDiffDialog } from "../src/components/versioning/VersionDiffDialog.tsx";
 import { VersioningPanel } from "../src/components/versioning/VersioningPanel.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { DEFAULT_LOCALE, setCurrentLocale } from "../src/i18n/index.ts";
 import { buildProjectCommitDraft, createProjectCommitSnapshot } from "../src/features/versioning/projectCommitSnapshot.ts";
+import {
+  buildProjectVersionDiff,
+  createProjectVersionDiffFromCommitAndSnapshot,
+  createProjectVersionDiffFromCommits,
+} from "../src/features/versioning/projectVersionDiff.ts";
 import {
   createProjectCommitInState,
   getProjectUncommittedChangeState,
@@ -151,6 +157,8 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
       changeState={changeState}
       onClose={() => undefined}
       onNewCommit={() => undefined}
+      onCompareWithCurrent={() => undefined}
+      onCompareWithHead={() => undefined}
     />,
   );
 
@@ -164,6 +172,7 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
   assert.match(markup, /Prima versione stabile/);
   assert.match(markup, /HEAD/);
   assert.match(markup, /Commit manuale/);
+  assert.match(markup, /Confronta con corrente/);
   assert.match(markup, /Entit(?:à|&#xE0;): 1/);
   assert.match(markup, /Attributi: 1/);
   assert.match(markup, /Edge: 1/);
@@ -187,6 +196,8 @@ test("pannello Versioni mostra lo stato vuoto", () => {
       changeState={noContentState}
       onClose={() => undefined}
       onNewCommit={() => undefined}
+      onCompareWithCurrent={() => undefined}
+      onCompareWithHead={() => undefined}
     />,
   );
 
@@ -207,6 +218,8 @@ test("pannello Versioni mostra CTA primo commit quando manca HEAD ma c'e contenu
       changeState={changeState}
       onClose={() => undefined}
       onNewCommit={() => undefined}
+      onCompareWithCurrent={() => undefined}
+      onCompareWithHead={() => undefined}
     />,
   );
 
@@ -235,6 +248,8 @@ test("pannello Versioni mostra working copy pulita quando HEAD e invariato", asy
       changeState={getProjectUncommittedChangeState(result.versioning, snapshot)}
       onClose={() => undefined}
       onNewCommit={() => undefined}
+      onCompareWithCurrent={() => undefined}
+      onCompareWithHead={() => undefined}
     />,
   );
 
@@ -242,4 +257,107 @@ test("pannello Versioni mostra working copy pulita quando HEAD e invariato", asy
   assert.match(markup, /Working copy pulita/);
   assert.match(markup, /Nessuna modifica rispetto a HEAD/);
   setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("pannello Versioni mostra azione Confronta con HEAD per commit non HEAD", async () => {
+  setCurrentLocale("it");
+  const base = createSnapshot();
+  const first = await createProjectCommitInState(createEmptyProjectVersioningState(), {
+    snapshot: base,
+    message: "Schema iniziale",
+  });
+  assert.equal(first.status, "created");
+  if (first.status !== "created") {
+    return;
+  }
+  const changed = createProjectCommitSnapshot({
+    ...base,
+    codeDraft: "entity Cliente\nentity Ordine",
+    codeDirty: true,
+    codePanelOpen: false,
+  });
+  const second = await createProjectCommitInState(first.versioning, {
+    snapshot: changed,
+    message: "Schema aggiornato",
+  });
+  assert.equal(second.status, "created");
+  if (second.status !== "created") {
+    return;
+  }
+
+  const markup = renderWithI18n(
+    <VersioningPanel
+      open
+      commits={second.versioning.commits}
+      headCommitId={second.commit.id}
+      changeState={getProjectUncommittedChangeState(second.versioning, changed)}
+      onClose={() => undefined}
+      onNewCommit={() => undefined}
+      onCompareWithCurrent={() => undefined}
+      onCompareWithHead={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /Confronta con corrente/);
+  assert.match(markup, /Confronta con HEAD/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("VersionDiffDialog mostra riepilogo, sezioni e una modifica", () => {
+  setCurrentLocale("it");
+  const base = createSnapshot();
+  const changed = createProjectCommitSnapshot({
+    ...base,
+    codeDraft: "entity Cliente\nentity Ordine",
+    codeDirty: true,
+    codePanelOpen: false,
+  });
+  const diff = buildProjectVersionDiff(base, changed, {
+    leftLabel: "Schema iniziale",
+    rightLabel: "Working copy",
+  });
+  const markup = renderWithI18n(
+    <VersionDiffDialog open diff={diff} onClose={() => undefined} />,
+  );
+
+  assert.match(markup, /data-testid="version-diff-dialog"/);
+  assert.match(markup, /Confronto versioni/);
+  assert.match(markup, /Riepilogo/);
+  assert.match(markup, /ER/);
+  assert.match(markup, /Layout/);
+  assert.match(markup, /Modello logico/);
+  assert.match(markup, /Codice/);
+  assert.match(markup, /Workspace/);
+  assert.match(markup, /Codice modificato/);
+  assert.match(markup, /Nessuna modifica in questa sezione/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("funzioni diff commit usate dalla UI producono confronti commit e working copy", async () => {
+  const base = createSnapshot();
+  const first = await createProjectCommitInState(createEmptyProjectVersioningState(), {
+    snapshot: base,
+    message: "Schema iniziale",
+  });
+  assert.equal(first.status, "created");
+  if (first.status !== "created") {
+    return;
+  }
+  const changed = createProjectCommitSnapshot({
+    ...base,
+    codeDraft: "entity Cliente\nentity Ordine",
+    codeDirty: true,
+    codePanelOpen: false,
+  });
+  const second = await createProjectCommitInState(first.versioning, {
+    snapshot: changed,
+    message: "Schema aggiornato",
+  });
+  assert.equal(second.status, "created");
+  if (second.status !== "created") {
+    return;
+  }
+
+  assert.equal(createProjectVersionDiffFromCommits(second.versioning, first.commit.id, second.commit.id).status, "ok");
+  assert.equal(createProjectVersionDiffFromCommitAndSnapshot(second.versioning, first.commit.id, changed).status, "ok");
 });

@@ -13,6 +13,8 @@ interface VersioningPanelProps {
   changeState: ProjectUncommittedChangeState;
   onClose: () => void;
   onNewCommit: () => void;
+  onCompareWithCurrent: (commitId: string) => void;
+  onCompareWithHead: (commitId: string) => void;
 }
 
 function formatCommitDate(value: string) {
@@ -39,6 +41,8 @@ export function VersioningPanel({
   changeState,
   onClose,
   onNewCommit,
+  onCompareWithCurrent,
+  onCompareWithHead,
 }: VersioningPanelProps) {
   const { t } = useI18n();
 
@@ -145,6 +149,26 @@ export function VersioningPanel({
                     <span>{t("versioning.stats.edges", { count: commit.stats.edgeCount })}</span>
                     {commit.stats.tableCount !== undefined ? (
                       <span>{t("versioning.stats.tables", { count: commit.stats.tableCount })}</span>
+                    ) : null}
+                  </div>
+                  <div className="versioning-commit-actions">
+                    <button
+                      type="button"
+                      className="header-button"
+                      onClick={() => onCompareWithCurrent(commit.id)}
+                      data-testid="compare-with-current"
+                    >
+                      {t("versioning.diff.compareWithCurrent")}
+                    </button>
+                    {commit.id !== headCommitId ? (
+                      <button
+                        type="button"
+                        className="header-button"
+                        onClick={() => onCompareWithHead(commit.id)}
+                        data-testid="compare-with-head"
+                      >
+                        {t("versioning.diff.compareWithHead")}
+                      </button>
                     ) : null}
                   </div>
                 </li>
