@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   ProjectVersionDiffItem,
   ProjectVersionDiffResult,
@@ -63,8 +64,14 @@ function DiffItem({ item }: { item: ProjectVersionDiffItem }) {
       </div>
       {item.before !== undefined || item.after !== undefined ? (
         <div className="version-diff-before-after">
-          {item.before !== undefined ? <span>{item.before}</span> : null}
-          {item.after !== undefined ? <span>{item.after}</span> : null}
+          <div>
+            <span>{t("versioning.diff.before")}</span>
+            <strong>{item.before ?? "-"}</strong>
+          </div>
+          <div>
+            <span>{t("versioning.diff.after")}</span>
+            <strong>{item.after ?? "-"}</strong>
+          </div>
         </div>
       ) : null}
       {item.details && item.details.length > 0 ? (
@@ -73,8 +80,9 @@ function DiffItem({ item }: { item: ProjectVersionDiffItem }) {
             <div key={`${item.id}-${detail.label}`}>
               <dt>{detail.label}</dt>
               <dd>
-                {detail.before !== undefined ? <span>{detail.before}</span> : null}
-                {detail.after !== undefined ? <span>{detail.after}</span> : null}
+                <span>{detail.before ?? "-"}</span>
+                <StudioIcon name="arrowRight" aria-hidden="true" />
+                <span>{detail.after ?? "-"}</span>
               </dd>
             </div>
           ))}
@@ -87,23 +95,28 @@ function DiffItem({ item }: { item: ProjectVersionDiffItem }) {
 function DiffGroup({
   title,
   items,
+  tone,
 }: {
   title: string;
   items: ProjectVersionDiffItem[];
+  tone: "added" | "removed" | "modified";
 }) {
   if (items.length === 0) {
     return null;
   }
 
   return (
-    <div className="version-diff-group">
-      <h4>{title}</h4>
+    <details className={`version-diff-group is-${tone}`} open>
+      <summary>
+        <span>{title}</span>
+        <strong>{items.length}</strong>
+      </summary>
       <ul>
         {items.map((item) => (
           <DiffItem key={`${item.kind}-${item.id}`} item={item} />
         ))}
       </ul>
-    </div>
+    </details>
   );
 }
 
@@ -112,14 +125,24 @@ function DiffSection({ section }: { section: ProjectVersionDiffSection }) {
 
   return (
     <section className="version-diff-section" data-testid={`version-diff-section-${section.key}`}>
-      <h3>{t(`versioning.diff.sections.${section.key}`)}</h3>
+      <div className="version-diff-section-head">
+        <h3>{t(`versioning.diff.sections.${section.key}`)}</h3>
+        <div className="version-diff-section-counts">
+          <span>{t("versioning.diff.added")}: {section.added.length}</span>
+          <span>{t("versioning.diff.removed")}: {section.removed.length}</span>
+          <span>{t("versioning.diff.modified")}: {section.modified.length}</span>
+        </div>
+      </div>
       {!section.changed ? (
-        <p className="version-diff-empty">{t("versioning.diff.noSectionChanges")}</p>
+        <div className="version-diff-empty">
+          <StudioIcon name="success" aria-hidden="true" />
+          <p>{t("versioning.diff.noSectionChanges")}</p>
+        </div>
       ) : (
         <>
-          <DiffGroup title={t("versioning.diff.added")} items={section.added} />
-          <DiffGroup title={t("versioning.diff.removed")} items={section.removed} />
-          <DiffGroup title={t("versioning.diff.modified")} items={section.modified} />
+          <DiffGroup title={t("versioning.diff.added")} items={section.added} tone="added" />
+          <DiffGroup title={t("versioning.diff.removed")} items={section.removed} tone="removed" />
+          <DiffGroup title={t("versioning.diff.modified")} items={section.modified} tone="modified" />
         </>
       )}
     </section>
@@ -128,6 +151,7 @@ function DiffSection({ section }: { section: ProjectVersionDiffSection }) {
 
 export function VersionDiffDialog({ open, diff, onClose }: VersionDiffDialogProps) {
   const { t } = useI18n();
+  const [activeSection, setActiveSection] = useState<ProjectVersionDiffSectionKey>("er");
 
   if (!open || !diff) {
     return null;
@@ -136,19 +160,29 @@ export function VersionDiffDialog({ open, diff, onClose }: VersionDiffDialogProp
   return (
     <div className="studio-modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="studio-modal studio-modal--wide version-diff-dialog"
+        className="studio-modal studio-modal--wide version-diff-dialog versioning-diff-shell"
         role="dialog"
         aria-modal="true"
         aria-labelledby="version-diff-title"
         onClick={(event) => event.stopPropagation()}
         data-testid="version-diff-dialog"
       >
-        <div className="studio-modal__header">
+        <div className="studio-modal__header version-diff-header">
           <div>
             <h2 id="version-diff-title" className="studio-modal__title">{t("versioning.diff.title")}</h2>
-            <p className="studio-modal__subtitle">
-              {diff.leftLabel} {"->"} {diff.rightLabel}
-            </p>
+            <div className="version-diff-compare-strip" aria-label={t("versioning.diff.summary")}>
+              <div className="version-diff-version-card">
+                <span>{t("versioning.diff.baseVersion")}</span>
+                <strong>{diff.leftLabel}</strong>
+                {diff.leftCommitId ? <small>{diff.leftCommitId.slice(0, 8)}</small> : null}
+              </div>
+              <StudioIcon name="arrowRight" aria-hidden="true" />
+              <div className="version-diff-version-card">
+                <span>{t("versioning.diff.targetVersion")}</span>
+                <strong>{diff.rightLabel}</strong>
+                {diff.rightCommitId ? <small>{diff.rightCommitId.slice(0, 8)}</small> : null}
+              </div>
+            </div>
           </div>
           <button type="button" className="studio-modal__close" onClick={onClose} aria-label={t("common.actions.close")}>
             <StudioIcon name="close" aria-hidden="true" />
@@ -156,20 +190,46 @@ export function VersionDiffDialog({ open, diff, onClose }: VersionDiffDialogProp
         </div>
         <div className="studio-modal__body version-diff-body">
           <section className="version-diff-summary" data-testid="version-diff-summary">
-            <h3>{t("versioning.diff.summary")}</h3>
+            <div>
+              <h3>{t("versioning.diff.summary")}</h3>
+              {diff.isEqual ? <p>{t("versioning.diff.identicalVersions")}</p> : null}
+            </div>
             {diff.isEqual ? (
-              <p>{t("versioning.diff.noChanges")}</p>
+              <div className="version-diff-empty is-hero">
+                <StudioIcon name="success" aria-hidden="true" />
+                <strong>{t("versioning.diff.noChanges")}</strong>
+              </div>
             ) : (
               <div className="version-diff-summary-grid">
-                <span>{t("versioning.diff.added")}: {diff.summary.addedCount}</span>
-                <span>{t("versioning.diff.removed")}: {diff.summary.removedCount}</span>
-                <span>{t("versioning.diff.modified")}: {diff.summary.modifiedCount}</span>
-                <span>{t("versioning.diff.changedSections")}: {diff.summary.changedSectionCount}</span>
+                <span>{t("versioning.diff.added")}<strong>{diff.summary.addedCount}</strong></span>
+                <span>{t("versioning.diff.removed")}<strong>{diff.summary.removedCount}</strong></span>
+                <span>{t("versioning.diff.modified")}<strong>{diff.summary.modifiedCount}</strong></span>
+                <span>{t("versioning.diff.changedSections")}<strong>{diff.summary.changedSectionCount}</strong></span>
               </div>
             )}
           </section>
+
+          <nav className="versioning-diff-tabs" aria-label={t("versioning.diff.changedSections")}>
+            {SECTION_KEYS.map((key) => {
+              const section = diff.sections[key];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={activeSection === key ? "active" : ""}
+                  onClick={() => setActiveSection(key)}
+                >
+                  {t(`versioning.diff.sections.${key}`)}
+                  <span>{section.added.length + section.removed.length + section.modified.length}</span>
+                </button>
+              );
+            })}
+          </nav>
+
           {SECTION_KEYS.map((key) => (
-            <DiffSection key={key} section={diff.sections[key]} />
+            <div key={key} hidden={activeSection !== key}>
+              <DiffSection section={diff.sections[key]} />
+            </div>
           ))}
         </div>
       </div>

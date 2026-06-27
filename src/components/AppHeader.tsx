@@ -15,6 +15,7 @@ interface AppHeaderProps {
   logicalOutOfDate: boolean;
   focusMode: boolean;
   hasUncommittedChanges: boolean;
+  versioningCommitCount: number;
   onNewProject: () => void;
   onOpenVersioningPanel: () => void;
   onToggleCodePanel: () => void;
@@ -120,11 +121,25 @@ export function AppHeader(props: AppHeaderProps) {
           type="button"
           className={props.hasUncommittedChanges ? "designer-versioning-button has-uncommitted" : "designer-versioning-button"}
           onClick={props.onOpenVersioningPanel}
-          aria-label={t("appHeader.actions.versioningAria")}
+          aria-label={
+            props.hasUncommittedChanges
+              ? t("appHeader.actions.versioningDirtyAria", { count: props.versioningCommitCount })
+              : t("appHeader.actions.versioningCleanAria", { count: props.versioningCommitCount })
+          }
+          title={
+            props.hasUncommittedChanges
+              ? t("appHeader.actions.versioningDirtyAria", { count: props.versioningCommitCount })
+              : t("appHeader.actions.versioningCleanAria", { count: props.versioningCommitCount })
+          }
           data-testid="app-header-versioning"
         >
           <StudioIcon name="history" aria-hidden="true" />
           <span className="desktop-label">{t("versioning.versions")}</span>
+          {props.versioningCommitCount > 0 ? (
+            <span className="versioning-count-badge" aria-label={t("versioning.commitCount", { count: props.versioningCommitCount })}>
+              {props.versioningCommitCount}
+            </span>
+          ) : null}
           {props.hasUncommittedChanges ? (
             <span className="versioning-dot" aria-label={t("versioning.uncommittedChanges")} />
           ) : null}

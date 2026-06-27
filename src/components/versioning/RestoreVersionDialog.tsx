@@ -24,6 +24,18 @@ function shortCommitId(id: string) {
   return id.slice(0, 8);
 }
 
+function getCommitKindKey(commit: ProjectCommit) {
+  if (commit.tags?.includes("auto-backup")) {
+    return "versioning.backupCommit";
+  }
+
+  if (commit.tags?.includes("auto-restore")) {
+    return "versioning.restoreCommit";
+  }
+
+  return commit.automatic ? "versioning.automaticCommit" : "versioning.manualCommit";
+}
+
 export function RestoreVersionDialog({
   open,
   busy,
@@ -45,11 +57,22 @@ export function RestoreVersionDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="versioning-restore-title"
+        aria-describedby="versioning-restore-description"
         onClick={(event) => event.stopPropagation()}
         data-testid="restore-version-dialog"
       >
         <div className="help-modal-head">
-          <h2 id="versioning-restore-title">{t("versioning.restore.title")}</h2>
+          <div className="versioning-restore-title">
+            <span aria-hidden="true">
+              <StudioIcon name="warning" />
+            </span>
+            <div>
+              <h2 id="versioning-restore-title">{t("versioning.restore.title")}</h2>
+              <p id="versioning-restore-description" className="action-modal-subtitle">
+                {t("versioning.restore.confirmMessage")}
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             className="help-close"
@@ -61,11 +84,15 @@ export function RestoreVersionDialog({
           </button>
         </div>
         <div className="action-modal-content">
-          <p className="action-modal-hint">{t("versioning.restore.confirmMessage")}</p>
           <div className="versioning-restore-target" data-testid="restore-version-target">
+            <span className="versioning-type-badge is-restore">{t("versioning.restore.targetVersion")}</span>
             <strong>{commit.message}</strong>
-            <span>{shortCommitId(commit.id)}</span>
-            <span>{formatCommitDate(commit.createdAt)}</span>
+            {commit.description ? <p>{commit.description}</p> : null}
+            <div className="versioning-commit-meta">
+              <span>{shortCommitId(commit.id)}</span>
+              <span>{formatCommitDate(commit.createdAt)}</span>
+              <span>{t(getCommitKindKey(commit))}</span>
+            </div>
             <div className="versioning-commit-stats">
               <span>{t("versioning.stats.entities", { count: commit.stats.entityCount })}</span>
               <span>{t("versioning.stats.relationships", { count: commit.stats.relationshipCount })}</span>
@@ -76,9 +103,24 @@ export function RestoreVersionDialog({
               ) : null}
             </div>
           </div>
-          <p className="versioning-restore-warning">
-            {t("versioning.restore.backupBeforeRestore")}
-          </p>
+          <section className="versioning-restore-safety">
+            <h3>{t("versioning.restore.protectedRestore")}</h3>
+            <p>{t("versioning.restore.backupBeforeRestore")}</p>
+            <ol className="versioning-restore-flow" data-testid="restore-version-flow">
+              <li>
+                <StudioIcon name="save" aria-hidden="true" />
+                <span>{t("versioning.restore.flowBackup")}</span>
+              </li>
+              <li>
+                <StudioIcon name="refresh" aria-hidden="true" />
+                <span>{t("versioning.restore.flowApply")}</span>
+              </li>
+              <li>
+                <StudioIcon name="history" aria-hidden="true" />
+                <span>{t("versioning.restore.flowHead")}</span>
+              </li>
+            </ol>
+          </section>
           {error ? <p className="action-modal-error">{error}</p> : null}
           <div className="action-modal-actions">
             <button type="button" className="header-button" onClick={onClose} disabled={busy}>
@@ -86,12 +128,12 @@ export function RestoreVersionDialog({
             </button>
             <button
               type="button"
-              className="mode-button active"
+              className="mode-button active versioning-restore-confirm"
               onClick={onConfirm}
               disabled={busy}
               data-testid="confirm-restore-button"
             >
-              {t("versioning.restore.confirm")}
+              {t("versioning.restore.restoreThisVersion")}
             </button>
           </div>
         </div>

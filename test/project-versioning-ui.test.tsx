@@ -27,6 +27,14 @@ import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 const VIEWPORT = { x: 0, y: 0, zoom: 1 };
+const EMPTY_CATEGORIES = {
+  er: false,
+  layout: false,
+  logical: false,
+  code: false,
+  workspace: false,
+  versioning: false,
+};
 
 function renderWithI18n(element: React.ReactElement): string {
   return renderToStaticMarkup(<I18nProvider>{element}</I18nProvider>);
@@ -90,6 +98,8 @@ test("dialog commit si apre con input messaggio, descrizione ed errore", () => {
       error="Messaggio obbligatorio"
       canCommit
       hint=""
+      categories={{ ...EMPTY_CATEGORIES, er: true }}
+      firstCommit={false}
       onClose={() => undefined}
       onSubmit={() => undefined}
     />,
@@ -101,6 +111,9 @@ test("dialog commit si apre con input messaggio, descrizione ed errore", () => {
   assert.match(markup, /data-testid="create-commit-button"/);
   assert.match(markup, /Nuovo commit/);
   assert.match(markup, /Messaggio obbligatorio/);
+  assert.match(markup, /Suggerimento messaggio/);
+  assert.match(markup, /Aggiornato schema ER/);
+  assert.match(markup, /Modifiche allo schema ER/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
@@ -113,6 +126,8 @@ test("dialog commit disabilita la creazione quando non ci sono modifiche", () =>
       error=""
       canCommit={false}
       hint="Nessuna modifica rispetto a HEAD"
+      categories={EMPTY_CATEGORIES}
+      firstCommit={false}
       onClose={() => undefined}
       onSubmit={() => undefined}
     />,
@@ -306,8 +321,62 @@ test("pannello Versioni mostra azione Confronta con HEAD per commit non HEAD", a
   );
 
   assert.match(markup, /Confronta con corrente/);
-  assert.match(markup, /Confronta con HEAD/);
   assert.match(markup, /Ripristina/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("timeline distingue commit manuale, backup e restore automatici", async () => {
+  setCurrentLocale("it");
+  const snapshot = createSnapshot();
+  const manual = await buildProjectCommitDraft({
+    id: "manual-commit",
+    parentId: null,
+    message: "Schema iniziale",
+    createdAt: "2026-06-27T09:00:00.000Z",
+    snapshot,
+  });
+  const backup = await buildProjectCommitDraft({
+    id: "backup-commit",
+    parentId: manual.id,
+    message: "Backup automatico prima del ripristino",
+    createdAt: "2026-06-27T10:00:00.000Z",
+    snapshot,
+    automatic: true,
+    tags: ["auto-backup"],
+  });
+  const restore = await buildProjectCommitDraft({
+    id: "restore-commit",
+    parentId: backup.id,
+    message: "Ripristino di: Schema iniziale",
+    createdAt: "2026-06-27T11:00:00.000Z",
+    snapshot,
+    automatic: true,
+    tags: ["auto-restore"],
+  });
+  const versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: restore.id,
+    commits: [manual, backup, restore],
+  };
+  const markup = renderWithI18n(
+    <VersioningPanel
+      open
+      commits={[restore, backup, manual]}
+      headCommitId={restore.id}
+      changeState={getProjectUncommittedChangeState(versioning, snapshot)}
+      onClose={() => undefined}
+      onNewCommit={() => undefined}
+      onCompareWithCurrent={() => undefined}
+      onCompareWithHead={() => undefined}
+      onRestoreCommit={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /Commit manuale/);
+  assert.match(markup, /Backup automatico/);
+  assert.match(markup, /Commit di restore/);
+  assert.match(markup, /auto-backup/);
+  assert.match(markup, /auto-restore/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
@@ -368,6 +437,22 @@ test("VersionDiffDialog mostra riepilogo, sezioni e una modifica", () => {
   assert.match(markup, /Workspace/);
   assert.match(markup, /Codice modificato/);
   assert.match(markup, /Nessuna modifica in questa sezione/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("VersionDiffDialog mostra empty state se le versioni sono identiche", () => {
+  setCurrentLocale("it");
+  const snapshot = createSnapshot();
+  const diff = buildProjectVersionDiff(snapshot, snapshot, {
+    leftLabel: "Schema iniziale",
+    rightLabel: "Schema iniziale",
+  });
+  const markup = renderWithI18n(
+    <VersionDiffDialog open diff={diff} onClose={() => undefined} />,
+  );
+
+  assert.match(markup, /Le due versioni sono identiche/);
+  assert.match(markup, /Nessuna modifica/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 

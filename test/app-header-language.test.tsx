@@ -28,7 +28,10 @@ function renderHeader(): string {
         notesPanelOpen={false}
         logicalOutOfDate={false}
         focusMode={false}
+        hasUncommittedChanges
+        versioningCommitCount={3}
         onNewProject={() => undefined}
+        onOpenVersioningPanel={() => undefined}
         onToggleCodePanel={() => undefined}
         onToggleNotesPanel={() => undefined}
         onSaveProject={() => undefined}
@@ -54,6 +57,9 @@ test("AppHeader renders the language button between help and command menu", () =
   assert.match(markup, /aria-haspopup="menu"/);
   assert.match(markup, /aria-expanded="false"/);
   assert.match(markup, /Change interface language/);
+  assert.match(markup, /Open project versions\. 3 commits, uncommitted changes\./);
+  assert.match(markup, /aria-label="Uncommitted changes"/);
+  assert.match(markup, /aria-label="3 commits"/);
 
   setCurrentLocale(DEFAULT_LOCALE);
 });

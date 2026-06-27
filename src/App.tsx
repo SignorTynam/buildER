@@ -5717,6 +5717,7 @@ export default function App() {
         logicalOutOfDate={logicalOutOfDate}
         focusMode={focusMode}
         hasUncommittedChanges={hasVersioningUncommittedChanges}
+        versioningCommitCount={projectVersioning.versioning.commits.length}
         onNewProject={handleNewProject}
         onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
         onToggleCodePanel={handleToggleCodePanel}
@@ -6045,6 +6046,8 @@ export default function App() {
         error={commitDialogError}
         canCommit={versioningChangeState.summary.canCommit}
         hint={commitDialogHint}
+        categories={versioningChangeState.categories}
+        firstCommit={!versioningChangeState.hasHead}
         onClose={() => {
           if (!commitDialogBusy) {
             setCommitDialogOpen(false);
