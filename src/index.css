@@ -234,6 +234,34 @@
   font-size: 0.86rem;
 }
 
+.versioning-restore-dialog {
+  max-width: 560px;
+}
+
+.versioning-restore-target {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  background: var(--studio-surface-muted);
+}
+
+.versioning-restore-target > span {
+  color: var(--studio-muted);
+  font-size: 0.84rem;
+}
+
+.versioning-restore-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(181, 133, 10, 0.22);
+  border-radius: 8px;
+  background: var(--studio-warning-soft);
+  color: var(--studio-ink);
+  font-size: 0.88rem;
+}
+
 .version-diff-dialog {
   max-width: 900px;
 }

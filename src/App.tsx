@@ -7,6 +7,7 @@ import { ChangelogModal } from "./components/ChangelogModal";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
 import { CommitDialog } from "./components/versioning/CommitDialog";
+import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
 import { VersionDiffDialog } from "./components/versioning/VersionDiffDialog";
 import { VersioningPanel } from "./components/versioning/VersioningPanel";
 import {
@@ -179,6 +180,7 @@ import {
   PROJECT_FILE_MIME_TYPE,
   serializeProjectFile,
   type ProjectFileWorkspaceState,
+  type ProjectCommitSnapshot,
   type ProjectVersioningState,
 } from "./utils/projectFile";
 import {
@@ -1008,6 +1010,9 @@ export default function App() {
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [versionDiff, setVersionDiff] = useState<ProjectVersionDiffResult | null>(null);
   const [versionDiffOpen, setVersionDiffOpen] = useState(false);
+  const [restoreCommitId, setRestoreCommitId] = useState<string | null>(null);
+  const [restoreDialogBusy, setRestoreDialogBusy] = useState(false);
+  const [restoreDialogError, setRestoreDialogError] = useState("");
   const [commitDialogError, setCommitDialogError] = useState("");
   const [commitDialogBusy, setCommitDialogBusy] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
@@ -1246,6 +1251,10 @@ export default function App() {
   const versioningChangeState = useMemo(
     () => getProjectUncommittedChangeState(projectVersioning.versioning, currentProjectCommitSnapshot),
     [currentProjectCommitSnapshot, projectVersioning.versioning],
+  );
+  const restoreTargetCommit = useMemo(
+    () => projectVersioning.getCommitById(restoreCommitId),
+    [projectVersioning, restoreCommitId],
   );
   const hasVersioningUncommittedChanges = versioningChangeState.hasChanges;
   const commitDialogHint =
@@ -2265,6 +2274,31 @@ export default function App() {
     setCodeError("");
   }
 
+  function createWorkspaceStateFromProjectCommitSnapshot(snapshot: ProjectCommitSnapshot): ProjectFileWorkspaceState {
+    return {
+      tool: snapshot.tool,
+      mode: snapshot.mode,
+      selection: { nodeIds: [...snapshot.selection.nodeIds], edgeIds: [...snapshot.selection.edgeIds] },
+      translationSelection: {
+        nodeIds: [...snapshot.translationSelection.nodeIds],
+        edgeIds: [...snapshot.translationSelection.edgeIds],
+      },
+      logicalSelection: { ...snapshot.logicalSelection },
+      codeDraft: snapshot.codeDraft,
+      codeDirty: snapshot.codeDirty,
+      technicalPanelOpen: snapshot.technicalPanelOpen,
+      technicalPanelTab: snapshot.technicalPanelTab,
+      codePanelOpen: snapshot.codePanelOpen,
+      codePanelWidth: snapshot.codePanelWidth,
+      notesPanelOpen: snapshot.notesPanelOpen,
+      notesPanelWidth: snapshot.notesPanelWidth,
+      toolbarCollapsed: snapshot.toolbarCollapsed,
+      focusMode: snapshot.focusMode,
+      toolbarWidth: snapshot.toolbarWidth,
+      showDiagnostics: snapshot.showDiagnostics,
+    };
+  }
+
   function applyWorkspaceDocument(
     nextDiagram: DiagramDocument,
     status: string,
@@ -2279,6 +2313,8 @@ export default function App() {
       logicalViewport?: Viewport;
       versioning?: ProjectVersioningState;
       workspace?: ProjectFileWorkspaceState;
+      resetHistory?: boolean;
+      markBaseline?: boolean;
     },
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
@@ -2295,7 +2331,11 @@ export default function App() {
         ),
       ),
     );
-    history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
+    if (options?.resetHistory) {
+      history.reset(normalizedIncoming.diagram);
+    } else {
+      history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
+    }
     const nextTranslationWorkspace = options?.translationWorkspace
       ? refreshErTranslationWorkspace(normalizedIncoming.diagram, options.translationWorkspace)
       : createEmptyErTranslationWorkspace(normalizedIncoming.diagram);
@@ -2351,12 +2391,16 @@ export default function App() {
       codeDraft: serializeDiagramToErs(normalizedIncoming.diagram),
       codeDirty: false,
     };
-    markDocumentBaseline(
-      normalizedIncoming.diagram,
-      JSON.stringify(nextVersioning),
-      JSON.stringify(baselineWorkspace),
-      baselineWorkspace.codeDirty ? baselineWorkspace.codeDraft : serializeDiagramToErs(normalizedIncoming.diagram),
-    );
+    if (options?.markBaseline !== false) {
+      markDocumentBaseline(
+        normalizedIncoming.diagram,
+        JSON.stringify(nextVersioning),
+        JSON.stringify(baselineWorkspace),
+        baselineWorkspace.codeDirty ? baselineWorkspace.codeDraft : serializeDiagramToErs(normalizedIncoming.diagram),
+      );
+    } else {
+      hasUnsavedChangesRef.current = true;
+    }
     setSelection(nextWorkspace?.selection ?? { nodeIds: [], edgeIds: [] });
     setIdentifierSelection(null);
     setViewport(options?.viewport ? { ...options.viewport } : { ...DEFAULT_VIEWPORT });
@@ -5253,6 +5297,97 @@ export default function App() {
     openVersionDiff(result.diff);
   }
 
+  function handleOpenRestoreCommit(commitId: string) {
+    setRestoreCommitId(commitId);
+    setRestoreDialogError("");
+  }
+
+  function handleCloseRestoreDialog() {
+    if (restoreDialogBusy) {
+      return;
+    }
+
+    setRestoreCommitId(null);
+    setRestoreDialogError("");
+  }
+
+  async function handleConfirmRestoreCommit() {
+    if (!restoreCommitId) {
+      return;
+    }
+
+    setRestoreDialogBusy(true);
+    setRestoreDialogError("");
+
+    try {
+      const result = await projectVersioning.restoreCommit(restoreCommitId, currentProjectCommitSnapshot, {
+        backupMessage: t("versioning.restore.backupMessage"),
+        backupDescription: t("versioning.restore.backupDescription", { commitId: restoreCommitId.slice(0, 8) }),
+        restoreMessage: t("versioning.restore.restoreMessage", {
+          message: projectVersioning.getCommitById(restoreCommitId)?.message ?? restoreCommitId.slice(0, 8),
+        }),
+        restoreDescription: t("versioning.restore.restoreDescription", { commitId: restoreCommitId.slice(0, 8) }),
+      });
+
+      if (result.status === "missing-commit") {
+        const message = t("versioning.restore.commitNotFound");
+        setRestoreDialogError(message);
+        setStatusError(message);
+        showErrorNotice(message, { title: t("versioning.restore.title") });
+        return;
+      }
+
+      if (result.status === "already-current") {
+        const message = t("versioning.restore.alreadyCurrentNotice");
+        setRestoreDialogError(message);
+        setStatusWarning(message);
+        showWarningNotice(message, { title: t("versioning.restore.title") });
+        return;
+      }
+
+      if (result.status === "invalid-snapshot") {
+        const message = t("versioning.restore.failed");
+        setRestoreDialogError(message);
+        setStatusError(message);
+        showErrorNotice(message, { title: t("versioning.restore.title") });
+        return;
+      }
+
+      const restoreSnapshot = result.restoreCommit.snapshot;
+      applyWorkspaceDocument(restoreSnapshot.diagram, t("versioning.restore.restored"), {
+        translationWorkspace: restoreSnapshot.translationWorkspace,
+        logicalWorkspace: restoreSnapshot.logicalWorkspace,
+        logicalGenerated: restoreSnapshot.logicalGenerated,
+        logicalStage: restoreSnapshot.logicalStage,
+        diagramView: restoreSnapshot.diagramView,
+        viewport: restoreSnapshot.viewport,
+        translationViewport: restoreSnapshot.translationViewport,
+        logicalViewport: restoreSnapshot.logicalViewport,
+        versioning: result.versioning,
+        workspace: createWorkspaceStateFromProjectCommitSnapshot(restoreSnapshot),
+        resetHistory: true,
+        markBaseline: false,
+      });
+
+      setRestoreCommitId(null);
+      setRestoreDialogError("");
+      setVersionDiffOpen(false);
+      setVersioningPanelOpen(true);
+      setStatus(t("versioning.restore.restored"));
+      showSuccessNotice(t("versioning.restore.restoredWithBackup"), {
+        title: t("versioning.restore.title"),
+      });
+    } catch (error) {
+      console.error(error);
+      const message = t("versioning.restore.failed");
+      setRestoreDialogError(message);
+      setStatusError(message);
+      showErrorNotice(message, { title: t("versioning.restore.title") });
+    } finally {
+      setRestoreDialogBusy(false);
+    }
+  }
+
   async function handleLoadProjectRequest() {
     if (!(await confirmDiscardChanges(t("workspace.unsavedActions.loadProject")))) {
       return;
@@ -5886,12 +6021,22 @@ export default function App() {
         }}
         onCompareWithCurrent={handleCompareCommitWithCurrent}
         onCompareWithHead={handleCompareCommitWithHead}
+        onRestoreCommit={handleOpenRestoreCommit}
       />
 
       <VersionDiffDialog
         open={versionDiffOpen}
         diff={versionDiff}
         onClose={() => setVersionDiffOpen(false)}
+      />
+
+      <RestoreVersionDialog
+        open={restoreCommitId !== null}
+        busy={restoreDialogBusy}
+        error={restoreDialogError}
+        commit={restoreTargetCommit}
+        onClose={handleCloseRestoreDialog}
+        onConfirm={handleConfirmRestoreCommit}
       />
 
       <CommitDialog

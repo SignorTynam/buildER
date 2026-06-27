@@ -15,6 +15,7 @@ interface VersioningPanelProps {
   onNewCommit: () => void;
   onCompareWithCurrent: (commitId: string) => void;
   onCompareWithHead: (commitId: string) => void;
+  onRestoreCommit: (commitId: string) => void;
 }
 
 function formatCommitDate(value: string) {
@@ -43,6 +44,7 @@ export function VersioningPanel({
   onNewCommit,
   onCompareWithCurrent,
   onCompareWithHead,
+  onRestoreCommit,
 }: VersioningPanelProps) {
   const { t } = useI18n();
 
@@ -152,6 +154,17 @@ export function VersioningPanel({
                     ) : null}
                   </div>
                   <div className="versioning-commit-actions">
+                    <button
+                      type="button"
+                      className="mode-button"
+                      onClick={() => onRestoreCommit(commit.id)}
+                      disabled={commit.id === headCommitId && !changeState.hasChanges}
+                      data-testid="restore-commit"
+                    >
+                      {commit.id === headCommitId && !changeState.hasChanges
+                        ? t("versioning.restore.alreadyCurrent")
+                        : t("versioning.restore.restoreThisVersion")}
+                    </button>
                     <button
                       type="button"
                       className="header-button"

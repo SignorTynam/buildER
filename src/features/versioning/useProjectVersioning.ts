@@ -8,6 +8,11 @@ import {
   type ProjectCommitSnapshot,
   type ProjectVersioningState,
 } from "./projectCommitSnapshot";
+import {
+  restoreProjectCommitInState,
+  type RestoreProjectCommitOptions,
+  type RestoreProjectCommitResult,
+} from "./projectVersionRestore";
 import { createEmptyProjectVersioningState } from "../../utils/projectFile";
 
 export interface CreateProjectCommitInput {
@@ -387,12 +392,26 @@ export function useProjectVersioning(initialVersioning?: ProjectVersioningState)
     return result;
   }
 
+  async function restoreCommit(
+    targetCommitId: string,
+    currentSnapshot: ProjectCommitSnapshot,
+    options?: RestoreProjectCommitOptions,
+  ): Promise<RestoreProjectCommitResult> {
+    const result = await restoreProjectCommitInState(versioning, targetCommitId, currentSnapshot, options);
+    if (result.status === "restored") {
+      setVersioning(result.versioning);
+    }
+
+    return result;
+  }
+
   return {
     versioning,
     setVersioning,
     commitsNewestFirst,
     headCommit,
     createCommit,
+    restoreCommit,
     getHeadCommit: () => getProjectHeadCommit(versioning),
     getCommitById: (commitId: string | null) => getProjectCommitById(versioning, commitId),
   };

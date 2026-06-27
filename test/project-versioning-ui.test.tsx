@@ -4,6 +4,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { CommitDialog } from "../src/components/versioning/CommitDialog.tsx";
+import { RestoreVersionDialog } from "../src/components/versioning/RestoreVersionDialog.tsx";
 import { VersionDiffDialog } from "../src/components/versioning/VersionDiffDialog.tsx";
 import { VersioningPanel } from "../src/components/versioning/VersioningPanel.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
@@ -159,6 +160,7 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
       onNewCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
+      onRestoreCommit={() => undefined}
     />,
   );
 
@@ -172,6 +174,7 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
   assert.match(markup, /Prima versione stabile/);
   assert.match(markup, /HEAD/);
   assert.match(markup, /Commit manuale/);
+  assert.match(markup, /Ripristina/);
   assert.match(markup, /Confronta con corrente/);
   assert.match(markup, /Entit(?:à|&#xE0;): 1/);
   assert.match(markup, /Attributi: 1/);
@@ -198,6 +201,7 @@ test("pannello Versioni mostra lo stato vuoto", () => {
       onNewCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
+      onRestoreCommit={() => undefined}
     />,
   );
 
@@ -220,6 +224,7 @@ test("pannello Versioni mostra CTA primo commit quando manca HEAD ma c'e contenu
       onNewCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
+      onRestoreCommit={() => undefined}
     />,
   );
 
@@ -250,6 +255,7 @@ test("pannello Versioni mostra working copy pulita quando HEAD e invariato", asy
       onNewCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
+      onRestoreCommit={() => undefined}
     />,
   );
 
@@ -295,11 +301,43 @@ test("pannello Versioni mostra azione Confronta con HEAD per commit non HEAD", a
       onNewCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
+      onRestoreCommit={() => undefined}
     />,
   );
 
   assert.match(markup, /Confronta con corrente/);
   assert.match(markup, /Confronta con HEAD/);
+  assert.match(markup, /Ripristina/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("RestoreVersionDialog mostra conferma e commit target", async () => {
+  setCurrentLocale("it");
+  const commit = await buildProjectCommitDraft({
+    id: "restore-target",
+    parentId: null,
+    message: "Schema iniziale",
+    description: "Versione stabile",
+    createdAt: "2026-06-27T10:00:00.000Z",
+    snapshot: createSnapshot(),
+  });
+
+  const markup = renderWithI18n(
+    <RestoreVersionDialog
+      open
+      busy={false}
+      error=""
+      commit={commit}
+      onClose={() => undefined}
+      onConfirm={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /data-testid="restore-version-dialog"/);
+  assert.match(markup, /Ripristina versione/);
+  assert.match(markup, /Schema iniziale/);
+  assert.match(markup, /Prima del ripristino/);
+  assert.match(markup, /data-testid="confirm-restore-button"/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
