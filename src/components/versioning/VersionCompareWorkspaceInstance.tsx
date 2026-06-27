@@ -11,7 +11,7 @@ import {
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 
-interface VersionComparePaneProps {
+interface VersionCompareWorkspaceInstanceProps {
   side: "left" | "right";
   resolved: VersionCompareSideResolved;
   viewMode: VersionCompareViewMode;
@@ -59,7 +59,7 @@ function getInitialSelection(resolved: VersionCompareSideResolved, viewMode: Ver
   return resolved.snapshot.selection;
 }
 
-export function VersionComparePane({
+export function VersionCompareWorkspaceInstance({
   side,
   resolved,
   viewMode,
@@ -70,7 +70,7 @@ export function VersionComparePane({
   onViewModeChange,
   onSyncedViewportChange,
   syncedViewport,
-}: VersionComparePaneProps) {
+}: VersionCompareWorkspaceInstanceProps) {
   const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement>(null);
   const logicalSvgRef = useRef<SVGSVGElement>(null);
@@ -111,14 +111,18 @@ export function VersionComparePane({
     payload.workspace.model.tables.length === 0;
 
   return (
-    <section className={`version-compare-pane is-${side}`} data-testid={`visual-compare-pane-${side}`}>
-      <header className="version-compare-pane-head">
+    <section
+      className={`version-compare-instance is-${side}`}
+      data-testid={`version-compare-instance-${side}`}
+      aria-label={side === "left" ? t("versioning.visualCompare.leftWorkspace") : t("versioning.visualCompare.rightWorkspace")}
+    >
+      <header className="version-compare-instance-header">
         <div>
-          <span>{side === "left" ? t("versioning.visualCompare.leftSide") : t("versioning.visualCompare.rightSide")}</span>
+          <span>{side === "left" ? t("versioning.visualCompare.leftWorkspace") : t("versioning.visualCompare.rightWorkspace")}</span>
           <strong>{resolved.label}</strong>
           <small>
             {resolved.commitId ? shortCommitId(resolved.commitId) : t("versioning.visualCompare.workingCopy")}
-            {versionDate ? ` · ${versionDate}` : ""}
+            {versionDate ? ` - ${versionDate}` : ""}
           </small>
         </div>
         <nav className="version-compare-view-tabs" aria-label={t("versioning.visualCompare.selectVersion")}>
@@ -128,7 +132,7 @@ export function VersionComparePane({
               type="button"
               className={viewMode === mode ? "active" : ""}
               onClick={() => onViewModeChange(mode)}
-              data-testid={`visual-compare-${side}-view-${mode}`}
+              data-testid={`version-compare-${side}-view-${mode}`}
             >
               {mode === "er"
                 ? t("versioning.visualCompare.viewEr")
@@ -140,7 +144,7 @@ export function VersionComparePane({
         </nav>
       </header>
 
-      <div className="version-compare-canvas-shell">
+      <div className="version-compare-instance-workspace">
         {payload.mode === "logical" ? (
           logicalIsEmpty ? (
             <div className="version-compare-empty-logical">
@@ -190,7 +194,7 @@ export function VersionComparePane({
             onPreviewDiagram={() => undefined}
             onCommitDiagram={() => undefined}
             onCreateNode={() => ""}
-            onCreateEdge={() => ({ success: false, message: t("versioning.visualCompare.readOnlyStatus") })}
+            onCreateEdge={() => ({ success: false, message: t("versioning.visualCompare.blockedEditorAction") })}
             onOpenCardinality={() => undefined}
             onOpenInheritanceType={() => undefined}
             onToolChange={() => undefined}
@@ -205,7 +209,7 @@ export function VersionComparePane({
         )}
       </div>
 
-      <footer className="version-compare-pane-foot">
+      <footer className="version-compare-instance-footer">
         <span>{t("versioning.stats.entities", { count: resolved.snapshot.diagram.nodes.filter((node) => node.type === "entity").length })}</span>
         <span>{t("versioning.stats.relationships", { count: resolved.snapshot.diagram.nodes.filter((node) => node.type === "relationship").length })}</span>
         <span>{t("versioning.stats.attributes", { count: resolved.snapshot.diagram.nodes.filter((node) => node.type === "attribute").length })}</span>

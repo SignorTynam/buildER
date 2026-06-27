@@ -1553,7 +1553,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       onPointerLeave={handlePointerUp}
       onWheel={handleCanvasWheel}
     >
-      <svg ref={props.svgRef} className="logical-canvas" role="img" aria-label="Canvas Logico con trasformazione in-place">
+      <svg
+        ref={props.svgRef}
+        className="logical-canvas"
+        role="img"
+        aria-label="Canvas Logico con trasformazione in-place"
+        data-readonly={readOnly ? "true" : undefined}
+      >
         <defs>
           <marker
             id="logical-arrow"

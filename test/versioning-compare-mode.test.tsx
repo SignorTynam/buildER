@@ -4,8 +4,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { VersionCompareChangeDrawer } from "../src/components/versioning/VersionCompareChangeDrawer.tsx";
-import { VersionComparePane } from "../src/components/versioning/VersionComparePane.tsx";
-import { VisualVersionCompareDialog } from "../src/components/versioning/VisualVersionCompareDialog.tsx";
+import { VersionCompareMode } from "../src/components/versioning/VersionCompareMode.tsx";
+import { VersionCompareWorkspaceInstance } from "../src/components/versioning/VersionCompareWorkspaceInstance.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { DEFAULT_LOCALE, setCurrentLocale } from "../src/i18n/index.ts";
 import { buildProjectVersionDiff } from "../src/features/versioning/projectVersionDiff.ts";
@@ -105,41 +105,46 @@ function createVersioning() {
   };
 }
 
-test("VisualVersionCompareDialog mostra due pannelli e toolbar premium", () => {
+test("VersionCompareMode sostituisce la modal con due workspace full-screen", () => {
   setCurrentLocale("it");
   const versioning = createVersioning();
   const markup = renderWithI18n(
-    <VisualVersionCompareDialog
-      open
+    <VersionCompareMode
+      appTitle="buildER"
       versioning={versioning}
       currentSnapshot={createSnapshot("Visual changed", "changed")}
       initialLeft={{ kind: "commit", commitId: "commit-base" }}
       initialRight={{ kind: "working-copy" }}
-      onClose={() => undefined}
+      onExitCompareMode={() => undefined}
       onRestoreCommit={() => undefined}
     />,
   );
 
-  assert.match(markup, /data-testid="visual-version-compare-dialog"/);
-  assert.match(markup, /Confronto visuale versioni/);
-  assert.match(markup, /data-testid="visual-compare-pane-left"/);
-  assert.match(markup, /data-testid="visual-compare-pane-right"/);
+  assert.match(markup, /data-testid="version-compare-mode"/);
+  assert.match(markup, /data-testid="version-compare-instance-left"/);
+  assert.match(markup, /data-testid="version-compare-instance-right"/);
+  assert.match(markup, /Esci dal confronto/);
+  assert.match(markup, /Modalit/);
   assert.match(markup, /Sincronizza pan\/zoom/);
   assert.match(markup, /Adatta entrambi/);
   assert.match(markup, /Scambia lati/);
-  assert.match(markup, /Apri dettagli/);
   assert.match(markup, /Ripristina sinistra/);
-  assert.doesNotMatch(markup, /Ripristina destra/);
+  assert.doesNotMatch(markup, /data-testid="visual-version-compare-dialog"/);
+  assert.doesNotMatch(markup, /role="dialog"/);
+  assert.doesNotMatch(markup, /aria-modal="true"/);
+  assert.doesNotMatch(markup, /studio-modal-backdrop/);
+  assert.doesNotMatch(markup, /Nuovo progetto/);
+  assert.doesNotMatch(markup, /Apri progetto/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
-test("VersionComparePane supporta viste indipendenti ER e logico", () => {
+test("VersionCompareWorkspaceInstance mantiene viste indipendenti e canvas read-only", () => {
   setCurrentLocale("it");
   const snapshot = createSnapshot("Visual pane");
   const diff = buildProjectVersionDiff(snapshot, createSnapshot("Visual pane changed", "changed"));
   const markup = renderWithI18n(
     <div>
-      <VersionComparePane
+      <VersionCompareWorkspaceInstance
         side="left"
         resolved={{ ref: { kind: "working-copy" }, label: "Working copy", snapshot, readonly: true }}
         viewMode="logical"
@@ -150,7 +155,7 @@ test("VersionComparePane supporta viste indipendenti ER e logico", () => {
         onViewModeChange={() => undefined}
         onSyncedViewportChange={() => undefined}
       />
-      <VersionComparePane
+      <VersionCompareWorkspaceInstance
         side="right"
         resolved={{ ref: { kind: "working-copy" }, label: "Working copy", snapshot, readonly: true }}
         viewMode="er"
@@ -165,13 +170,14 @@ test("VersionComparePane supporta viste indipendenti ER e logico", () => {
   );
 
   assert.match(markup, /Schema logico non generato in questa versione/);
-  assert.match(markup, /data-testid="visual-compare-pane-left"/);
-  assert.match(markup, /data-testid="visual-compare-pane-right"/);
-  assert.match(markup, /class="diagram-canvas"/);
+  assert.match(markup, /data-testid="version-compare-instance-left"/);
+  assert.match(markup, /data-testid="version-compare-instance-right"/);
+  assert.match(markup, /class="diagram-canvas" data-readonly="true"/);
+  assert.doesNotMatch(markup, /designer-toolbar/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
-test("VersionCompareChangeDrawer mostra sezioni e item selezionabili", () => {
+test("VersionCompareChangeDrawer resta il dettaglio di supporto del Compare Mode", () => {
   setCurrentLocale("it");
   const diff = buildProjectVersionDiff(createSnapshot("Visual base"), createSnapshot("Visual changed", "changed"));
   const markup = renderWithI18n(

@@ -14,16 +14,17 @@ import type { VersionLogicalHighlights } from "../../types/logical";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 import { VersionCompareChangeDrawer, type VersionCompareActiveChange } from "./VersionCompareChangeDrawer";
-import { VersionComparePane } from "./VersionComparePane";
 import { VersionCompareToolbar } from "./VersionCompareToolbar";
+import { VersionCompareWorkspaceInstance } from "./VersionCompareWorkspaceInstance";
 
-interface VisualVersionCompareDialogProps {
-  open: boolean;
+interface VersionCompareModeProps {
+  appTitle: string;
   versioning: ProjectVersioningState;
   currentSnapshot: ProjectCommitSnapshot;
   initialLeft: VersionCompareRef;
   initialRight: VersionCompareRef;
-  onClose: () => void;
+  restoreDialogOpen?: boolean;
+  onExitCompareMode: () => void;
   onRestoreCommit: (commitId: string) => void;
 }
 
@@ -154,15 +155,16 @@ function withFocusedHighlights(
   };
 }
 
-export function VisualVersionCompareDialog({
-  open,
+export function VersionCompareMode({
+  appTitle,
   versioning,
   currentSnapshot,
   initialLeft,
   initialRight,
-  onClose,
+  restoreDialogOpen = false,
+  onExitCompareMode,
   onRestoreCommit,
-}: VisualVersionCompareDialogProps) {
+}: VersionCompareModeProps) {
   const { t } = useI18n();
   const [leftRef, setLeftRef] = useState<VersionCompareRef>(initialLeft);
   const [rightRef, setRightRef] = useState<VersionCompareRef>(initialRight);
@@ -175,31 +177,41 @@ export function VisualVersionCompareDialog({
   const [syncedViewports, setSyncedViewports] = useState<Partial<Record<VersionCompareViewMode, Viewport>>>({});
 
   useEffect(() => {
-    if (open) {
-      setLeftRef(initialLeft);
-      setRightRef(initialRight);
-      setLeftViewMode("er");
-      setRightViewMode("er");
-      setDetailsOpen(false);
-      setActiveChange(null);
-      setSyncedViewports({});
-    }
-  }, [initialLeft, initialRight, open]);
+    setLeftRef(initialLeft);
+    setRightRef(initialRight);
+    setLeftViewMode("er");
+    setRightViewMode("er");
+    setDetailsOpen(false);
+    setActiveChange(null);
+    setSyncedViewports({});
+  }, [initialLeft, initialRight]);
 
   useEffect(() => {
-    if (!open || typeof document === "undefined") {
+    if (typeof document === "undefined") {
       return undefined;
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
+      const target = event.target as HTMLElement | null;
+      const isEditingField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable === true;
+
+      if (isEditingField) {
+        return;
+      }
+
+      if (event.key === "Escape" && !restoreDialogOpen) {
+        event.preventDefault();
+        onExitCompareMode();
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
+  }, [onExitCompareMode, restoreDialogOpen]);
 
   const visualModelResult = useMemo(
     () => buildVersionCompareVisualModel(versioning, currentSnapshot, leftRef, rightRef),
@@ -207,108 +219,86 @@ export function VisualVersionCompareDialog({
   );
   const commitsNewestFirst = useMemo(() => sortCommitsNewestFirst(versioning), [versioning]);
 
-  if (!open) {
-    return null;
-  }
-
-  if (visualModelResult.status !== "ok") {
-    const message =
-      visualModelResult.status === "missing-head"
-        ? t("versioning.visualCompare.missingHead")
-        : t("versioning.diff.commitNotFound", { commitId: visualModelResult.commitId });
-
-    return (
-      <div className="studio-modal-backdrop" role="presentation" onClick={onClose}>
-        <div
-          className="studio-modal version-compare-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="version-compare-title"
-          aria-describedby="version-compare-subtitle"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="studio-modal__header">
-            <h2 id="version-compare-title" className="studio-modal__title">{t("versioning.visualCompare.title")}</h2>
-            <button type="button" className="studio-modal__close" onClick={onClose} aria-label={t("common.actions.close")}>
-              <StudioIcon name="close" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="studio-modal__body">
-            <div className="version-compare-empty-changes">
-              <StudioIcon name="warning" aria-hidden="true" />
-              <p>{message}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const model = localizeModel(visualModelResult.model, t);
-  const leftHighlights = withFocusedHighlights(model.highlights.left, activeChange, "left");
-  const rightHighlights = withFocusedHighlights(model.highlights.right, activeChange, "right");
-
   function handleSyncedViewportChange(viewMode: VersionCompareViewMode, viewport: Viewport) {
     setSyncedViewports((current) => ({ ...current, [viewMode]: viewport }));
   }
 
+  function renderSummaryChips(model: VersionCompareVisualModel) {
+    return (
+      <div className="version-compare-summary-chips" aria-label={t("versioning.diff.summary")}>
+        <span>{t("versioning.diff.added")}<strong>{model.diff.summary.addedCount}</strong></span>
+        <span>{t("versioning.diff.removed")}<strong>{model.diff.summary.removedCount}</strong></span>
+        <span>{t("versioning.diff.modified")}<strong>{model.diff.summary.modifiedCount}</strong></span>
+        <span>{t("versioning.diff.changedSections")}<strong>{model.diff.summary.changedSectionCount}</strong></span>
+      </div>
+    );
+  }
+
+  const missingMessage =
+    visualModelResult.status === "missing-head"
+      ? t("versioning.visualCompare.missingHead")
+      : visualModelResult.status === "missing-commit"
+        ? t("versioning.diff.commitNotFound", { commitId: visualModelResult.commitId })
+        : "";
+  const model = visualModelResult.status === "ok" ? localizeModel(visualModelResult.model, t) : null;
+  const leftHighlights = model ? withFocusedHighlights(model.highlights.left, activeChange, "left") : null;
+  const rightHighlights = model ? withFocusedHighlights(model.highlights.right, activeChange, "right") : null;
+
   return (
-    <div className="studio-modal-backdrop version-compare-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="studio-modal version-compare-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="version-compare-title"
-        aria-describedby="version-compare-subtitle"
-        onClick={(event) => event.stopPropagation()}
-        data-testid="visual-version-compare-dialog"
-      >
-        <header className="version-compare-header">
-          <div>
-            <h2 id="version-compare-title">{t("versioning.visualCompare.title")}</h2>
-            <p id="version-compare-subtitle">{t("versioning.visualCompare.subtitle")}</p>
-          </div>
-          <div className="version-compare-summary-chips" aria-label={t("versioning.diff.summary")}>
-            <span>{t("versioning.diff.added")}<strong>{model.diff.summary.addedCount}</strong></span>
-            <span>{t("versioning.diff.removed")}<strong>{model.diff.summary.removedCount}</strong></span>
-            <span>{t("versioning.diff.modified")}<strong>{model.diff.summary.modifiedCount}</strong></span>
-            <span>{t("versioning.diff.changedSections")}<strong>{model.diff.summary.changedSectionCount}</strong></span>
-          </div>
-          <button type="button" className="studio-modal__close" onClick={onClose} aria-label={t("common.actions.close")}>
-            <StudioIcon name="close" aria-hidden="true" />
-          </button>
-        </header>
+    <main
+      className="version-compare-mode"
+      data-testid="version-compare-mode"
+      aria-label={t("versioning.visualCompare.compareModeAria")}
+    >
+      <header className="version-compare-mode-header">
+        <div className="version-compare-mode-brand">
+          <span>{appTitle}</span>
+          <strong>{t("versioning.visualCompare.modeTitle")}</strong>
+          <small>{t("versioning.visualCompare.modeSubtitle")}</small>
+        </div>
+        {model ? renderSummaryChips(model) : null}
+        <button
+          type="button"
+          className="mode-button version-compare-exit-button"
+          onClick={onExitCompareMode}
+          data-testid="exit-version-compare-mode"
+        >
+          <StudioIcon name="close" aria-hidden="true" />
+          {t("versioning.visualCompare.exitCompare")}
+        </button>
+      </header>
 
-        <VersionCompareToolbar
-          leftRef={leftRef}
-          rightRef={rightRef}
-          commits={commitsNewestFirst}
-          headCommitId={versioning.headCommitId}
-          syncViewport={syncViewport}
-          detailsOpen={detailsOpen}
-          onLeftRefChange={setLeftRef}
-          onRightRefChange={setRightRef}
-          onSyncViewportChange={setSyncViewport}
-          onFitBoth={() => setFitRequestToken((current) => current + 1)}
-          onSwapSides={() => {
-            setLeftRef(rightRef);
-            setRightRef(leftRef);
-            setActiveChange(null);
-          }}
-          onToggleDetails={() => setDetailsOpen((current) => !current)}
-          onRestoreCommit={onRestoreCommit}
-        />
+      <VersionCompareToolbar
+        leftRef={leftRef}
+        rightRef={rightRef}
+        commits={commitsNewestFirst}
+        headCommitId={versioning.headCommitId}
+        syncViewport={syncViewport}
+        detailsOpen={detailsOpen}
+        onLeftRefChange={setLeftRef}
+        onRightRefChange={setRightRef}
+        onSyncViewportChange={setSyncViewport}
+        onFitBoth={() => setFitRequestToken((current) => current + 1)}
+        onSwapSides={() => {
+          setLeftRef(rightRef);
+          setRightRef(leftRef);
+          setActiveChange(null);
+        }}
+        onToggleDetails={() => setDetailsOpen((current) => !current)}
+        onRestoreCommit={onRestoreCommit}
+      />
 
-        <div className={detailsOpen ? "version-compare-workspace with-drawer" : "version-compare-workspace"}>
-          <main className="version-compare-main">
+      {model && leftHighlights && rightHighlights ? (
+        <div className={detailsOpen ? "version-compare-mode-body with-drawer" : "version-compare-mode-body"}>
+          <section className="version-compare-mode-main">
             <div className="version-compare-legend" aria-label={t("versioning.visualCompare.legend.title")}>
               <span className="version-legend-item is-added">{t("versioning.visualCompare.legend.added")}</span>
               <span className="version-legend-item is-removed">{t("versioning.visualCompare.legend.removed")}</span>
               <span className="version-legend-item is-modified">{t("versioning.visualCompare.legend.modified")}</span>
               <span className="version-legend-item is-layout">{t("versioning.visualCompare.legend.layout")}</span>
             </div>
-            <div className="version-compare-panes">
-              <VersionComparePane
+            <div className="version-compare-mode-grid">
+              <VersionCompareWorkspaceInstance
                 side="left"
                 resolved={model.left}
                 viewMode={leftViewMode}
@@ -320,7 +310,7 @@ export function VisualVersionCompareDialog({
                 onViewModeChange={setLeftViewMode}
                 onSyncedViewportChange={handleSyncedViewportChange}
               />
-              <VersionComparePane
+              <VersionCompareWorkspaceInstance
                 side="right"
                 resolved={model.right}
                 viewMode={rightViewMode}
@@ -333,7 +323,7 @@ export function VisualVersionCompareDialog({
                 onSyncedViewportChange={handleSyncedViewportChange}
               />
             </div>
-          </main>
+          </section>
           <VersionCompareChangeDrawer
             open={detailsOpen}
             diff={model.diff}
@@ -342,7 +332,13 @@ export function VisualVersionCompareDialog({
             onClose={() => setDetailsOpen(false)}
           />
         </div>
-      </div>
-    </div>
+      ) : (
+        <section className="version-compare-mode-error">
+          <StudioIcon name="warning" aria-hidden="true" />
+          <strong>{t("versioning.visualCompare.modeTitle")}</strong>
+          <p>{missingMessage}</p>
+        </section>
+      )}
+    </main>
   );
 }

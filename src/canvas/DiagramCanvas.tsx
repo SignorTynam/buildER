@@ -4098,7 +4098,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     >
 
 
-      <svg ref={props.svgRef} className="diagram-canvas">
+      <svg ref={props.svgRef} className="diagram-canvas" data-readonly={readOnly ? "true" : undefined}>
         <defs>
           <marker
             id="arrowhead"

@@ -8,7 +8,7 @@ import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
 import { CommitDialog } from "./components/versioning/CommitDialog";
 import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
-import { VisualVersionCompareDialog } from "./components/versioning/VisualVersionCompareDialog";
+import { VersionCompareMode } from "./components/versioning/VersionCompareMode";
 import { VersioningPanel } from "./components/versioning/VersioningPanel";
 import {
   CardinalityModal,
@@ -212,6 +212,11 @@ import {
   rememberLastSeenAppVersion,
   rememberVersionAnnouncementSeen,
 } from "./utils/versionAnnouncementStorage";
+
+interface VersionCompareSession {
+  left: VersionCompareRef;
+  right: VersionCompareRef;
+}
 
 type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
 type AppTranslator = (key: MessageKey, params?: TranslationParams) => string;
@@ -1004,10 +1009,7 @@ export default function App() {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [versioningPanelOpen, setVersioningPanelOpen] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
-  const [versionCompareRequest, setVersionCompareRequest] = useState<{
-    left: VersionCompareRef;
-    right: VersionCompareRef;
-  } | null>(null);
+  const [versionCompareSession, setVersionCompareSession] = useState<VersionCompareSession | null>(null);
   const [restoreCommitId, setRestoreCommitId] = useState<string | null>(null);
   const [restoreDialogBusy, setRestoreDialogBusy] = useState(false);
   const [restoreDialogError, setRestoreDialogError] = useState("");
@@ -2565,6 +2567,20 @@ export default function App() {
         return;
       }
 
+      if (versionCompareSession) {
+        const shortcut = event.key.toLowerCase();
+        const blockedEditorShortcut =
+          (event.ctrlKey || event.metaKey) ||
+          event.key === "Delete" ||
+          event.key === "Backspace" ||
+          TOOL_BY_SHORTCUT[shortcut] !== undefined;
+
+        if (blockedEditorShortcut) {
+          event.preventDefault();
+        }
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         handleSaveProject();
@@ -2761,6 +2777,7 @@ export default function App() {
     technicalPanelTab,
     tool,
     versionAnnouncement,
+    versionCompareSession,
     whatsNewOpen,
   ]);
 
@@ -5264,7 +5281,8 @@ export default function App() {
       return;
     }
 
-    setVersionCompareRequest({
+    setVersioningPanelOpen(false);
+    setVersionCompareSession({
       left: { kind: "commit", commitId },
       right: { kind: "working-copy" },
     });
@@ -5287,7 +5305,8 @@ export default function App() {
       return;
     }
 
-    setVersionCompareRequest({
+    setVersioningPanelOpen(false);
+    setVersionCompareSession({
       left: { kind: "commit", commitId },
       right: { kind: "head" },
     });
@@ -5367,7 +5386,7 @@ export default function App() {
 
       setRestoreCommitId(null);
       setRestoreDialogError("");
-      setVersionCompareRequest(null);
+      setVersionCompareSession(null);
       setVersioningPanelOpen(true);
       setStatus(t("versioning.restore.restored"));
       showSuccessNotice(t("versioning.restore.restoredWithBackup"), {
@@ -5700,6 +5719,34 @@ export default function App() {
     return <AppLoadingScreen />;
   }
 
+  if (versionCompareSession) {
+    return (
+      <>
+        <VersionCompareMode
+          appTitle={APP_TITLE}
+          versioning={projectVersioning.versioning}
+          currentSnapshot={currentProjectCommitSnapshot}
+          initialLeft={versionCompareSession.left}
+          initialRight={versionCompareSession.right}
+          restoreDialogOpen={restoreCommitId !== null}
+          onExitCompareMode={() => setVersionCompareSession(null)}
+          onRestoreCommit={handleOpenRestoreCommit}
+        />
+
+        <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
+
+        <RestoreVersionDialog
+          open={restoreCommitId !== null}
+          busy={restoreDialogBusy}
+          error={restoreDialogError}
+          commit={restoreTargetCommit}
+          onClose={handleCloseRestoreDialog}
+          onConfirm={handleConfirmRestoreCommit}
+        />
+      </>
+    );
+  }
+
   return (
     <div className={appShellClassName}>
       <AppHeader
@@ -6018,16 +6065,6 @@ export default function App() {
         }}
         onCompareWithCurrent={handleCompareCommitWithCurrent}
         onCompareWithHead={handleCompareCommitWithHead}
-        onRestoreCommit={handleOpenRestoreCommit}
-      />
-
-      <VisualVersionCompareDialog
-        open={versionCompareRequest !== null}
-        versioning={projectVersioning.versioning}
-        currentSnapshot={currentProjectCommitSnapshot}
-        initialLeft={versionCompareRequest?.left ?? { kind: "working-copy" }}
-        initialRight={versionCompareRequest?.right ?? { kind: "head" }}
-        onClose={() => setVersionCompareRequest(null)}
         onRestoreCommit={handleOpenRestoreCommit}
       />
 

@@ -13438,49 +13438,61 @@ summary:focus-visible,
   }
 }
 
-.version-compare-backdrop {
-  padding: 1.2rem;
-}
-
-.version-compare-dialog {
-  width: min(1560px, calc(100vw - 2.4rem));
-  height: min(920px, calc(100vh - 2.4rem));
-  max-height: calc(100vh - 2.4rem);
+.version-compare-mode {
+  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-rows: auto auto 1fr;
+  background: var(--editor-shell-bg);
+  color: var(--studio-ink);
   overflow: hidden;
 }
 
-.version-compare-header,
+.version-compare-mode-header,
 .version-compare-toolbar,
-.version-compare-pane-head,
-.version-compare-pane-foot,
+.version-compare-instance-header,
+.version-compare-instance-footer,
 .version-compare-drawer-head {
   border-bottom: 1px solid var(--studio-border);
   background: var(--studio-surface);
 }
 
-.version-compare-header {
+.version-compare-mode-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 1rem;
-  align-items: start;
+  align-items: center;
   padding: 1rem 1.1rem;
 }
 
-.version-compare-header h2 {
+.version-compare-mode-brand {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.version-compare-mode-brand span {
+  color: var(--studio-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.version-compare-mode-brand strong {
   margin: 0;
   color: var(--studio-ink);
   font-size: 1.2rem;
 }
 
-.version-compare-header p {
-  margin: 0.25rem 0 0;
+.version-compare-mode-brand small {
   color: var(--studio-muted);
 }
 
+.version-compare-exit-button {
+  justify-self: end;
+}
+
 .version-compare-summary-chips,
-.version-compare-pane-foot,
+.version-compare-instance-footer,
 .version-compare-legend,
 .version-compare-actions,
 .version-compare-selectors {
@@ -13492,7 +13504,7 @@ summary:focus-visible,
 
 .version-compare-summary-chips span,
 .version-legend-item,
-.version-compare-pane-foot span {
+.version-compare-instance-footer span {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -13523,7 +13535,7 @@ summary:focus-visible,
 
 .version-compare-select span,
 .version-compare-sync-toggle span,
-.version-compare-pane-head span,
+.version-compare-instance-header span,
 .version-compare-drawer-head span {
   color: var(--studio-muted);
   font-size: 0.74rem;
@@ -13550,17 +13562,17 @@ summary:focus-visible,
   background: var(--studio-surface-muted);
 }
 
-.version-compare-workspace {
+.version-compare-mode-body {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
 
-.version-compare-workspace.with-drawer {
+.version-compare-mode-body.with-drawer {
   grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
 }
 
-.version-compare-main {
+.version-compare-mode-main {
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -13594,13 +13606,13 @@ summary:focus-visible,
   background: var(--studio-accent-soft);
 }
 
-.version-compare-panes {
+.version-compare-mode-grid {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
-.version-compare-pane {
+.version-compare-instance {
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -13609,11 +13621,11 @@ summary:focus-visible,
   background: var(--studio-surface);
 }
 
-.version-compare-pane.is-right {
+.version-compare-instance.is-right {
   border-right: 0;
 }
 
-.version-compare-pane-head {
+.version-compare-instance-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
@@ -13621,19 +13633,19 @@ summary:focus-visible,
   padding: 0.75rem 0.85rem;
 }
 
-.version-compare-pane-head strong,
-.version-compare-pane-head small {
+.version-compare-instance-header strong,
+.version-compare-instance-header small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.version-compare-pane-head strong {
+.version-compare-instance-header strong {
   color: var(--studio-ink);
 }
 
-.version-compare-pane-head small {
+.version-compare-instance-header small {
   margin-top: 0.2rem;
   color: var(--studio-muted);
 }
@@ -13662,21 +13674,21 @@ summary:focus-visible,
   box-shadow: var(--studio-shadow-sm);
 }
 
-.version-compare-canvas-shell {
+.version-compare-instance-workspace {
   min-height: 0;
   position: relative;
   background: var(--editor-shell-bg);
 }
 
-.version-compare-canvas-shell .canvas-shell,
-.version-compare-canvas-shell .logical-canvas-panel {
+.version-compare-instance-workspace .canvas-shell,
+.version-compare-instance-workspace .logical-canvas-panel {
   height: 100%;
   min-height: 0;
   border: 0;
   border-radius: 0;
 }
 
-.version-compare-pane-foot {
+.version-compare-instance-footer {
   gap: 0.35rem;
   padding: 0.5rem 0.75rem;
   border-top: 1px solid var(--studio-border);
@@ -13696,6 +13708,21 @@ summary:focus-visible,
 }
 
 .version-compare-empty-logical strong {
+  color: var(--studio-ink);
+}
+
+.version-compare-mode-error {
+  min-height: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.45rem;
+  padding: 2rem;
+  color: var(--studio-muted);
+  text-align: center;
+}
+
+.version-compare-mode-error strong {
   color: var(--studio-ink);
 }
 
@@ -13870,24 +13897,18 @@ summary:focus-visible,
 }
 
 @media (max-width: 1100px) {
-  .version-compare-dialog {
-    width: calc(100vw - 1rem);
-    height: calc(100vh - 1rem);
-    max-height: calc(100vh - 1rem);
-  }
-
-  .version-compare-header,
+  .version-compare-mode-header,
   .version-compare-toolbar,
-  .version-compare-workspace.with-drawer {
+  .version-compare-mode-body.with-drawer {
     grid-template-columns: 1fr;
   }
 
-  .version-compare-panes {
+  .version-compare-mode-grid {
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(520px, 1fr);
   }
 
-  .version-compare-pane {
+  .version-compare-instance {
     border-right: 0;
     border-bottom: 1px solid var(--studio-border);
   }
