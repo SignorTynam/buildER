@@ -375,8 +375,8 @@ test("timeline distingue commit manuale, backup e restore automatici", async () 
   assert.match(markup, /Commit manuale/);
   assert.match(markup, /Backup automatico/);
   assert.match(markup, /Commit di restore/);
-  assert.match(markup, /auto-backup/);
-  assert.match(markup, /auto-restore/);
+  assert.doesNotMatch(markup, /auto-backup/);
+  assert.doesNotMatch(markup, /auto-restore/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 

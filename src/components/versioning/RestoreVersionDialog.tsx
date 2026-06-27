@@ -1,4 +1,5 @@
 import type { ProjectCommit } from "../../features/versioning/projectCommitSnapshot";
+import { PROJECT_RESTORE_BACKUP_TAG, PROJECT_RESTORE_TAG } from "../../features/versioning/projectVersionRestore";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 
@@ -25,11 +26,11 @@ function shortCommitId(id: string) {
 }
 
 function getCommitKindKey(commit: ProjectCommit) {
-  if (commit.tags?.includes("auto-backup")) {
+  if (commit.tags?.includes(PROJECT_RESTORE_BACKUP_TAG)) {
     return "versioning.backupCommit";
   }
 
-  if (commit.tags?.includes("auto-restore")) {
+  if (commit.tags?.includes(PROJECT_RESTORE_TAG)) {
     return "versioning.restoreCommit";
   }
 

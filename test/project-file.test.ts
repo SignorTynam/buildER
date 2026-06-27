@@ -584,6 +584,40 @@ test("versioning malformato viene sanitizzato senza impedire il caricamento", ()
   });
 });
 
+test("versioning con headCommitId inesistente preserva i commit validi e azzera HEAD", () => {
+  const snapshot = createFullProjectSnapshot("HEAD orfano");
+  const document = JSON.parse(serializeProjectFile(createSerializableProject("HEAD orfano")));
+  document.versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: "missing-head",
+    commits: [
+      {
+        id: "commit-valid",
+        parentId: null,
+        message: "Commit valido",
+        createdAt: "2026-06-26T12:30:00.000Z",
+        snapshot,
+        checksum: "checksum-valid",
+        stats: {
+          entityCount: 0,
+          relationshipCount: 0,
+          attributeCount: 0,
+          edgeCount: 0,
+          tableCount: 0,
+          warningCount: 0,
+          errorCount: 0,
+        },
+      },
+    ],
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.versioning.headCommitId, null);
+  assert.equal(parsed.state.versioning.commits.length, 1);
+  assert.equal(parsed.state.versioning.commits[0]?.id, "commit-valid");
+});
+
 test("versioning viene mantenuto dopo serialize e parse", () => {
   const initial = {
     ...createSerializableProject("Roundtrip versioning"),

@@ -4,6 +4,7 @@ import type {
   ProjectUncommittedChangeCategories,
   ProjectUncommittedChangeState,
 } from "../../features/versioning/useProjectVersioning";
+import { PROJECT_RESTORE_BACKUP_TAG, PROJECT_RESTORE_TAG } from "../../features/versioning/projectVersionRestore";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 
@@ -41,11 +42,11 @@ function getChangedCategoryKeys(categories: ProjectUncommittedChangeCategories) 
 }
 
 function getCommitTone(commit: ProjectCommit): CommitTone {
-  if (commit.tags?.includes("auto-backup")) {
+  if (commit.tags?.includes(PROJECT_RESTORE_BACKUP_TAG)) {
     return "backup";
   }
 
-  if (commit.tags?.includes("auto-restore")) {
+  if (commit.tags?.includes(PROJECT_RESTORE_TAG)) {
     return "restore";
   }
 
@@ -64,6 +65,18 @@ function getCommitToneLabelKey(tone: CommitTone) {
     default:
       return "versioning.manualCommit";
   }
+}
+
+function getCommitTagLabel(tag: string, t: ReturnType<typeof useI18n>["t"]) {
+  if (tag === PROJECT_RESTORE_BACKUP_TAG) {
+    return t("versioning.backupCommit");
+  }
+
+  if (tag === PROJECT_RESTORE_TAG) {
+    return t("versioning.restoreCommit");
+  }
+
+  return tag;
 }
 
 function CommitStats({ commit }: { commit: ProjectCommit }) {
@@ -307,7 +320,7 @@ export function VersioningPanel({
                             {commit.tags && commit.tags.length > 0 ? (
                               <span className="versioning-tag-row">
                                 {commit.tags.map((tag) => (
-                                  <span key={tag} className="versioning-tag-pill">{tag}</span>
+                                  <span key={tag} className="versioning-tag-pill">{getCommitTagLabel(tag, t)}</span>
                                 ))}
                               </span>
                             ) : null}

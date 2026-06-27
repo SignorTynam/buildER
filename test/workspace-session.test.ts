@@ -9,6 +9,11 @@ import {
   saveWorkspaceSessionSnapshot,
   serializeWorkspaceSessionSnapshot,
 } from "../src/features/workspace/workspaceSession.ts";
+import {
+  buildProjectCommitDraft,
+  createProjectCommitSnapshot,
+} from "../src/features/versioning/projectCommitSnapshot.ts";
+import { PROJECT_RESTORE_BACKUP_TAG, PROJECT_RESTORE_TAG } from "../src/features/versioning/projectVersionRestore.ts";
 import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
 import type { WorkspaceView } from "../src/types/translation.ts";
 
@@ -56,6 +61,45 @@ function createValidSnapshot(overrides: Partial<Parameters<typeof serializeWorks
     showDiagnostics: bootstrap.showDiagnostics,
     versioning: bootstrap.versioning,
     ...overrides,
+  });
+}
+
+function createVersioningCommitSnapshot(name: string) {
+  const bootstrap = createDefaultWorkspaceSessionBootstrap();
+
+  return createProjectCommitSnapshot({
+    diagram: {
+      ...bootstrap.diagram,
+      meta: {
+        ...bootstrap.diagram.meta,
+        name,
+      },
+    },
+    translationWorkspace: bootstrap.translationWorkspace,
+    logicalWorkspace: bootstrap.logicalWorkspace,
+    logicalGenerated: bootstrap.logicalGenerated,
+    logicalStage: bootstrap.logicalStage,
+    diagramView: bootstrap.diagramView,
+    tool: bootstrap.tool,
+    mode: bootstrap.mode,
+    viewport: bootstrap.viewport,
+    selection: bootstrap.selection,
+    translationViewport: bootstrap.translationViewport,
+    translationSelection: bootstrap.translationSelection,
+    logicalViewport: bootstrap.logicalViewport,
+    logicalSelection: bootstrap.logicalSelection,
+    codeDraft: bootstrap.codeDraft,
+    codeDirty: bootstrap.codeDirty,
+    technicalPanelOpen: bootstrap.technicalPanelOpen,
+    technicalPanelTab: bootstrap.technicalPanelTab,
+    codePanelOpen: bootstrap.codePanelOpen,
+    codePanelWidth: bootstrap.codePanelWidth,
+    notesPanelOpen: bootstrap.notesPanelOpen,
+    notesPanelWidth: bootstrap.notesPanelWidth,
+    toolbarCollapsed: bootstrap.toolbarCollapsed,
+    focusMode: bootstrap.focusMode,
+    toolbarWidth: bootstrap.toolbarWidth,
+    showDiagnostics: bootstrap.showDiagnostics,
   });
 }
 
@@ -243,4 +287,60 @@ test("workspace session con versioning malformato non crasha", () => {
 
   assert.equal(restored.restored, true);
   assert.deepEqual(restored.versioning, createEmptyProjectVersioningState());
+});
+
+test("workspace session preserva commit automatici di backup e restore", async () => {
+  const storage = new MemoryStorage();
+  const baseSnapshot = createVersioningCommitSnapshot("Schema iniziale");
+  const updatedSnapshot = createVersioningCommitSnapshot("Schema aggiornato");
+  const restoredSnapshot = createVersioningCommitSnapshot("Schema ripristinato");
+  const initialCommit = await buildProjectCommitDraft({
+    id: "commit-initial",
+    parentId: null,
+    message: "Schema iniziale",
+    createdAt: "2026-06-27T09:00:00.000Z",
+    snapshot: baseSnapshot,
+  });
+  const updatedCommit = await buildProjectCommitDraft({
+    id: "commit-updated",
+    parentId: initialCommit.id,
+    message: "Schema aggiornato",
+    createdAt: "2026-06-27T10:00:00.000Z",
+    snapshot: updatedSnapshot,
+  });
+  const backupCommit = await buildProjectCommitDraft({
+    id: "commit-backup",
+    parentId: updatedCommit.id,
+    message: "Backup automatico prima del ripristino",
+    createdAt: "2026-06-27T11:00:00.000Z",
+    snapshot: updatedSnapshot,
+    automatic: true,
+    tags: [PROJECT_RESTORE_BACKUP_TAG],
+  });
+  const restoreCommit = await buildProjectCommitDraft({
+    id: "commit-restore",
+    parentId: backupCommit.id,
+    message: "Ripristino di: Schema iniziale",
+    createdAt: "2026-06-27T11:01:00.000Z",
+    snapshot: restoredSnapshot,
+    automatic: true,
+    tags: [PROJECT_RESTORE_TAG],
+  });
+  const versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: restoreCommit.id,
+    commits: [initialCommit, updatedCommit, backupCommit, restoreCommit],
+  };
+
+  saveWorkspaceSessionSnapshot(createValidSnapshot({ versioning }), storage);
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+
+  assert.equal(restored.restored, true);
+  assert.equal(restored.versioning.headCommitId, "commit-restore");
+  assert.equal(restored.versioning.commits.length, 4);
+  assert.equal(restored.versioning.commits[2]?.parentId, "commit-updated");
+  assert.deepEqual(restored.versioning.commits[2]?.tags, [PROJECT_RESTORE_BACKUP_TAG]);
+  assert.equal(restored.versioning.commits[3]?.parentId, "commit-backup");
+  assert.deepEqual(restored.versioning.commits[3]?.tags, [PROJECT_RESTORE_TAG]);
 });
