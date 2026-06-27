@@ -8,7 +8,7 @@ import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
 import { CommitDialog } from "./components/versioning/CommitDialog";
 import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
-import { VersionDiffDialog } from "./components/versioning/VersionDiffDialog";
+import { VisualVersionCompareDialog } from "./components/versioning/VisualVersionCompareDialog";
 import { VersioningPanel } from "./components/versioning/VersioningPanel";
 import {
   CardinalityModal,
@@ -187,11 +187,7 @@ import {
   getProjectUncommittedChangeState,
   useProjectVersioning,
 } from "./features/versioning/useProjectVersioning";
-import {
-  createProjectVersionDiffFromCommitAndSnapshot,
-  createProjectVersionDiffFromCommits,
-  type ProjectVersionDiffResult,
-} from "./features/versioning/projectVersionDiff";
+import type { VersionCompareRef } from "./features/versioning/projectVersionVisualDiff";
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
@@ -1008,8 +1004,10 @@ export default function App() {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [versioningPanelOpen, setVersioningPanelOpen] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
-  const [versionDiff, setVersionDiff] = useState<ProjectVersionDiffResult | null>(null);
-  const [versionDiffOpen, setVersionDiffOpen] = useState(false);
+  const [versionCompareRequest, setVersionCompareRequest] = useState<{
+    left: VersionCompareRef;
+    right: VersionCompareRef;
+  } | null>(null);
   const [restoreCommitId, setRestoreCommitId] = useState<string | null>(null);
   const [restoreDialogBusy, setRestoreDialogBusy] = useState(false);
   const [restoreDialogError, setRestoreDialogError] = useState("");
@@ -5260,25 +5258,16 @@ export default function App() {
     showErrorNotice(message, { title: t("versioning.diff.title") });
   }
 
-  function openVersionDiff(diff: ProjectVersionDiffResult) {
-    setVersionDiff(diff);
-    setVersionDiffOpen(true);
-  }
-
   function handleCompareCommitWithCurrent(commitId: string) {
-    const result = createProjectVersionDiffFromCommitAndSnapshot(
-      projectVersioning.versioning,
-      commitId,
-      currentProjectCommitSnapshot,
-      t("versioning.diff.workingCopy"),
-    );
-
-    if (result.status === "missing-commit") {
-      handleMissingDiffCommit(result.commitId);
+    if (!projectVersioning.getCommitById(commitId)) {
+      handleMissingDiffCommit(commitId);
       return;
     }
 
-    openVersionDiff(result.diff);
+    setVersionCompareRequest({
+      left: { kind: "commit", commitId },
+      right: { kind: "working-copy" },
+    });
   }
 
   function handleCompareCommitWithHead(commitId: string) {
@@ -5288,13 +5277,20 @@ export default function App() {
       return;
     }
 
-    const result = createProjectVersionDiffFromCommits(projectVersioning.versioning, commitId, headCommitId);
-    if (result.status === "missing-commit") {
-      handleMissingDiffCommit(result.commitId);
+    if (!projectVersioning.getCommitById(commitId)) {
+      handleMissingDiffCommit(commitId);
       return;
     }
 
-    openVersionDiff(result.diff);
+    if (!projectVersioning.getCommitById(headCommitId)) {
+      handleMissingDiffCommit(headCommitId);
+      return;
+    }
+
+    setVersionCompareRequest({
+      left: { kind: "commit", commitId },
+      right: { kind: "head" },
+    });
   }
 
   function handleOpenRestoreCommit(commitId: string) {
@@ -5371,7 +5367,7 @@ export default function App() {
 
       setRestoreCommitId(null);
       setRestoreDialogError("");
-      setVersionDiffOpen(false);
+      setVersionCompareRequest(null);
       setVersioningPanelOpen(true);
       setStatus(t("versioning.restore.restored"));
       showSuccessNotice(t("versioning.restore.restoredWithBackup"), {
@@ -6025,10 +6021,14 @@ export default function App() {
         onRestoreCommit={handleOpenRestoreCommit}
       />
 
-      <VersionDiffDialog
-        open={versionDiffOpen}
-        diff={versionDiff}
-        onClose={() => setVersionDiffOpen(false)}
+      <VisualVersionCompareDialog
+        open={versionCompareRequest !== null}
+        versioning={projectVersioning.versioning}
+        currentSnapshot={currentProjectCommitSnapshot}
+        initialLeft={versionCompareRequest?.left ?? { kind: "working-copy" }}
+        initialRight={versionCompareRequest?.right ?? { kind: "head" }}
+        onClose={() => setVersionCompareRequest(null)}
+        onRestoreCommit={handleOpenRestoreCommit}
       />
 
       <RestoreVersionDialog

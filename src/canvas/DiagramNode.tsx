@@ -1,5 +1,5 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
-import type { DiagramHighlightKind, DiagramNode, Point } from "../types/diagram";
+import type { DiagramHighlightKind, DiagramNode, Point, VersionHighlightKind } from "../types/diagram";
 import { useI18n } from "../i18n/useI18n";
 import { DIAGRAM_ATTRIBUTE_MARKER_RADIUS } from "./diagramVisualConstants";
 
@@ -122,6 +122,7 @@ interface DiagramNodeProps {
   validationLevel?: DiagramIssueLevel;
   validationCount?: number;
   translationHighlight?: DiagramHighlightKind;
+  versionHighlight?: VersionHighlightKind;
   attributeDirection?: Point;
   isCompositeAttribute?: boolean;
   onFocus: (node: DiagramNode) => void;
@@ -169,7 +170,14 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         : isShapeHighlighted
           ? 2.3
           : 1.8;
-  const groupClassName = isGhost ? "diagram-node ghost" : props.selected ? "diagram-node selected" : "diagram-node";
+  const groupClassName = [
+    "diagram-node",
+    isGhost ? "ghost" : "",
+    props.selected ? "selected" : "",
+    props.versionHighlight ? `version-highlight-${props.versionHighlight}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
   const groupFocusable = !isGhost && props.focusable ? "true" : "false";
 

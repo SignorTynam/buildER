@@ -315,6 +315,24 @@ export interface LogicalSelection {
   edgeId: string | null;
 }
 
+export interface VersionLogicalHighlights {
+  addedTableIds: string[];
+  removedTableIds: string[];
+  modifiedTableIds: string[];
+  addedColumnIds: string[];
+  removedColumnIds: string[];
+  modifiedColumnIds: string[];
+  addedForeignKeyIds: string[];
+  removedForeignKeyIds: string[];
+  modifiedForeignKeyIds: string[];
+  addedEdgeIds: string[];
+  removedEdgeIds: string[];
+  modifiedEdgeIds: string[];
+  focusedTableId?: string | null;
+  focusedColumnId?: string | null;
+  focusedForeignKeyId?: string | null;
+}
+
 export const EMPTY_LOGICAL_SELECTION: LogicalSelection = {
   nodeId: null,
   columnId: null,

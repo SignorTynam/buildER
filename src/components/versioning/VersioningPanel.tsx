@@ -333,7 +333,7 @@ export function VersioningPanel({
                             onClick={() => onCompareWithCurrent(commit.id)}
                             data-testid="compare-with-current"
                           >
-                            {t("versioning.diff.compareWithCurrent")}
+                            {t("versioning.visualCompare.compareWithCurrent")}
                           </button>
                           {commit.id !== headCommitId ? (
                             <button
@@ -342,7 +342,7 @@ export function VersioningPanel({
                               onClick={() => onCompareWithHead(commit.id)}
                               data-testid="compare-with-head"
                             >
-                              {t("versioning.diff.compareWithHead")}
+                              {t("versioning.visualCompare.compareWithHead")}
                             </button>
                           ) : null}
                           <button
@@ -393,7 +393,7 @@ export function VersioningPanel({
                           onClick={() => onCompareWithCurrent(selectedCommit.id)}
                           data-testid="compare-with-current"
                         >
-                          {t("versioning.diff.compareWithCurrent")}
+                          {t("versioning.visualCompare.compareWithCurrent")}
                         </button>
                         {selectedCommit.id !== headCommitId ? (
                           <button
@@ -402,7 +402,7 @@ export function VersioningPanel({
                             onClick={() => onCompareWithHead(selectedCommit.id)}
                             data-testid="compare-with-head"
                           >
-                            {t("versioning.diff.compareWithHead")}
+                            {t("versioning.visualCompare.compareWithHead")}
                           </button>
                         ) : null}
                         <button

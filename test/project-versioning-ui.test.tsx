@@ -190,7 +190,7 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
   assert.match(markup, /HEAD/);
   assert.match(markup, /Commit manuale/);
   assert.match(markup, /Ripristina/);
-  assert.match(markup, /Confronta con corrente/);
+  assert.match(markup, /Confronta visualmente con corrente/);
   assert.match(markup, /Entit(?:à|&#xE0;): 1/);
   assert.match(markup, /Attributi: 1/);
   assert.match(markup, /Edge: 1/);
@@ -320,7 +320,7 @@ test("pannello Versioni mostra azione Confronta con HEAD per commit non HEAD", a
     />,
   );
 
-  assert.match(markup, /Confronta con corrente/);
+  assert.match(markup, /Confronta visualmente con corrente/);
   assert.match(markup, /Ripristina/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
