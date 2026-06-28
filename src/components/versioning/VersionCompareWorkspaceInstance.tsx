@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { DiagramCanvas } from "../../canvas/DiagramCanvas";
-import { LogicalTransformationCanvas } from "../../logical/LogicalTransformationCanvas";
+import { useEffect, useMemo, useState } from "react";
 import type { SelectionState, VersionDiagramHighlights, Viewport } from "../../types/diagram";
 import type { LogicalSelection, VersionLogicalHighlights } from "../../types/logical";
 import {
@@ -10,6 +8,9 @@ import {
 } from "../../features/versioning/projectVersionVisualDiff";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { LogicalTranslationWorkspace } from "../../logical/LogicalTranslationWorkspace";
+import { TranslationWorkspace } from "../../translation/TranslationWorkspace";
+import { ErWorkspaceView } from "../../workspace/ErWorkspaceView";
 
 interface VersionCompareWorkspaceInstanceProps {
   side: "left" | "right";
@@ -72,8 +73,6 @@ export function VersionCompareWorkspaceInstance({
   syncedViewport,
 }: VersionCompareWorkspaceInstanceProps) {
   const { t } = useI18n();
-  const svgRef = useRef<SVGSVGElement>(null);
-  const logicalSvgRef = useRef<SVGSVGElement>(null);
   const [viewport, setViewport] = useState<Viewport>(() => getInitialViewport(resolved, viewMode));
   const [selection, setSelection] = useState<SelectionState>(() => getInitialSelection(resolved, viewMode));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => resolved.snapshot.logicalSelection);
@@ -104,11 +103,14 @@ export function VersionCompareWorkspaceInstance({
     }
   }
 
-  const logicalIsEmpty =
-    viewMode === "logical" &&
-    payload.mode === "logical" &&
-    !resolved.snapshot.logicalGenerated &&
-    payload.workspace.model.tables.length === 0;
+  const unavailableTitle =
+    payload.mode === "unavailable" && payload.viewMode === "translation"
+      ? t("versioning.visualCompare.translationUnavailableTitle")
+      : t("versioning.visualCompare.logicalUnavailableTitle");
+  const unavailableDescription =
+    payload.mode === "unavailable" && payload.viewMode === "translation"
+      ? t("versioning.visualCompare.translationUnavailableDescription")
+      : t("versioning.visualCompare.logicalUnavailableDescription");
 
   return (
     <section
@@ -144,79 +146,95 @@ export function VersionCompareWorkspaceInstance({
         </nav>
       </header>
 
-      <div className="version-compare-instance-workspace">
-        {payload.mode === "logical" ? (
-          logicalIsEmpty ? (
-            <div className="version-compare-empty-logical">
-              <StudioIcon name="database" aria-hidden="true" />
-              <strong>{t("versioning.visualCompare.noLogicalSchema")}</strong>
-              <p>{t("versioning.visualCompare.noLogicalSchemaDescription")}</p>
-            </div>
-          ) : (
-            <LogicalTransformationCanvas
+      <div className="version-compare-instance-real-workspace">
+        {payload.mode === "unavailable" ? (
+          <div className="version-compare-empty-logical" data-testid={`version-compare-${side}-unavailable-${payload.viewMode}`}>
+            <StudioIcon name={payload.viewMode === "translation" ? "translate" : "database"} aria-hidden="true" />
+            <strong>{unavailableTitle}</strong>
+            <p>{unavailableDescription}</p>
+          </div>
+        ) : payload.mode === "logical" ? (
+            <LogicalTranslationWorkspace
               sourceDiagram={resolved.snapshot.translationWorkspace.translatedDiagram}
               workspace={payload.workspace}
-              selection={logicalSelection}
+              logicalStage={resolved.snapshot.logicalStage}
               viewport={viewport}
-              svgRef={logicalSvgRef}
-              showForeignKeyLabels
+              selection={logicalSelection}
+              sidePanelHidden
               typeMode={false}
+              panelMode="review"
               fitRequestToken={logicalFitToken}
-              autoFitOnMount
-              activeTargetKeys={[]}
-              focusedTargetKey={null}
-              viewMode="schema"
+              notesPanelOpen={false}
+              canUndo={false}
+              canRedo={false}
               readOnly
+              compareMode
               versionHighlights={logicalHighlights}
+              onUndo={() => undefined}
+              onRedo={() => undefined}
               onViewportChange={handleViewportChange}
               onSelectionChange={setLogicalSelection}
+              onTypeModeChange={() => undefined}
+              onPanelModeChange={() => undefined}
+              onToggleNotesPanel={() => undefined}
+              onApplyChoice={() => undefined}
+              onApplyBulkFix={() => undefined}
+              onResetTranslation={() => undefined}
+              onDone={() => undefined}
+              onOpenDesign={() => undefined}
+              onExportProject={() => undefined}
+              onSaveSql={() => undefined}
+              onExportPng={() => undefined}
+              onExportJpeg={() => undefined}
+              onExportSvg={() => undefined}
               onPreviewModel={() => undefined}
               onCommitModel={() => undefined}
               onRenameTable={() => undefined}
               onRenameColumn={() => undefined}
               onUpdateColumnSql={() => undefined}
+              onMoveColumn={() => undefined}
             />
-          )
+        ) : payload.mode === "translation" ? (
+          <TranslationWorkspace
+            workspace={payload.workspace}
+            viewport={viewport}
+            selection={selection}
+            sidePanelHidden
+            canUndo={false}
+            canRedo={false}
+            notesPanelOpen={false}
+            readOnly
+            compareMode
+            versionHighlights={diagramHighlights}
+            onUndo={() => undefined}
+            onRedo={() => undefined}
+            onViewportChange={handleViewportChange}
+            onSelectionChange={setSelection}
+            onApplyChoice={() => undefined}
+            onResetTranslation={() => undefined}
+            onOpenDesign={() => undefined}
+            onOpenLogical={() => undefined}
+            onToggleNotesPanel={() => undefined}
+            onExportProject={() => undefined}
+            onSaveRestructuredErs={() => undefined}
+            onPreviewDiagram={() => undefined}
+            onCommitDiagram={() => undefined}
+          />
         ) : (
-          <DiagramCanvas
+          <ErWorkspaceView
             diagram={payload.diagram}
             selection={selection}
-            tool="select"
-            mode="edit"
             viewport={viewport}
             issues={[]}
-            statusMessage={t("versioning.visualCompare.readOnlyStatus")}
-            svgRef={svgRef}
+            statusMessage={t("versioning.visualCompare.workspaceReadOnly")}
             readOnly
+            compareMode
             versionHighlights={diagramHighlights}
             onViewportChange={handleViewportChange}
             onSelectionChange={setSelection}
-            onPreviewDiagram={() => undefined}
-            onCommitDiagram={() => undefined}
-            onCreateNode={() => ""}
-            onCreateEdge={() => ({ success: false, message: t("versioning.visualCompare.blockedEditorAction") })}
-            onOpenCardinality={() => undefined}
-            onOpenInheritanceType={() => undefined}
-            onToolChange={() => undefined}
-            onDeleteNode={() => undefined}
-            onDeleteEdge={() => undefined}
-            onDeleteSelection={() => undefined}
-            onDeleteExternalIdentifier={() => undefined}
-            onRenameNode={() => undefined}
-            onRenameEdge={() => undefined}
-            onStatusMessageChange={() => undefined}
           />
         )}
       </div>
-
-      <footer className="version-compare-instance-footer">
-        <span>{t("versioning.stats.entities", { count: resolved.snapshot.diagram.nodes.filter((node) => node.type === "entity").length })}</span>
-        <span>{t("versioning.stats.relationships", { count: resolved.snapshot.diagram.nodes.filter((node) => node.type === "relationship").length })}</span>
-        <span>{t("versioning.stats.attributes", { count: resolved.snapshot.diagram.nodes.filter((node) => node.type === "attribute").length })}</span>
-        <span>{t("versioning.stats.tables", { count: resolved.snapshot.logicalWorkspace.model.tables.length })}</span>
-        <span>{t("versioning.stats.warnings", { count: resolved.snapshot.logicalWorkspace.model.issues.filter((issue) => issue.level === "warning").length })}</span>
-        <span>{t("versioning.stats.errors", { count: resolved.snapshot.logicalWorkspace.model.issues.filter((issue) => issue.level === "error").length })}</span>
-      </footer>
     </section>
   );
 }

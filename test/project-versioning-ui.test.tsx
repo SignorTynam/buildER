@@ -172,7 +172,7 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
       headCommitId={commit.id}
       changeState={changeState}
       onClose={() => undefined}
-      onNewCommit={() => undefined}
+      onCreateCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
       onRestoreCommit={() => undefined}
@@ -181,19 +181,18 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
 
   assert.match(markup, /data-testid="versioning-panel"/);
   assert.match(markup, /data-testid="versioning-uncommitted"/);
-  assert.match(markup, /data-testid="versioning-change-categories"/);
   assert.match(markup, /data-testid="versioning-timeline"/);
   assert.match(markup, /Modifiche al codice/);
   assert.match(markup, /Modifiche al workspace/);
   assert.match(markup, /Schema iniziale/);
   assert.match(markup, /Prima versione stabile/);
   assert.match(markup, /HEAD/);
-  assert.match(markup, /Commit manuale/);
   assert.match(markup, /Ripristina/);
-  assert.match(markup, /Confronta visualmente con corrente/);
-  assert.match(markup, /Entit(?:à|&#xE0;): 1/);
-  assert.match(markup, /Attributi: 1/);
-  assert.match(markup, /Edge: 1/);
+  assert.match(markup, /Confronta/);
+  assert.match(markup, /data-testid="open-inline-commit-form"/);
+  assert.doesNotMatch(markup, /data-testid="commit-dialog"/);
+  assert.doesNotMatch(markup, /data-testid="versioning-detail-panel"/);
+  assert.doesNotMatch(markup, /Edge: 1/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
@@ -213,7 +212,7 @@ test("pannello Versioni mostra lo stato vuoto", () => {
       headCommitId={null}
       changeState={noContentState}
       onClose={() => undefined}
-      onNewCommit={() => undefined}
+      onCreateCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
       onRestoreCommit={() => undefined}
@@ -221,7 +220,7 @@ test("pannello Versioni mostra lo stato vuoto", () => {
   );
 
   assert.match(markup, /data-testid="versioning-empty"/);
-  assert.match(markup, /Nessuna versione salvata/);
+  assert.match(markup, /Nessun commit/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 
@@ -236,7 +235,7 @@ test("pannello Versioni mostra CTA primo commit quando manca HEAD ma c'e contenu
       headCommitId={null}
       changeState={changeState}
       onClose={() => undefined}
-      onNewCommit={() => undefined}
+      onCreateCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
       onRestoreCommit={() => undefined}
@@ -244,7 +243,7 @@ test("pannello Versioni mostra CTA primo commit quando manca HEAD ma c'e contenu
   );
 
   assert.match(markup, /Questo progetto non ha ancora commit/);
-  assert.match(markup, /Crea primo commit/);
+  assert.match(markup, /Crea commit/);
   assert.match(markup, /Modifiche allo schema ER/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
@@ -267,7 +266,7 @@ test("pannello Versioni mostra working copy pulita quando HEAD e invariato", asy
       headCommitId={result.commit.id}
       changeState={getProjectUncommittedChangeState(result.versioning, snapshot)}
       onClose={() => undefined}
-      onNewCommit={() => undefined}
+      onCreateCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
       onRestoreCommit={() => undefined}
@@ -313,14 +312,14 @@ test("pannello Versioni mostra azione Confronta con HEAD per commit non HEAD", a
       headCommitId={second.commit.id}
       changeState={getProjectUncommittedChangeState(second.versioning, changed)}
       onClose={() => undefined}
-      onNewCommit={() => undefined}
+      onCreateCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
       onRestoreCommit={() => undefined}
     />,
   );
 
-  assert.match(markup, /Confronta visualmente con corrente/);
+  assert.match(markup, /Confronta/);
   assert.match(markup, /Ripristina/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
@@ -365,14 +364,12 @@ test("timeline distingue commit manuale, backup e restore automatici", async () 
       headCommitId={restore.id}
       changeState={getProjectUncommittedChangeState(versioning, snapshot)}
       onClose={() => undefined}
-      onNewCommit={() => undefined}
+      onCreateCommit={() => undefined}
       onCompareWithCurrent={() => undefined}
       onCompareWithHead={() => undefined}
       onRestoreCommit={() => undefined}
     />,
   );
-
-  assert.match(markup, /Commit manuale/);
   assert.match(markup, /Backup automatico/);
   assert.match(markup, /Commit di restore/);
   assert.doesNotMatch(markup, /auto-backup/);
@@ -484,3 +481,4 @@ test("funzioni diff commit usate dalla UI producono confronti commit e working c
   assert.equal(createProjectVersionDiffFromCommits(second.versioning, first.commit.id, second.commit.id).status, "ok");
   assert.equal(createProjectVersionDiffFromCommitAndSnapshot(second.versioning, first.commit.id, changed).status, "ok");
 });
+

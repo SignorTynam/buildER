@@ -169,9 +169,11 @@ test("VersionCompareWorkspaceInstance mantiene viste indipendenti e canvas read-
     </div>,
   );
 
-  assert.match(markup, /Schema logico non generato in questa versione/);
+  assert.match(markup, /Vista Logica non salvata in questa versione/);
   assert.match(markup, /data-testid="version-compare-instance-left"/);
   assert.match(markup, /data-testid="version-compare-instance-right"/);
+  assert.match(markup, /designer-workspace/);
+  assert.match(markup, /designer-canvas-region/);
   assert.match(markup, /class="diagram-canvas" data-readonly="true"/);
   assert.doesNotMatch(markup, /designer-toolbar/);
   setCurrentLocale(DEFAULT_LOCALE);

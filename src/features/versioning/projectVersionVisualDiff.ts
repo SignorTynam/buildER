@@ -1,6 +1,6 @@
 import type { DiagramDocument, VersionDiagramHighlights } from "../../types/diagram";
 import type { LogicalWorkspaceDocument, VersionLogicalHighlights } from "../../types/logical";
-import { refreshErTranslationWorkspace } from "../../utils/erTranslation";
+import type { ErTranslationWorkspaceDocument } from "../../types/translation";
 import {
   buildProjectVersionDiff,
   type ProjectVersionDiffItem,
@@ -56,8 +56,9 @@ export type BuildVersionCompareVisualModelResult =
 
 export type SnapshotViewPayload =
   | { mode: "er"; diagram: DiagramDocument }
-  | { mode: "translation"; diagram: DiagramDocument }
-  | { mode: "logical"; workspace: LogicalWorkspaceDocument };
+  | { mode: "translation"; workspace: ErTranslationWorkspaceDocument; diagram: DiagramDocument }
+  | { mode: "logical"; workspace: LogicalWorkspaceDocument }
+  | { mode: "unavailable"; viewMode: "translation" | "logical"; reason: "not-used-in-snapshot" };
 
 const EMPTY_DIAGRAM_HIGHLIGHTS: VersionDiagramHighlights = {
   addedNodeIds: [],
@@ -127,6 +128,70 @@ function cloneLogicalHighlights(highlights: VersionLogicalHighlights): VersionLo
 
 function findCommit(versioning: ProjectVersioningState, commitId: string): ProjectCommit | null {
   return versioning.commits.find((commit) => commit.id === commitId) ?? null;
+}
+
+function hasItems<T>(items: T[] | undefined): boolean {
+  return Array.isArray(items) && items.length > 0;
+}
+
+function getDiagramSemanticSignature(diagram: DiagramDocument): string {
+  return JSON.stringify({
+    nodes: diagram.nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      label: node.label,
+      weak: "weak" in node ? node.weak : undefined,
+      optional: "optional" in node ? node.optional : undefined,
+      multivalued: "multivalued" in node ? node.multivalued : undefined,
+      composite: "composite" in node ? node.composite : undefined,
+      cardinality: "cardinality" in node ? node.cardinality : undefined,
+    })),
+    edges: diagram.edges.map((edge) => ({
+      id: edge.id,
+      type: edge.type,
+      sourceId: edge.sourceId,
+      targetId: edge.targetId,
+      label: edge.label,
+      cardinality: "cardinality" in edge ? edge.cardinality : undefined,
+      generalizationGroupId: "generalizationGroupId" in edge ? edge.generalizationGroupId : undefined,
+    })),
+    generalizationGroups: diagram.generalizationGroups ?? [],
+    notes: diagram.notes ?? [],
+  });
+}
+
+export function hasSnapshotTranslationWork(snapshot: ProjectCommitSnapshot): boolean {
+  const workspace = snapshot.translationWorkspace;
+  if (snapshot.diagramView === "translation" || snapshot.diagramView === "logical") {
+    return true;
+  }
+
+  if (
+    hasItems(workspace.translation.decisions) ||
+    hasItems(workspace.translation.mappings) ||
+    hasItems(workspace.translation.conflicts)
+  ) {
+    return true;
+  }
+
+  return getDiagramSemanticSignature(workspace.translatedDiagram) !== getDiagramSemanticSignature(snapshot.diagram);
+}
+
+export function hasSnapshotLogicalWork(snapshot: ProjectCommitSnapshot): boolean {
+  const workspace = snapshot.logicalWorkspace;
+  if (snapshot.logicalGenerated || snapshot.diagramView === "logical") {
+    return true;
+  }
+
+  return (
+    hasItems(workspace.model.tables) ||
+    hasItems(workspace.model.foreignKeys) ||
+    hasItems(workspace.model.uniqueConstraints) ||
+    hasItems(workspace.model.edges) ||
+    hasItems(workspace.translation.decisions) ||
+    hasItems(workspace.translation.mappings) ||
+    hasItems(workspace.translation.conflicts)
+  );
 }
 
 function shortCommitId(commitId: string): string {
@@ -414,6 +479,10 @@ export function getSnapshotViewPayload(
   viewMode: VersionCompareViewMode,
 ): SnapshotViewPayload {
   if (viewMode === "logical") {
+    if (!hasSnapshotLogicalWork(snapshot)) {
+      return { mode: "unavailable", viewMode, reason: "not-used-in-snapshot" };
+    }
+
     return {
       mode: "logical",
       workspace: cloneProjectCommitSnapshot(snapshot).logicalWorkspace,
@@ -421,10 +490,15 @@ export function getSnapshotViewPayload(
   }
 
   if (viewMode === "translation") {
+    if (!hasSnapshotTranslationWork(snapshot)) {
+      return { mode: "unavailable", viewMode, reason: "not-used-in-snapshot" };
+    }
+
     const cloned = cloneProjectCommitSnapshot(snapshot);
     return {
       mode: "translation",
-      diagram: refreshErTranslationWorkspace(cloned.diagram, cloned.translationWorkspace).translatedDiagram,
+      workspace: cloned.translationWorkspace,
+      diagram: cloned.translationWorkspace.translatedDiagram,
     };
   }
 

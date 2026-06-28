@@ -6,6 +6,8 @@ import {
   buildLogicalVersionHighlights,
   buildVersionCompareVisualModel,
   getSnapshotViewPayload,
+  hasSnapshotLogicalWork,
+  hasSnapshotTranslationWork,
 } from "../src/features/versioning/projectVersionVisualDiff.ts";
 import { buildProjectVersionDiff } from "../src/features/versioning/projectVersionDiff.ts";
 import { createProjectCommitSnapshot, type ProjectCommitSnapshot } from "../src/features/versioning/projectCommitSnapshot.ts";
@@ -294,17 +296,49 @@ test("visual compare risolve commit e working copy senza mutare gli snapshot", (
   assert.equal(JSON.stringify(right), beforeRight);
 });
 
-test("getSnapshotViewPayload restituisce payload clonati per ER, traduzione e logico", () => {
+test("getSnapshotViewPayload non mostra viste traduzione fallback non salvate", () => {
   const snapshot = createSnapshot("right");
   const erPayload = getSnapshotViewPayload(snapshot, "er");
   const translationPayload = getSnapshotViewPayload(snapshot, "translation");
   const logicalPayload = getSnapshotViewPayload(snapshot, "logical");
 
   assert.equal(erPayload.mode, "er");
-  assert.equal(translationPayload.mode, "translation");
+  assert.equal(translationPayload.mode, "unavailable");
+  assert.equal(translationPayload.viewMode, "translation");
   assert.equal(logicalPayload.mode, "logical");
   if (erPayload.mode === "er") {
     erPayload.diagram.meta.name = "mutated";
   }
   assert.equal(snapshot.diagram.meta.name, "visual-right");
+});
+
+test("visual compare distingue viste traduzione e logico realmente salvate da fallback vuoti", () => {
+  const fallback = createSnapshot("right");
+  const withTranslation = createSnapshot("right");
+  const withLogical = createSnapshot("right");
+
+  withTranslation.diagramView = "translation";
+  withLogical.logicalGenerated = true;
+  withLogical.logicalWorkspace.model.tables = [
+    {
+      id: "saved-table",
+      name: "Cliente",
+      kind: "entity",
+      columns: [],
+      x: 0,
+      y: 0,
+      width: 160,
+      height: 96,
+    },
+  ];
+
+  assert.equal(hasSnapshotTranslationWork(fallback), false);
+  assert.equal(hasSnapshotLogicalWork(fallback), true);
+  assert.equal(hasSnapshotTranslationWork(withTranslation), true);
+  assert.equal(hasSnapshotLogicalWork(withLogical), true);
+
+  const translationPayload = getSnapshotViewPayload(withTranslation, "translation");
+  const logicalPayload = getSnapshotViewPayload(withLogical, "logical");
+  assert.equal(translationPayload.mode, "translation");
+  assert.equal(logicalPayload.mode, "logical");
 });

@@ -13,8 +13,11 @@ interface VersioningPanelProps {
   commits: ProjectCommit[];
   headCommitId: string | null;
   changeState: ProjectUncommittedChangeState;
+  commitBusy?: boolean;
+  commitError?: string;
+  commitHint?: string;
   onClose: () => void;
-  onNewCommit: () => void;
+  onCreateCommit: (message: string, description?: string) => Promise<boolean | void> | boolean | void;
   onCompareWithCurrent: (commitId: string) => void;
   onCompareWithHead: (commitId: string) => void;
   onRestoreCommit: (commitId: string) => void;
@@ -67,33 +70,200 @@ function getCommitToneLabelKey(tone: CommitTone) {
   }
 }
 
-function getCommitTagLabel(tag: string, t: ReturnType<typeof useI18n>["t"]) {
-  if (tag === PROJECT_RESTORE_BACKUP_TAG) {
-    return t("versioning.backupCommit");
+function getPanelSubtitle(changeState: ProjectUncommittedChangeState, commitCount: number, t: ReturnType<typeof useI18n>["t"]) {
+  if (commitCount === 0) {
+    return t("versioning.panel.noCommitsCompact");
   }
 
-  if (tag === PROJECT_RESTORE_TAG) {
-    return t("versioning.restoreCommit");
+  if (changeState.hasChanges) {
+    return t("versioning.panel.subtitleDirty", { count: commitCount });
   }
 
-  return tag;
+  return t("versioning.panel.subtitleClean", { count: commitCount });
 }
 
-function CommitStats({ commit }: { commit: ProjectCommit }) {
+function WorkingCopyBanner({
+  changeState,
+  commitBusy,
+  commitError,
+  commitHint,
+  formOpen,
+  onOpenForm,
+  onCancelForm,
+  onCreateCommit,
+}: {
+  changeState: ProjectUncommittedChangeState;
+  commitBusy: boolean;
+  commitError: string;
+  commitHint: string;
+  formOpen: boolean;
+  onOpenForm: () => void;
+  onCancelForm: () => void;
+  onCreateCommit: (message: string, description?: string) => Promise<boolean | void> | boolean | void;
+}) {
   const { t } = useI18n();
+  const [message, setMessage] = useState("");
+  const [description, setDescription] = useState("");
+  const [localError, setLocalError] = useState("");
+  const changedCategoryKeys = getChangedCategoryKeys(changeState.categories);
+
+  useEffect(() => {
+    if (!formOpen) {
+      setMessage("");
+      setDescription("");
+      setLocalError("");
+    }
+  }, [formOpen]);
+
+  if (!changeState.hasChanges && changeState.status !== "no-head-with-content") {
+    return (
+      <section className="versioning-compact-status is-clean" data-testid="versioning-clean-summary">
+        <StudioIcon name="success" aria-hidden="true" />
+        <div>
+          <strong>{t("versioning.cleanWorkingCopy")}</strong>
+          <p>{changeState.hasHead ? t("versioning.noChangesComparedToHead") : t("versioning.emptyProject")}</p>
+        </div>
+      </section>
+    );
+  }
+
+  async function handleSubmit() {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      setLocalError(t("versioning.messageRequired"));
+      return;
+    }
+
+    setLocalError("");
+    await onCreateCommit(trimmedMessage, description.trim() || undefined);
+  }
 
   return (
-    <div className="versioning-commit-stats">
-      <span>{t("versioning.stats.entities", { count: commit.stats.entityCount })}</span>
-      <span>{t("versioning.stats.relationships", { count: commit.stats.relationshipCount })}</span>
-      <span>{t("versioning.stats.attributes", { count: commit.stats.attributeCount })}</span>
-      <span>{t("versioning.stats.edges", { count: commit.stats.edgeCount })}</span>
-      {commit.stats.tableCount !== undefined ? (
-        <span>{t("versioning.stats.tables", { count: commit.stats.tableCount })}</span>
-      ) : null}
-      {commit.stats.warningCount ? <span>{t("versioning.stats.warnings", { count: commit.stats.warningCount })}</span> : null}
-      {commit.stats.errorCount ? <span>{t("versioning.stats.errors", { count: commit.stats.errorCount })}</span> : null}
-    </div>
+    <section className="versioning-working-copy-banner" data-testid="versioning-uncommitted">
+      <div className="versioning-working-copy-main">
+        <StudioIcon name="warning" aria-hidden="true" />
+        <div>
+          <strong>
+            {changeState.status === "no-head-with-content"
+              ? t("versioning.noHeadWithContent")
+              : t("versioning.uncommittedChanges")}
+          </strong>
+          <p>
+            {changedCategoryKeys.length > 0
+              ? changedCategoryKeys.map((key) => t(`versioning.categories.${key}`)).join(", ")
+              : t("versioning.workingCopyDirtyDescription")}
+          </p>
+        </div>
+      </div>
+      {!formOpen ? (
+        <button
+          type="button"
+          className="mode-button active"
+          onClick={onOpenForm}
+          disabled={!changeState.summary.canCommit}
+          data-testid="open-inline-commit-form"
+        >
+          <StudioIcon name="history" aria-hidden="true" />
+          {t("versioning.panel.createCommitInline")}
+        </button>
+      ) : (
+        <div className="versioning-inline-commit-form" data-testid="inline-commit-form">
+          <label>
+            <span>{t("versioning.commitMessage")}</span>
+            <input
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder={t("versioning.commitMessage")}
+              disabled={commitBusy}
+            />
+          </label>
+          <label>
+            <span>{t("versioning.optionalDescription")}</span>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={2}
+              disabled={commitBusy}
+            />
+          </label>
+          {commitHint ? <p className="versioning-inline-hint">{commitHint}</p> : null}
+          {localError || commitError ? <p className="versioning-inline-error">{localError || commitError}</p> : null}
+          <div className="versioning-inline-actions">
+            <button type="button" className="header-button" onClick={onCancelForm} disabled={commitBusy}>
+              {t("versioning.panel.cancelCommitInline")}
+            </button>
+            <button type="button" className="mode-button active" onClick={handleSubmit} disabled={commitBusy}>
+              {t("versioning.createCommit")}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function VersionListItem({
+  commit,
+  headCommitId,
+  changeState,
+  onCompareWithCurrent,
+  onCompareWithHead,
+  onRestoreCommit,
+}: {
+  commit: ProjectCommit;
+  headCommitId: string | null;
+  changeState: ProjectUncommittedChangeState;
+  onCompareWithCurrent: (commitId: string) => void;
+  onCompareWithHead: (commitId: string) => void;
+  onRestoreCommit: (commitId: string) => void;
+}) {
+  const { t } = useI18n();
+  const isHead = commit.id === headCommitId;
+  const tone = getCommitTone(commit);
+
+  return (
+    <li className={`versioning-list-item is-${tone}`} data-testid="versioning-commit-card">
+      <div className="versioning-list-item-main">
+        <div className="versioning-list-title-row">
+          <strong title={commit.message}>{commit.message}</strong>
+          {isHead ? <span className="versioning-head-badge">{t("versioning.panel.headBadge")}</span> : null}
+          {tone !== "manual" ? <span className={`versioning-type-badge is-${tone}`}>{t(getCommitToneLabelKey(tone))}</span> : null}
+        </div>
+        {commit.description ? <p title={commit.description}>{commit.description}</p> : null}
+        <span className="versioning-list-meta">
+          {shortCommitId(commit.id)} - {formatCommitDate(commit.createdAt)}
+        </span>
+      </div>
+      <div className="versioning-list-actions">
+        <button
+          type="button"
+          className="header-button"
+          onClick={() => onCompareWithCurrent(commit.id)}
+          data-testid="compare-with-current"
+        >
+          {t("versioning.panel.compare")}
+        </button>
+        {!isHead ? (
+          <button
+            type="button"
+            className="header-button"
+            onClick={() => onCompareWithHead(commit.id)}
+            data-testid="compare-with-head"
+          >
+            {t("versioning.panel.compareWithHead")}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="mode-button versioning-restore-action"
+          onClick={() => onRestoreCommit(commit.id)}
+          disabled={isHead && !changeState.hasChanges}
+          data-testid="restore-commit"
+        >
+          {isHead && !changeState.hasChanges ? t("versioning.restore.alreadyCurrent") : t("versioning.panel.restore")}
+        </button>
+      </div>
+    </li>
   );
 }
 
@@ -102,50 +272,40 @@ export function VersioningPanel({
   commits,
   headCommitId,
   changeState,
+  commitBusy = false,
+  commitError = "",
+  commitHint = "",
   onClose,
-  onNewCommit,
+  onCreateCommit,
   onCompareWithCurrent,
   onCompareWithHead,
   onRestoreCommit,
 }: VersioningPanelProps) {
   const { t } = useI18n();
-  const [selectedCommitId, setSelectedCommitId] = useState<string | null>(headCommitId ?? commits[0]?.id ?? null);
-  const selectedCommit = useMemo(
-    () => commits.find((commit) => commit.id === selectedCommitId) ?? commits[0] ?? null,
-    [commits, selectedCommitId],
-  );
-  const latestCommit = commits[0] ?? null;
-  const changedCategoryKeys = getChangedCategoryKeys(changeState.categories);
+  const [inlineFormOpen, setInlineFormOpen] = useState(false);
+  const subtitle = useMemo(() => getPanelSubtitle(changeState, commits.length, t), [changeState, commits.length, t]);
 
   useEffect(() => {
     if (!open) {
-      return;
+      setInlineFormOpen(false);
     }
+  }, [open]);
 
-    if (selectedCommitId && commits.some((commit) => commit.id === selectedCommitId)) {
-      return;
+  async function handleCreateCommit(message: string, description?: string) {
+    const result = await onCreateCommit(message, description);
+    if (result !== false) {
+      setInlineFormOpen(false);
     }
-
-    setSelectedCommitId(headCommitId ?? commits[0]?.id ?? null);
-  }, [commits, headCommitId, open, selectedCommitId]);
+  }
 
   if (!open) {
     return null;
   }
 
-  const statusText =
-    changeState.status === "no-head-empty"
-      ? t("versioning.emptyProject")
-      : changeState.status === "no-head-with-content"
-        ? t("versioning.noHeadWithContent")
-        : changeState.status === "dirty"
-          ? t("versioning.uncommittedChanges")
-          : t("versioning.cleanWorkingCopy");
-
   return (
     <div className="studio-modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="studio-modal studio-modal--wide versioning-panel versioning-dashboard"
+        className="studio-modal versioning-panel versioning-panel-compact"
         role="dialog"
         aria-modal="true"
         aria-labelledby="versioning-panel-title"
@@ -153,276 +313,63 @@ export function VersioningPanel({
         onClick={(event) => event.stopPropagation()}
         data-testid="versioning-panel"
       >
-        <div className="studio-modal__header versioning-dashboard-header">
-          <div className="versioning-dashboard-title">
-            <span className="versioning-dashboard-icon" aria-hidden="true">
-              <StudioIcon name="history" />
-            </span>
-            <div>
-              <h2 id="versioning-panel-title" className="studio-modal__title">
-                {t("versioning.projectVersions")}
-              </h2>
-              <p
-                id="versioning-panel-description"
-                className={
-                  changeState.hasChanges
-                    ? "studio-modal__subtitle versioning-unsaved"
-                    : "studio-modal__subtitle versioning-clean"
-                }
-                data-testid={changeState.hasChanges ? "versioning-uncommitted" : "versioning-clean"}
-              >
-                {statusText}
-              </p>
-            </div>
-          </div>
-          <div className="versioning-panel-actions">
-            <button
-              type="button"
-              className="mode-button active"
-              onClick={onNewCommit}
-              disabled={!changeState.summary.canCommit}
-              data-testid="open-commit-dialog"
+        <div className="studio-modal__header versioning-panel-compact-header">
+          <div>
+            <h2 id="versioning-panel-title" className="studio-modal__title">
+              {t("versioning.panel.title")}
+            </h2>
+            <p
+              id="versioning-panel-description"
+              className={changeState.hasChanges ? "studio-modal__subtitle versioning-unsaved" : "studio-modal__subtitle versioning-clean"}
+              data-testid={changeState.hasChanges ? "versioning-uncommitted-subtitle" : "versioning-clean"}
             >
-              <StudioIcon name="history" aria-hidden="true" />
-              {changeState.status === "no-head-with-content" ? t("versioning.createFirstCommit") : t("versioning.newCommit")}
-            </button>
-            <button type="button" className="studio-modal__close" onClick={onClose} aria-label={t("common.actions.close")}>
-              <StudioIcon name="close" aria-hidden="true" />
-            </button>
+              {subtitle}
+            </p>
           </div>
+          <button type="button" className="studio-modal__close" onClick={onClose} aria-label={t("common.actions.close")}>
+            <StudioIcon name="close" aria-hidden="true" />
+          </button>
         </div>
 
-        <div className="studio-modal__body versioning-dashboard-body">
-          <section className="versioning-hero" aria-label={t("versioning.projectState")}>
-            <div className={changeState.hasChanges ? "versioning-status-card is-dirty" : "versioning-status-card is-clean"}>
-              <span className="versioning-status-icon" aria-hidden="true">
-                <StudioIcon name={changeState.hasChanges ? "warning" : "success"} />
-              </span>
-              <div>
-                <strong>{statusText}</strong>
-                <p>
-                  {changeState.hasChanges
-                    ? t("versioning.workingCopyDirtyDescription")
-                    : changeState.hasHead
-                      ? t("versioning.alignedToHead")
-                      : t("versioning.startHistoryDescription")}
-                </p>
-              </div>
-            </div>
-            <div className="versioning-metric-grid">
-              <div className="versioning-metric">
-                <span>{t("versioning.commitCountLabel")}</span>
-                <strong>{commits.length}</strong>
-              </div>
-              <div className="versioning-metric">
-                <span>{t("versioning.head")}</span>
-                <strong>{headCommitId ? shortCommitId(headCommitId) : "-"}</strong>
-              </div>
-              <div className="versioning-metric">
-                <span>{t("versioning.lastCommit")}</span>
-                <strong>{latestCommit ? shortCommitId(latestCommit.id) : "-"}</strong>
-              </div>
-            </div>
-          </section>
+        <div className="studio-modal__body versioning-panel-compact-body">
+          <WorkingCopyBanner
+            changeState={changeState}
+            commitBusy={commitBusy}
+            commitError={commitError}
+            commitHint={commitHint}
+            formOpen={inlineFormOpen}
+            onOpenForm={() => setInlineFormOpen(true)}
+            onCancelForm={() => setInlineFormOpen(false)}
+            onCreateCommit={handleCreateCommit}
+          />
 
-          {changeState.hasChanges ? (
-            <section className="versioning-change-summary" data-testid="versioning-change-categories">
-              <div>
-                <strong>{t("versioning.uncommittedChanges")}</strong>
-                <p>{t("versioning.workingCopyDirtyDescription")}</p>
+          <section className="versioning-list-section" aria-label={t("versioning.versionHistory")}>
+            <div className="versioning-compact-section-title">
+              <span>{t("versioning.versionHistory")}</span>
+              <strong>{t("versioning.commitCount", { count: commits.length })}</strong>
+            </div>
+            {commits.length === 0 ? (
+              <div className="versioning-empty versioning-empty-state" data-testid="versioning-empty">
+                <StudioIcon name="history" aria-hidden="true" />
+                <strong>{t("versioning.panel.noCommitsCompact")}</strong>
+                <p>{t("versioning.startHistoryDescription")}</p>
               </div>
-              <div className="versioning-category-list" aria-label={t("versioning.changedCategories")}>
-                {changedCategoryKeys.map((key) => (
-                  <span key={key} className="versioning-category-pill">
-                    {t(`versioning.categories.${key}`)}
-                  </span>
+            ) : (
+              <ol className="versioning-list" data-testid="versioning-timeline">
+                {commits.map((commit) => (
+                  <VersionListItem
+                    key={commit.id}
+                    commit={commit}
+                    headCommitId={headCommitId}
+                    changeState={changeState}
+                    onCompareWithCurrent={onCompareWithCurrent}
+                    onCompareWithHead={onCompareWithHead}
+                    onRestoreCommit={onRestoreCommit}
+                  />
                 ))}
-              </div>
-              <button type="button" className="mode-button active" onClick={onNewCommit}>
-                {t("versioning.createCommit")}
-              </button>
-            </section>
-          ) : changeState.hasHead ? (
-            <section className="versioning-change-summary is-clean" data-testid="versioning-clean-summary">
-              <StudioIcon name="success" aria-hidden="true" />
-              <strong>{t("versioning.noChangesComparedToHead")}</strong>
-              <span>{t("versioning.alignedToHead")}</span>
-            </section>
-          ) : null}
-
-          {commits.length === 0 ? (
-            <section className="versioning-empty versioning-empty-state" data-testid="versioning-empty">
-              <StudioIcon name="history" aria-hidden="true" />
-              <strong>
-                {changeState.status === "no-head-with-content"
-                  ? t("versioning.noHeadWithContent")
-                  : t("versioning.noVersions")}
-              </strong>
-              <p>{t("versioning.startHistoryDescription")}</p>
-              <button
-                type="button"
-                className="mode-button active"
-                onClick={onNewCommit}
-                disabled={!changeState.summary.canCommit}
-              >
-                {t("versioning.createFirstCommit")}
-              </button>
-            </section>
-          ) : (
-            <div className="versioning-dashboard-grid">
-              <section className="versioning-timeline-shell" aria-label={t("versioning.versionHistory")}>
-                <div className="versioning-section-heading">
-                  <span>{t("versioning.versionHistory")}</span>
-                  <strong>{t("versioning.commitCount", { count: commits.length })}</strong>
-                </div>
-                <ol className="versioning-timeline" data-testid="versioning-timeline">
-                  {changeState.hasChanges ? (
-                    <li className="versioning-working-copy-card">
-                      <span className="versioning-timeline-node is-working" aria-hidden="true" />
-                      <div>
-                        <strong>{t("versioning.workingCopy")}</strong>
-                        <p>{t("versioning.uncommittedChanges")}</p>
-                      </div>
-                    </li>
-                  ) : null}
-                  {commits.map((commit) => {
-                    const tone = getCommitTone(commit);
-                    const selected = selectedCommit?.id === commit.id;
-                    const isHead = commit.id === headCommitId;
-                    return (
-                      <li key={commit.id} className="versioning-timeline-item">
-                        <span className={`versioning-timeline-node is-${tone}${isHead ? " is-head" : ""}`} aria-hidden="true" />
-                        <button
-                          type="button"
-                          className={[
-                            "versioning-commit-card",
-                            selected ? "versioning-commit-card--selected" : "",
-                            commit.automatic ? "versioning-commit-card--automatic" : "",
-                            tone === "backup" ? "versioning-commit-card--backup" : "",
-                            tone === "restore" ? "versioning-commit-card--restore" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          onClick={() => setSelectedCommitId(commit.id)}
-                          aria-current={selected ? "true" : undefined}
-                          data-testid="versioning-commit-card"
-                        >
-                          <span className="versioning-commit-main">
-                            <span className="versioning-commit-title-row">
-                              <strong>{commit.message}</strong>
-                              {isHead ? <span className="versioning-head-badge">{t("versioning.head")}</span> : null}
-                              <span className={`versioning-type-badge is-${tone}`}>{t(getCommitToneLabelKey(tone))}</span>
-                            </span>
-                            <span className="versioning-commit-meta">
-                              <span>{shortCommitId(commit.id)}</span>
-                              <span>{formatCommitDate(commit.createdAt)}</span>
-                            </span>
-                            {commit.tags && commit.tags.length > 0 ? (
-                              <span className="versioning-tag-row">
-                                {commit.tags.map((tag) => (
-                                  <span key={tag} className="versioning-tag-pill">{getCommitTagLabel(tag, t)}</span>
-                                ))}
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
-                        <div className="versioning-commit-inline-actions">
-                          <button
-                            type="button"
-                            className="header-button"
-                            onClick={() => onCompareWithCurrent(commit.id)}
-                            data-testid="compare-with-current"
-                          >
-                            {t("versioning.visualCompare.compareWithCurrent")}
-                          </button>
-                          {commit.id !== headCommitId ? (
-                            <button
-                              type="button"
-                              className="header-button"
-                              onClick={() => onCompareWithHead(commit.id)}
-                              data-testid="compare-with-head"
-                            >
-                              {t("versioning.visualCompare.compareWithHead")}
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="mode-button versioning-restore-action"
-                            onClick={() => onRestoreCommit(commit.id)}
-                            disabled={commit.id === headCommitId && !changeState.hasChanges}
-                            data-testid="restore-commit"
-                          >
-                            {commit.id === headCommitId && !changeState.hasChanges
-                              ? t("versioning.restore.alreadyCurrent")
-                              : t("versioning.restore.restoreThisVersion")}
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </section>
-
-              <aside className="versioning-detail-panel" data-testid="versioning-detail-panel">
-                {selectedCommit ? (
-                  <>
-                    <div className="versioning-section-heading">
-                      <span>{t("versioning.versionDetails")}</span>
-                      {selectedCommit.id === headCommitId ? (
-                        <strong className="versioning-head-badge">{t("versioning.head")}</strong>
-                      ) : null}
-                    </div>
-                    <div className="versioning-detail-card">
-                      <div className="versioning-detail-title">
-                        <strong>{selectedCommit.message}</strong>
-                        <span>{shortCommitId(selectedCommit.id)}</span>
-                      </div>
-                      {selectedCommit.description ? (
-                        <p className="versioning-commit-description">{selectedCommit.description}</p>
-                      ) : null}
-                      <div className="versioning-detail-meta">
-                        <span>{formatCommitDate(selectedCommit.createdAt)}</span>
-                        <span>{t(getCommitToneLabelKey(getCommitTone(selectedCommit)))}</span>
-                        <span>{selectedCommit.checksum.slice(0, 12)}</span>
-                      </div>
-                      <CommitStats commit={selectedCommit} />
-                      <div className="versioning-action-bar">
-                        <button
-                          type="button"
-                          className="header-button"
-                          onClick={() => onCompareWithCurrent(selectedCommit.id)}
-                          data-testid="compare-with-current"
-                        >
-                          {t("versioning.visualCompare.compareWithCurrent")}
-                        </button>
-                        {selectedCommit.id !== headCommitId ? (
-                          <button
-                            type="button"
-                            className="header-button"
-                            onClick={() => onCompareWithHead(selectedCommit.id)}
-                            data-testid="compare-with-head"
-                          >
-                            {t("versioning.visualCompare.compareWithHead")}
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="mode-button versioning-restore-action"
-                          onClick={() => onRestoreCommit(selectedCommit.id)}
-                          disabled={selectedCommit.id === headCommitId && !changeState.hasChanges}
-                          data-testid="restore-commit"
-                        >
-                          {selectedCommit.id === headCommitId && !changeState.hasChanges
-                            ? t("versioning.restore.alreadyCurrent")
-                            : t("versioning.restore.restoreThisVersion")}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : null}
-              </aside>
-            </div>
-          )}
+              </ol>
+            )}
+          </section>
         </div>
       </div>
     </div>

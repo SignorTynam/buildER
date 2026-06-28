@@ -229,7 +229,6 @@ export function VersionCompareMode({
         <span>{t("versioning.diff.added")}<strong>{model.diff.summary.addedCount}</strong></span>
         <span>{t("versioning.diff.removed")}<strong>{model.diff.summary.removedCount}</strong></span>
         <span>{t("versioning.diff.modified")}<strong>{model.diff.summary.modifiedCount}</strong></span>
-        <span>{t("versioning.diff.changedSections")}<strong>{model.diff.summary.changedSectionCount}</strong></span>
       </div>
     );
   }
@@ -291,12 +290,6 @@ export function VersionCompareMode({
       {model && leftHighlights && rightHighlights ? (
         <div className={detailsOpen ? "version-compare-mode-body with-drawer" : "version-compare-mode-body"}>
           <section className="version-compare-mode-main">
-            <div className="version-compare-legend" aria-label={t("versioning.visualCompare.legend.title")}>
-              <span className="version-legend-item is-added">{t("versioning.visualCompare.legend.added")}</span>
-              <span className="version-legend-item is-removed">{t("versioning.visualCompare.legend.removed")}</span>
-              <span className="version-legend-item is-modified">{t("versioning.visualCompare.legend.modified")}</span>
-              <span className="version-legend-item is-layout">{t("versioning.visualCompare.legend.layout")}</span>
-            </div>
             <div className="version-compare-mode-grid">
               <VersionCompareWorkspaceInstance
                 side="left"

@@ -5225,13 +5225,13 @@ export default function App() {
           ? t("versioning.emptyProject")
           : t("versioning.noChangesToCommit"),
       );
-      return;
+      return false;
     }
 
     const trimmedMessage = message.trim();
     if (!trimmedMessage) {
       setCommitDialogError(t("versioning.messageRequired"));
-      return;
+      return false;
     }
 
     setCommitDialogBusy(true);
@@ -5246,13 +5246,13 @@ export default function App() {
 
       if (result.status === "empty-message") {
         setCommitDialogError(t("versioning.messageRequired"));
-        return;
+        return false;
       }
 
       if (result.status === "unchanged") {
         setCommitDialogError(t("versioning.noChangesToCommit"));
         showWarningNotice(t("versioning.noChangesToCommit"), { title: t("versioning.commit") });
-        return;
+        return false;
       }
 
       setCommitDialogOpen(false);
@@ -5260,10 +5260,12 @@ export default function App() {
       setVersioningPanelOpen(true);
       setStatus(t("versioning.commitCreated"));
       showSuccessNotice(t("versioning.commitCreated"), { title: t("versioning.commit") });
+      return true;
     } catch (error) {
       console.error(error);
       setCommitDialogError(t("versioning.commitFailed"));
       showErrorNotice(t("versioning.commitFailed"), { title: t("versioning.commit") });
+      return false;
     } finally {
       setCommitDialogBusy(false);
     }
@@ -6058,11 +6060,11 @@ export default function App() {
         commits={projectVersioning.commitsNewestFirst}
         headCommitId={projectVersioning.versioning.headCommitId}
         changeState={versioningChangeState}
+        commitBusy={commitDialogBusy}
+        commitError={commitDialogError}
+        commitHint={commitDialogHint}
         onClose={() => setVersioningPanelOpen(false)}
-        onNewCommit={() => {
-          setCommitDialogError("");
-          setCommitDialogOpen(true);
-        }}
+        onCreateCommit={handleCreateProjectCommit}
         onCompareWithCurrent={handleCompareCommitWithCurrent}
         onCompareWithHead={handleCompareCommitWithHead}
         onRestoreCommit={handleOpenRestoreCommit}

@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { DiagramCanvas } from "../canvas/DiagramCanvas";
-import type { DiagramDocument, DiagramEdge, DiagramHighlights, SelectionState, Viewport } from "../types/diagram";
+import type { DiagramDocument, DiagramEdge, DiagramHighlights, SelectionState, VersionDiagramHighlights, Viewport } from "../types/diagram";
 import type { ErTranslationChoice, ErTranslationItem, ErTranslationWorkspaceDocument } from "../types/translation";
 import {
   buildErTranslationOverview,
@@ -31,6 +31,9 @@ interface TranslationWorkspaceProps {
   onSaveRestructuredErs: () => void;
   onPreviewDiagram: (diagram: DiagramDocument) => void;
   onCommitDiagram: (diagram: DiagramDocument, previous: DiagramDocument) => void;
+  readOnly?: boolean;
+  compareMode?: boolean;
+  versionHighlights?: VersionDiagramHighlights;
 }
 
 function getAllItems(workspace: ErTranslationWorkspaceDocument): ErTranslationItem[] {
@@ -184,48 +187,54 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const translateTitle = translateDisabled
     ? logicalAccess.reason ?? t("translation.restructuring.completeFirst")
     : undefined;
+  const readOnly = props.readOnly === true;
+  const compareMode = props.compareMode === true;
 
   return (
-    <div className="designer-workspace designer-translation-view">
+    <div className={["designer-workspace", "designer-translation-view", compareMode ? "designer-workspace-compare" : ""].filter(Boolean).join(" ")}>
       <div className="designer-canvas-region designer-translation-canvas">
-        <div className="designer-context-toolbar designer-translation-toolbar" role="toolbar" aria-label="Restructuring tools">
-          <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
-          <ToolbarButton label={t("translation.restructuring.redo")} icon={<StudioIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
-          <ToolbarButton label={t("translation.restructuring.reset")} icon={<StudioIcon name="reset" />} onClick={props.onResetTranslation} />
-          <span className="designer-toolbar-separator" aria-hidden="true" />
-          {selectedItem ? (
+        {!readOnly ? (
+          <div className="designer-context-toolbar designer-translation-toolbar" role="toolbar" aria-label="Restructuring tools">
+            <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
+            <ToolbarButton label={t("translation.restructuring.redo")} icon={<StudioIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
+            <ToolbarButton label={t("translation.restructuring.reset")} icon={<StudioIcon name="reset" />} onClick={props.onResetTranslation} />
+            <span className="designer-toolbar-separator" aria-hidden="true" />
+            {selectedItem ? (
+              <ToolbarButton
+                label={t("translation.restructuring.fix")}
+                icon={<StudioIcon name="fix" />}
+                active={fixOpen}
+                disabled={fixDisabled}
+                title={fixTitle}
+                onClick={() => setFixOpen((value) => !value)}
+              />
+            ) : null}
+            <ToolbarButton label={t("translation.restructuring.design")} icon={<StudioIcon name="design" />} onClick={props.onOpenDesign} />
             <ToolbarButton
-              label={t("translation.restructuring.fix")}
-              icon={<StudioIcon name="fix" />}
-              active={fixOpen}
-              disabled={fixDisabled}
-              title={fixTitle}
-              onClick={() => setFixOpen((value) => !value)}
+              label={t("translation.restructuring.translate")}
+              icon={<StudioIcon name="translate" />}
+              disabled={translateDisabled}
+              title={translateTitle}
+              onClick={props.onOpenLogical}
             />
-          ) : null}
-          <ToolbarButton label={t("translation.restructuring.design")} icon={<StudioIcon name="design" />} onClick={props.onOpenDesign} />
-          <ToolbarButton
-            label={t("translation.restructuring.translate")}
-            icon={<StudioIcon name="translate" />}
-            disabled={translateDisabled}
-            title={translateTitle}
-            onClick={props.onOpenLogical}
-          />
-          <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
-          <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} onClick={props.onExportProject} />
-        </div>
+            <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
+            <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} onClick={props.onExportProject} />
+          </div>
+        ) : null}
 
-        <button
-          type="button"
-          className="designer-side-toggle designer-side-toggle-right designer-translation-notes-toggle"
-          onClick={props.onToggleNotesPanel}
-          title={props.notesPanelOpen ? t("translation.restructuring.closeNotes") : t("translation.restructuring.openNotes")}
-        >
-          <StudioIcon name="notes" aria-hidden="true" />
-          {props.notesPanelOpen ? t("common.actions.hide") : t("translation.restructuring.notes")}
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            className="designer-side-toggle designer-side-toggle-right designer-translation-notes-toggle"
+            onClick={props.onToggleNotesPanel}
+            title={props.notesPanelOpen ? t("translation.restructuring.closeNotes") : t("translation.restructuring.openNotes")}
+          >
+            <StudioIcon name="notes" aria-hidden="true" />
+            {props.notesPanelOpen ? t("common.actions.hide") : t("translation.restructuring.notes")}
+          </button>
+        ) : null}
 
-        {fixOpen && selectedItem ? (
+        {!readOnly && fixOpen && selectedItem ? (
           <div className="designer-fix-popover" aria-label="Fix options">
             {selectedChoices.map((choice) => {
               const disabled = selectedItem.status === "blocked" || Boolean(choice.disabledReason);
@@ -265,7 +274,9 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           issues={[]}
           statusMessage={canvasStatus}
           svgRef={svgRef}
+          readOnly={readOnly}
           translationHighlights={highlights}
+          versionHighlights={props.versionHighlights}
           onViewportChange={props.onViewportChange}
           onSelectionChange={(selection) => {
             setFixOpen(false);
