@@ -1131,6 +1131,7 @@ export const sq: DeepPartialMessages = {
     projectVersions: "Versionet e projektit",
     projectState: "Gjendja e projektit",
     commit: "Commit",
+    createdAt: "Krijuar me",
     commitCount: "{{count}} commit",
     commitCountLabel: "Commit",
     newCommit: "Commit i ri",

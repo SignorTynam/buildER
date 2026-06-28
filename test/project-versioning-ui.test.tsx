@@ -403,6 +403,10 @@ test("RestoreVersionDialog mostra conferma e commit target", async () => {
   assert.match(markup, /Ripristina versione/);
   assert.match(markup, /Schema iniziale/);
   assert.match(markup, /Prima del ripristino/);
+  assert.match(markup, /versioning-restore-dialog-v2/);
+  assert.match(markup, /versioning-restore-meta/);
+  assert.match(markup, /Versione stabile/);
+  assert.doesNotMatch(markup, /versioning-commit-meta/);
   assert.match(markup, /data-testid="confirm-restore-button"/);
   setCurrentLocale(DEFAULT_LOCALE);
 });

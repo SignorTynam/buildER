@@ -5315,6 +5315,7 @@ export default function App() {
   }
 
   function handleOpenRestoreCommit(commitId: string) {
+    setVersioningPanelOpen(false);
     setRestoreCommitId(commitId);
     setRestoreDialogError("");
   }

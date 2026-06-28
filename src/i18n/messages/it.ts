@@ -1129,6 +1129,7 @@ export const it = {
     projectVersions: "Versioni progetto",
     projectState: "Stato progetto",
     commit: "Commit",
+    createdAt: "Creato il",
     commitCount: "{{count}} commit",
     commitCountLabel: "Commit",
     newCommit: "Nuovo commit",

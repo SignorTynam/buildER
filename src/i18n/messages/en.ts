@@ -1131,6 +1131,7 @@ export const en: DeepPartialMessages = {
     projectVersions: "Project versions",
     projectState: "Project state",
     commit: "Commit",
+    createdAt: "Created",
     commitCount: "{{count}} commits",
     commitCountLabel: "Commits",
     newCommit: "New commit",

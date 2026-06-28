@@ -37,6 +37,16 @@ function getCommitKindKey(commit: ProjectCommit) {
   return commit.automatic ? "versioning.automaticCommit" : "versioning.manualCommit";
 }
 
+function getRestoreStats(commit: ProjectCommit, t: ReturnType<typeof useI18n>["t"]) {
+  return [
+    t("versioning.stats.entities", { count: commit.stats.entityCount }),
+    t("versioning.stats.relationships", { count: commit.stats.relationshipCount }),
+    t("versioning.stats.attributes", { count: commit.stats.attributeCount }),
+    t("versioning.stats.edges", { count: commit.stats.edgeCount }),
+    commit.stats.tableCount !== undefined ? t("versioning.stats.tables", { count: commit.stats.tableCount }) : null,
+  ].filter((item): item is string => Boolean(item));
+}
+
 export function RestoreVersionDialog({
   open,
   busy,
@@ -51,10 +61,13 @@ export function RestoreVersionDialog({
     return null;
   }
 
+  const stats = getRestoreStats(commit, t);
+  const commitKind = t(getCommitKindKey(commit));
+
   return (
-    <div className="help-modal-backdrop" role="presentation" onClick={busy ? undefined : onClose}>
+    <div className="help-modal-backdrop versioning-restore-backdrop" role="presentation" onClick={busy ? undefined : onClose}>
       <div
-        className="help-modal action-modal versioning-restore-dialog"
+        className="help-modal action-modal versioning-restore-dialog versioning-restore-dialog-v2"
         role="dialog"
         aria-modal="true"
         aria-labelledby="versioning-restore-title"
@@ -62,9 +75,9 @@ export function RestoreVersionDialog({
         onClick={(event) => event.stopPropagation()}
         data-testid="restore-version-dialog"
       >
-        <div className="help-modal-head">
-          <div className="versioning-restore-title">
-            <span aria-hidden="true">
+        <header className="versioning-restore-header">
+          <div className="versioning-restore-kicker">
+            <span className="versioning-restore-icon" aria-hidden="true">
               <StudioIcon name="warning" />
             </span>
             <div>
@@ -83,31 +96,41 @@ export function RestoreVersionDialog({
           >
             <StudioIcon name="close" aria-hidden="true" />
           </button>
-        </div>
-        <div className="action-modal-content">
-          <div className="versioning-restore-target" data-testid="restore-version-target">
-            <span className="versioning-type-badge is-restore">{t("versioning.restore.targetVersion")}</span>
-            <strong>{commit.message}</strong>
-            {commit.description ? <p>{commit.description}</p> : null}
-            <div className="versioning-commit-meta">
-              <span>{shortCommitId(commit.id)}</span>
-              <span>{formatCommitDate(commit.createdAt)}</span>
-              <span>{t(getCommitKindKey(commit))}</span>
+        </header>
+        <div className="action-modal-content versioning-restore-body">
+          <section className="versioning-restore-target" data-testid="restore-version-target">
+            <div className="versioning-restore-target-heading">
+              <span className="versioning-type-badge is-restore">{t("versioning.restore.targetVersion")}</span>
+              <strong title={commit.message}>{commit.message}</strong>
             </div>
-            <div className="versioning-commit-stats">
-              <span>{t("versioning.stats.entities", { count: commit.stats.entityCount })}</span>
-              <span>{t("versioning.stats.relationships", { count: commit.stats.relationshipCount })}</span>
-              <span>{t("versioning.stats.attributes", { count: commit.stats.attributeCount })}</span>
-              <span>{t("versioning.stats.edges", { count: commit.stats.edgeCount })}</span>
-              {commit.stats.tableCount !== undefined ? (
-                <span>{t("versioning.stats.tables", { count: commit.stats.tableCount })}</span>
-              ) : null}
+            {commit.description ? <p className="versioning-restore-description">{commit.description}</p> : null}
+            <dl className="versioning-restore-meta" aria-label={t("versioning.restore.targetVersion")}>
+              <div>
+                <dt>ID</dt>
+                <dd>{shortCommitId(commit.id)}</dd>
+              </div>
+              <div>
+                <dt>{t("versioning.createdAt")}</dt>
+                <dd>{formatCommitDate(commit.createdAt)}</dd>
+              </div>
+              <div>
+                <dt>{t("versioning.commit")}</dt>
+                <dd>{commitKind}</dd>
+              </div>
+            </dl>
+            <div className="versioning-restore-stat-row">
+              {stats.map((stat) => (
+                <span key={stat}>{stat}</span>
+              ))}
             </div>
-          </div>
-          <section className="versioning-restore-safety">
-            <h3>{t("versioning.restore.protectedRestore")}</h3>
-            <p>{t("versioning.restore.backupBeforeRestore")}</p>
-            <ol className="versioning-restore-flow" data-testid="restore-version-flow">
+          </section>
+
+          <section className="versioning-restore-safety" data-testid="restore-version-flow">
+            <div>
+              <h3>{t("versioning.restore.protectedRestore")}</h3>
+              <p>{t("versioning.restore.backupBeforeRestore")}</p>
+            </div>
+            <ol className="versioning-restore-flow">
               <li>
                 <StudioIcon name="save" aria-hidden="true" />
                 <span>{t("versioning.restore.flowBackup")}</span>
@@ -123,7 +146,7 @@ export function RestoreVersionDialog({
             </ol>
           </section>
           {error ? <p className="action-modal-error">{error}</p> : null}
-          <div className="action-modal-actions">
+          <div className="action-modal-actions versioning-restore-actions">
             <button type="button" className="header-button" onClick={onClose} disabled={busy}>
               {t("common.actions.cancel")}
             </button>
