@@ -3,7 +3,6 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { VersionCompareChangeDrawer } from "../src/components/versioning/VersionCompareChangeDrawer.tsx";
 import { VersionCompareMode } from "../src/components/versioning/VersionCompareMode.tsx";
 import { VersionCompareWorkspaceInstance } from "../src/components/versioning/VersionCompareWorkspaceInstance.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
@@ -111,12 +110,12 @@ test("VersionCompareMode sostituisce la modal con due workspace full-screen", ()
   const markup = renderWithI18n(
     <VersionCompareMode
       appTitle="buildER"
+      appVersion="6.1"
       versioning={versioning}
       currentSnapshot={createSnapshot("Visual changed", "changed")}
       initialLeft={{ kind: "commit", commitId: "commit-base" }}
       initialRight={{ kind: "working-copy" }}
       onExitCompareMode={() => undefined}
-      onRestoreCommit={() => undefined}
     />,
   );
 
@@ -124,11 +123,16 @@ test("VersionCompareMode sostituisce la modal con due workspace full-screen", ()
   assert.match(markup, /data-testid="version-compare-instance-left"/);
   assert.match(markup, /data-testid="version-compare-instance-right"/);
   assert.match(markup, /Esci dal confronto/);
-  assert.match(markup, /Modalit/);
-  assert.match(markup, /Sincronizza pan\/zoom/);
-  assert.match(markup, /Adatta entrambi/);
-  assert.match(markup, /Scambia lati/);
-  assert.match(markup, /Ripristina sinistra/);
+  assert.match(markup, /v6\.1/);
+  assert.doesNotMatch(markup, /data-testid="visual-compare-toolbar"/);
+  assert.doesNotMatch(markup, /Modalit.+sola lettura/);
+  assert.doesNotMatch(markup, /Aggiunti/);
+  assert.doesNotMatch(markup, /Rimossi/);
+  assert.doesNotMatch(markup, /Modificati/);
+  assert.doesNotMatch(markup, /Sincronizza pan\/zoom/);
+  assert.doesNotMatch(markup, /Adatta entrambi/);
+  assert.doesNotMatch(markup, /Scambia lati/);
+  assert.doesNotMatch(markup, /Ripristina sinistra/);
   assert.doesNotMatch(markup, /data-testid="visual-version-compare-dialog"/);
   assert.doesNotMatch(markup, /role="dialog"/);
   assert.doesNotMatch(markup, /aria-modal="true"/);
@@ -150,10 +154,7 @@ test("VersionCompareWorkspaceInstance mantiene viste indipendenti e canvas read-
         viewMode="logical"
         diagramHighlights={buildDiagramVersionHighlights(diff, "left")}
         logicalHighlights={buildLogicalVersionHighlights(diff, "left")}
-        syncViewport={false}
-        fitRequestToken={0}
         onViewModeChange={() => undefined}
-        onSyncedViewportChange={() => undefined}
       />
       <VersionCompareWorkspaceInstance
         side="right"
@@ -161,10 +162,7 @@ test("VersionCompareWorkspaceInstance mantiene viste indipendenti e canvas read-
         viewMode="er"
         diagramHighlights={buildDiagramVersionHighlights(diff, "right")}
         logicalHighlights={buildLogicalVersionHighlights(diff, "right")}
-        syncViewport={false}
-        fitRequestToken={0}
         onViewModeChange={() => undefined}
-        onSyncedViewportChange={() => undefined}
       />
     </div>,
   );
@@ -176,26 +174,5 @@ test("VersionCompareWorkspaceInstance mantiene viste indipendenti e canvas read-
   assert.match(markup, /designer-canvas-region/);
   assert.match(markup, /class="diagram-canvas" data-readonly="true"/);
   assert.doesNotMatch(markup, /designer-toolbar/);
-  setCurrentLocale(DEFAULT_LOCALE);
-});
-
-test("VersionCompareChangeDrawer resta il dettaglio di supporto del Compare Mode", () => {
-  setCurrentLocale("it");
-  const diff = buildProjectVersionDiff(createSnapshot("Visual base"), createSnapshot("Visual changed", "changed"));
-  const markup = renderWithI18n(
-    <VersionCompareChangeDrawer
-      open
-      diff={diff}
-      activeChange={null}
-      onSelectChange={() => undefined}
-      onClose={() => undefined}
-    />,
-  );
-
-  assert.match(markup, /data-testid="visual-compare-drawer"/);
-  assert.match(markup, /Dettagli modifiche/);
-  assert.match(markup, /Aggiunti/);
-  assert.match(markup, /Modificati/);
-  assert.match(markup, /data-testid="visual-compare-change-item"/);
   setCurrentLocale(DEFAULT_LOCALE);
 });

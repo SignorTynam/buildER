@@ -5726,13 +5726,13 @@ export default function App() {
       <>
         <VersionCompareMode
           appTitle={APP_TITLE}
+          appVersion={APP_VERSION}
           versioning={projectVersioning.versioning}
           currentSnapshot={currentProjectCommitSnapshot}
           initialLeft={versionCompareSession.left}
           initialRight={versionCompareSession.right}
           restoreDialogOpen={restoreCommitId !== null}
           onExitCompareMode={() => setVersionCompareSession(null)}
-          onRestoreCommit={handleOpenRestoreCommit}
         />
 
         <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />

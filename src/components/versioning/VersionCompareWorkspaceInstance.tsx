@@ -18,11 +18,7 @@ interface VersionCompareWorkspaceInstanceProps {
   viewMode: VersionCompareViewMode;
   diagramHighlights: VersionDiagramHighlights;
   logicalHighlights: VersionLogicalHighlights;
-  syncViewport: boolean;
-  fitRequestToken: number;
   onViewModeChange: (viewMode: VersionCompareViewMode) => void;
-  onSyncedViewportChange: (viewMode: VersionCompareViewMode, viewport: Viewport, source: "left" | "right") => void;
-  syncedViewport?: Viewport | null;
 }
 
 const VIEW_MODES: VersionCompareViewMode[] = ["er", "translation", "logical"];
@@ -66,17 +62,13 @@ export function VersionCompareWorkspaceInstance({
   viewMode,
   diagramHighlights,
   logicalHighlights,
-  syncViewport,
-  fitRequestToken,
   onViewModeChange,
-  onSyncedViewportChange,
-  syncedViewport,
 }: VersionCompareWorkspaceInstanceProps) {
   const { t } = useI18n();
   const [viewport, setViewport] = useState<Viewport>(() => getInitialViewport(resolved, viewMode));
   const [selection, setSelection] = useState<SelectionState>(() => getInitialSelection(resolved, viewMode));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => resolved.snapshot.logicalSelection);
-  const logicalFitToken = viewMode === "logical" ? fitRequestToken : 0;
+  const logicalFitToken = 0;
   const payload = useMemo(() => getSnapshotViewPayload(resolved.snapshot, viewMode), [resolved.snapshot, viewMode]);
   const versionDate = formatCommitDate(resolved.createdAt);
 
@@ -86,21 +78,8 @@ export function VersionCompareWorkspaceInstance({
     setLogicalSelection(resolved.snapshot.logicalSelection);
   }, [resolved, viewMode]);
 
-  useEffect(() => {
-    setViewport(getInitialViewport(resolved, viewMode));
-  }, [fitRequestToken, resolved, viewMode]);
-
-  useEffect(() => {
-    if (syncViewport && syncedViewport) {
-      setViewport(syncedViewport);
-    }
-  }, [syncViewport, syncedViewport]);
-
   function handleViewportChange(nextViewport: Viewport) {
     setViewport(nextViewport);
-    if (syncViewport) {
-      onSyncedViewportChange(viewMode, nextViewport, side);
-    }
   }
 
   const unavailableTitle =
