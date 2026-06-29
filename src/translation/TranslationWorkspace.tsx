@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useMemo, useState } from "react";
 import { DiagramCanvas } from "../canvas/DiagramCanvas";
 import type { DiagramDocument, DiagramEdge, DiagramHighlights, SelectionState, Viewport } from "../types/diagram";
 import type { ErTranslationChoice, ErTranslationItem, ErTranslationWorkspaceDocument } from "../types/translation";
@@ -28,7 +28,11 @@ interface TranslationWorkspaceProps {
   notesPanelOpen: boolean;
   onToggleNotesPanel: () => void;
   onExportProject: () => void;
+  onExportPng: () => void;
+  onExportJpeg: () => void;
+  onExportSvg: () => void;
   onSaveRestructuredErs: () => void;
+  svgRef: RefObject<SVGSVGElement>;
   onPreviewDiagram: (diagram: DiagramDocument) => void;
   onCommitDiagram: (diagram: DiagramDocument, previous: DiagramDocument) => void;
 }
@@ -153,7 +157,6 @@ function ToolbarButton(props: {
 
 export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const { t } = useI18n();
-  const svgRef = useRef<SVGSVGElement | null>(null);
   const [canvasStatus, setCanvasStatus] = useState("");
   const [fixOpen, setFixOpen] = useState(false);
   const overview = useMemo(() => buildErTranslationOverview(props.workspace), [props.workspace]);
@@ -213,6 +216,9 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           />
           <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
           <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} onClick={props.onExportProject} />
+          <ToolbarButton label={t("logical.export.png")} icon={<StudioIcon name="export" />} onClick={props.onExportPng} />
+          <ToolbarButton label={t("logical.export.jpeg")} icon={<StudioIcon name="export" />} onClick={props.onExportJpeg} />
+          <ToolbarButton label={t("logical.export.svg")} icon={<StudioIcon name="export" />} onClick={props.onExportSvg} />
         </div>
 
         <button
@@ -264,7 +270,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           viewport={props.viewport}
           issues={[]}
           statusMessage={canvasStatus}
-          svgRef={svgRef}
+          svgRef={props.svgRef}
           translationHighlights={highlights}
           onViewportChange={props.onViewportChange}
           onSelectionChange={(selection) => {

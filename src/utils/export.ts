@@ -220,6 +220,9 @@ function removeExportOnlyUi(clone: SVGSVGElement) {
         ".diagram-validation-badge",
         ".diagram-validation-halo",
         ".diagram-edge-hit-target",
+        ".external-identifier-hit-target",
+        ".external-identifier-marker-target",
+        ".logical-column-hit",
       ].join(","),
     )
     .forEach((element) => element.remove());
@@ -241,7 +244,7 @@ function isTransparentPaint(value: string | null): boolean {
 }
 
 function applyPrintExportStyle(clone: SVGSVGElement) {
-  clone.style.setProperty("--diagram-canvas-fill", "#ffffff");
+  clone.style.setProperty("--diagram-canvas-fill", "transparent");
   clone.style.setProperty("--diagram-node-fill", "transparent");
   clone.style.setProperty("--diagram-stroke", "#000000");
   clone.style.setProperty("--diagram-text", "#000000");
@@ -257,24 +260,41 @@ function applyPrintExportStyle(clone: SVGSVGElement) {
   clone.style.setProperty("--diagram-selection-fill", "transparent");
   clone.style.setProperty("--diagram-translation-pending", "#000000");
   clone.style.setProperty("--diagram-translation-blocked", "#000000");
+  clone.style.setProperty("--logical-edge-stroke", "#000000");
+  clone.style.setProperty("--logical-table-stroke", "#000000");
+  clone.style.setProperty("--logical-table-fill", "transparent");
+  clone.style.setProperty("--logical-table-header-fill", "transparent");
+  clone.style.setProperty("--logical-table-stroke-width", "1.6px");
 }
 
 function shouldPreservePrintFill(element: SVGElement): boolean {
   return (
+    element.closest("marker") !== null ||
     element.classList.contains("attribute-identifier-marker") ||
+    element.classList.contains("composite-identifier-marker") ||
     element.classList.contains("external-identifier-marker") ||
     element.classList.contains("external-identifier-terminal-marker")
   );
 }
 
+function hasVisiblePaint(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized !== "" && normalized !== "none" && !isTransparentPaint(normalized);
+}
+
 function normalizePrintExportElements(clone: SVGSVGElement) {
   clone.querySelectorAll<SVGElement>("rect, polygon, ellipse, circle, path, line, polyline").forEach((element) => {
     const preserveFill = shouldPreservePrintFill(element);
+    const currentFill = element.style.getPropertyValue("fill") || element.getAttribute("fill");
 
     if (preserveFill) {
       element.style.setProperty("fill", "#000000");
       element.setAttribute("fill", "#000000");
-    } else {
+    } else if (hasVisiblePaint(currentFill)) {
       element.style.setProperty("fill", "none");
       element.setAttribute("fill", "none");
     }
@@ -289,16 +309,39 @@ function normalizePrintExportElements(clone: SVGSVGElement) {
     }
   });
 
-  clone.querySelectorAll<SVGTextElement>("text").forEach((text) => {
+  clone.querySelectorAll<SVGTextElement | SVGTSpanElement>("text, tspan").forEach((text) => {
     text.style.setProperty("fill", "#000000");
     text.setAttribute("fill", "#000000");
-    text.style.removeProperty("stroke");
-    text.removeAttribute("stroke");
+    text.style.setProperty("stroke", "none");
+    text.setAttribute("stroke", "none");
   });
 }
 
 function neutralizeWorldTransform(clone: SVGSVGElement) {
   getExportWorldGroup(clone)?.removeAttribute("transform");
+}
+
+function prependWhiteExportBackground(
+  clone: SVGSVGElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  background.setAttribute("x", x.toString());
+  background.setAttribute("y", y.toString());
+  background.setAttribute("width", width.toString());
+  background.setAttribute("height", height.toString());
+  background.setAttribute("fill", "#ffffff");
+  background.setAttribute("aria-hidden", "true");
+
+  const firstChild = clone.firstChild;
+  if (firstChild) {
+    clone.insertBefore(background, firstChild);
+  } else {
+    clone.appendChild(background);
+  }
 }
 
 export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOptions = {}): PreparedSvgExport {
@@ -331,6 +374,9 @@ export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOp
   clone.setAttribute("width", exportWidth.toString());
   clone.setAttribute("height", exportHeight.toString());
   clone.style.background = background === "white" ? "#ffffff" : "transparent";
+  if (background === "white") {
+    prependWhiteExportBackground(clone, viewBoxX, viewBoxY, exportWidth, exportHeight);
+  }
 
   return {
     markup: `<?xml version="1.0" encoding="UTF-8"?>\n${clone.outerHTML}`,
@@ -343,12 +389,13 @@ export function serializeSvg(svgElement: SVGSVGElement, options: SvgExportOption
   return prepareSvgExport(svgElement, {
     ...options,
     format: options.format ?? "svg",
-    background: options.background ?? "transparent",
+    background: options.background ?? "white",
+    styleMode: options.styleMode ?? "print",
   }).markup;
 }
 
 export function downloadSvg(svgElement: SVGSVGElement, fileName: string) {
-  const svgMarkup = serializeSvg(svgElement, { format: "svg", background: "transparent" });
+  const svgMarkup = serializeSvg(svgElement, { format: "svg", background: "white", styleMode: "print" });
   const blob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
   downloadBlob(blob, fileName);
 }
@@ -419,7 +466,7 @@ async function rasterizeSvg(
 }
 
 export async function downloadPng(svgElement: SVGSVGElement, fileName: string) {
-  await rasterizeSvg(svgElement, fileName, { format: "png", background: "transparent" });
+  await rasterizeSvg(svgElement, fileName, { format: "png", background: "transparent", styleMode: "print" });
 }
 
 export async function downloadJpeg(svgElement: SVGSVGElement, fileName: string) {

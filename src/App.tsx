@@ -5469,7 +5469,11 @@ export default function App() {
               notesPanelOpen={notesPanelOpen}
               onToggleNotesPanel={handleToggleNotesPanel}
               onExportProject={handleSaveProject}
+              onExportPng={handleExportPng}
+              onExportJpeg={handleExportJpeg}
+              onExportSvg={handleExportSvg}
               onSaveRestructuredErs={handleSaveRestructuredErs}
+              svgRef={svgRef}
               onPreviewDiagram={(diagram) => {
                 translationHistory.setPresent({
                   ...translationHistory.present,
