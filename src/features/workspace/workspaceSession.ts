@@ -24,6 +24,11 @@ import {
   createEmptyLogicalWorkspace,
   refreshLogicalWorkspace,
 } from "../../utils/logicalWorkspace";
+import {
+  createEmptyProjectVersioningState,
+  sanitizeProjectVersioningState,
+  type ProjectVersioningState,
+} from "../../utils/projectFile";
 
 export const DEFAULT_VIEWPORT: Viewport = {
   x: 180,
@@ -50,7 +55,7 @@ const TOOL_KIND_VALUES: ToolKind[] = [
 ];
 
 export interface WorkspaceSessionSnapshot {
-  version: 4;
+  version: 5;
   savedAt: string;
   diagram: DiagramDocument;
   translationWorkspace: ErTranslationWorkspaceDocument;
@@ -78,6 +83,7 @@ export interface WorkspaceSessionSnapshot {
   focusMode: boolean;
   toolbarWidth: number;
   showDiagnostics: boolean;
+  versioning: ProjectVersioningState;
 }
 
 export interface WorkspaceSessionBootstrap {
@@ -107,6 +113,7 @@ export interface WorkspaceSessionBootstrap {
   focusMode: boolean;
   toolbarWidth: number;
   showDiagnostics: boolean;
+  versioning: ProjectVersioningState;
   restored: boolean;
 }
 
@@ -316,6 +323,7 @@ export function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootst
     focusMode: false,
     toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
     showDiagnostics: true,
+    versioning: createEmptyProjectVersioningState(),
     restored: false,
   };
 }
@@ -341,7 +349,14 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
     }
 
     const parsed = JSON.parse(raw) as unknown;
-    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4)) {
+    if (
+      !isRecord(parsed) ||
+      (parsed.version !== 1 &&
+        parsed.version !== 2 &&
+        parsed.version !== 3 &&
+        parsed.version !== 4 &&
+        parsed.version !== 5)
+    ) {
       return fallback;
     }
 
@@ -422,6 +437,7 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
           ? parsed.toolbarWidth
           : fallback.toolbarWidth,
       showDiagnostics: typeof parsed.showDiagnostics === "boolean" ? parsed.showDiagnostics : true,
+      versioning: sanitizeProjectVersioningState(parsed.versioning, { fallbackViewport: DEFAULT_VIEWPORT }),
       restored: true,
     };
   } catch {
@@ -433,7 +449,7 @@ export function serializeWorkspaceSessionSnapshot(
   snapshot: Omit<WorkspaceSessionSnapshot, "version" | "savedAt">,
 ): WorkspaceSessionSnapshot {
   return {
-    version: 4,
+    version: 5,
     savedAt: new Date().toISOString(),
     ...snapshot,
   };

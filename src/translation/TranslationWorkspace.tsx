@@ -1,7 +1,7 @@
 import { type ReactNode, type RefObject, useMemo, useRef, useState } from "react";
 import { DiagramCanvas } from "../canvas/DiagramCanvas";
 import { FloatingExportMenu } from "../components/FloatingExportMenu";
-import type { DiagramDocument, DiagramEdge, DiagramHighlights, SelectionState, Viewport } from "../types/diagram";
+import type { DiagramDocument, DiagramEdge, DiagramHighlights, SelectionState, VersionDiagramHighlights, Viewport } from "../types/diagram";
 import type { ErTranslationChoice, ErTranslationItem, ErTranslationWorkspaceDocument } from "../types/translation";
 import {
   buildErTranslationOverview,
@@ -36,6 +36,9 @@ interface TranslationWorkspaceProps {
   svgRef: RefObject<SVGSVGElement>;
   onPreviewDiagram: (diagram: DiagramDocument) => void;
   onCommitDiagram: (diagram: DiagramDocument, previous: DiagramDocument) => void;
+  readOnly?: boolean;
+  compareMode?: boolean;
+  versionHighlights?: VersionDiagramHighlights;
 }
 
 function getAllItems(workspace: ErTranslationWorkspaceDocument): ErTranslationItem[] {
@@ -196,9 +199,11 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const translateTitle = translateDisabled
     ? logicalAccess.reason ?? t("translation.restructuring.completeFirst")
     : undefined;
+  const readOnly = props.readOnly === true;
+  const compareMode = props.compareMode === true;
 
   return (
-    <div className="designer-workspace designer-translation-view">
+    <div className={["designer-workspace", "designer-translation-view", compareMode ? "designer-workspace-compare" : ""].filter(Boolean).join(" ")}>
       <div className="designer-canvas-region designer-translation-canvas">
         <div className="designer-context-toolbar designer-translation-toolbar" role="toolbar" aria-label="Restructuring tools">
           <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
@@ -228,37 +233,41 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
             label={t("translation.restructuring.export")}
             icon={<StudioIcon name="export" />}
             active={exportMenuOpen}
+            disabled={readOnly}
             onClick={() => setExportMenuOpen((current) => !current)}
             buttonRef={exportButtonRef}
             ariaHasPopup="menu"
             ariaExpanded={exportMenuOpen}
           />
         </div>
+        {!readOnly ? (
+          <FloatingExportMenu
+            open={exportMenuOpen}
+            anchorRef={exportButtonRef}
+            ariaLabel={t("translation.restructuring.export")}
+            onClose={() => setExportMenuOpen(false)}
+            items={[
+              { key: "project", label: t("toolbar.export.project"), onClick: props.onExportProject },
+              { key: "png", label: t("toolbar.export.png"), onClick: props.onExportPng },
+              { key: "jpeg", label: t("toolbar.export.jpeg"), onClick: props.onExportJpeg },
+              { key: "svg", label: t("toolbar.export.svg"), onClick: props.onExportSvg },
+            ]}
+          />
+        ) : null}
 
-        <FloatingExportMenu
-          open={exportMenuOpen}
-          anchorRef={exportButtonRef}
-          ariaLabel={t("toolbar.export.aria")}
-          onClose={() => setExportMenuOpen(false)}
-          items={[
-            { key: "project", label: t("toolbar.export.project"), onClick: props.onExportProject },
-            { key: "png", label: t("toolbar.export.png"), onClick: props.onExportPng },
-            { key: "jpeg", label: t("toolbar.export.jpeg"), onClick: props.onExportJpeg },
-            { key: "svg", label: t("toolbar.export.svg"), onClick: props.onExportSvg },
-          ]}
-        />
+        {!readOnly ? (
+          <button
+            type="button"
+            className="designer-side-toggle designer-side-toggle-right designer-translation-notes-toggle"
+            onClick={props.onToggleNotesPanel}
+            title={props.notesPanelOpen ? t("translation.restructuring.closeNotes") : t("translation.restructuring.openNotes")}
+          >
+            <StudioIcon name="notes" aria-hidden="true" />
+            {props.notesPanelOpen ? t("common.actions.hide") : t("translation.restructuring.notes")}
+          </button>
+        ) : null}
 
-        <button
-          type="button"
-          className="designer-side-toggle designer-side-toggle-right designer-translation-notes-toggle"
-          onClick={props.onToggleNotesPanel}
-          title={props.notesPanelOpen ? t("translation.restructuring.closeNotes") : t("translation.restructuring.openNotes")}
-        >
-          <StudioIcon name="notes" aria-hidden="true" />
-          {props.notesPanelOpen ? t("common.actions.hide") : t("translation.restructuring.notes")}
-        </button>
-
-        {fixOpen && selectedItem ? (
+        {!readOnly && fixOpen && selectedItem ? (
           <div className="designer-fix-popover" aria-label="Fix options">
             {selectedChoices.map((choice) => {
               const disabled = selectedItem.status === "blocked" || Boolean(choice.disabledReason);
@@ -299,6 +308,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           statusMessage={canvasStatus}
           svgRef={props.svgRef}
           translationHighlights={highlights}
+          versionHighlights={props.versionHighlights}
           onViewportChange={props.onViewportChange}
           onSelectionChange={(selection) => {
             setFixOpen(false);

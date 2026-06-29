@@ -2,13 +2,25 @@
   <img src="src/image/buildER%20no%20background.png" alt="buildER logo" width="520" />
 </p>
 
-# buildER (v6.0)
+# buildER (v6.1)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG/JPEG e sincronizzazione ERS live.
 
 ## Stato del progetto
 
-buildER è la nuova evoluzione di ER Studio. La versione 6 è un major update dedicato alla fase Translation: attributi semplici multivalore, attributi composti multivalore, FK logiche, cardinalità preservate e rendering degli shape ER generati.
+buildER è la nuova evoluzione di ER Studio. La versione 6.1 è un major upgrade di stabilizzazione: completa la serializzazione ERS delle relazioni, rende più stabile il layout degli attributi, pulisce la toolbar, introduce notifiche mirate e completa la copertura multilingua italiana, inglese e albanese.
+
+## Novità principali in buildER 6.1
+
+- Il Code panel serializza attributi semplici, multivalore e composti collegati alle relazioni ER.
+- Il round-trip `diagramma -> ERS -> diagramma` conserva attributi di relazione, marker `(multi)` e sotto-attributi.
+- Il layout automatico degli attributi usa una strategia perimetrale con priorità sinistra, senza colonne infinite e senza spostare gli attributi già posizionati.
+- Reverse SQL, relazioni e attributi composti usano la stessa strategia di layout perimetrale.
+- Le modifiche fatte direttamente nel workspace vengono sincronizzate correttamente nel Code panel.
+- Toolbar, toolbox ed export menu nascondono i comandi non applicabili invece di mostrarli disabilitati.
+- Le notifiche toast sono mirate a operazioni non valide e download, evitando messaggi generici continui.
+- Inspector, identificatori, dialog ISA, intro, about, changelog e pagine statiche sono coperti da i18n italiano, inglese e albanese.
+- Test aggiornati su ERS, layout attributi, Code panel, toolbar, toast, i18n, build ed e2e.
 
 ## Novità principali in buildER 6.0
 

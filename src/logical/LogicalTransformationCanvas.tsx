@@ -16,6 +16,7 @@ import type {
   LogicalSelection,
   LogicalTransformationEdge,
   LogicalTransformationNode,
+  VersionLogicalHighlights,
   LogicalWorkspaceDocument,
 } from "../types/logical";
 import {
@@ -57,6 +58,7 @@ interface LogicalTransformationCanvasProps {
   onRenameTable: (tableId: string, nextName: string) => void;
   onRenameColumn: (tableId: string, columnId: string, nextName: string) => void;
   onUpdateColumnSql: (tableId: string, columnId: string, patch: LogicalColumnSqlPatch) => void;
+  versionHighlights?: VersionLogicalHighlights;
   readOnly?: boolean;
 }
 
@@ -89,6 +91,63 @@ type InlineEditState =
   | { kind: "table"; tableId: string; value: string }
   | { kind: "column"; tableId: string; columnId: string; value: string }
   | null;
+
+function resolveLogicalVersionHighlight(
+  id: string,
+  highlights: VersionLogicalHighlights | undefined,
+  kind: "table" | "column" | "foreign-key" | "edge",
+): "added" | "removed" | "modified" | undefined {
+  if (!highlights) {
+    return undefined;
+  }
+
+  if (kind === "table") {
+    if (highlights.focusedTableId === id) {
+      return "modified";
+    }
+    if (highlights.addedTableIds.includes(id)) {
+      return "added";
+    }
+    if (highlights.removedTableIds.includes(id)) {
+      return "removed";
+    }
+    return highlights.modifiedTableIds.includes(id) ? "modified" : undefined;
+  }
+
+  if (kind === "column") {
+    if (highlights.focusedColumnId === id) {
+      return "modified";
+    }
+    if (highlights.addedColumnIds.includes(id)) {
+      return "added";
+    }
+    if (highlights.removedColumnIds.includes(id)) {
+      return "removed";
+    }
+    return highlights.modifiedColumnIds.includes(id) ? "modified" : undefined;
+  }
+
+  if (kind === "foreign-key") {
+    if (highlights.focusedForeignKeyId === id) {
+      return "modified";
+    }
+    if (highlights.addedForeignKeyIds.includes(id)) {
+      return "added";
+    }
+    if (highlights.removedForeignKeyIds.includes(id)) {
+      return "removed";
+    }
+    return highlights.modifiedForeignKeyIds.includes(id) ? "modified" : undefined;
+  }
+
+  if (highlights.addedEdgeIds.includes(id)) {
+    return "added";
+  }
+  if (highlights.removedEdgeIds.includes(id)) {
+    return "removed";
+  }
+  return highlights.modifiedEdgeIds.includes(id) ? "modified" : undefined;
+}
 
 const WORLD_EXTENT = 9200;
 const ROUTE_EXIT_OFFSET = 18;
@@ -1494,7 +1553,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       onPointerLeave={handlePointerUp}
       onWheel={handleCanvasWheel}
     >
-      <svg ref={props.svgRef} className="logical-canvas" role="img" aria-label="Canvas Logico con trasformazione in-place">
+      <svg
+        ref={props.svgRef}
+        className="logical-canvas"
+        role="img"
+        aria-label="Canvas Logico con trasformazione in-place"
+        data-readonly={readOnly ? "true" : undefined}
+      >
         <defs>
           <marker
             id="logical-arrow"
@@ -1617,11 +1682,18 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
               const selected = props.selection.edgeId === edge.id;
               const stepHighlighted = hasAnyTargetKey(edge, props.activeTargetKeys);
               const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
+              const versionHighlight = resolveLogicalVersionHighlight(
+                edge.foreignKeyId ?? edge.id,
+                props.versionHighlights,
+                edge.foreignKeyId ? "foreign-key" : "edge",
+              );
+              const versionFocused =
+                props.versionHighlights?.focusedForeignKeyId === (edge.foreignKeyId ?? edge.id);
               const edgePath = pathFromOrthogonalPoints(route.points);
               const edgeStrokeWidth = getDesignerLogicalEdgeStrokeWidth(
                 selected,
                 stepHighlighted,
-                focusHighlighted,
+                focusHighlighted || versionFocused,
               );
 
               return (
@@ -1631,7 +1703,8 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                     "logical-edge",
                     selected ? "selected" : "",
                     stepHighlighted ? "highlighted" : "",
-                    focusHighlighted ? "focus-highlight" : "",
+                    focusHighlighted || versionFocused ? "focus-highlight" : "",
+                    versionHighlight ? `version-highlight-${versionHighlight}` : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
@@ -1703,6 +1776,9 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
             const columns = tableColumnsById.get(tableNode.tableId ?? tableNode.id) ?? [];
             const stepHighlighted = hasAnyTargetKey(tableNode, props.activeTargetKeys);
             const focusHighlighted = intersectingTargetKey(tableNode, props.focusedTargetKey);
+            const tableId = tableNode.tableId ?? tableNode.id;
+            const versionHighlight = resolveLogicalVersionHighlight(tableId, props.versionHighlights, "table");
+            const versionFocused = props.versionHighlights?.focusedTableId === tableId;
             const hovering = hoverTableId === tableNode.id;
 
             return (
@@ -1713,7 +1789,8 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                   "transformation-table",
                   selected ? "selected" : "",
                   stepHighlighted ? "step-highlight" : "",
-                  focusHighlighted ? "focus-highlight" : "",
+                  focusHighlighted || versionFocused ? "focus-highlight" : "",
+                  versionHighlight ? `version-highlight-${versionHighlight}` : "",
                   hovering ? "hover" : "",
                 ]
                   .filter(Boolean)
@@ -1774,6 +1851,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                     tableNode.y + DESIGNER_TABLE_HEADER_HEIGHT + rowIndex * DESIGNER_TABLE_ROW_HEIGHT;
                   const isSelectedColumn = props.selection.columnId === column.id;
                   const isTypeMenuColumn = props.typeMode && isSelectedColumn;
+                  const columnKey = `${tableId}.${column.id}`;
+                  const columnVersionHighlight = resolveLogicalVersionHighlight(
+                    columnKey,
+                    props.versionHighlights,
+                    "column",
+                  );
+                  const columnVersionFocused = props.versionHighlights?.focusedColumnId === columnKey;
                   const typeLabel = getDesignerLogicalColumnTypeLabel(column);
                   const typeLockedByFk = isColumnTypeLockedByReference(column);
 
@@ -1783,7 +1867,9 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                       className={[
                         "logical-column-row",
                         isSelectedColumn ? "selected" : "",
+                        columnVersionFocused ? "focus-highlight" : "",
                         isTypeMenuColumn ? "type-editor-active" : "",
+                        columnVersionHighlight ? `version-highlight-${columnVersionHighlight}` : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1846,6 +1932,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
               const selected = props.selection.edgeId === edge.id;
               const stepHighlighted = hasAnyTargetKey(edge, props.activeTargetKeys);
               const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
+              const versionHighlight = resolveLogicalVersionHighlight(
+                edge.foreignKeyId ?? edge.id,
+                props.versionHighlights,
+                edge.foreignKeyId ? "foreign-key" : "edge",
+              );
+              const versionFocused =
+                props.versionHighlights?.focusedForeignKeyId === (edge.foreignKeyId ?? edge.id);
               const chipX = placement.bounds.x;
               const chipY = placement.bounds.y;
               const chipHeight = Math.max(DESIGNER_FK_LABEL_MIN_HEIGHT, placement.height);
@@ -1867,7 +1960,8 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                     "logical-edge-label-chip",
                     selected ? "selected" : "",
                     stepHighlighted ? "highlighted" : "",
-                    focusHighlighted ? "focus-highlight" : "",
+                    focusHighlighted || versionFocused ? "focus-highlight" : "",
+                    versionHighlight ? `version-highlight-${versionHighlight}` : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}

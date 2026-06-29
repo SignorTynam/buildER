@@ -1,19 +1,23 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Informazioni su buildER — Editor ER online</title>
+    <title>About buildER — ER diagram editor</title>
     <meta
       name="description"
-      content="buildER è un editor web per creare diagrammi Entity-Relationship, progettare modelli ER, lavorare con viste logiche, SQL Reverse ed esportare diagrammi dal browser."
+      content="About buildER: a multilingual web editor for Entity-Relationship diagrams, conceptual modeling, logical views, SQL Reverse, and browser-based exports. Italiano, English, Shqip."
     />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://signortynam.github.io/buildER/about.html" />
-    <meta property="og:title" content="Informazioni su buildER" />
+    <link rel="alternate" hreflang="it" href="https://signortynam.github.io/buildER/about.html" />
+    <link rel="alternate" hreflang="en" href="https://signortynam.github.io/buildER/about.html" />
+    <link rel="alternate" hreflang="sq" href="https://signortynam.github.io/buildER/about.html" />
+    <link rel="alternate" hreflang="x-default" href="https://signortynam.github.io/buildER/about.html" />
+    <meta property="og:title" content="About buildER" />
     <meta
       property="og:description"
-      content="Scopri buildER, un editor online per diagrammi Entity-Relationship, modellazione concettuale, viste logiche e SQL Reverse."
+      content="Learn about buildER, a multilingual online editor for Entity-Relationship diagrams, logical modeling, and SQL Reverse."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://signortynam.github.io/buildER/about.html" />
@@ -44,7 +48,7 @@
       }
 
       main {
-        max-width: 860px;
+        max-width: 920px;
         padding: 42px;
         border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 24px;
@@ -58,15 +62,15 @@
         letter-spacing: -0.05em;
       }
 
-      p {
+      h2 {
+        margin-top: 28px;
+      }
+
+      p,
+      ul {
         color: #d6dbea;
         font-size: 1.05rem;
         line-height: 1.75;
-      }
-
-      ul {
-        color: #d6dbea;
-        line-height: 1.8;
       }
 
       a {
@@ -103,21 +107,41 @@
   <body>
     <main>
       <h1>buildER</h1>
-      <p>
-        buildER è un editor web per creare diagrammi Entity-Relationship secondo la notazione Chen. Permette di progettare modelli concettuali per basi di dati direttamente dal browser, senza installazioni locali.
-      </p>
-      <p>
-        L'applicazione supporta entità, relazioni, attributi, cardinalità, generalizzazioni ISA, viste logiche, traduzione verso modelli relazionali, SQL Reverse ed esportazione dei diagrammi.
-      </p>
+
+      <section lang="it">
+        <h2>Italiano</h2>
+        <p>
+          buildER è un editor web multilingua per creare diagrammi Entity-Relationship secondo la notazione Chen,
+          progettare modelli concettuali, lavorare con viste logiche, SQL Reverse ed esportare diagrammi dal browser.
+        </p>
+      </section>
+
+      <section lang="en">
+        <h2>English</h2>
+        <p>
+          buildER is a multilingual web editor for Chen-style Entity-Relationship diagrams, conceptual database
+          models, logical views, SQL Reverse workflows, and browser-based diagram exports.
+        </p>
+      </section>
+
+      <section lang="sq">
+        <h2>Shqip</h2>
+        <p>
+          buildER është një editor web shumëgjuhësh për diagrame Entity-Relationship në stilin Chen, modele
+          konceptuale të bazave të të dhënave, pamje logjike, rrjedha SQL Reverse dhe eksportim diagramësh nga browser-i.
+        </p>
+      </section>
+
       <ul>
-        <li>Editor visuale per diagrammi ER.</li>
-        <li>Supporto a progetti salvabili e riapribili.</li>
-        <li>Esportazione in formati immagine e SVG.</li>
-        <li>Interfaccia multilingua in italiano, inglese e albanese.</li>
+        <li>Visual ER diagram editor / Editor visuale ER / Editor vizual ER.</li>
+        <li>Project files that can be saved and reopened / Progetti salvabili e riapribili / Projekte që ruhen dhe rihapen.</li>
+        <li>PNG, JPEG, SVG, ERS, and SQL export support.</li>
+        <li>Interface languages: italiano, English, shqip.</li>
       </ul>
+
       <div class="actions">
-        <a class="button" href="/buildER/">Apri buildER</a>
-        <a class="button secondary" href="https://github.com/SignorTynam/buildER">Repository GitHub</a>
+        <a class="button" href="/buildER/">Open buildER</a>
+        <a class="button secondary" href="https://github.com/SignorTynam/buildER">GitHub repository</a>
       </div>
     </main>
   </body>

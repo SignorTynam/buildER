@@ -6,6 +6,10 @@ import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { ChangelogModal } from "./components/ChangelogModal";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
+import { CommitDialog } from "./components/versioning/CommitDialog";
+import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
+import { VersionCompareMode } from "./components/versioning/VersionCompareMode";
+import { VersioningPanel } from "./components/versioning/VersioningPanel";
 import {
   CardinalityModal,
   type CardinalityDialogState,
@@ -167,13 +171,23 @@ import { generateLogicalSql } from "./utils/logicalSql";
 import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
 import { validateSqlReverseBetaSource } from "./utils/sqlReverseBetaValidation";
 import {
+  createEmptyProjectVersioningState,
+  createProjectCommitSnapshot,
   parseProjectFile,
   ProjectFileError,
   PROJECT_FILE_ACCEPT,
   PROJECT_FILE_EXTENSION,
   PROJECT_FILE_MIME_TYPE,
   serializeProjectFile,
+  type ProjectFileWorkspaceState,
+  type ProjectCommitSnapshot,
+  type ProjectVersioningState,
 } from "./utils/projectFile";
+import {
+  getProjectUncommittedChangeState,
+  useProjectVersioning,
+} from "./features/versioning/useProjectVersioning";
+import type { VersionCompareRef } from "./features/versioning/projectVersionVisualDiff";
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
@@ -188,7 +202,7 @@ import {
   shouldOpenCardinalityDialogAfterEdgeCreation,
 } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, getToolLabel } from "./utils/toolConfig";
-import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION, type AppChangelogEntry } from "./utils/appMeta";
+import { APP_NAME, APP_TITLE, APP_VERSION, getAppChangelog, type AppChangelogEntry } from "./utils/appMeta";
 import { VersionAnnouncement } from "./components/VersionAnnouncement";
 import { classifyAppUpdate } from "./utils/versioning";
 import type { AppUpdateKind } from "./utils/versioning";
@@ -198,6 +212,11 @@ import {
   rememberLastSeenAppVersion,
   rememberVersionAnnouncementSeen,
 } from "./utils/versionAnnouncementStorage";
+
+interface VersionCompareSession {
+  left: VersionCompareRef;
+  right: VersionCompareRef;
+}
 
 type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
 type AppTranslator = (key: MessageKey, params?: TranslationParams) => string;
@@ -904,8 +923,39 @@ function layoutDirectAttributesAroundHost(
   };
 }
 
+function createProjectFileWorkspaceStateFromBootstrap(
+  sessionBootstrap: WorkspaceSessionBootstrap,
+): ProjectFileWorkspaceState {
+  return {
+    tool: sessionBootstrap.tool,
+    mode: sessionBootstrap.mode,
+    selection: {
+      nodeIds: [...sessionBootstrap.selection.nodeIds],
+      edgeIds: [...sessionBootstrap.selection.edgeIds],
+    },
+    translationSelection: {
+      nodeIds: [...sessionBootstrap.translationSelection.nodeIds],
+      edgeIds: [...sessionBootstrap.translationSelection.edgeIds],
+    },
+    logicalSelection: { ...sessionBootstrap.logicalSelection },
+    codeDraft: sessionBootstrap.codeDraft,
+    codeDirty: sessionBootstrap.codeDirty,
+    technicalPanelOpen: sessionBootstrap.technicalPanelOpen,
+    technicalPanelTab: sessionBootstrap.technicalPanelTab,
+    codePanelOpen: sessionBootstrap.codePanelOpen,
+    codePanelWidth: sessionBootstrap.codePanelWidth,
+    notesPanelOpen: sessionBootstrap.notesPanelOpen,
+    notesPanelWidth: sessionBootstrap.notesPanelWidth,
+    toolbarCollapsed: sessionBootstrap.toolbarCollapsed,
+    focusMode: sessionBootstrap.focusMode,
+    toolbarWidth: sessionBootstrap.toolbarWidth,
+    showDiagnostics: sessionBootstrap.showDiagnostics,
+  };
+}
+
 export default function App() {
   const { t } = useI18n();
+  const appChangelog = useMemo(() => getAppChangelog(t), [t]);
   const sessionBootstrapRef = useRef<WorkspaceSessionBootstrap | null>(null);
   if (!sessionBootstrapRef.current) {
     sessionBootstrapRef.current = readWorkspaceSessionBootstrap();
@@ -955,6 +1005,14 @@ export default function App() {
     removeNotice: dismissNotice,
   } = useWorkspaceNotices({ formatErrorMessage: (message) => formatErrorFromRawMessage(message, t) });
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
+  const [versioningPanelOpen, setVersioningPanelOpen] = useState(false);
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [versionCompareSession, setVersionCompareSession] = useState<VersionCompareSession | null>(null);
+  const [restoreCommitId, setRestoreCommitId] = useState<string | null>(null);
+  const [restoreDialogBusy, setRestoreDialogBusy] = useState(false);
+  const [restoreDialogError, setRestoreDialogError] = useState("");
+  const [commitDialogError, setCommitDialogError] = useState("");
+  const [commitDialogBusy, setCommitDialogBusy] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -988,16 +1046,23 @@ export default function App() {
   const [codeError, setCodeError] = useState("");
   const {
     technicalPanelOpen,
+    setTechnicalPanelOpen,
     technicalPanelTab,
+    setTechnicalPanelTab,
     codePanelOpen,
+    setCodePanelOpen,
     codePanelWidth,
+    setCodePanelWidth,
     notesPanelOpen,
     setNotesPanelOpen,
     notesPanelWidth,
+    setNotesPanelWidth,
     toolbarCollapsed,
+    setToolbarCollapsed,
     focusMode,
     setFocusMode,
     toolbarWidth,
+    setToolbarWidth,
     effectiveToolbarCollapsed,
     visibleToolbarWidth,
     visibleTechnicalPanelWidth,
@@ -1014,6 +1079,7 @@ export default function App() {
     createInitialSqlReverseWorkflowState(),
   );
   const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
+  const projectVersioning = useProjectVersioning(sessionBootstrap.versioning);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -1037,6 +1103,10 @@ export default function App() {
   const [, setHasDiagramClipboard] = useState(false);
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
+  const lastSavedVersioningRef = useRef(JSON.stringify(sessionBootstrap.versioning));
+  const lastSavedWorkspaceRef = useRef(
+    JSON.stringify(createProjectFileWorkspaceStateFromBootstrap(sessionBootstrap)),
+  );
   const hasUnsavedChangesRef = useRef(false);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
@@ -1085,6 +1155,98 @@ export default function App() {
     diagramView === "er" ? history.canUndo : diagramView === "translation" ? translationHistory.canUndo : logicalHistory.canUndo;
   const activeCanRedo =
     diagramView === "er" ? history.canRedo : diagramView === "translation" ? translationHistory.canRedo : logicalHistory.canRedo;
+  const currentProjectWorkspaceState = useMemo<ProjectFileWorkspaceState>(
+    () => ({
+      tool,
+      mode,
+      selection: {
+        nodeIds: [...selection.nodeIds],
+        edgeIds: [...selection.edgeIds],
+      },
+      translationSelection: {
+        nodeIds: [...translationSelection.nodeIds],
+        edgeIds: [...translationSelection.edgeIds],
+      },
+      logicalSelection: { ...logicalSelection },
+      codeDraft,
+      codeDirty,
+      technicalPanelOpen,
+      technicalPanelTab,
+      codePanelOpen,
+      codePanelWidth,
+      notesPanelOpen,
+      notesPanelWidth,
+      toolbarCollapsed,
+      focusMode,
+      toolbarWidth,
+      showDiagnostics,
+    }),
+    [
+      codeDirty,
+      codeDraft,
+      codePanelOpen,
+      codePanelWidth,
+      focusMode,
+      logicalSelection,
+      mode,
+      notesPanelOpen,
+      notesPanelWidth,
+      selection.edgeIds,
+      selection.nodeIds,
+      showDiagnostics,
+      technicalPanelOpen,
+      technicalPanelTab,
+      toolbarCollapsed,
+      toolbarWidth,
+      tool,
+      translationSelection.edgeIds,
+      translationSelection.nodeIds,
+    ],
+  );
+  const currentProjectCommitSnapshot = useMemo(
+    () =>
+      createProjectCommitSnapshot({
+        diagram: history.present,
+        translationWorkspace: translationHistory.present,
+        logicalWorkspace: logicalHistory.present,
+        logicalGenerated,
+        logicalStage,
+        diagramView,
+        viewport,
+        translationViewport,
+        logicalViewport,
+        ...currentProjectWorkspaceState,
+      }),
+    [
+      currentProjectWorkspaceState,
+      diagramView,
+      history.present,
+      logicalGenerated,
+      logicalHistory.present,
+      logicalStage,
+      logicalViewport,
+      translationHistory.present,
+      translationViewport,
+      viewport,
+    ],
+  );
+  const versioningChangeState = useMemo(
+    () => getProjectUncommittedChangeState(projectVersioning.versioning, currentProjectCommitSnapshot),
+    [currentProjectCommitSnapshot, projectVersioning.versioning],
+  );
+  const restoreTargetCommit = useMemo(
+    () => projectVersioning.getCommitById(restoreCommitId),
+    [projectVersioning, restoreCommitId],
+  );
+  const hasVersioningUncommittedChanges = versioningChangeState.hasChanges;
+  const commitDialogHint =
+    versioningChangeState.status === "no-head-empty"
+      ? t("versioning.emptyProject")
+      : versioningChangeState.status === "no-head-with-content"
+        ? t("versioning.createFirstCommit")
+        : versioningChangeState.status === "clean"
+          ? t("versioning.noChangesComparedToHead")
+          : "";
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -1134,6 +1296,8 @@ export default function App() {
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
   const versionAnnouncementBlocked =
     commandMenuOpen ||
+    versioningPanelOpen ||
+    commitDialogOpen ||
     keyboardShortcutsOpen ||
     aboutOpen ||
     whatsNewOpen ||
@@ -1198,7 +1362,7 @@ export default function App() {
     }
 
     const changelogEntry =
-      APP_CHANGELOG.find((entry) => entry.version === APP_VERSION) ??
+      appChangelog.find((entry) => entry.version === APP_VERSION) ??
       createFallbackChangelogEntry(APP_VERSION, classification.kind, t);
     const updateKind: VisibleVersionUpdateKind = changelogEntry.impact ?? classification.kind;
     const openDelay = window.setTimeout(() => {
@@ -1212,7 +1376,7 @@ export default function App() {
     }, 550);
 
     return () => window.clearTimeout(openDelay);
-  }, [t, versionAnnouncement, versionAnnouncementBlocked]);
+  }, [appChangelog, t, versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
     if (!sessionBootstrap.restored || restoredSessionNoticeShownRef.current) {
@@ -1225,9 +1389,14 @@ export default function App() {
 
   useEffect(() => {
     const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
+    const currentVersioning = JSON.stringify(projectVersioning.versioning);
+    const currentWorkspace = JSON.stringify(currentProjectWorkspaceState);
     hasUnsavedChangesRef.current =
-      serializeDiagram(history.present) !== lastSavedDiagramRef.current || currentCode !== lastSavedCodeRef.current;
-  }, [history.present, codeDraft]);
+      serializeDiagram(history.present) !== lastSavedDiagramRef.current ||
+      currentCode !== lastSavedCodeRef.current ||
+      currentVersioning !== lastSavedVersioningRef.current ||
+      currentWorkspace !== lastSavedWorkspaceRef.current;
+  }, [history.present, codeDraft, currentProjectWorkspaceState, projectVersioning.versioning]);
 
   useEffect(() => {
     latestSessionSnapshotRef.current = serializeWorkspaceSessionSnapshot({
@@ -1263,6 +1432,7 @@ export default function App() {
       focusMode,
       toolbarWidth,
       showDiagnostics,
+      versioning: projectVersioning.versioning,
     });
   }, [
     codeDraft,
@@ -1291,6 +1461,7 @@ export default function App() {
     toolbarWidth,
     showDiagnostics,
     viewport,
+    projectVersioning.versioning,
   ]);
 
   useEffect(() => {
@@ -1521,9 +1692,16 @@ export default function App() {
     setStatus("Tour chiuso. Ora puoi modellare liberamente.");
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
-  function markDocumentBaseline(diagram: DiagramDocument) {
+  function markDocumentBaseline(
+    diagram: DiagramDocument,
+    serializedVersioning = JSON.stringify(projectVersioning.versioning),
+    serializedWorkspace = JSON.stringify(currentProjectWorkspaceState),
+    savedCode = serializeDiagramToErs(diagram),
+  ) {
     lastSavedDiagramRef.current = serializeDiagram(diagram);
-    lastSavedCodeRef.current = serializeDiagramToErs(diagram);
+    lastSavedCodeRef.current = savedCode;
+    lastSavedVersioningRef.current = serializedVersioning;
+    lastSavedWorkspaceRef.current = serializedWorkspace;
     hasUnsavedChangesRef.current = false;
   }
 
@@ -1533,6 +1711,14 @@ export default function App() {
 
   function markCodeSaved(code: string) {
     lastSavedCodeRef.current = code;
+  }
+
+  function markVersioningSaved() {
+    lastSavedVersioningRef.current = JSON.stringify(projectVersioning.versioning);
+  }
+
+  function markWorkspaceSaved(workspace: ProjectFileWorkspaceState) {
+    lastSavedWorkspaceRef.current = JSON.stringify(workspace);
   }
 
   async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
@@ -1553,6 +1739,8 @@ export default function App() {
     setWhatsNewOpen(false);
     setIntroOpen(false);
     setKeyboardShortcutsOpen(false);
+    setVersioningPanelOpen(false);
+    setCommitDialogOpen(false);
     setCommandMenuOpen(true);
   }
 
@@ -1561,6 +1749,8 @@ export default function App() {
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
+    setVersioningPanelOpen(false);
+    setCommitDialogOpen(false);
     setKeyboardShortcutsOpen(true);
   }
 
@@ -2024,6 +2214,43 @@ export default function App() {
     setCodeError("");
   }
 
+  function restoreCodeDraftFromWorkspace(workspace: ProjectFileWorkspaceState, diagram: DiagramDocument) {
+    const serializedDiagram = serializeDiagramToErs(diagram);
+    const nextCode = workspace.codeDraft;
+    codeDraftRef.current = nextCode;
+    codeDirtyRef.current = workspace.codeDirty;
+    codeLayoutMemoryRef.current = workspace.codeDirty ? diagram : null;
+    lastSerializedCodeRef.current = serializedDiagram;
+    setCodeDraft(nextCode);
+    setCodeDirty(workspace.codeDirty);
+    setCodeError("");
+  }
+
+  function createWorkspaceStateFromProjectCommitSnapshot(snapshot: ProjectCommitSnapshot): ProjectFileWorkspaceState {
+    return {
+      tool: snapshot.tool,
+      mode: snapshot.mode,
+      selection: { nodeIds: [...snapshot.selection.nodeIds], edgeIds: [...snapshot.selection.edgeIds] },
+      translationSelection: {
+        nodeIds: [...snapshot.translationSelection.nodeIds],
+        edgeIds: [...snapshot.translationSelection.edgeIds],
+      },
+      logicalSelection: { ...snapshot.logicalSelection },
+      codeDraft: snapshot.codeDraft,
+      codeDirty: snapshot.codeDirty,
+      technicalPanelOpen: snapshot.technicalPanelOpen,
+      technicalPanelTab: snapshot.technicalPanelTab,
+      codePanelOpen: snapshot.codePanelOpen,
+      codePanelWidth: snapshot.codePanelWidth,
+      notesPanelOpen: snapshot.notesPanelOpen,
+      notesPanelWidth: snapshot.notesPanelWidth,
+      toolbarCollapsed: snapshot.toolbarCollapsed,
+      focusMode: snapshot.focusMode,
+      toolbarWidth: snapshot.toolbarWidth,
+      showDiagnostics: snapshot.showDiagnostics,
+    };
+  }
+
   function applyWorkspaceDocument(
     nextDiagram: DiagramDocument,
     status: string,
@@ -2036,6 +2263,10 @@ export default function App() {
       viewport?: Viewport;
       translationViewport?: Viewport;
       logicalViewport?: Viewport;
+      versioning?: ProjectVersioningState;
+      workspace?: ProjectFileWorkspaceState;
+      resetHistory?: boolean;
+      markBaseline?: boolean;
     },
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
@@ -2052,7 +2283,11 @@ export default function App() {
         ),
       ),
     );
-    history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
+    if (options?.resetHistory) {
+      history.reset(normalizedIncoming.diagram);
+    } else {
+      history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
+    }
     const nextTranslationWorkspace = options?.translationWorkspace
       ? refreshErTranslationWorkspace(normalizedIncoming.diagram, options.translationWorkspace)
       : createEmptyErTranslationWorkspace(normalizedIncoming.diagram);
@@ -2075,16 +2310,53 @@ export default function App() {
     setLogicalGenerated(nextLogicalGenerated);
     setLogicalStage(options?.logicalStage === "schema" && nextLogicalGenerated ? "schema" : "translation");
     setDiagramView(nextDiagramView);
-    setTranslationSelection({ nodeIds: [], edgeIds: [] });
+    const nextWorkspace = options?.workspace;
+    setTranslationSelection(nextWorkspace?.translationSelection ?? { nodeIds: [], edgeIds: [] });
     setTranslationViewport(options?.translationViewport ? { ...options.translationViewport } : { ...DEFAULT_VIEWPORT });
-    setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+    setLogicalSelection(nextWorkspace?.logicalSelection ?? EMPTY_LOGICAL_SELECTION);
     setLogicalViewport(options?.logicalViewport ? { ...options.logicalViewport } : { ...DEFAULT_VIEWPORT });
-    syncCodeDraftWithDiagram(normalizedIncoming.diagram);
-    markDocumentBaseline(normalizedIncoming.diagram);
-    setSelection({ nodeIds: [], edgeIds: [] });
+    if (nextWorkspace) {
+      restoreCodeDraftFromWorkspace(nextWorkspace, normalizedIncoming.diagram);
+      setTechnicalPanelTab(nextWorkspace.technicalPanelTab);
+      setTechnicalPanelOpen(nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab !== "code");
+      setCodePanelOpen(nextWorkspace.codePanelOpen || (nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab === "code"));
+      setCodePanelWidth(nextWorkspace.codePanelWidth);
+      setNotesPanelOpen(
+        nextWorkspace.notesPanelOpen || (nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab === "notes"),
+      );
+      setNotesPanelWidth(nextWorkspace.notesPanelWidth);
+      setToolbarCollapsed(nextWorkspace.toolbarCollapsed);
+      setFocusMode(nextWorkspace.focusMode);
+      setToolbarWidth(nextWorkspace.toolbarWidth);
+      setShowDiagnostics(nextWorkspace.showDiagnostics);
+    } else {
+      syncCodeDraftWithDiagram(normalizedIncoming.diagram);
+    }
+    const nextVersioning = options?.versioning ?? createEmptyProjectVersioningState();
+    projectVersioning.setVersioning(nextVersioning);
+    const baselineWorkspace = nextWorkspace ?? {
+      ...currentProjectWorkspaceState,
+      tool: "select",
+      selection: { nodeIds: [], edgeIds: [] },
+      translationSelection: { nodeIds: [], edgeIds: [] },
+      logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+      codeDraft: serializeDiagramToErs(normalizedIncoming.diagram),
+      codeDirty: false,
+    };
+    if (options?.markBaseline !== false) {
+      markDocumentBaseline(
+        normalizedIncoming.diagram,
+        JSON.stringify(nextVersioning),
+        JSON.stringify(baselineWorkspace),
+        baselineWorkspace.codeDirty ? baselineWorkspace.codeDraft : serializeDiagramToErs(normalizedIncoming.diagram),
+      );
+    } else {
+      hasUnsavedChangesRef.current = true;
+    }
+    setSelection(nextWorkspace?.selection ?? { nodeIds: [], edgeIds: [] });
     setIdentifierSelection(null);
     setViewport(options?.viewport ? { ...options.viewport } : { ...DEFAULT_VIEWPORT });
-    setTool("select");
+    setTool(nextWorkspace?.tool ?? "select");
     setStatus(status);
     reportExternalIdentifierInvalidations(normalizedIncoming.invalidations, "notice");
   }
@@ -2244,6 +2516,20 @@ export default function App() {
         target?.closest('[role="dialog"], .studio-modal, .modal, dialog') !== null;
 
       if (isEditingField) {
+        return;
+      }
+
+      if (versionCompareSession) {
+        const shortcut = event.key.toLowerCase();
+        const blockedEditorShortcut =
+          (event.ctrlKey || event.metaKey) ||
+          event.key === "Delete" ||
+          event.key === "Backspace" ||
+          TOOL_BY_SHORTCUT[shortcut] !== undefined;
+
+        if (blockedEditorShortcut) {
+          event.preventDefault();
+        }
         return;
       }
 
@@ -2443,6 +2729,7 @@ export default function App() {
     technicalPanelTab,
     tool,
     versionAnnouncement,
+    versionCompareSession,
     whatsNewOpen,
   ]);
 
@@ -2738,12 +3025,12 @@ export default function App() {
       choiceIdsByTargetKey: options?.choiceIdsByTargetKey,
     });
     if (result.pendingEntityKeySelections && result.pendingEntityKeySelections.length > 0) {
-      setStatusWarning("Scegli una chiave primaria per continuare.");
+      setStatusWarning(t("workspace.logicalChoosePrimaryKey"));
       return;
     }
 
     if (result.appliedCount === 0) {
-      setStatusWarning("Nessun elemento logico applicabile per questo step.");
+      setStatusWarning(t("workspace.logicalNoApplicableItems"));
       return;
     }
 
@@ -2751,14 +3038,14 @@ export default function App() {
     setDiagramView("logical");
     showLogicalStageAfterFix(
       result.workspace,
-      `Fix logico applicato a ${result.appliedCount} elementi.`,
-      `Fix logico applicato a ${result.appliedCount} elementi. Schema logico attivo.`,
+      t("workspace.logicalFixApplied", { count: result.appliedCount }),
+      t("workspace.logicalFixAppliedSchemaActive", { count: result.appliedCount }),
     );
   }
 
   function handleLogicalDone() {
     if (logicalPendingCount > 0 || logicalHistory.present.translation.conflicts.some((conflict) => conflict.level === "error")) {
-      setStatusWarning("Completa prima entita, entita deboli e relazioni.");
+      setStatusWarning(t("logical.designer.completeBeforeSchema"));
       return;
     }
 
@@ -2767,12 +3054,12 @@ export default function App() {
     setLogicalTypeMode(false);
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
     setLogicalFitRequestToken((current) => current + 1);
-    setStatus("Schema logico attivo.");
+    setStatus(t("workspace.logicalSchemaActive"));
   }
 
   function handleResetTranslation() {
     if (!translationAccess.allowed) {
-      setStatusWarning(translationAccess.reason ?? "Correggi prima gli errori bloccanti del diagramma ER.");
+      setStatusWarning(translationAccess.reason ?? t("workspace.fixBlockingErErrorsFirst"));
       return;
     }
 
@@ -2780,7 +3067,7 @@ export default function App() {
       translationHistory.present.translation.decisions.length > 0 ||
       translationHistory.present.translation.mappings.length > 0 ||
       translationHistory.present.translation.conflicts.length > 0;
-    if (hasAppliedWork && !window.confirm("Vuoi cancellare tutte le modifiche di ristrutturazione?")) {
+    if (hasAppliedWork && !window.confirm(t("workspace.confirmResetTranslationWork"))) {
       return;
     }
 
@@ -2796,7 +3083,7 @@ export default function App() {
     const previousModel = logicalHistory.present.model;
     const nextModel = autoLayoutLogicalModel(previousModel);
     commitLogicalModel(nextModel, previousModel);
-    setStatus("Layout logico aggiornato.");
+    setStatus(t("workspace.logicalLayoutUpdated"));
   }
 
   function handleLogicalFit() {
@@ -2930,13 +3217,13 @@ export default function App() {
   }
 
   async function handleNewProject() {
-    if (!(await confirmDiscardChanges("creare un nuovo progetto"))) {
+    if (!(await confirmDiscardChanges(t("workspace.unsavedActions.createNewProject")))) {
       return;
     }
 
     applyWorkspaceDocument(
-      createEmptyDiagram("Nuovo diagramma"),
-      "Nuovo progetto creato.",
+      createEmptyDiagram(t("workspace.newDiagramName")),
+      t("workspace.newProject"),
     );
   }
 
@@ -2953,14 +3240,14 @@ export default function App() {
     setSelection({ nodeIds: [nextNode.id], edgeIds: [] });
     setIdentifierSelection(null);
     setTool("select");
-    setStatus(`${nextNode.label} aggiunto.`);
+    setStatus(t("workspace.nodeAdded", { label: nextNode.label }));
     return nextNode.id;
   }
 
   function handleCreateNodeFromToolbar(nodeType: Extract<ToolKind, "entity" | "relationship">) {
     handleToolChange(nodeType);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setStatus(nodeType === "entity" ? "Clicca nel workspace per posizionare la nuova entita." : "Clicca nel workspace per posizionare la nuova associazione.");
+    setStatus(nodeType === "entity" ? t("workspace.clickToPlaceEntity") : t("workspace.clickToPlaceRelationship"));
   }
 
   function handleCreateEdge(type: "connector" | "attribute" | "inheritance", sourceId: string, targetId: string) {
@@ -2971,15 +3258,15 @@ export default function App() {
 
     if (!sourceNode || !targetNode) {
       showWarningNotice(
-        "Manca il nodo sorgente o destinazione. Seleziona due nodi validi e riprova.",
-        { title: "Collegamento non valido" },
+        t("workspace.connectionMissingEndpoint"),
+        { title: t("workspace.noticeTitles.invalidConnection") },
       );
       return {
         success: false,
         message: buildStructuredErrorMessage(
-          "il collegamento non e stato creato",
-          "manca il nodo sorgente o destinazione",
-          "seleziona due nodi validi e riprova",
+          t("workspace.errors.connectionNotCreated"),
+          t("workspace.errors.missingEndpoint"),
+          t("workspace.errors.selectTwoValidNodes"),
         ),
       };
     }
@@ -3004,15 +3291,15 @@ export default function App() {
       !canAttributeBecomeComposite(history.present, targetNode)
     ) {
       showWarningNotice(
-        `L'attributo "${targetNode.label}" appartiene gia a un attributo composto e non puo diventare composto. Collega il nuovo attributo direttamente all'attributo composto principale.`,
-        { title: "Sotto-attributo non consentito" },
+        t("workspace.attributeAlreadyCompositeChildConnect", { attribute: targetNode.label }),
+        { title: t("workspace.noticeTitles.subattributeNotAllowed") },
       );
       return {
         success: false,
         message: buildStructuredErrorMessage(
-          "il collegamento non e stato creato",
-          `l'attributo "${targetNode.label}" appartiene gia a un attributo composto e non puo diventare composto`,
-          "collega il nuovo attributo direttamente all'attributo composto principale",
+          t("workspace.errors.connectionNotCreated"),
+          t("workspace.errors.attributeAlreadyCompositeChild", { attribute: targetNode.label }),
+          t("workspace.errors.connectToCompositeRoot"),
         ),
       };
     }
@@ -3020,22 +3307,22 @@ export default function App() {
     if (!canConnect(type, sourceNode, targetNode)) {
       const failureReason = getConnectionFailureReason(type, sourceNode, targetNode);
       showWarningNotice(
-        `${normalizeMessagePart(failureReason.replace(/^errore[:\s]*/i, ""))}. Collega solo elementi compatibili con la notazione Chen.`,
-        { title: "Collegamento non valido" },
+        t("workspace.invalidConnectionWithReason", { reason: normalizeMessagePart(failureReason.replace(/^errore[:\s]*/i, "")) }),
+        { title: t("workspace.noticeTitles.invalidConnection") },
       );
       return {
         success: false,
         message: buildStructuredErrorMessage(
-          "il collegamento non e stato creato",
+          t("workspace.errors.connectionNotCreated"),
           normalizeMessagePart(failureReason.replace(/^errore[:\s]*/i, "")),
-          "collega solo elementi compatibili con la notazione Chen",
+          t("workspace.errors.connectCompatibleChen"),
         ),
       };
     }
 
     if (edgeAlreadyExists(history.present, type, resolvedSourceId, resolvedTargetId)) {
-      showWarningNotice("Questo collegamento esiste gia nel diagramma.", { title: "Collegamento gia presente" });
-      return { success: false, message: "Collegamento gia presente." };
+      showWarningNotice(t("workspace.connectionAlreadyExists"), { title: t("workspace.noticeTitles.connectionAlreadyPresent") });
+      return { success: false, message: t("workspace.connectionAlreadyPresentStatus") };
     }
 
     const nextEdge = createEdge(type, resolvedSourceId, resolvedTargetId, history.present);
@@ -3102,13 +3389,13 @@ export default function App() {
         createdEdgeWasTemporary: true,
         previousDiagramBeforeTemporary: history.present,
       });
-      return { success: true, message: "Scegli la cardinalita per completare il collegamento." };
+      return { success: true, message: t("workspace.chooseCardinalityToCompleteConnection") };
     }
     if (type === "inheritance") {
       openGeneralizationGroupDialog(edgeToSelect.id, nextDiagram, { createdEdgeWasTemporary: true });
-      return { success: true, message: "Configura il gruppo ISA per completare la gerarchia." };
+      return { success: true, message: t("workspace.configureIsaGroupToCompleteHierarchy") };
     }
-    return { success: true, message: "Collegamento creato." };
+    return { success: true, message: t("workspace.connectionCreated") };
   }
 
   function getConnectorCardinality(edge: Extract<DiagramEdge, { type: "connector" }>): string | undefined {
@@ -3166,26 +3453,26 @@ export default function App() {
       (node): node is AttributeNode => node.id === target.attributeId && node.type === "attribute",
     );
     if (!attribute) {
-      return "Attributo non disponibile.";
+      return t("workspace.attributeUnavailable");
     }
 
     return canAttributeHaveCardinality(history.present, attribute)
       ? null
-      : "La cardinalita non e assegnabile ad attributi usati come identificatori.";
+      : t("workspace.cardinalityUnavailableForIdentifierAttribute");
   }
 
   function handleOpenCardinalityControl(edgeId?: string) {
     const target = getCardinalityTargetFromSelection(edgeId);
     if (!target) {
-      setStatusWarning("Seleziona prima un attributo o un connector entita-relazione.", {
-        title: "Cardinalita non applicabile",
+      setStatusWarning(t("workspace.selectAttributeOrConnectorForCardinality"), {
+        title: t("workspace.noticeTitles.cardinalityNotApplicable"),
       });
       return;
     }
 
     const blockReason = getCardinalityBlockReason(target);
     if (blockReason) {
-      setStatusWarning(blockReason, { title: "Cardinalita non applicabile" });
+      setStatusWarning(blockReason, { title: t("workspace.noticeTitles.cardinalityNotApplicable") });
       return;
     }
 
@@ -3210,7 +3497,7 @@ export default function App() {
     const parsed = normalizeCardinalityInput(value);
     if (!parsed.valid || !parsed.value) {
       setCardinalityDialog((current) =>
-        current ? { ...current, error: parsed.reason ?? "Cardinalita non valida." } : current,
+        current ? { ...current, error: parsed.reason ?? t("toolbar.designer.invalidCardinality") } : current,
       );
       return null;
     }
@@ -3224,7 +3511,7 @@ export default function App() {
           current
             ? {
                 ...current,
-                error: "La cardinalita non e assegnabile ad attributi usati come identificatori.",
+                error: t("workspace.cardinalityUnavailableForIdentifierAttribute"),
               }
             : current,
         );
@@ -3240,14 +3527,14 @@ export default function App() {
         edge.id === target.edgeId && edge.type === "connector",
     );
     if (!connectorEdge) {
-      setCardinalityDialog((current) => current ? { ...current, error: "Connector non disponibile." } : current);
+      setCardinalityDialog((current) => current ? { ...current, error: t("workspace.connectorUnavailable") } : current);
       return null;
     }
 
     const result = applyConnectorCardinalityToDiagram(history.present, connectorEdge.id, parsed.value);
     if (!result) {
       setCardinalityDialog((current) =>
-        current ? { ...current, error: "Seleziona un connector entita-relazione." } : current,
+        current ? { ...current, error: t("workspace.selectEntityRelationshipConnector") } : current,
       );
       return null;
     }
@@ -3259,7 +3546,7 @@ export default function App() {
 
   async function handleOpenConnectorRoleControl() {
     if (!selectedEdge || selectedEdge.type !== "connector") {
-      setStatusWarning("Seleziona un collegamento entita-relazione per assegnare un ruolo.");
+      setStatusWarning(t("workspace.selectConnectorForRole"));
       return;
     }
 
@@ -3268,14 +3555,14 @@ export default function App() {
     const targetNode = currentNodeMap.get(selectedEdge.targetId);
     const context = getConnectorParticipationContext(sourceNode, targetNode);
     if (!context) {
-      setStatusWarning("Il ruolo e disponibile solo sui collegamenti tra entita e relazione.");
+      setStatusWarning(t("workspace.roleOnlyForEntityRelationshipConnector"));
       return;
     }
 
     const currentParticipation = getConnectorParticipation(selectedEdge, sourceNode, targetNode);
     const nextRole = await requestPromptDialog({
       title: "Role",
-      label: "Role del collegamento",
+      label: t("workspace.connectorRoleLabel"),
       placeholder: "parent, child, supervisor...",
       initialValue: currentParticipation?.role ?? "",
       required: false,
@@ -3330,7 +3617,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [selectedEdge.id] });
-    setStatus(normalizedRole ? "Role del collegamento aggiornato." : "Role del collegamento rimosso.");
+    setStatus(normalizedRole ? t("workspace.connectorRoleUpdated") : t("workspace.connectorRoleRemoved"));
   }
 
   function submitCardinalityDialog() {
@@ -3351,8 +3638,8 @@ export default function App() {
       setCardinalityDialog(null);
       setStatus(
         cardinalityDialog.createdEdgeWasTemporary
-          ? `Collegamento creato con cardinalita ${appliedValue}.`
-          : `Cardinalita aggiornata a ${appliedValue}.`,
+          ? t("workspace.connectorCreatedWithCardinality", { cardinality: appliedValue })
+          : t("workspace.cardinalityUpdated", { cardinality: appliedValue }),
       );
     }
   }
@@ -3484,29 +3771,29 @@ export default function App() {
 
   function handleToggleSimpleIdentifierFromSelection() {
     if (!selectedNode || selectedNode.type !== "attribute") {
-      setStatusWarning("Seleziona un attributo semplice collegato direttamente a un'entita.", {
-        title: "Identificatore non valido",
+      setStatusWarning(t("workspace.selectSimpleEntityAttribute"), {
+        title: t("workspace.noticeTitles.invalidIdentifier"),
       });
       return;
     }
 
     const context = getDirectEntityAttributeContext(selectedNode.id);
     if (!context) {
-      setStatusWarning("Simple Id e disponibile solo per attributi semplici collegati direttamente a un'entita.", {
-        title: "Identificatore non valido",
+      setStatusWarning(t("workspace.simpleIdOnlyForDirectEntityAttributes"), {
+        title: t("workspace.noticeTitles.invalidIdentifier"),
       });
       return;
     }
 
     const result = createSimpleInternalIdentifierForAttribute(history.present, context.attribute.id);
     if (result.status === "already-exists") {
-      setStatusWarning(t("workspace.identifierAlreadyExistsUseDelete"), { title: "Identificatore gia presente" });
+      setStatusWarning(t("workspace.identifierAlreadyExistsUseDelete"), { title: t("workspace.noticeTitles.identifierAlreadyPresent") });
       return;
     }
 
     if (result.status !== "created") {
-      setStatusWarning("Simple Id e disponibile solo per attributi semplici non usati in altri identificatori.", {
-        title: "Identificatore non valido",
+      setStatusWarning(t("workspace.simpleIdOnlyForUnusedSimpleAttributes"), {
+        title: t("workspace.noticeTitles.invalidIdentifier"),
       });
       return;
     }
@@ -3519,14 +3806,14 @@ export default function App() {
       internalIdentifierId: result.internalIdentifierId,
       attributeIds: [context.attribute.id],
     });
-    setStatus("Identificatore interno semplice creato.");
+    setStatus(t("workspace.simpleInternalIdentifierCreated"));
   }
 
   function handleCreateCompositeIdentifierFromSelection() {
     const context = getCompositeIdentifierSelectionContext();
     if (!context) {
-      setStatusWarning("Composite Id richiede almeno due attributi semplici della stessa entita selezionati con Ctrl/Cmd+click.", {
-        title: "Identificatore composito non valido",
+      setStatusWarning(t("workspace.compositeIdRequiresTwoAttributes"), {
+        title: t("workspace.noticeTitles.invalidCompositeIdentifier"),
       });
       return;
     }
@@ -3547,7 +3834,7 @@ export default function App() {
       selectedIds.map((attributeId) => [attributeId, { isIdentifier: false, isCompositeInternal: true, cardinality: undefined }]),
     ) as Record<string, Partial<AttributeNode>>;
     handleEntityInternalIdentifiersChange(context.entity.id, { internalIdentifiers: nextIdentifiers }, attributePatches);
-    setStatus("Identificatore interno composto creato.");
+    setStatus(t("workspace.compositeInternalIdentifierCreated"));
   }
 
   function getConnectorContextFromSelectedEdge() {
@@ -3588,8 +3875,8 @@ export default function App() {
     }
 
     if (!hostEntity) {
-      setStatusWarning("External Id richiede un'entita host o un connector entita-relazione.", {
-        title: "Identificatore esterno non disponibile",
+      setStatusWarning(t("workspace.externalIdRequiresHostOrConnector"), {
+        title: t("workspace.noticeTitles.externalIdentifierUnavailable"),
       });
       return;
     }
@@ -3604,8 +3891,8 @@ export default function App() {
     });
 
     if (selectedImportParts.length === 0) {
-      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.", {
-        title: "Identificatore esterno non disponibile",
+      setStatusWarning(t("workspace.externalIdentifierNoImportedParts"), {
+        title: t("workspace.noticeTitles.externalIdentifierUnavailable"),
       });
       return;
     }
@@ -3673,21 +3960,21 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostEntity.id], edgeIds: [] });
-    setStatus(localAttributeIds.length > 0 ? "Identificatore esterno misto creato." : "Identificatore esterno creato.");
+    setStatus(localAttributeIds.length > 0 ? t("workspace.mixedExternalIdentifierCreated") : t("workspace.externalIdentifierCreated"));
   }
 
   function handleOpenMixedIdentifierModal() {
     const connectorContext = getConnectorContextFromSelectedEdge();
     if (!connectorContext) {
-      setStatusWarning("External Id richiede un connector entita-relazione selezionato.", {
-        title: "Identificatore esterno non disponibile",
+      setStatusWarning(t("workspace.externalIdRequiresSelectedConnector"), {
+        title: t("workspace.noticeTitles.externalIdentifierUnavailable"),
       });
       return;
     }
 
     if (!selectedConnectorRequiresMixedIdentifierCardinality()) {
-      setStatusWarning("Gli identificatori esterni richiedono cardinalita (1,1) sul lato dell'entita.", {
-        title: "Identificatore esterno non disponibile",
+      setStatusWarning(t("workspace.externalIdRequiresOneOne"), {
+        title: t("workspace.noticeTitles.externalIdentifierUnavailable"),
       });
       return;
     }
@@ -3695,8 +3982,8 @@ export default function App() {
     const hostEntity = connectorContext.entity;
     const importOptions = getEligibleImportedIdentifierParts(history.present, hostEntity.id);
     if (importOptions.length === 0) {
-      setStatusWarning("Nessuna parte importata disponibile: servono relazioni con cardinalita lato host (1,1) e sorgenti con identificatore interno.", {
-        title: "Identificatore esterno non disponibile",
+      setStatusWarning(t("workspace.externalIdentifierNoImportedParts"), {
+        title: t("workspace.noticeTitles.externalIdentifierUnavailable"),
       });
       return;
     }
@@ -3720,7 +4007,7 @@ export default function App() {
         .filter((option) => option.relationshipId === connectorContext.relationship.id)
         .map((option) => buildExternalImportPartKey(option)),
       selectedAttributeIds: [],
-      error: attributes.length === 0 ? "Nessun attributo semplice locale eleggibile." : "",
+      error: attributes.length === 0 ? t("workspace.noEligibleLocalSimpleAttribute") : "",
     });
   }
 
@@ -3732,7 +4019,7 @@ export default function App() {
     if (mixedIdentifierDialog.selectedImportedPartKeys.length === 0) {
       setMixedIdentifierDialog({
         ...mixedIdentifierDialog,
-        error: "Seleziona almeno una parte importata per creare un identificatore esterno/misto.",
+        error: t("workspace.selectImportedPartForExternalIdentifier"),
       });
       return;
     }
@@ -3864,11 +4151,11 @@ export default function App() {
     const name = dialog.newGroupName.trim();
     if (dialog.kind === "edit") {
       if (!dialog.groupId) {
-        setGeneralizationGroupDialog({ ...dialog, error: "Gruppo ISA non disponibile." });
+        setGeneralizationGroupDialog({ ...dialog, error: t("workspace.generalizationGroupDialog.errors.groupUnavailable") });
         return;
       }
       if (!name) {
-        setGeneralizationGroupDialog({ ...dialog, error: "Il nome gruppo e obbligatorio." });
+        setGeneralizationGroupDialog({ ...dialog, error: t("workspace.generalizationGroupDialog.errors.groupNameRequired") });
         return;
       }
       const nextDiagram = updateGeneralizationGroupDetails(history.present, dialog.groupId, {
@@ -3881,34 +4168,34 @@ export default function App() {
       if (dialog.edgeId) {
         setSelection({ nodeIds: [], edgeIds: [dialog.edgeId] });
       }
-      setStatus(`Gruppo ISA ${name} aggiornato.`);
+      setStatus(t("workspace.generalizationGroupDialog.status.groupUpdated", { name }));
       return;
     }
 
     if (!dialog.edgeId) {
-      setGeneralizationGroupDialog({ ...dialog, error: "Ramo ISA non disponibile." });
+      setGeneralizationGroupDialog({ ...dialog, error: t("workspace.generalizationGroupDialog.errors.branchUnavailable") });
       return;
     }
 
     if (dialog.mode === "existing") {
       if (!dialog.selectedGroupId) {
-        setGeneralizationGroupDialog({ ...dialog, error: "Seleziona un gruppo ISA." });
+        setGeneralizationGroupDialog({ ...dialog, error: t("workspace.generalizationGroupDialog.errors.selectGroup") });
         return;
       }
       const targetGroup = (history.present.generalizationGroups ?? []).find((group) => group.id === dialog.selectedGroupId);
       if (!targetGroup || targetGroup.supertypeId !== dialog.supertypeId) {
-        setGeneralizationGroupDialog({ ...dialog, error: "Il gruppo selezionato non e compatibile con questa superentita." });
+        setGeneralizationGroupDialog({ ...dialog, error: t("workspace.generalizationGroupDialog.errors.incompatibleGroup") });
         return;
       }
       if (targetGroup.subtypeIds.includes(dialog.subtypeId)) {
-        setGeneralizationGroupDialog({ ...dialog, error: "Questa sottoentita appartiene gia al gruppo selezionato." });
+        setGeneralizationGroupDialog({ ...dialog, error: t("workspace.generalizationGroupDialog.errors.subtypeAlreadyInSelectedGroup") });
         return;
       }
       const conflict = getSubtypeGroupConflict(history.present, dialog.supertypeId, dialog.subtypeId, targetGroup.id);
       if (conflict) {
         setGeneralizationGroupDialog({
           ...dialog,
-          error: `Questa sottoentita appartiene gia al gruppo ${conflict.label ?? conflict.id}.`,
+          error: t("workspace.generalizationGroupDialog.errors.subtypeAlreadyInGroup", { group: conflict.label ?? conflict.id }),
         });
         return;
       }
@@ -3916,19 +4203,22 @@ export default function App() {
       commitDiagram(nextDiagram);
       setGeneralizationGroupDialog(null);
       setSelection({ nodeIds: [], edgeIds: [dialog.edgeId] });
-      setStatus(`Sottotipo ${getEntityLabel(history.present, dialog.subtypeId)} aggiunto al gruppo ${targetGroup.label ?? targetGroup.id}.`);
+      setStatus(t("workspace.generalizationGroupDialog.status.subtypeAdded", {
+        subtype: getEntityLabel(history.present, dialog.subtypeId),
+        group: targetGroup.label ?? targetGroup.id,
+      }));
       return;
     }
 
     if (!name) {
-      setGeneralizationGroupDialog({ ...dialog, error: "Il nome gruppo e obbligatorio." });
+      setGeneralizationGroupDialog({ ...dialog, error: t("workspace.generalizationGroupDialog.errors.groupNameRequired") });
       return;
     }
     const conflict = getSubtypeGroupConflict(history.present, dialog.supertypeId, dialog.subtypeId);
     if (conflict) {
       setGeneralizationGroupDialog({
         ...dialog,
-        error: `Questa sottoentita appartiene gia al gruppo ${conflict.label ?? conflict.id}.`,
+        error: t("workspace.generalizationGroupDialog.errors.subtypeAlreadyInGroup", { group: conflict.label ?? conflict.id }),
       });
       return;
     }
@@ -3942,21 +4232,21 @@ export default function App() {
     commitDiagram(nextDiagram);
     setGeneralizationGroupDialog(null);
     setSelection({ nodeIds: [], edgeIds: [dialog.edgeId] });
-    setStatus(`Nuovo gruppo ISA ${name} creato.`);
+    setStatus(t("workspace.generalizationGroupDialog.status.groupCreated", { name }));
   }
 
   function handleCreateAttributeFromSelection() {
     if (selection.nodeIds.length !== 1 || selection.edgeIds.length > 0) {
-      setStatusWarning("Seleziona una entita, una relazione o un attributo multivalore per aggiungere un attributo.", {
-        title: "Attributo non applicabile",
+      setStatusWarning(t("workspace.selectValidAttributeHost"), {
+        title: t("workspace.noticeTitles.attributeNotApplicable"),
       });
       return;
     }
 
     const hostNode = history.present.nodes.find((node) => node.id === selection.nodeIds[0]);
     if (!hostNode || (hostNode.type !== "entity" && hostNode.type !== "relationship" && hostNode.type !== "attribute")) {
-      setStatusWarning("Seleziona una entita, una relazione o un attributo multivalore per aggiungere un attributo.", {
-        title: "Attributo non applicabile",
+      setStatusWarning(t("workspace.selectValidAttributeHost"), {
+        title: t("workspace.noticeTitles.attributeNotApplicable"),
       });
       return;
     }
@@ -3964,11 +4254,11 @@ export default function App() {
     if (hostNode.type === "attribute" && !canAttributeBecomeComposite(history.present, hostNode)) {
       setStatusError(
         buildStructuredErrorMessage(
-          "l'attributo non e stato creato",
-          `l'attributo "${hostNode.label}" appartiene gia a un attributo composto e non puo diventare composto`,
-          "seleziona l'attributo composto principale e aggiungi li il nuovo attributo",
+          t("workspace.errors.attributeNotCreated"),
+          t("workspace.errors.attributeAlreadyCompositeChild", { attribute: hostNode.label }),
+          t("workspace.errors.selectCompositeRoot"),
         ),
-        { title: "Sotto-attributo non consentito" },
+        { title: t("workspace.noticeTitles.subattributeNotAllowed") },
       );
       return;
     }
@@ -4013,7 +4303,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
     setTool("select");
-    setStatus(`Attributo collegato a ${hostNode.label}.`);
+    setStatus(t("workspace.attributeLinkedToHost", { host: hostNode.label }));
   }
 
   function handleEntityInternalIdentifiersChange(
@@ -4545,21 +4835,21 @@ export default function App() {
 
     if (selectedEdge.type === "connector") {
       setStatusWarning(
-        "La cardinalita del collegamento si modifica dall'entita collegata, non dal connector.",
+        t("workspace.connectorCardinalityEditedOnEntity"),
       );
       return;
     }
 
     if (selectedEdge.type === "attribute") {
       setStatusWarning(
-        "La cardinalita del collegamento si modifica dall'attributo collegato, non dal link grafico.",
+        t("workspace.attributeCardinalityEditedOnAttribute"),
       );
       return;
     }
 
     const nextValue = await requestPromptDialog({
-      title: "Aggiorna collegamento",
-      label: "Nuovo nome collegamento",
+      title: t("dialogs.prompt.updateEdgeTitle"),
+      label: t("dialogs.prompt.updateEdgeLabel"),
       initialValue: selectedEdge.label,
       required: false,
       requiredMessage: "",
@@ -4573,7 +4863,7 @@ export default function App() {
     }
 
     handleRenameEdge(selectedEdge.id, nextValue);
-    setStatus("Collegamento aggiornato.");
+    setStatus(t("workspace.edgeUpdated"));
   }
 
   function handleDeleteSelection() {
@@ -4589,12 +4879,12 @@ export default function App() {
 
   function handleRemoveSelectedEntityFromHierarchy() {
     if (!selectedNode || selectedNode.type !== "entity") {
-      showWarningNotice("L'entita selezionata non appartiene a una gerarchia.");
+      showWarningNotice(t("workspace.entityNotInHierarchy"));
       return;
     }
 
     if (!isEntityInGeneralizationGroup(history.present, selectedNode.id)) {
-      showWarningNotice("L'entita selezionata non appartiene a una gerarchia.");
+      showWarningNotice(t("workspace.entityNotInHierarchy"));
       return;
     }
 
@@ -4602,7 +4892,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
     setTool("select");
-    setStatus("Entita rimossa dalla gerarchia.");
+    setStatus(t("workspace.entityRemovedFromHierarchy"));
   }
 
   function handleDeleteNodeById(nodeId: string) {
@@ -4616,7 +4906,7 @@ export default function App() {
     const nextDiagram = removeSelection(history.present, { nodeIds: [], edgeIds: [edgeId] });
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setStatus("Collegamento eliminato.");
+    setStatus(t("workspace.edgeDeleted"));
   }
 
   function handleDeleteExternalIdentifier(hostEntityId: string, externalIdentifierId: string) {
@@ -4624,7 +4914,7 @@ export default function App() {
       (node): node is EntityNode => node.id === hostEntityId && node.type === "entity",
     );
     if (!hostEntity || !(hostEntity.externalIdentifiers ?? []).some((identifier) => identifier.id === externalIdentifierId)) {
-      setStatusWarning("Nessun identificatore esterno da rimuovere sull'entita selezionata.");
+      setStatusWarning(t("workspace.noExternalIdentifierToRemove"));
       return;
     }
 
@@ -4681,13 +4971,13 @@ export default function App() {
 
   function handleRemoveSelectedExternalIdentifier() {
     if (selectedNode?.type !== "entity") {
-      setStatusWarning("Seleziona un'entita con identificatore esterno.");
+      setStatusWarning(t("workspace.selectEntityWithExternalIdentifier"));
       return;
     }
 
     const externalIdentifier = selectedNode.externalIdentifiers?.[0];
     if (!externalIdentifier) {
-      setStatusWarning("Nessun identificatore esterno da rimuovere sull'entita selezionata.");
+      setStatusWarning(t("workspace.noExternalIdentifierToRemove"));
       return;
     }
 
@@ -4702,7 +4992,7 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(serializeDiagramClipboardPayload(payload));
     } catch {
-      showWarningNotice("Selezione copiata nella sessione. Clipboard di sistema non disponibile.");
+      showWarningNotice(t("workspace.selectionCopiedClipboardUnavailable"));
     }
   }
 
@@ -4721,13 +5011,13 @@ export default function App() {
 
   function handleCopySelection() {
     if (diagramView !== "er") {
-      setStatusWarning("Copy disponibile nella vista ER.");
+      setStatusWarning(t("workspace.copyAvailableInErView"));
       return;
     }
 
     const payload = createDiagramClipboardPayload(history.present, selection);
     if (!payload) {
-      setStatusWarning("Seleziona almeno un elemento ER da copiare.");
+      setStatusWarning(t("workspace.selectErElementToCopy"));
       return;
     }
 
@@ -4735,23 +5025,23 @@ export default function App() {
     pasteOffsetStepRef.current = 0;
     setHasDiagramClipboard(true);
     void writeDiagramPayloadToSystemClipboard(payload);
-    setStatus("Selezione copiata.");
+    setStatus(t("workspace.selectionCopied"));
     payload.warnings?.forEach((warning) => showWarningNotice(warning));
   }
 
   async function handlePasteSelection() {
     if (diagramView !== "er") {
-      setStatusWarning("Paste disponibile nella vista ER.");
+      setStatusWarning(t("workspace.pasteAvailableInErView"));
       return;
     }
     if (mode !== "edit") {
-      setStatusWarning("Paste disponibile solo in modalita modifica.");
+      setStatusWarning(t("workspace.pasteAvailableInEditMode"));
       return;
     }
 
     const payload = diagramClipboardRef.current ?? (await readDiagramPayloadFromSystemClipboard());
     if (!payload) {
-      setStatusWarning("Clipboard non contiene elementi buildER incollabili.");
+      setStatusWarning(t("workspace.clipboardNoPasteableElements"));
       return;
     }
 
@@ -4763,7 +5053,7 @@ export default function App() {
     const offset = GRID_SIZE * 2 * (pasteOffsetStepRef.current + 1);
     const pasted = pasteDiagramClipboardPayload(history.present, payload, { offset });
     if (!pasted) {
-      setStatusWarning("Clipboard non contiene elementi buildER incollabili.");
+      setStatusWarning(t("workspace.clipboardNoPasteableElements"));
       return;
     }
 
@@ -4771,45 +5061,45 @@ export default function App() {
     commitDiagram(pasted.diagram);
     setSelection(pasted.selection);
     setTool("select");
-    setStatus("Selezione incollata.");
+    setStatus(t("workspace.selectionPasted"));
   }
 
   function handleDuplicateSelection() {
     if (diagramView !== "er") {
-      setStatusWarning("Duplica disponibile nella vista ER.");
+      setStatusWarning(t("workspace.duplicateAvailableInErView"));
       return;
     }
     if (mode !== "edit") {
-      setStatusWarning("Duplica disponibile solo in modalita modifica.");
+      setStatusWarning(t("workspace.duplicateAvailableInEditMode"));
       return;
     }
 
     const duplicated = duplicateSelection(history.present, selection);
     if (!duplicated) {
-      setStatusWarning("Seleziona almeno un elemento ER da duplicare.");
+      setStatusWarning(t("workspace.selectErElementToDuplicate"));
       return;
     }
 
     commitDiagram(duplicated.diagram);
     setSelection(duplicated.selection);
     setTool("select");
-    setStatus("Selezione duplicata.");
+    setStatus(t("workspace.selectionDuplicated"));
   }
 
   function handleAlignSelection(axis: "left" | "center" | "top" | "middle") {
     if (selection.nodeIds.length < 2) {
-      setStatusWarning("Seleziona almeno due nodi per allineare.");
+      setStatusWarning(t("workspace.alignNeedTwo"));
       return;
     }
 
     const nextDiagram = alignNodes(history.present, selection.nodeIds, axis);
     if (nextDiagram === history.present) {
-      setStatusWarning("Nodi gia allineati su questo asse.");
+      setStatusWarning(t("workspace.alreadyAligned"));
       return;
     }
 
     commitDiagram(nextDiagram);
-    setStatus("Allineamento applicato.");
+    setStatus(t("workspace.alignmentApplied"));
   }
 
   function handleSaveProject() {
@@ -4824,6 +5114,8 @@ export default function App() {
         viewport,
         translationViewport,
         logicalViewport,
+        versioning: projectVersioning.versioning,
+        workspace: currentProjectWorkspaceState,
       });
       downloadTextFile(
         serializedProject,
@@ -4831,11 +5123,12 @@ export default function App() {
         PROJECT_FILE_MIME_TYPE,
       );
       markDiagramSaved(history.present);
-      if (!codeDirtyRef.current) {
-        markCodeSaved(serializeDiagramToErs(history.present));
-      }
-      setStatus("Progetto salvato.");
-      showSuccessNotice("Il file progetto e stato scaricato.", { title: "Download completato" });
+      markCodeSaved(codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present));
+      markVersioningSaved();
+      markWorkspaceSaved(currentProjectWorkspaceState);
+      hasUnsavedChangesRef.current = false;
+      setStatus(t("workspace.projectSaved"));
+      showSuccessNotice(t("workspace.downloads.projectDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
     } catch (error) {
       console.error(error);
       setStatusError(formatProjectFileErrorMessage(error));
@@ -4849,22 +5142,22 @@ export default function App() {
     if (!codeDirtyRef.current && !codeError) {
       markDiagramSaved(history.present);
     }
-    setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
-    showSuccessNotice(codeDirtyRef.current ? "La bozza ERS e stata scaricata." : "Il codice ERS e stato scaricato.", {
-      title: "Download completato",
+    setStatus(codeDirtyRef.current ? t("workspace.ersDraftDownloaded") : t("workspace.ersDownloaded"));
+    showSuccessNotice(codeDirtyRef.current ? t("workspace.downloads.ersDraftDownloaded") : t("workspace.downloads.ersDownloaded"), {
+      title: t("workspace.noticeTitles.downloadCompleted"),
     });
   }
 
   function handleSaveRestructuredErs() {
     const source = serializeDiagramToErs(translationHistory.present.translatedDiagram);
     downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}-restructured.ers`);
-    setStatus("Codice ERS ristrutturato scaricato.");
-    showSuccessNotice("Il codice ERS ristrutturato e stato scaricato.", { title: "Download completato" });
+    setStatus(t("workspace.restructuredErsDownloaded"));
+    showSuccessNotice(t("workspace.downloads.restructuredErsDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
   }
 
   function handleSaveLogicalSql() {
     if (logicalHistory.present.model.tables.length === 0) {
-      setStatusWarning("Traduci almeno un elemento per generare codice SQL.");
+      setStatusWarning(t("logical.designer.noSql"));
       return;
     }
 
@@ -4873,12 +5166,200 @@ export default function App() {
       `${sanitizeFileNameBase(history.present.meta.name)}.sql`,
       "text/sql;charset=utf-8",
     );
-    setStatus("SQL scaricato.");
-    showSuccessNotice("Il file SQL e stato scaricato.", { title: "Download completato" });
+    setStatus(t("workspace.sqlDownloaded"));
+    showSuccessNotice(t("workspace.downloads.sqlDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
+  }
+
+  async function handleCreateProjectCommit(message: string, description?: string) {
+    if (!versioningChangeState.summary.canCommit) {
+      setCommitDialogError(
+        versioningChangeState.status === "no-head-empty"
+          ? t("versioning.emptyProject")
+          : t("versioning.noChangesToCommit"),
+      );
+      return false;
+    }
+
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      setCommitDialogError(t("versioning.messageRequired"));
+      return false;
+    }
+
+    setCommitDialogBusy(true);
+    setCommitDialogError("");
+
+    try {
+      const result = await projectVersioning.createCommit({
+        snapshot: currentProjectCommitSnapshot,
+        message: trimmedMessage,
+        description,
+      });
+
+      if (result.status === "empty-message") {
+        setCommitDialogError(t("versioning.messageRequired"));
+        return false;
+      }
+
+      if (result.status === "unchanged") {
+        setCommitDialogError(t("versioning.noChangesToCommit"));
+        showWarningNotice(t("versioning.noChangesToCommit"), { title: t("versioning.commit") });
+        return false;
+      }
+
+      setCommitDialogOpen(false);
+      setCommitDialogError("");
+      setVersioningPanelOpen(true);
+      setStatus(t("versioning.commitCreated"));
+      showSuccessNotice(t("versioning.commitCreated"), { title: t("versioning.commit") });
+      return true;
+    } catch (error) {
+      console.error(error);
+      setCommitDialogError(t("versioning.commitFailed"));
+      showErrorNotice(t("versioning.commitFailed"), { title: t("versioning.commit") });
+      return false;
+    } finally {
+      setCommitDialogBusy(false);
+    }
+  }
+
+  function handleMissingDiffCommit(commitId: string) {
+    const message = t("versioning.diff.commitNotFound", { commitId });
+    setStatusError(message);
+    showErrorNotice(message, { title: t("versioning.diff.title") });
+  }
+
+  function handleCompareCommitWithCurrent(commitId: string) {
+    if (!projectVersioning.getCommitById(commitId)) {
+      handleMissingDiffCommit(commitId);
+      return;
+    }
+
+    setVersioningPanelOpen(false);
+    setVersionCompareSession({
+      left: { kind: "commit", commitId },
+      right: { kind: "working-copy" },
+    });
+  }
+
+  function handleCompareCommitWithHead(commitId: string) {
+    const headCommitId = projectVersioning.versioning.headCommitId;
+    if (!headCommitId) {
+      handleMissingDiffCommit(commitId);
+      return;
+    }
+
+    if (!projectVersioning.getCommitById(commitId)) {
+      handleMissingDiffCommit(commitId);
+      return;
+    }
+
+    if (!projectVersioning.getCommitById(headCommitId)) {
+      handleMissingDiffCommit(headCommitId);
+      return;
+    }
+
+    setVersioningPanelOpen(false);
+    setVersionCompareSession({
+      left: { kind: "commit", commitId },
+      right: { kind: "head" },
+    });
+  }
+
+  function handleOpenRestoreCommit(commitId: string) {
+    setVersioningPanelOpen(false);
+    setRestoreCommitId(commitId);
+    setRestoreDialogError("");
+  }
+
+  function handleCloseRestoreDialog() {
+    if (restoreDialogBusy) {
+      return;
+    }
+
+    setRestoreCommitId(null);
+    setRestoreDialogError("");
+  }
+
+  async function handleConfirmRestoreCommit() {
+    if (!restoreCommitId) {
+      return;
+    }
+
+    setRestoreDialogBusy(true);
+    setRestoreDialogError("");
+
+    try {
+      const result = await projectVersioning.restoreCommit(restoreCommitId, currentProjectCommitSnapshot, {
+        backupMessage: t("versioning.restore.backupMessage"),
+        backupDescription: t("versioning.restore.backupDescription", { commitId: restoreCommitId.slice(0, 8) }),
+        restoreMessage: t("versioning.restore.restoreMessage", {
+          message: projectVersioning.getCommitById(restoreCommitId)?.message ?? restoreCommitId.slice(0, 8),
+        }),
+        restoreDescription: t("versioning.restore.restoreDescription", { commitId: restoreCommitId.slice(0, 8) }),
+      });
+
+      if (result.status === "missing-commit") {
+        const message = t("versioning.restore.commitNotFound");
+        setRestoreDialogError(message);
+        setStatusError(message);
+        showErrorNotice(message, { title: t("versioning.restore.title") });
+        return;
+      }
+
+      if (result.status === "already-current") {
+        const message = t("versioning.restore.alreadyCurrentNotice");
+        setRestoreDialogError(message);
+        setStatusWarning(message);
+        showWarningNotice(message, { title: t("versioning.restore.title") });
+        return;
+      }
+
+      if (result.status === "invalid-snapshot") {
+        const message = t("versioning.restore.failed");
+        setRestoreDialogError(message);
+        setStatusError(message);
+        showErrorNotice(message, { title: t("versioning.restore.title") });
+        return;
+      }
+
+      const restoreSnapshot = result.restoreCommit.snapshot;
+      applyWorkspaceDocument(restoreSnapshot.diagram, t("versioning.restore.restored"), {
+        translationWorkspace: restoreSnapshot.translationWorkspace,
+        logicalWorkspace: restoreSnapshot.logicalWorkspace,
+        logicalGenerated: restoreSnapshot.logicalGenerated,
+        logicalStage: restoreSnapshot.logicalStage,
+        diagramView: restoreSnapshot.diagramView,
+        viewport: restoreSnapshot.viewport,
+        translationViewport: restoreSnapshot.translationViewport,
+        logicalViewport: restoreSnapshot.logicalViewport,
+        versioning: result.versioning,
+        workspace: createWorkspaceStateFromProjectCommitSnapshot(restoreSnapshot),
+        resetHistory: true,
+        markBaseline: false,
+      });
+
+      setRestoreCommitId(null);
+      setRestoreDialogError("");
+      setVersionCompareSession(null);
+      setVersioningPanelOpen(true);
+      setStatus(t("versioning.restore.restored"));
+      showSuccessNotice(t("versioning.restore.restoredWithBackup"), {
+        title: t("versioning.restore.title"),
+      });
+    } catch (error) {
+      console.error(error);
+      const message = t("versioning.restore.failed");
+      setRestoreDialogError(message);
+      setStatusError(message);
+      showErrorNotice(message, { title: t("versioning.restore.title") });
+    } finally {
+      setRestoreDialogBusy(false);
+    }
   }
 
   async function handleLoadProjectRequest() {
-    if (!(await confirmDiscardChanges("caricare un progetto"))) {
+    if (!(await confirmDiscardChanges(t("workspace.unsavedActions.loadProject")))) {
       return;
     }
 
@@ -4886,7 +5367,7 @@ export default function App() {
   }
 
   async function handleLoadErsRequest() {
-    if (!(await confirmDiscardChanges("caricare un file ERS"))) {
+    if (!(await confirmDiscardChanges(t("workspace.unsavedActions.loadErs")))) {
       return;
     }
 
@@ -4907,8 +5388,8 @@ export default function App() {
       });
       const loadStatus =
         parsedProject.source === "legacy-diagram-json"
-          ? "Diagramma JSON legacy caricato come progetto."
-          : "Progetto caricato.";
+          ? t("workspace.legacyProjectLoaded")
+          : t("workspace.projectLoaded");
       applyWorkspaceDocument(parsedProject.state.diagram, loadStatus, {
         translationWorkspace: parsedProject.state.translationWorkspace,
         logicalWorkspace: parsedProject.state.logicalWorkspace,
@@ -4918,6 +5399,8 @@ export default function App() {
         viewport: parsedProject.state.viewport,
         translationViewport: parsedProject.state.translationViewport,
         logicalViewport: parsedProject.state.logicalViewport,
+        versioning: parsedProject.state.versioning,
+        workspace: parsedProject.state.workspace,
       });
     } catch (error) {
       console.error(error);
@@ -4938,11 +5421,11 @@ export default function App() {
       const parsed = parseErsDiagram(rawText, history.present);
       applyWorkspaceDocument(
         parsed,
-        "Codice ERS caricato.",
+        t("workspace.ersLoaded"),
       );
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : "Codice ERS non valido.";
+      const message = error instanceof Error ? error.message : t("workspace.invalidErsCode");
       const formattedMessage = formatErsErrorMessage(message);
       setCodeError(formattedMessage);
       setStatusError(formattedMessage);
@@ -4953,26 +5436,26 @@ export default function App() {
 
   function handleResetCodeFromDiagram() {
     syncCodeDraftWithDiagram(history.present);
-    setStatus("Codice ERS rigenerato dal diagramma.");
+    setStatus(t("workspace.codeRegenerated"));
   }
 
   async function handleExportPng() {
     if (!svgRef.current) {
-      setStatusWarning("Canvas non disponibile per esportare il PNG.");
+      setStatusWarning(t("workspace.exportCanvasUnavailablePng"));
       return;
     }
 
     try {
       await downloadPng(svgRef.current, "builder-diagram.png");
-      setStatus("PNG esportato.");
-      showSuccessNotice("Il diagramma PNG e stato esportato.", { title: "Export completato" });
+      setStatus(t("workspace.exports.pngExported"));
+      showSuccessNotice(t("workspace.downloads.pngExported"), { title: t("workspace.noticeTitles.exportCompleted") });
     } catch (error) {
       console.error(error);
       setStatusError(
         buildStructuredErrorMessage(
-          "il PNG non e stato esportato",
-          "il canvas non e stato convertito correttamente in immagine",
-          "riprova l'esportazione e verifica che il diagramma sia visibile",
+          t("workspace.errors.pngNotExported"),
+          t("workspace.errors.canvasImageConversionFailed"),
+          t("workspace.errors.retryExportVisibleDiagram"),
         ),
       );
     }
@@ -4980,21 +5463,21 @@ export default function App() {
 
   async function handleExportJpeg() {
     if (!svgRef.current) {
-      setStatusWarning("Canvas non disponibile per esportare il JPEG.");
+      setStatusWarning(t("workspace.exportCanvasUnavailableJpeg"));
       return;
     }
 
     try {
       await downloadJpeg(svgRef.current, "builder-diagram.jpeg");
-      setStatus("JPEG esportato.");
-      showSuccessNotice("Il diagramma JPEG e stato esportato.", { title: "Export completato" });
+      setStatus(t("workspace.exports.jpegExported"));
+      showSuccessNotice(t("workspace.downloads.jpegExported"), { title: t("workspace.noticeTitles.exportCompleted") });
     } catch (error) {
       console.error(error);
       setStatusError(
         buildStructuredErrorMessage(
-          "il JPEG non e stato esportato",
-          "il canvas non e stato convertito correttamente in immagine",
-          "riprova l'esportazione e verifica che il diagramma sia visibile",
+          t("workspace.errors.jpegNotExported"),
+          t("workspace.errors.canvasImageConversionFailed"),
+          t("workspace.errors.retryExportVisibleDiagram"),
         ),
       );
     }
@@ -5002,13 +5485,13 @@ export default function App() {
 
   function handleExportSvg() {
     if (!svgRef.current) {
-      setStatusWarning("Canvas non disponibile per esportare l'SVG.");
+      setStatusWarning(t("workspace.exportCanvasUnavailableSvg"));
       return;
     }
 
     downloadSvg(svgRef.current, "builder-diagram.svg");
-    setStatus("SVG esportato.");
-    showSuccessNotice("Il diagramma SVG e stato esportato.", { title: "Export completato" });
+    setStatus(t("workspace.exports.svgExported"));
+    showSuccessNotice(t("workspace.downloads.svgExported"), { title: t("workspace.noticeTitles.exportCompleted") });
   }
 
   function handleUndoAction() {
@@ -5055,31 +5538,31 @@ export default function App() {
     ? [
         {
           id: "create-entity",
-          title: "Crea un'entita",
-          description: "Seleziona Entita e clicca nel canvas.",
+          title: t("onboarding.steps.createEntity.title"),
+          description: t("onboarding.steps.createEntity.description"),
           complete: onboardingProgress.entityCreated,
-          actionLabel: "Attiva Entita",
+          actionLabel: t("onboarding.steps.createEntity.action"),
         },
         {
           id: "create-relationship",
-          title: "Crea una relazione",
-          description: "Seleziona Associazione e aggiungi un rombo.",
+          title: t("onboarding.steps.createRelationship.title"),
+          description: t("onboarding.steps.createRelationship.description"),
           complete: onboardingProgress.relationshipCreated,
-          actionLabel: "Attiva Associazione",
+          actionLabel: t("onboarding.steps.createRelationship.action"),
         },
         {
           id: "create-connection",
-          title: "Collega i nodi",
-          description: "Usa Collegamento tra entita e associazione.",
+          title: t("onboarding.steps.createConnection.title"),
+          description: t("onboarding.steps.createConnection.description"),
           complete: onboardingProgress.connectionCreated,
-          actionLabel: "Attiva Collegamento",
+          actionLabel: t("onboarding.steps.createConnection.action"),
         },
         {
           id: "rename-node",
-          title: "Rinomina un elemento",
-          description: "Con Selezione, fai doppio click e cambia il nome.",
+          title: t("onboarding.steps.renameNode.title"),
+          description: t("onboarding.steps.renameNode.description"),
           complete: onboardingProgress.renamedNode,
-          actionLabel: "Attiva Selezione",
+          actionLabel: t("onboarding.steps.renameNode.action"),
         },
       ]
     : [];
@@ -5191,6 +5674,34 @@ export default function App() {
     return <AppLoadingScreen />;
   }
 
+  if (versionCompareSession) {
+    return (
+      <>
+        <VersionCompareMode
+          appTitle={APP_TITLE}
+          appVersion={APP_VERSION}
+          versioning={projectVersioning.versioning}
+          currentSnapshot={currentProjectCommitSnapshot}
+          initialLeft={versionCompareSession.left}
+          initialRight={versionCompareSession.right}
+          restoreDialogOpen={restoreCommitId !== null}
+          onExitCompareMode={() => setVersionCompareSession(null)}
+        />
+
+        <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
+
+        <RestoreVersionDialog
+          open={restoreCommitId !== null}
+          busy={restoreDialogBusy}
+          error={restoreDialogError}
+          commit={restoreTargetCommit}
+          onClose={handleCloseRestoreDialog}
+          onConfirm={handleConfirmRestoreCommit}
+        />
+      </>
+    );
+  }
+
   return (
     <div className={appShellClassName}>
       <AppHeader
@@ -5203,7 +5714,10 @@ export default function App() {
         notesPanelOpen={notesPanelOpen}
         logicalOutOfDate={logicalOutOfDate}
         focusMode={focusMode}
+        hasUncommittedChanges={hasVersioningUncommittedChanges}
+        versioningCommitCount={projectVersioning.versioning.commits.length}
         onNewProject={handleNewProject}
+        onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
         onToggleCodePanel={handleToggleCodePanel}
         onToggleNotesPanel={handleToggleNotesPanel}
         onSaveProject={handleSaveProject}
@@ -5266,13 +5780,13 @@ export default function App() {
                   </div>
                 ) : null}
 
-                <div className="designer-quick-actions-bar designer-side-toggle-group" aria-label="Pannelli rapidi">
+                <div className="designer-quick-actions-bar designer-side-toggle-group" aria-label={t("workspace.quickPanels.aria")}>
                   <button
                     type="button"
                     className={["designer-side-toggle", codePanelOpen ? "active" : ""].filter(Boolean).join(" ")}
                     onClick={handleToggleCodePanel}
-                    title={codePanelOpen ? "Chiudi codice ERS" : "Apri codice ERS"}
-                    aria-label={codePanelOpen ? "Chiudi pannello Code ERS" : "Apri pannello Code ERS"}
+                    title={codePanelOpen ? t("workspace.quickPanels.closeCodeTitle") : t("workspace.quickPanels.openCodeTitle")}
+                    aria-label={codePanelOpen ? t("workspace.quickPanels.closeCodeAria") : t("workspace.quickPanels.openCodeAria")}
                     aria-pressed={codePanelOpen}
                   >
                     <span className="designer-side-toggle-icon" aria-hidden="true">
@@ -5284,8 +5798,8 @@ export default function App() {
                     type="button"
                     className="designer-side-toggle"
                     onClick={handleOpenSqlReverseWorkflow}
-                    title="Importa schema SQL"
-                    aria-label="Apri workflow Reverse Engineering SQL"
+                    title={t("workspace.quickPanels.importSqlTitle")}
+                    aria-label={t("workspace.quickPanels.openSqlReverseAria")}
                   >
                     <span className="designer-side-toggle-icon" aria-hidden="true">
                       <StudioIcon name="databaseReverse" />
@@ -5298,8 +5812,8 @@ export default function App() {
                       issues.length > 0 ? "has-issues" : ""
                     }`}
                     onClick={() => setErrorsPanelOpen(true)}
-                    title="Apri errori e warning"
-                    aria-label="Apri elenco errori e warning"
+                    title={t("workspace.quickPanels.openErrorsTitle")}
+                    aria-label={t("workspace.quickPanels.openErrorsAria")}
                   >
                     <span className="designer-side-toggle-icon" aria-hidden="true">
                       <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} />
@@ -5311,8 +5825,8 @@ export default function App() {
                     type="button"
                     className={["designer-side-toggle", notesPanelOpen ? "active" : ""].filter(Boolean).join(" ")}
                     onClick={handleToggleNotesPanel}
-                    title={notesPanelOpen ? "Chiudi note" : "Apri note"}
-                    aria-label={notesPanelOpen ? "Chiudi Notes" : "Apri Notes"}
+                    title={notesPanelOpen ? t("workspace.quickPanels.closeNotesTitle") : t("workspace.quickPanels.openNotesTitle")}
+                    aria-label={notesPanelOpen ? t("workspace.quickPanels.closeNotesAria") : t("workspace.quickPanels.openNotesAria")}
                     aria-pressed={notesPanelOpen}
                   >
                     <span className="designer-side-toggle-icon" aria-hidden="true">
@@ -5498,6 +6012,47 @@ export default function App() {
         onChange={handleLoadErsFile}
       />
 
+      <VersioningPanel
+        open={versioningPanelOpen}
+        commits={projectVersioning.commitsNewestFirst}
+        headCommitId={projectVersioning.versioning.headCommitId}
+        changeState={versioningChangeState}
+        commitBusy={commitDialogBusy}
+        commitError={commitDialogError}
+        commitHint={commitDialogHint}
+        onClose={() => setVersioningPanelOpen(false)}
+        onCreateCommit={handleCreateProjectCommit}
+        onCompareWithCurrent={handleCompareCommitWithCurrent}
+        onCompareWithHead={handleCompareCommitWithHead}
+        onRestoreCommit={handleOpenRestoreCommit}
+      />
+
+      <RestoreVersionDialog
+        open={restoreCommitId !== null}
+        busy={restoreDialogBusy}
+        error={restoreDialogError}
+        commit={restoreTargetCommit}
+        onClose={handleCloseRestoreDialog}
+        onConfirm={handleConfirmRestoreCommit}
+      />
+
+      <CommitDialog
+        open={commitDialogOpen}
+        busy={commitDialogBusy}
+        error={commitDialogError}
+        canCommit={versioningChangeState.summary.canCommit}
+        hint={commitDialogHint}
+        categories={versioningChangeState.categories}
+        firstCommit={!versioningChangeState.hasHead}
+        onClose={() => {
+          if (!commitDialogBusy) {
+            setCommitDialogOpen(false);
+            setCommitDialogError("");
+          }
+        }}
+        onSubmit={handleCreateProjectCommit}
+      />
+
       <NotesModal
         open={notesPanelOpen}
         notes={history.present.notes}
@@ -5536,6 +6091,7 @@ export default function App() {
           canRedo={activeCanRedo}
           logicalOutOfDate={logicalOutOfDate}
           focusMode={focusMode}
+          hasUncommittedChanges={hasVersioningUncommittedChanges}
           toolRailCollapsed={effectiveToolbarCollapsed}
           selectionItemCount={selectionItemCount}
           onClose={() => setCommandMenuOpen(false)}
@@ -5554,6 +6110,7 @@ export default function App() {
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
+          onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}
@@ -5675,7 +6232,7 @@ export default function App() {
                   <p>{issues.filter(issueTargetExists).length} warning/errori nel diagramma</p>
                 </div>
               </div>
-              <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)} aria-label="Chiudi errori e warning">
+              <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)} aria-label={t("errors.closeAria")}>
                 <StudioIcon name="close" aria-hidden="true" />
               </button>
             </div>
@@ -5702,7 +6259,7 @@ export default function App() {
                 </p>
               ) : null}
               {issues.filter(issueTargetExists).length === 0 ? (
-                <p className="errors-modal-empty">Nessun errore o warning nel diagramma.</p>
+                <p className="errors-modal-empty">{t("errors.empty")}</p>
               ) : (
                 issues.filter(issueTargetExists).map((issue) => (
                   <button
@@ -5836,7 +6393,7 @@ export default function App() {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="help-modal-head">
-                <h2 id="isa-dialog-title">Configura gruppo ISA</h2>
+                <h2 id="isa-dialog-title">{t("workspace.generalizationGroupDialog.title")}</h2>
               </div>
               <form
                 className="action-modal-content"
@@ -5847,13 +6404,13 @@ export default function App() {
               >
                 <p className="action-modal-hint">
                   {dialog.kind === "edit"
-                    ? "Modifica nome e vincoli del gruppo di gerarchia selezionato."
-                    : "Scegli se aggiungere questa sottoentita a un gruppo esistente oppure creare un nuovo gruppo di gerarchia."}
+                    ? t("workspace.generalizationGroupDialog.editHint")
+                    : t("workspace.generalizationGroupDialog.assignHint")}
                 </p>
                 <div className="action-modal-summary">
-                  <strong>Sottoentita:</strong> {subtypeLabel}
+                  <strong>{t("workspace.generalizationGroupDialog.subtype")}:</strong> {subtypeLabel}
                   <br />
-                  <strong>Superentita:</strong> {supertypeLabel}
+                  <strong>{t("workspace.generalizationGroupDialog.supertype")}:</strong> {supertypeLabel}
                 </div>
 
                 {dialog.kind === "assign" ? (
@@ -5873,7 +6430,7 @@ export default function App() {
                           })
                         }
                       />
-                      <span>Usa gruppo esistente</span>
+                      <span>{t("workspace.generalizationGroupDialog.useExisting")}</span>
                     </label>
                     {dialog.mode === "existing" && compatibleGroups.length > 0 ? (
                       <div className="choice-grid">
@@ -5888,9 +6445,9 @@ export default function App() {
                             <span>
                               <strong>{group.label ?? group.id}</strong>
                               <small>
-                                Vincoli: {formatIsaConstraintShort(group.isaCompleteness, group.isaDisjointness)}
+                                {t("workspace.generalizationGroupDialog.constraints")}: {formatIsaConstraintShort(group.isaCompleteness, group.isaDisjointness)}
                                 <br />
-                                Sottoentita: {group.subtypeIds.map((subtypeId) => getEntityLabel(history.present, subtypeId)).join(", ") || "-"}
+                                {t("workspace.generalizationGroupDialog.subtype")}: {group.subtypeIds.map((subtypeId) => getEntityLabel(history.present, subtypeId)).join(", ") || "-"}
                               </small>
                             </span>
                           </label>
@@ -5905,7 +6462,7 @@ export default function App() {
                         checked={dialog.mode === "new"}
                         onChange={() => setGeneralizationGroupDialog({ ...dialog, mode: "new", error: "" })}
                       />
-                      <span>Crea nuovo gruppo</span>
+                      <span>{t("workspace.generalizationGroupDialog.createNew")}</span>
                     </label>
                   </div>
                 ) : null}
@@ -5913,18 +6470,18 @@ export default function App() {
                 {(dialog.kind === "edit" || dialog.mode === "new") ? (
                   <>
                     <label className="action-modal-field">
-                      <span>Nome gruppo</span>
+                      <span>{t("workspace.generalizationGroupDialog.groupName")}</span>
                       <input
                         value={dialog.newGroupName}
                         onChange={(event) => setGeneralizationGroupDialog({ ...dialog, newGroupName: event.target.value, error: "" })}
-                        placeholder="Genere"
+                        placeholder={t("workspace.generalizationGroupDialog.groupNamePlaceholder")}
                         autoFocus
                       />
                     </label>
                     <div className="choice-grid">
                       {([
-                        ["total", "Totale"],
-                        ["partial", "Parziale"],
+                        ["total", t("workspace.generalizationGroupDialog.completeness.total")],
+                        ["partial", t("workspace.generalizationGroupDialog.completeness.partial")],
                       ] as const).map(([value, label]) => (
                         <label key={value} className="choice-tile">
                           <input
@@ -5939,8 +6496,8 @@ export default function App() {
                     </div>
                     <div className="choice-grid">
                       {([
-                        ["disjoint", "Disgiunta"],
-                        ["overlap", "Sovrapposta"],
+                        ["disjoint", t("workspace.generalizationGroupDialog.disjointness.disjoint")],
+                        ["overlap", t("workspace.generalizationGroupDialog.disjointness.overlap")],
                       ] as const).map(([value, label]) => (
                         <label key={value} className="choice-tile">
                           <input
@@ -5954,7 +6511,7 @@ export default function App() {
                       ))}
                     </div>
                     <p className="action-modal-hint">
-                      Vincolo: {formatIsaConstraintShort(dialog.isaCompleteness, dialog.isaDisjointness)}
+                      {t("workspace.generalizationGroupDialog.constraint")}: {formatIsaConstraintShort(dialog.isaCompleteness, dialog.isaDisjointness)}
                     </p>
                   </>
                 ) : null}
@@ -5962,10 +6519,10 @@ export default function App() {
                 {dialog.error ? <p className="action-modal-error">{dialog.error}</p> : null}
                 <div className="action-modal-actions">
                   <button type="button" className="header-button" onClick={cancelGeneralizationGroupDialog}>
-                    Annulla
+                    {t("common.actions.cancel")}
                   </button>
                   <button type="submit" className="mode-button active">
-                    Conferma
+                    {t("common.actions.confirm")}
                   </button>
                 </div>
               </form>
@@ -5984,30 +6541,29 @@ export default function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="intro-modal-head">
-              <h2 id="intro-modal-title">Benvenuto in {APP_TITLE}</h2>
-              <button type="button" className="help-close" onClick={() => setIntroOpen(false)} aria-label="Chiudi introduzione">
+              <h2 id="intro-modal-title">{t("intro.title", { appTitle: APP_TITLE })}</h2>
+              <button type="button" className="help-close" onClick={() => setIntroOpen(false)} aria-label={t("intro.closeAria")}>
                 <StudioIcon name="close" aria-hidden="true" />
               </button>
             </div>
 
             <div className="intro-modal-content">
               <p>
-                Questa applicazione ti aiuta a costruire diagrammi ER in stile Chen in modo rapido: crea entita,
-                relazioni e attributi, collega i nodi e valida la consistenza del modello.
+                {t("intro.description")}
               </p>
 
               <div className="intro-grid">
                 <article>
-                  <h3>1. Crea</h3>
-                  <p>Seleziona uno strumento, clicca sul canvas e inserisci i tuoi elementi principali.</p>
+                  <h3>{t("intro.cards.create.title")}</h3>
+                  <p>{t("intro.cards.create.description")}</p>
                 </article>
                 <article>
-                  <h3>2. Collega</h3>
-                  <p>Usa Collegamento o Generalizzazione per definire relazioni e cardinalita.</p>
+                  <h3>{t("intro.cards.connect.title")}</h3>
+                  <p>{t("intro.cards.connect.description")}</p>
                 </article>
                 <article>
-                  <h3>3. Rifinisci</h3>
-                  <p>Rinomina con doppio click, allinea i nodi e correggi i warning nelle validazioni.</p>
+                  <h3>{t("intro.cards.refine.title")}</h3>
+                  <p>{t("intro.cards.refine.description")}</p>
                 </article>
               </div>
 
@@ -6020,10 +6576,10 @@ export default function App() {
                     setAboutOpen(true);
                   }}
                 >
-                  Apri la guida
+                  {t("intro.openGuide")}
                 </button>
                 <button type="button" className="mode-button active" onClick={() => setIntroOpen(false)}>
-                  Inizia a disegnare
+                  {t("intro.startDrawing")}
                 </button>
               </div>
             </div>
@@ -6042,14 +6598,14 @@ export default function App() {
           >
             <div className="studio-modal__header">
               <div>
-                <h2 id="about-modal-title" className="studio-modal__title">Informazioni</h2>
-                <p className="studio-modal__subtitle">buildER e stato corrente dell'editor.</p>
+                <h2 id="about-modal-title" className="studio-modal__title">{t("about.title")}</h2>
+                <p className="studio-modal__subtitle">{t("about.subtitle")}</p>
               </div>
               <button
                 type="button"
                 className="studio-modal__close"
                 onClick={() => setAboutOpen(false)}
-                aria-label="Chiudi informazioni"
+                aria-label={t("about.closeAria")}
                 autoFocus
               >
                 <StudioIcon name="close" aria-hidden="true" />
@@ -6059,75 +6615,75 @@ export default function App() {
             <div className="studio-modal__body">
               <div className="studio-modal__meta about-meta">
                 <strong>{APP_TITLE}</strong>
-                <span>Versione corrente {APP_VERSION}</span>
+                <span>{t("about.currentVersion", { version: APP_VERSION })}</span>
               </div>
 
               <div className="studio-modal__accordion help-sections">
                 <details className="studio-modal__details help-section" open>
-                <summary>Strumenti e scorciatoie</summary>
+                <summary>{t("about.sections.tools.title")}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Selezione rapida strumenti: S Sposta, V Selezione, X Cancella, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione.</li>
+                  <li>{t("about.sections.tools.items.shortcuts")}</li>
                 </ul>
               </details>
 
               <details className="studio-modal__details help-section">
-                <summary>Inserimento e Collegamenti</summary>
+                <summary>{t("about.sections.insertion.title")}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Con Entita, Relazione o Attributo: clic sul canvas per inserire l'elemento; dopo l'inserimento il tool torna su Selezione.</li>
-                  <li>Collegamenti: scegli Collegamento o Generalizzazione, clicca il nodo sorgente e poi il nodo destinazione.</li>
-                  <li>Le Notes del diagramma si gestiscono dal modal Notes e vengono salvate insieme al progetto, senza entrare nel codice ERS.</li>
+                  <li>{t("about.sections.insertion.items.place")}</li>
+                  <li>{t("about.sections.insertion.items.connect")}</li>
+                  <li>{t("about.sections.insertion.items.notes")}</li>
                 </ul>
               </details>
 
               <details className="studio-modal__details help-section">
-                <summary>Selezione e Modifica</summary>
+                <summary>{t("about.sections.selection.title")}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Con Selezione puoi trascinare nodi e box di selezione; Shift+click aggiunge/rimuove nodi dalla selezione.</li>
-                  <li>Doppio click su nodo o su una generalizzazione per rinominare; le cardinalita si modificano dai pannelli proprieta di entita e attributi.</li>
-                  <li>Nell'ispettore puoi attivare entita deboli dedicate, attributi composti e vincoli ISA avanzati sulle generalizzazioni.</li>
-                  <li>Con Selezione puoi trascinare la cardinalita di un collegamento per spostare la linea.</li>
-                  <li>I pulsanti di allineamento funzionano con almeno due nodi selezionati.</li>
+                  <li>{t("about.sections.selection.items.drag")}</li>
+                  <li>{t("about.sections.selection.items.rename")}</li>
+                  <li>{t("about.sections.selection.items.inspector")}</li>
+                  <li>{t("about.sections.selection.items.cardinalityDrag")}</li>
+                  <li>{t("about.sections.selection.items.align")}</li>
                 </ul>
               </details>
 
               <details className="studio-modal__details help-section">
-                <summary>Navigazione del canvas</summary>
+                <summary>{t("about.sections.navigation.title")}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Navigazione canvas: rotella per zoom, strumento Sposta per pan, oppure trascina con tasto centrale.</li>
+                  <li>{t("about.sections.navigation.items.canvas")}</li>
                 </ul>
               </details>
 
               <details className="studio-modal__details help-section">
-                <summary>Comandi Tastiera</summary>
+                <summary>{t("about.sections.keyboard.title")}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Ctrl/Cmd+S salva il progetto `.ersp`, Ctrl/Cmd+C copia, Ctrl/Cmd+V incolla, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+I apre o chiude il dock tecnico, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
-                  <li>Delete/Backspace elimina la selezione; Esc annulla la selezione corrente e chiude le finestre informazioni/novita.</li>
-                  <li>Nel canvas usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare ed Esc per annullare un collegamento in corso.</li>
+                  <li>{t("about.sections.keyboard.items.shortcuts")}</li>
+                  <li>{t("about.sections.keyboard.items.deleteEscape")}</li>
+                  <li>{t("about.sections.keyboard.items.canvas")}</li>
                 </ul>
               </details>
 
               <details className="studio-modal__details help-section">
-                <summary>Modalita codice e sincronizzazione live</summary>
+                <summary>{t("about.sections.code.title")}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>In vista Affiancata, il codice ERS viene validato in tempo reale e il diagramma si aggiorna automaticamente quando la sintassi e valida.</li>
-                  <li>Se il codice e incompleto o non valido, viene mostrato l'errore nel pannello senza alterare l'ultimo stato valido del diagramma.</li>
-                  <li>Usa Rigenera dal diagramma per riallineare rapidamente il sorgente ERS allo stato corrente del canvas.</li>
+                  <li>{t("about.sections.code.items.live")}</li>
+                  <li>{t("about.sections.code.items.invalid")}</li>
+                  <li>{t("about.sections.code.items.regenerate")}</li>
                 </ul>
               </details>
 
               <details className="studio-modal__details help-section">
-                <summary>Validazioni ed Errori</summary>
+                <summary>{t("about.sections.validation.title")}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Avvisi ed errori operativi compaiono come toast flottanti in overlay, senza spostare il layout, e i problemi del modello restano evidenziati su nodi e collegamenti.</li>
+                  <li>{t("about.sections.validation.items.toasts")}</li>
                 </ul>
               </details>
 
               <details className="studio-modal__details help-section">
-                <summary>Stato Notazione ER (v{APP_VERSION})</summary>
+                <summary>{t("about.sections.notation.title", { version: APP_VERSION })}</summary>
                 <ul className="studio-modal__list-text help-list">
-                  <li>Disponibile: entita, entita deboli dedicate, relazioni, attributi, attributi composti, cardinalita, generalizzazione e identificatori semplici/composti interni/esterni.</li>
-                  <li>Disponibile: vincoli ISA avanzati disjoint/overlap e total/partial su ogni collegamento di generalizzazione.</li>
-                  <li>Ancora non coperto: attributi derivati e altri simboli EER specialistici non ancora presenti nel canvas.</li>
+                  <li>{t("about.sections.notation.items.available")}</li>
+                  <li>{t("about.sections.notation.items.isa")}</li>
+                  <li>{t("about.sections.notation.items.missing")}</li>
                 </ul>
               </details>
               </div>
@@ -6152,7 +6708,7 @@ export default function App() {
         <ChangelogModal
           appName={APP_NAME}
           currentVersion={APP_VERSION}
-          entries={APP_CHANGELOG}
+          entries={appChangelog}
           onClose={() => setWhatsNewOpen(false)}
         />
       ) : null}

@@ -70,6 +70,8 @@ import type {
   ToolKind,
   ValidationIssue,
   Viewport,
+  VersionDiagramHighlights,
+  VersionHighlightKind,
 } from "../types/diagram";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
@@ -185,6 +187,7 @@ interface DiagramCanvasProps {
   statusMessage: string;
   svgRef: RefObject<SVGSVGElement>;
   translationHighlights?: DiagramHighlights;
+  versionHighlights?: VersionDiagramHighlights;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: SelectionState) => void;
   selectedIdentifier?: IdentifierSelection | null;
@@ -229,6 +232,62 @@ function resolveTranslationHighlight(id: string, highlights?: DiagramHighlights)
 
   if (highlights.blockedNodeIds?.includes(id) || highlights.blockedEdgeIds?.includes(id)) {
     return "blocked";
+  }
+
+  return undefined;
+}
+
+function resolveVersionNodeHighlight(id: string, highlights?: VersionDiagramHighlights): VersionHighlightKind | undefined {
+  if (!highlights) {
+    return undefined;
+  }
+
+  if (highlights.focusedNodeId === id) {
+    return "modified";
+  }
+
+  if (highlights.addedNodeIds.includes(id)) {
+    return "added";
+  }
+
+  if (highlights.removedNodeIds.includes(id)) {
+    return "removed";
+  }
+
+  if (highlights.modifiedNodeIds.includes(id)) {
+    return "modified";
+  }
+
+  if (highlights.layoutNodeIds.includes(id)) {
+    return "layout";
+  }
+
+  return undefined;
+}
+
+function resolveVersionEdgeHighlight(id: string, highlights?: VersionDiagramHighlights): VersionHighlightKind | undefined {
+  if (!highlights) {
+    return undefined;
+  }
+
+  if (highlights.focusedEdgeId === id) {
+    return "modified";
+  }
+
+  if (highlights.addedEdgeIds.includes(id)) {
+    return "added";
+  }
+
+  if (highlights.removedEdgeIds.includes(id)) {
+    return "removed";
+  }
+
+  if (highlights.modifiedEdgeIds.includes(id)) {
+    return "modified";
+  }
+
+  if (highlights.layoutEdgeIds.includes(id)) {
+    return "layout";
   }
 
   return undefined;
@@ -4039,7 +4098,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     >
 
 
-      <svg ref={props.svgRef} className="diagram-canvas">
+      <svg ref={props.svgRef} className="diagram-canvas" data-readonly={readOnly ? "true" : undefined}>
         <defs>
           <marker
             id="arrowhead"
@@ -4241,7 +4300,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 validationLevel={edgeIssueMap.get(edge.id)?.level}
                 validationCount={edgeIssueMap.get(edge.id)?.count}
                 translationHighlight={resolveTranslationHighlight(edge.id, props.translationHighlights)}
-                focused={focusedTarget?.kind === "edge" && focusedTarget.id === edge.id}
+                versionHighlight={resolveVersionEdgeHighlight(edge.id, props.versionHighlights)}
+                focused={
+                  (focusedTarget?.kind === "edge" && focusedTarget.id === edge.id) ||
+                  props.versionHighlights?.focusedEdgeId === edge.id
+                }
                 focusable={props.tool === "select"}
                 onFocus={handleEdgeFocus}
                 onBlur={(focusEvent: ReactFocusEvent<SVGGElement>) => {
@@ -4268,7 +4331,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               validationLevel={nodeIssueMap.get(node.id)?.level}
               validationCount={nodeIssueMap.get(node.id)?.count}
               translationHighlight={resolveTranslationHighlight(node.id, props.translationHighlights)}
-              focused={focusedTarget?.kind === "node" && focusedTarget.id === node.id}
+              versionHighlight={resolveVersionNodeHighlight(node.id, props.versionHighlights)}
+              focused={
+                (focusedTarget?.kind === "node" && focusedTarget.id === node.id) ||
+                props.versionHighlights?.focusedNodeId === node.id
+              }
               focusable={props.tool === "select" || props.tool === "connector" || props.tool === "inheritance"}
               onFocus={handleNodeFocus}
               onBlur={(focusEvent: ReactFocusEvent<SVGGElement>) => {

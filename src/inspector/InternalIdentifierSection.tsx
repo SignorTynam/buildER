@@ -7,6 +7,9 @@ import type {
   InternalIdentifier,
 } from "../types/diagram";
 import { CollapsiblePanel, EmptyStateCard } from "../components/panels";
+import type { I18nContextValue } from "../i18n/I18nProvider";
+import type { Locale } from "../i18n";
+import { useI18n } from "../i18n/useI18n";
 
 interface InternalIdentifierSectionProps {
   entity: EntityNode;
@@ -22,6 +25,7 @@ interface InternalIdentifierSectionProps {
 interface IdentifierModalProps {
   attributes: AttributeNode[];
   initialSelection?: string[];
+  t: I18nContextValue["t"];
   onCancel: () => void;
   onConfirm: (selectedIds: string[]) => void;
 }
@@ -34,7 +38,7 @@ function createInternalIdentifierId(): string {
   return `internalIdentifier-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function getEntityAttributes(entity: EntityNode, diagram: DiagramDocument): AttributeNode[] {
+function getEntityAttributes(entity: EntityNode, diagram: DiagramDocument, locale: Locale): AttributeNode[] {
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
   const ids = new Set<string>();
 
@@ -62,7 +66,7 @@ function getEntityAttributes(entity: EntityNode, diagram: DiagramDocument): Attr
   return Array.from(ids)
     .map((attributeId) => nodeMap.get(attributeId))
     .filter((node): node is AttributeNode => node?.type === "attribute")
-    .sort((left, right) => left.label.localeCompare(right.label, "it", { sensitivity: "base" }));
+    .sort((left, right) => left.label.localeCompare(right.label, locale, { sensitivity: "base" }));
 }
 
 function filterEligibleAttributes(
@@ -105,6 +109,7 @@ function filterEligibleAttributes(
 function IdentifierModal({
   attributes,
   initialSelection = [],
+  t,
   onCancel,
   onConfirm,
 }: IdentifierModalProps) {
@@ -121,19 +126,18 @@ function IdentifierModal({
   }
 
   const modalContent = (
-    <div className="help-modal-backdrop" role="dialog" aria-modal="true" aria-label="Identificatore interno">
+    <div className="help-modal-backdrop" role="dialog" aria-modal="true" aria-label={t("inspector.internalIdentifier.modal.aria")}>
       <div className="help-modal action-modal">
         <div className="help-modal-head">
-          <h2>Crea o modifica identificatore interno</h2>
+          <h2>{t("inspector.internalIdentifier.modal.title")}</h2>
           <button type="button" className="help-close" onClick={onCancel}>
-            Chiudi
+            {t("inspector.internalIdentifier.modal.close")}
           </button>
         </div>
 
         <div className="action-modal-content">
           <p>
-            Seleziona uno o piu attributi. Un solo attributo crea un identificatore semplice, due o piu attributi
-            creano un identificatore composto.
+            {t("inspector.internalIdentifier.modal.description")}
           </p>
 
           <div className="modal-attribute-list">
@@ -147,19 +151,19 @@ function IdentifierModal({
                 />
               </label>
             ))}
-            {attributes.length === 0 ? <p className="action-hint">Nessun attributo disponibile.</p> : null}
+            {attributes.length === 0 ? <p className="action-hint">{t("inspector.internalIdentifier.modal.noAttributes")}</p> : null}
           </div>
 
           <div className="action-modal-actions">
             <button type="button" onClick={onCancel}>
-              Annulla
+              {t("inspector.internalIdentifier.modal.cancel")}
             </button>
             <button
               type="button"
               onClick={() => onConfirm(Array.from(selected))}
               disabled={selected.size === 0}
             >
-              Salva
+              {t("inspector.internalIdentifier.modal.save")}
             </button>
           </div>
         </div>
@@ -180,8 +184,9 @@ export function InternalIdentifierSection({
   onEntityChange,
   readOnly,
 }: InternalIdentifierSectionProps) {
+  const { locale, t } = useI18n();
   const [modalIndex, setModalIndex] = useState<number | null>(null);
-  const attributes = useMemo(() => getEntityAttributes(entity, diagram), [diagram, entity]);
+  const attributes = useMemo(() => getEntityAttributes(entity, diagram, locale), [diagram, entity, locale]);
   const internalIdentifiers = entity.internalIdentifiers ?? [];
   const externalIdentifierAttributeIds = useMemo(
     () => new Set((entity.externalIdentifiers ?? []).flatMap((identifier) => identifier.localAttributeIds)),
@@ -219,9 +224,9 @@ export function InternalIdentifierSection({
     });
 
     return Array.from(byId.values()).sort((left, right) =>
-      left.label.localeCompare(right.label, "it", { sensitivity: "base" }),
+      left.label.localeCompare(right.label, locale, { sensitivity: "base" }),
     );
-  }, [attributes, externalIdentifierAttributeIds, internalIdentifiers, modalIndex, selectedAttributeIds]);
+  }, [attributes, externalIdentifierAttributeIds, internalIdentifiers, locale, modalIndex, selectedAttributeIds]);
 
   function applyUpdate(nextIdentifiers: InternalIdentifier[]) {
     const attributePatches: Record<string, Partial<AttributeNode>> = {};
@@ -296,27 +301,29 @@ export function InternalIdentifierSection({
   }
 
   return (
-    <CollapsiblePanel title="Identificatori interni" defaultOpen className="context-card identifier-section identifier-section-internal">
+    <CollapsiblePanel title={t("inspector.internalIdentifier.title")} defaultOpen className="context-card identifier-section identifier-section-internal">
       <div className="identifier-list">
         {internalIdentifiers.map((identifier, index) => {
           const labels = identifier.attributeIds
             .map((attributeId) => attributes.find((attribute) => attribute.id === attributeId)?.label ?? attributeId)
             .join(", ");
-          const type = identifier.attributeIds.length === 1 ? "Semplice" : "Composto";
+          const type = identifier.attributeIds.length === 1
+            ? t("inspector.internalIdentifier.simple")
+            : t("inspector.internalIdentifier.composite");
 
           return (
             <div key={identifier.id} className="identifier-row identifier-row-internal">
               <div className="identifier-main">
-                <span className="identifier-attrs">{labels || "Identificatore senza attributi"}</span>
+                <span className="identifier-attrs">{labels || t("inspector.internalIdentifier.emptyIdentifier")}</span>
               </div>
               <span className="identifier-type">{type}</span>
               {!readOnly ? (
                 <span className="identifier-actions">
                   <button type="button" onClick={() => handleEdit(index)}>
-                    Modifica
+                    {t("inspector.internalIdentifier.edit")}
                   </button>
                   <button type="button" onClick={() => handleDelete(index)}>
-                    Elimina
+                    {t("inspector.internalIdentifier.delete")}
                   </button>
                 </span>
               ) : null}
@@ -325,7 +332,7 @@ export function InternalIdentifierSection({
         })}
 
         {internalIdentifiers.length === 0 ? (
-          <EmptyStateCard className="action-hint">Nessun identificatore interno definito.</EmptyStateCard>
+          <EmptyStateCard className="action-hint">{t("inspector.internalIdentifier.empty")}</EmptyStateCard>
         ) : null}
       </div>
 
@@ -336,7 +343,7 @@ export function InternalIdentifierSection({
           onClick={handleAdd}
           disabled={!canAddIdentifier}
         >
-          + Identificatore
+          {t("inspector.internalIdentifier.add")}
         </button>
       ) : null}
 
@@ -344,6 +351,7 @@ export function InternalIdentifierSection({
         <IdentifierModal
           attributes={selectableAttributes}
           initialSelection={selectedAttributeIds}
+          t={t}
           onCancel={() => setModalIndex(null)}
           onConfirm={handleSave}
         />

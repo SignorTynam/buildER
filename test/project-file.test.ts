@@ -6,13 +6,81 @@ import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts
 import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
 import {
   CURRENT_PROJECT_FILE_VERSION,
+  createProjectCommitSnapshot,
+  createEmptyProjectVersioningState,
   parseProjectFile,
   PROJECT_FILE_KIND,
   ProjectFileError,
   serializeProjectFile,
+  type ProjectFileWorkspaceState,
 } from "../src/utils/projectFile.ts";
 
 const DEFAULT_VIEWPORT = { x: 180, y: 110, zoom: 1 };
+
+function createSerializableProject(name: string) {
+  const diagram = createEmptyDiagram(name);
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+
+  return {
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated: false,
+    logicalStage: "translation" as const,
+    diagramView: "er" as const,
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+    savedAt: "2026-06-26T10:00:00.000Z",
+  };
+}
+
+function createFullProjectSnapshot(name: string) {
+  return createProjectCommitSnapshot({
+    ...createSerializableProject(name),
+    tool: "attribute",
+    mode: "edit",
+    selection: { nodeIds: ["entity-a"], edgeIds: [] },
+    translationSelection: { nodeIds: ["translated-a"], edgeIds: [] },
+    logicalSelection: { nodeId: "table-a", columnId: null, edgeId: null },
+    codeDraft: "entity A",
+    codeDirty: true,
+    technicalPanelOpen: true,
+    technicalPanelTab: "code",
+    codePanelOpen: true,
+    codePanelWidth: 348,
+    notesPanelOpen: false,
+    notesPanelWidth: 336,
+    toolbarCollapsed: true,
+    focusMode: true,
+    toolbarWidth: 220,
+    showDiagnostics: false,
+  });
+}
+
+function createWorkspaceState(overrides: Partial<ProjectFileWorkspaceState> = {}): ProjectFileWorkspaceState {
+  return {
+    tool: "attribute",
+    mode: "edit",
+    selection: { nodeIds: ["entity-a"], edgeIds: ["edge-a"] },
+    translationSelection: { nodeIds: ["translated-a"], edgeIds: [] },
+    logicalSelection: { nodeId: "table-a", columnId: "column-a", edgeId: "logical-edge-a" },
+    codeDraft: "entity Cliente",
+    codeDirty: true,
+    technicalPanelOpen: true,
+    technicalPanelTab: "notes",
+    codePanelOpen: true,
+    codePanelWidth: 348,
+    notesPanelOpen: true,
+    notesPanelWidth: 336,
+    toolbarCollapsed: true,
+    focusMode: true,
+    toolbarWidth: 220,
+    showDiagnostics: false,
+    ...overrides,
+  };
+}
 
 test("il formato .ersp salva e ripristina vista corrente e viewport del progetto", () => {
   const diagram = createEmptyDiagram("Progetto completo");
@@ -247,6 +315,383 @@ test("un diagramma JSON legacy viene accettato solo come fallback compatibile e 
   assert.equal(parsed.state.logicalWorkspace.model.tables.length, 0);
   assert.equal(parsed.state.translationWorkspace.translatedDiagram.meta.name, "Legacy diagram");
   assert.deepEqual(parsed.state.viewport, DEFAULT_VIEWPORT);
+});
+
+test("il formato .ersp serializza uno stato versioning vuoto valido", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Versioning vuoto"));
+  const document = JSON.parse(serialized);
+
+  assert.equal(document.version, CURRENT_PROJECT_FILE_VERSION);
+  assert.deepEqual(document.versioning, createEmptyProjectVersioningState());
+});
+
+test("il formato .ersp serializza e ripristina lo stato workspace corrente", () => {
+  const workspace = createWorkspaceState();
+  const serialized = serializeProjectFile({
+    ...createSerializableProject("Workspace completo"),
+    workspace,
+  });
+  const document = JSON.parse(serialized);
+  const parsed = parseProjectFile(serialized);
+
+  assert.deepEqual(document.workspace, workspace);
+  assert.deepEqual(parsed.state.workspace, workspace);
+});
+
+test("project file senza workspace usa fallback sicuri", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Senza workspace"));
+  const document = JSON.parse(serialized);
+  delete document.workspace;
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.workspace.tool, "select");
+  assert.equal(parsed.state.workspace.mode, "edit");
+  assert.deepEqual(parsed.state.workspace.selection, { nodeIds: [], edgeIds: [] });
+  assert.equal(parsed.state.workspace.codeDirty, false);
+  assert.equal(typeof parsed.state.workspace.codeDraft, "string");
+  assert.equal(parsed.state.workspace.technicalPanelOpen, false);
+  assert.equal(parsed.state.workspace.technicalPanelTab, "review");
+  assert.equal(parsed.state.workspace.showDiagnostics, true);
+});
+
+test("project file con workspace malformato usa fallback sanitizzati", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Workspace malformato"));
+  const document = JSON.parse(serialized);
+  document.workspace = {
+    tool: "bad-tool",
+    selection: { nodeIds: ["node-a", 42], edgeIds: [false, "edge-a"] },
+    logicalSelection: { tableId: "legacy-table", columnId: 99, edgeId: "edge-a" },
+    codeDraft: 42,
+    codeDirty: "yes",
+    technicalPanelOpen: "yes",
+    technicalPanelTab: "missing",
+    codePanelOpen: true,
+    codePanelWidth: -1,
+    notesPanelWidth: Number.NaN,
+    toolbarCollapsed: true,
+    focusMode: "no",
+    toolbarWidth: 0,
+    showDiagnostics: "yes",
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.workspace.tool, "select");
+  assert.deepEqual(parsed.state.workspace.selection, { nodeIds: ["node-a"], edgeIds: ["edge-a"] });
+  assert.deepEqual(parsed.state.workspace.logicalSelection, {
+    nodeId: "legacy-table",
+    columnId: null,
+    edgeId: "edge-a",
+  });
+  assert.equal(parsed.state.workspace.codeDraft, "");
+  assert.equal(parsed.state.workspace.codeDirty, false);
+  assert.equal(parsed.state.workspace.technicalPanelOpen, false);
+  assert.equal(parsed.state.workspace.technicalPanelTab, "review");
+  assert.equal(parsed.state.workspace.codePanelOpen, true);
+  assert.equal(typeof parsed.state.workspace.codePanelWidth, "number");
+  assert.equal(typeof parsed.state.workspace.notesPanelWidth, "number");
+  assert.equal(parsed.state.workspace.toolbarCollapsed, true);
+  assert.equal(parsed.state.workspace.focusMode, false);
+  assert.equal(typeof parsed.state.workspace.toolbarWidth, "number");
+  assert.equal(parsed.state.workspace.showDiagnostics, true);
+});
+
+test("il formato .ersp carica uno stato versioning vuoto", () => {
+  const parsed = parseProjectFile(serializeProjectFile({
+    ...createSerializableProject("Parse versioning vuoto"),
+    versioning: createEmptyProjectVersioningState(),
+  }));
+
+  assert.equal(parsed.state.versioning.enabled, true);
+  assert.equal(parsed.state.versioning.headCommitId, null);
+  assert.deepEqual(parsed.state.versioning.commits, []);
+  assert.deepEqual(parsed.document.versioning, createEmptyProjectVersioningState());
+});
+
+test("il formato .ersp carica un commit fittizio nel versioning", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Commit fittizio"));
+  const document = JSON.parse(serialized);
+  document.versioning = {
+    version: 1,
+    enabled: true,
+    headCommitId: "commit-1",
+    commits: [
+      {
+        id: "commit-1",
+        parentId: null,
+        message: "Snapshot iniziale",
+        description: "Commit di test",
+        createdAt: "2026-06-26T10:05:00.000Z",
+        author: "buildER",
+        snapshot: {
+          diagram: document.diagram,
+          translationWorkspace: document.translationWorkspace,
+          logicalWorkspace: document.logicalWorkspace,
+          logicalGenerated: false,
+          logicalStage: "translation",
+          diagramView: "er",
+          viewport: DEFAULT_VIEWPORT,
+          translationViewport: DEFAULT_VIEWPORT,
+          logicalViewport: DEFAULT_VIEWPORT,
+          workspaceInfo: { source: "test" },
+        },
+        checksum: "checksum-1",
+        stats: {
+          entityCount: 0,
+          relationshipCount: 0,
+          attributeCount: 0,
+          edgeCount: 0,
+          tableCount: 0,
+          warningCount: 0,
+          errorCount: 0,
+        },
+        tags: ["initial"],
+        automatic: true,
+      },
+    ],
+    tags: [
+      {
+        id: "tag-1",
+        name: "initial",
+        commitId: "commit-1",
+        createdAt: "2026-06-26T10:06:00.000Z",
+      },
+    ],
+    settings: {
+      maxCommits: 50,
+      keepTaggedCommits: true,
+      includeAutomaticCommits: true,
+    },
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.versioning.headCommitId, "commit-1");
+  assert.equal(parsed.state.versioning.commits.length, 1);
+  assert.equal(parsed.state.versioning.commits[0]?.message, "Snapshot iniziale");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.diagram.meta.name, "Commit fittizio");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.tool, "select");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.mode, "edit");
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.selection, { nodeIds: [], edgeIds: [] });
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.translationSelection, { nodeIds: [], edgeIds: [] });
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.logicalSelection, {
+    nodeId: null,
+    columnId: null,
+    edgeId: null,
+  });
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDraft, "");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDirty, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.technicalPanelOpen, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.technicalPanelTab, "review");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codePanelOpen, false);
+  assert.equal(typeof parsed.state.versioning.commits[0]?.snapshot.codePanelWidth, "number");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.notesPanelOpen, false);
+  assert.equal(typeof parsed.state.versioning.commits[0]?.snapshot.notesPanelWidth, "number");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.toolbarCollapsed, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.focusMode, false);
+  assert.equal(typeof parsed.state.versioning.commits[0]?.snapshot.toolbarWidth, "number");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.showDiagnostics, true);
+  assert.equal(parsed.state.versioning.tags[0]?.name, "initial");
+});
+
+test("un project file versione 4 senza versioning viene migrato al formato corrente", () => {
+  const document = JSON.parse(serializeProjectFile(createSerializableProject("Versione 4")));
+  document.version = 4;
+  delete document.versioning;
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.source, "project-file");
+  assert.equal(parsed.document.version, CURRENT_PROJECT_FILE_VERSION);
+  assert.deepEqual(parsed.state.versioning, createEmptyProjectVersioningState());
+});
+
+test("i formati legacy creano versioning vuoto senza crash", () => {
+  const diagram = createEmptyDiagram("Legacy senza versioning");
+  const parsed = parseProjectFile(serializeDiagram(diagram), {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "er",
+  });
+
+  assert.equal(parsed.source, "legacy-diagram-json");
+  assert.deepEqual(parsed.state.versioning, createEmptyProjectVersioningState());
+});
+
+test("versioning malformato viene sanitizzato senza impedire il caricamento", () => {
+  const document = JSON.parse(serializeProjectFile(createSerializableProject("Versioning malformato")));
+  document.versioning = {
+    version: "wrong",
+    enabled: "yes",
+    headCommitId: "missing",
+    commits: [
+      { id: "", snapshot: null },
+      {
+        id: "valid-commit",
+        parentId: 42,
+        message: "",
+        createdAt: "",
+        snapshot: {
+          diagram: document.diagram,
+          translationWorkspace: document.translationWorkspace,
+          logicalWorkspace: document.logicalWorkspace,
+          logicalGenerated: false,
+          logicalStage: "translation",
+          diagramView: "invalid",
+          viewport: { x: "bad", y: 1, zoom: -1 },
+          translationViewport: null,
+          logicalViewport: DEFAULT_VIEWPORT,
+        },
+        checksum: 123,
+        stats: {
+          entityCount: -1,
+          relationshipCount: 10,
+          attributeCount: "bad",
+          edgeCount: 4,
+        },
+        tags: ["tag-a", "tag-a", 3],
+      },
+    ],
+    tags: [{ id: "tag-a", name: "Tag A", commitId: "missing", createdAt: "" }],
+    settings: {
+      maxCommits: -1,
+      keepTaggedCommits: "yes",
+      includeAutomaticCommits: true,
+    },
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document), {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "er",
+  });
+
+  assert.equal(parsed.state.versioning.version, 1);
+  assert.equal(parsed.state.versioning.enabled, true);
+  assert.equal(parsed.state.versioning.headCommitId, null);
+  assert.equal(parsed.state.versioning.commits.length, 1);
+  assert.equal(parsed.state.versioning.commits[0]?.parentId, null);
+  assert.equal(parsed.state.versioning.commits[0]?.message, "");
+  assert.deepEqual(parsed.state.versioning.commits[0]?.tags, ["tag-a"]);
+  assert.deepEqual(parsed.state.versioning.commits[0]?.snapshot.selection, { nodeIds: [], edgeIds: [] });
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDraft, "");
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codeDirty, false);
+  assert.equal(parsed.state.versioning.commits[0]?.snapshot.codePanelOpen, false);
+  assert.deepEqual(parsed.state.versioning.tags, []);
+  assert.deepEqual(parsed.state.versioning.settings, {
+    maxCommits: 200,
+    keepTaggedCommits: true,
+    includeAutomaticCommits: true,
+  });
+});
+
+test("versioning con headCommitId inesistente preserva i commit validi e azzera HEAD", () => {
+  const snapshot = createFullProjectSnapshot("HEAD orfano");
+  const document = JSON.parse(serializeProjectFile(createSerializableProject("HEAD orfano")));
+  document.versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: "missing-head",
+    commits: [
+      {
+        id: "commit-valid",
+        parentId: null,
+        message: "Commit valido",
+        createdAt: "2026-06-26T12:30:00.000Z",
+        snapshot,
+        checksum: "checksum-valid",
+        stats: {
+          entityCount: 0,
+          relationshipCount: 0,
+          attributeCount: 0,
+          edgeCount: 0,
+          tableCount: 0,
+          warningCount: 0,
+          errorCount: 0,
+        },
+      },
+    ],
+  };
+
+  const parsed = parseProjectFile(JSON.stringify(document));
+
+  assert.equal(parsed.state.versioning.headCommitId, null);
+  assert.equal(parsed.state.versioning.commits.length, 1);
+  assert.equal(parsed.state.versioning.commits[0]?.id, "commit-valid");
+});
+
+test("versioning viene mantenuto dopo serialize e parse", () => {
+  const initial = {
+    ...createSerializableProject("Roundtrip versioning"),
+    versioning: {
+      ...createEmptyProjectVersioningState(),
+      enabled: false,
+      settings: {
+        maxCommits: 12,
+        keepTaggedCommits: false,
+        includeAutomaticCommits: true,
+      },
+    },
+  };
+
+  const parsed = parseProjectFile(serializeProjectFile(initial));
+
+  assert.equal(parsed.document.versioning.enabled, false);
+  assert.deepEqual(parsed.state.versioning.settings, {
+    maxCommits: 12,
+    keepTaggedCommits: false,
+    includeAutomaticCommits: true,
+  });
+});
+
+test("serialize e parse mantengono snapshot completo dentro versioning", () => {
+  const snapshot = createFullProjectSnapshot("Snapshot completo ersp");
+  const serialized = serializeProjectFile({
+    ...createSerializableProject("Snapshot completo ersp"),
+    versioning: {
+      ...createEmptyProjectVersioningState(),
+      headCommitId: "commit-full",
+      commits: [
+        {
+          id: "commit-full",
+          parentId: null,
+          message: "Commit completo",
+          createdAt: "2026-06-26T12:15:00.000Z",
+          snapshot,
+          checksum: "checksum-full",
+          stats: {
+            entityCount: 0,
+            relationshipCount: 0,
+            attributeCount: 0,
+            edgeCount: 0,
+            tableCount: 0,
+            warningCount: 0,
+            errorCount: 0,
+          },
+        },
+      ],
+    },
+  });
+
+  const parsed = parseProjectFile(serialized);
+  const parsedSnapshot = parsed.state.versioning.commits[0]?.snapshot;
+
+  assert.equal(parsed.state.versioning.headCommitId, "commit-full");
+  assert.equal(parsedSnapshot?.diagram.meta.name, "Snapshot completo ersp");
+  assert.equal(parsedSnapshot?.tool, "attribute");
+  assert.deepEqual(parsedSnapshot?.selection, { nodeIds: ["entity-a"], edgeIds: [] });
+  assert.deepEqual(parsedSnapshot?.translationSelection, { nodeIds: ["translated-a"], edgeIds: [] });
+  assert.deepEqual(parsedSnapshot?.logicalSelection, { nodeId: "table-a", columnId: null, edgeId: null });
+  assert.equal(parsedSnapshot?.codeDraft, "entity A");
+  assert.equal(parsedSnapshot?.codeDirty, true);
+  assert.equal(parsedSnapshot?.technicalPanelOpen, true);
+  assert.equal(parsedSnapshot?.technicalPanelTab, "code");
+  assert.equal(parsedSnapshot?.codePanelOpen, true);
+  assert.equal(parsedSnapshot?.codePanelWidth, 348);
+  assert.equal(parsedSnapshot?.notesPanelOpen, false);
+  assert.equal(parsedSnapshot?.notesPanelWidth, 336);
+  assert.equal(parsedSnapshot?.toolbarCollapsed, true);
+  assert.equal(parsedSnapshot?.focusMode, true);
+  assert.equal(parsedSnapshot?.toolbarWidth, 220);
+  assert.equal(parsedSnapshot?.showDiagnostics, false);
 });
 
 test("un file con kind errato viene rifiutato con errore strutturato", () => {

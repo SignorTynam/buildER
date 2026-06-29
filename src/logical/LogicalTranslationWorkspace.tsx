@@ -11,6 +11,7 @@ import type {
   LogicalTranslationRuleKind,
   LogicalTranslationStep,
   LogicalWorkspaceDocument,
+  VersionLogicalHighlights,
 } from "../types/logical";
 import { useI18n } from "../i18n/useI18n";
 import {
@@ -88,6 +89,9 @@ interface LogicalTranslationWorkspaceProps {
   onRenameColumn: (tableId: string, columnId: string, nextName: string) => void;
   onUpdateColumnSql: (tableId: string, columnId: string, patch: LogicalColumnSqlPatch) => void;
   onMoveColumn: (tableId: string, columnId: string, direction: ColumnMoveDirection) => void;
+  readOnly?: boolean;
+  compareMode?: boolean;
+  versionHighlights?: VersionLogicalHighlights;
 }
 
 const ORDERED_BULK_STEPS: LogicalBulkStep[] = ["entities", "weak-entities", "relationships", "multivalued-attributes"];
@@ -448,6 +452,8 @@ function ToolbarButton(props: {
 
 export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspaceProps) {
   const { t } = useI18n();
+  const readOnly = props.readOnly === true;
+  const compareMode = props.compareMode === true;
   const overview = useMemo(
     () => buildLogicalTranslationOverview(props.sourceDiagram, props.workspace),
     [props.sourceDiagram, props.workspace],
@@ -883,37 +889,48 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   }
 
   return (
-    <div className={["designer-workspace", "designer-logical-view", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
-      <div className={["designer-canvas-region", "designer-logical-canvas", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
-        {props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()}
-        <FloatingExportMenu
-          open={exportMenuOpen}
-          anchorRef={exportButtonRef}
-          ariaLabel={t("logical.export.aria")}
-          onClose={() => setExportMenuOpen(false)}
-          items={[
-            { key: "project", label: t("logical.export.project"), onClick: props.onExportProject },
-            {
-              key: "sql",
-              label: t("logical.export.sql"),
-              onClick: () => downloadSql(sqlPreview),
-              disabled: !hasLogicalModel,
-              title: !hasLogicalModel ? t("logical.designer.noSql") : undefined,
-            },
-            {
-              key: "relational-schema",
-              label: t("logical.export.relationalSchema"),
-              onClick: () => downloadRelationalSchema(relationalSchemaPreview),
-              disabled: !hasLogicalModel,
-              title: !hasLogicalModel ? t("logical.designer.noRelationalSchema") : undefined,
-            },
-            { key: "png", label: t("logical.export.png"), onClick: props.onExportPng },
-            { key: "jpeg", label: t("logical.export.jpeg"), onClick: props.onExportJpeg },
-            { key: "svg", label: t("logical.export.svg"), onClick: props.onExportSvg },
-          ]}
-        />
+    <div
+      className={[
+        "designer-workspace",
+        "designer-logical-view",
+        sqlOpen && !readOnly ? "sql-open" : "",
+        compareMode ? "designer-workspace-compare" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div className={["designer-canvas-region", "designer-logical-canvas", sqlOpen && !readOnly ? "sql-open" : ""].filter(Boolean).join(" ")}>
+        {!readOnly ? (props.logicalStage === "translation" ? renderTranslationToolbar() : renderSchemaToolbar()) : null}
+        {!readOnly ? (
+          <FloatingExportMenu
+            open={exportMenuOpen}
+            anchorRef={exportButtonRef}
+            ariaLabel={t("logical.export.aria")}
+            onClose={() => setExportMenuOpen(false)}
+            items={[
+              { key: "project", label: t("logical.export.project"), onClick: props.onExportProject },
+              {
+                key: "sql",
+                label: t("logical.export.sql"),
+                onClick: () => downloadSql(sqlPreview),
+                disabled: !hasLogicalModel,
+                title: !hasLogicalModel ? t("logical.designer.noSql") : undefined,
+              },
+              {
+                key: "relational-schema",
+                label: t("logical.export.relationalSchema"),
+                onClick: () => downloadRelationalSchema(relationalSchemaPreview),
+                disabled: !hasLogicalModel,
+                title: !hasLogicalModel ? t("logical.designer.noRelationalSchema") : undefined,
+              },
+              { key: "png", label: t("logical.export.png"), onClick: props.onExportPng },
+              { key: "jpeg", label: t("logical.export.jpeg"), onClick: props.onExportJpeg },
+              { key: "svg", label: t("logical.export.svg"), onClick: props.onExportSvg },
+            ]}
+          />
+        ) : null}
 
-        {fixMenuOpen && selectedTranslationItem ? (
+        {!readOnly && fixMenuOpen && selectedTranslationItem ? (
           <div className="designer-fix-popover designer-logical-fix-popover">
             {selectedChoices.map((choice) => (
               <button
@@ -933,7 +950,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </div>
         ) : null}
 
-        {moveMenuOpen && selectedColumnContext ? (
+        {!readOnly && moveMenuOpen && selectedColumnContext ? (
           <div className="designer-fix-popover designer-logical-move-popover">
             {[
               ["up", t("logical.designer.moveUp"), "moveUp"],
@@ -961,7 +978,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </div>
         ) : null}
 
-        {entityKeySelectionModal ? (
+        {!readOnly && entityKeySelectionModal ? (
           <div
             className="entity-key-modal-backdrop"
             onMouseDown={(event) => {
@@ -1121,9 +1138,9 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </div>
         ) : null}
 
-        <div className={["designer-logical-workspace", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
-          {sqlOpen ? (
-            <aside className="designer-sql-dock" aria-label={t("logical.export.sql")}>
+        <div className={["designer-logical-workspace", sqlOpen && !readOnly ? "sql-open" : ""].filter(Boolean).join(" ")}>
+          {sqlOpen && !readOnly ? (
+            <aside className="designer-sql-dock" aria-label="SQL">
               <div className="designer-sql-dock-header">
                 <div className="designer-code-preview-tabs" role="tablist" aria-label={t("logical.export.sql")}>
                   <button
@@ -1205,6 +1222,8 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               activeTargetKeys={highlightedTargetKeys}
               focusedTargetKey={selectedTargetKey}
               viewMode={canvasViewMode}
+              readOnly={readOnly}
+              versionHighlights={props.versionHighlights}
               onViewportChange={props.onViewportChange}
               onSelectionChange={props.onSelectionChange}
               onPreviewModel={props.onPreviewModel}
@@ -1216,7 +1235,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </section>
         </div>
 
-        {props.logicalStage === "schema" && selectedColumnContext && props.typeMode ? (
+        {!readOnly && props.logicalStage === "schema" && selectedColumnContext && props.typeMode ? (
           <div className="designer-schema-type-shortcuts" aria-hidden="true">
             {SQL_TYPE_PICKER_OPTIONS.map((option) => (
               <button

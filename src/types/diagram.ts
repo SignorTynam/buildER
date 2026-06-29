@@ -38,6 +38,21 @@ export interface DiagramHighlights {
   selectedEdgeIds?: string[];
 }
 
+export type VersionHighlightKind = "added" | "removed" | "modified" | "layout";
+
+export interface VersionDiagramHighlights {
+  addedNodeIds: string[];
+  removedNodeIds: string[];
+  modifiedNodeIds: string[];
+  layoutNodeIds: string[];
+  addedEdgeIds: string[];
+  removedEdgeIds: string[];
+  modifiedEdgeIds: string[];
+  layoutEdgeIds: string[];
+  focusedNodeId?: string | null;
+  focusedEdgeId?: string | null;
+}
+
 export interface Point {
   x: number;
   y: number;

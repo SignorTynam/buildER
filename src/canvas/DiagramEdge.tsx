@@ -1,6 +1,14 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
-import type { DiagramEdge, DiagramHighlightKind, DiagramNode, IsaCompleteness, IsaDisjointness, Point } from "../types/diagram";
+import type {
+  DiagramEdge,
+  DiagramHighlightKind,
+  DiagramNode,
+  IsaCompleteness,
+  IsaDisjointness,
+  Point,
+  VersionHighlightKind,
+} from "../types/diagram";
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "../utils/cardinality";
 import { getPointAlongPolyline } from "../utils/edgeLabelLayout";
 import { useI18n } from "../i18n/useI18n";
@@ -45,6 +53,7 @@ interface DiagramEdgeProps {
   validationLevel?: DiagramIssueLevel;
   validationCount?: number;
   translationHighlight?: DiagramHighlightKind;
+  versionHighlight?: VersionHighlightKind;
   onFocus: (edge: DiagramEdge) => void;
   onBlur: (event: FocusEvent<SVGGElement>) => void;
   onPointerDown: (event: PointerEvent<SVGGElement>, edge: DiagramEdge) => void;
@@ -174,7 +183,14 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const badgeXOffset = Math.max((roleLabel ? roleLabelWidth : displayLabelWidth) / 2 + 14, 24);
   const badgeY = (roleLabel ? roleLabelY : displayLabelY) - 12;
   const primaryDashArray = isGhost ? "10 8" : dashArray;
-  const groupClassName = isGhost ? "diagram-edge ghost" : props.selected ? "diagram-edge selected" : "diagram-edge";
+  const groupClassName = [
+    "diagram-edge",
+    isGhost ? "ghost" : "",
+    props.selected ? "selected" : "",
+    props.versionHighlight ? `version-highlight-${props.versionHighlight}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
   const groupFocusable = !isGhost && props.focusable ? "true" : "false";
 
