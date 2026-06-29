@@ -7,7 +7,7 @@
   --panel-border-strong: #557267;
   --panel-text: #162820;
   --panel-muted: #65766f;
-  --panel-radius: 2px;
+  --panel-radius: 0;
   --panel-padding: 14px;
   --panel-gap: 12px;
   --panel-shadow: none;
@@ -23,7 +23,7 @@
 .diagram-notes-panel {
   min-width: 0;
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-bg);
   box-shadow: var(--panel-shadow);
   color: var(--panel-text);
@@ -103,7 +103,7 @@
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
   color: var(--panel-text);
   font-size: 0.78rem;
@@ -124,7 +124,7 @@
   min-height: 42px;
   padding: 5px;
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
 }
 
@@ -135,7 +135,7 @@
 .workspace-side-tab {
   min-height: 32px;
   border: 1px solid transparent;
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: transparent;
   color: var(--panel-muted);
   font-size: 0.8rem;
@@ -178,7 +178,7 @@
 .translation-choice-card,
 .technical-dock-list-item {
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
 }
 
@@ -408,7 +408,7 @@
   min-width: 1.6rem;
   padding: 0 6px;
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: #ffffff;
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.7rem;
@@ -433,7 +433,7 @@
   padding: 10px;
   background: var(--panel-surface);
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
 }
 
 .workspace-mode-button,
@@ -460,7 +460,7 @@
 .technical-dock-empty,
 .translation-empty-hint {
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
 }
 
@@ -546,7 +546,7 @@
   min-height: 260px;
   padding: 12px;
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
   color: var(--panel-text);
   resize: vertical;
@@ -662,7 +662,7 @@
   min-width: 0;
   padding: 3px;
   border: 1px solid var(--panel-border);
-  border-radius: 999px;
+  border-radius: 0;
   background: #ffffff;
 }
 
@@ -674,7 +674,7 @@
   min-height: 32px;
   padding: 0 14px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--panel-muted);
   font-size: 0.84rem;
@@ -703,7 +703,7 @@
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: 0;
   background: #f3eadb;
   color: #805c21;
   font-size: 0.68rem;
@@ -780,7 +780,7 @@
   --panel-border-strong: var(--studio-border-strong);
   --panel-text: var(--studio-ink);
   --panel-muted: var(--studio-muted);
-  --panel-radius: var(--studio-radius-panel);
+  --panel-radius: 0;
   --panel-padding: 12px;
   --panel-gap: 10px;
   --panel-shadow: var(--studio-shadow-panel);
@@ -841,7 +841,7 @@ body,
   width: 34px;
   height: 34px;
   border: 1px solid var(--studio-border-strong);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-accent);
   color: var(--studio-surface-strong);
   font-size: 0.76rem;
@@ -904,7 +904,7 @@ body,
   gap: 3px;
   padding: 3px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface);
 }
 
@@ -913,7 +913,7 @@ body,
   min-height: var(--studio-control-height-sm);
   padding: 0 10px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface-strong);
   color: var(--studio-ink);
   font-size: 0.76rem;
@@ -970,7 +970,7 @@ body,
   min-height: 38px;
   padding: 0 12px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-lg);
+  border-radius: 0;
   background: var(--studio-surface-strong);
   color: var(--studio-muted);
   font-size: 0.82rem;
@@ -1001,7 +1001,7 @@ body,
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--studio-warning-soft);
   color: var(--studio-warning);
   font-size: 0.68rem;
@@ -1116,7 +1116,7 @@ body,
 .workspace-canvas-region,
 .translation-canvas-card {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-panel);
+  border-radius: 0;
   background: var(--studio-surface-strong);
   box-shadow: var(--studio-shadow-panel);
   color: var(--studio-ink);
@@ -1172,7 +1172,7 @@ body,
 
 .er-workspace-shell .workspace-canvas-region,
 .structured-workspace-shell .translation-canvas-card {
-  border-radius: var(--studio-radius-panel) !important;
+  border-radius: 0;
   box-shadow: var(--studio-shadow-panel) !important;
 }
 
@@ -1247,7 +1247,7 @@ body,
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface-strong);
   color: var(--studio-muted);
   font-size: 0.72rem;
@@ -1278,7 +1278,7 @@ body,
 .panel-card,
 .empty-state-card {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-lg);
+  border-radius: 0;
   background: var(--studio-surface);
   padding: 10px;
   box-shadow: none;
@@ -1302,7 +1302,7 @@ body,
 .technical-dock-list-item,
 .warning-card {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface-strong);
   color: var(--studio-ink);
   box-shadow: none;
@@ -1360,7 +1360,7 @@ body,
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-lg);
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 92%, transparent);
   box-shadow: var(--studio-shadow-panel);
 }
@@ -1370,7 +1370,7 @@ body,
   min-width: 30px;
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: transparent;
   color: var(--studio-ink);
   font-size: 0.72rem;
@@ -1537,7 +1537,7 @@ body,
 
 .toolbar-properties-shell .inspector-panel-embedded .context-card {
   padding: 8px;
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface-strong);
 }
 
@@ -1634,7 +1634,7 @@ body,
   gap: 6px;
   padding: 7px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface-strong);
   overflow: hidden;
 }
@@ -1672,7 +1672,7 @@ body,
   max-width: 100%;
   padding: 2px 7px;
   border: 1px solid var(--studio-border);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--studio-surface);
   color: var(--studio-muted);
   font-size: 0.62rem;
@@ -1944,7 +1944,7 @@ body,
   display: block;
   padding: 7px 8px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface);
   color: var(--studio-muted);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -2029,7 +2029,7 @@ body,
   height: 34px;
   min-height: 34px;
   padding: 0;
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -2073,7 +2073,7 @@ body,
   min-height: 36px;
   padding: 0 8px;
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
   color: var(--panel-text);
   font-size: 0.74rem;
@@ -2087,7 +2087,7 @@ body,
   min-width: 0;
   padding: 12px;
   border: 1px dashed var(--panel-border);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
   color: var(--panel-muted);
   font-size: 0.76rem;
@@ -2129,7 +2129,7 @@ body,
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid rgba(85, 114, 103, 0.36);
-  border-radius: var(--panel-radius);
+  border-radius: 0;
   background: var(--panel-surface);
   color: var(--panel-text);
   font-size: 0.74rem;
@@ -2215,7 +2215,7 @@ body,
   min-height: 30px;
   padding: 0 9px;
   border: 1px solid var(--panel-border);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--panel-surface);
   color: var(--panel-muted);
   font-size: 0.72rem;
@@ -2232,7 +2232,7 @@ body,
 .logical-type-toggle-dot {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: 0;
   background: currentColor;
   opacity: 0.5;
 }
@@ -2366,9 +2366,9 @@ body,
   --studio-warning-soft: rgba(169, 111, 22, 0.12);
   --studio-success: #2f7353;
   --studio-success-soft: rgba(47, 115, 83, 0.1);
-  --studio-radius-sm: 6px;
-  --studio-radius-md: 8px;
-  --studio-radius-lg: 10px;
+  --studio-radius-sm: 0;
+  --studio-radius-md: 0;
+  --studio-radius-lg: 0;
   --studio-shadow-sm: 0 1px 2px rgba(17, 26, 22, 0.05);
   --studio-shadow-panel: 0 1px 2px rgba(17, 26, 22, 0.04), 0 8px 24px rgba(17, 26, 22, 0.06);
   --studio-focus-ring: 0 0 0 3px rgba(37, 79, 72, 0.2);
@@ -2402,7 +2402,7 @@ body,
   --panel-border-strong: var(--studio-accent);
   --panel-text: var(--studio-ink);
   --panel-muted: var(--studio-muted);
-  --panel-radius: var(--studio-radius-md);
+  --panel-radius: 0;
   --panel-padding: 12px;
   --panel-gap: 10px;
   --panel-shadow: var(--studio-shadow-sm);
@@ -2448,7 +2448,7 @@ summary:focus-visible,
 *::-webkit-scrollbar-thumb {
   background: rgba(95, 109, 101, 0.28);
   border: 2px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
   background-clip: content-box;
 }
 
@@ -2490,7 +2490,7 @@ summary:focus-visible,
   width: 32px;
   height: 32px;
   border-color: var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-accent);
   color: #ffffff;
 }
@@ -2519,7 +2519,7 @@ summary:focus-visible,
 .translation-reset-button,
 .technical-side-panel-close {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-sm);
+  border-radius: 0;
   background: var(--studio-surface);
   color: var(--studio-ink);
 }
@@ -2565,7 +2565,7 @@ summary:focus-visible,
 .workspace-stage-tabs {
   padding: 3px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-lg);
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: var(--studio-shadow-sm);
 }
@@ -2574,7 +2574,7 @@ summary:focus-visible,
   min-height: 30px;
   padding: 6px 12px;
   border: 1px solid transparent;
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   color: var(--studio-muted);
   font-size: 0.78rem;
   font-weight: 800;
@@ -2615,7 +2615,7 @@ summary:focus-visible,
 .er-workspace-shell,
 .structured-workspace-shell {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-lg);
+  border-radius: 0;
   background: var(--studio-border);
   box-shadow: var(--studio-shadow-panel);
   overflow: hidden;
@@ -2670,7 +2670,7 @@ summary:focus-visible,
 .canvas-affordance-chip,
 .canvas-pan-hint {
   border-color: var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--studio-shadow-sm);
   color: var(--studio-ink);
@@ -2712,7 +2712,7 @@ summary:focus-visible,
 
 .toolbar-panel.contextual-toolbar .panel-head-row {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface-muted);
 }
 
@@ -2723,7 +2723,7 @@ summary:focus-visible,
 .warning-card,
 .empty-state-card {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface);
 }
 
@@ -2736,7 +2736,7 @@ summary:focus-visible,
 .technical-dock-list-item {
   min-height: 34px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface);
   color: var(--studio-ink);
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
@@ -2768,7 +2768,7 @@ summary:focus-visible,
 .keyboard-badge,
 .command-option-row .keyboard-badge {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-sm);
+  border-radius: 0;
   background: var(--studio-surface-muted);
   color: var(--studio-muted);
 }
@@ -2785,7 +2785,7 @@ summary:focus-visible,
 .internal-identifier-section,
 .external-identifier-section {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface);
   box-shadow: var(--studio-shadow-sm);
 }
@@ -2812,7 +2812,7 @@ summary:focus-visible,
 .action-grid button,
 .logical-type-editor button {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-sm);
+  border-radius: 0;
   background: var(--studio-surface);
   color: var(--studio-ink);
 }
@@ -2827,7 +2827,7 @@ summary:focus-visible,
 .studio-tabs,
 .translation-panel-tabs {
   border-color: var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: var(--studio-surface-muted);
 }
 
@@ -2860,7 +2860,7 @@ summary:focus-visible,
 .diagram-code-editor-shell,
 .diagram-notes-editor {
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: #fbfcfb;
 }
 
@@ -2942,7 +2942,7 @@ summary:focus-visible,
   gap: 6px;
   padding: 3px 8px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .bottom-status-message.tone-warning {
@@ -2977,7 +2977,7 @@ summary:focus-visible,
   width: 18px;
   height: 18px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: currentColor;
 }
@@ -3038,7 +3038,7 @@ summary:focus-visible,
   gap: 6px;
   padding: 5px;
   border: 1px solid var(--studio-border);
-  border-radius: 999px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
   box-shadow: var(--studio-shadow-panel);
   backdrop-filter: blur(12px);
@@ -3064,7 +3064,7 @@ summary:focus-visible,
   min-height: 36px;
   padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--studio-ink);
   font-size: 0.74rem;
@@ -3138,7 +3138,7 @@ summary:focus-visible,
   min-height: 52px;
   padding: 5px 4px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 0;
   background: transparent;
   color: var(--studio-ink);
   text-align: center;
@@ -3174,7 +3174,7 @@ summary:focus-visible,
   gap: 0;
   padding: 4px;
   border: 1px solid var(--studio-border);
-  border-radius: 14px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 96%, white);
   box-shadow: var(--studio-shadow-sm);
   overflow-x: hidden;
@@ -3223,7 +3223,7 @@ summary:focus-visible,
   justify-items: center;
   min-height: 62px;
   padding: 5px 3px;
-  border-radius: 6px;
+  border-radius: 0;
   text-align: center;
 }
 
@@ -3250,7 +3250,7 @@ summary:focus-visible,
   width: min(680px, calc(100vw - 32px));
   max-height: min(78vh, 720px);
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-lg);
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 96%, white);
   box-shadow: var(--studio-shadow-floating);
   overflow: hidden;
@@ -3273,7 +3273,7 @@ summary:focus-visible,
   width: 100%;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--studio-warning) 28%, var(--studio-border));
-  border-radius: var(--studio-radius-md);
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-warning-soft) 58%, var(--studio-surface));
   color: var(--studio-ink);
   text-align: left;
@@ -3380,7 +3380,7 @@ summary:focus-visible,
   gap: 3px;
   padding: 4px;
   border: 1px solid var(--studio-border);
-  border-radius: 8px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
   box-shadow: var(--studio-shadow-sm);
 }
@@ -3392,7 +3392,7 @@ summary:focus-visible,
   min-height: 32px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: var(--studio-ink);
   font-size: 0.84rem;
@@ -3481,7 +3481,7 @@ textarea {
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid var(--studio-border);
-  border-radius: var(--studio-radius-sm);
+  border-radius: 0;
   background: var(--studio-surface);
   color: var(--studio-ink);
   font: inherit;
@@ -3609,7 +3609,7 @@ textarea {
     min-width: 44px;
     min-height: 44px;
     padding: 0 8px;
-    border-radius: var(--studio-radius-sm);
+    border-radius: 0;
     font-size: 0.72rem;
     line-height: 1;
   }
@@ -3718,7 +3718,7 @@ textarea {
     min-height: 50px;
     padding: 4px 6px;
     border: 1px solid var(--studio-border);
-    border-radius: 8px;
+    border-radius: 0;
     background: color-mix(in srgb, var(--studio-surface-strong) 94%, transparent);
     box-shadow: var(--studio-shadow-sm);
   }
@@ -3740,7 +3740,7 @@ textarea {
     padding: 4px;
     overflow-x: auto;
     overflow-y: hidden;
-    border-radius: 8px;
+    border-radius: 0;
     box-shadow: var(--studio-shadow-sm);
     scroll-padding-inline: 8px;
   }
@@ -4048,7 +4048,7 @@ textarea {
     width: min(100%, calc(100vw - 16px));
     max-width: calc(100vw - 16px);
     max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
-    border-radius: var(--studio-radius-md) var(--studio-radius-md) 0 0;
+    border-radius: 0;
   }
 
   .studio-modal__header,
@@ -4232,7 +4232,7 @@ textarea {
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--studio-border);
-  border-radius: 999px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 96%, transparent);
   box-shadow: var(--studio-shadow-panel);
   backdrop-filter: blur(12px);
@@ -4249,7 +4249,7 @@ textarea {
   min-height: 32px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--studio-muted);
   font-size: 0.78rem;
@@ -4364,7 +4364,7 @@ textarea {
   height: 17px;
   place-items: center;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--studio-warning);
   color: #fff;
   font-size: 0.6rem;
@@ -4386,7 +4386,7 @@ textarea {
   min-height: 36px;
   padding: 0 12px;
   border: 1px solid var(--studio-border);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--studio-surface-strong);
   color: var(--studio-ink);
   font-size: 0.78rem;
@@ -4819,7 +4819,7 @@ textarea {
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--studio-border);
-  border-radius: 10px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-muted) 82%, white);
   color: var(--studio-accent-strong);
 }
@@ -4863,7 +4863,7 @@ textarea {
   min-height: 38px;
   padding: 0 11px;
   border: 1px solid var(--studio-border);
-  border-radius: 10px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 88%, white);
   color: var(--studio-muted);
 }
@@ -4901,7 +4901,7 @@ textarea {
   flex: 0 0 auto;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--studio-muted);
   font-size: 0.73rem;
@@ -5009,7 +5009,7 @@ textarea {
   min-height: 22px;
   padding: 0 7px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 84%, transparent);
-  border-radius: 7px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-muted) 76%, var(--studio-surface));
   color: var(--studio-ink);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
@@ -5027,7 +5027,7 @@ textarea {
   gap: 7px;
   padding: 34px 16px;
   border: 1px dashed color-mix(in srgb, var(--studio-border) 86%, transparent);
-  border-radius: 12px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-muted) 44%, transparent);
   color: var(--studio-muted);
   text-align: center;
@@ -5164,7 +5164,7 @@ textarea {
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--studio-border);
-  border-radius: 10px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-muted) 82%, white);
   color: var(--studio-accent-strong);
 }
@@ -5211,7 +5211,7 @@ textarea {
   min-height: 38px;
   padding: 0 11px;
   border: 1px solid var(--studio-border);
-  border-radius: 10px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-strong) 88%, white);
   color: var(--studio-muted);
 }
@@ -5249,7 +5249,7 @@ textarea {
   flex: 0 0 auto;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--studio-muted);
   font-size: 0.73rem;
@@ -5339,7 +5339,7 @@ textarea {
   height: 30px;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--studio-border) 70%, transparent);
-  border-radius: 9px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-muted) 64%, transparent);
   color: currentColor;
 }
@@ -5378,7 +5378,7 @@ textarea {
   min-height: 22px;
   padding: 0 7px;
   border: 1px solid color-mix(in srgb, var(--studio-border) 84%, transparent);
-  border-radius: 7px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-muted) 76%, var(--studio-surface));
   color: var(--studio-ink);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
@@ -5404,7 +5404,7 @@ textarea {
   gap: 7px;
   padding: 34px 16px;
   border: 1px dashed color-mix(in srgb, var(--studio-border) 86%, transparent);
-  border-radius: 12px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--studio-surface-muted) 44%, transparent);
   color: var(--studio-muted);
   text-align: center;
@@ -5517,7 +5517,7 @@ textarea {
   min-width: 180px;
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 0;
   background: #1f1f1f;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
@@ -5533,7 +5533,7 @@ textarea {
   min-height: 0;
   border: 0;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 0;
   background: transparent;
   color: #ffffff;
   text-align: left;
