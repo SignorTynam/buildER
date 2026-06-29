@@ -952,9 +952,7 @@ export default function App() {
     showErrorNotice,
     showWarningNotice,
     showSuccessNotice,
-    showSelectionWarningNotice,
     removeNotice: dismissNotice,
-    dismissStickyNotices,
   } = useWorkspaceNotices({ formatErrorMessage: (message) => formatErrorFromRawMessage(message, t) });
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
@@ -1066,22 +1064,6 @@ export default function App() {
     }
   }, [history.present, identifierSelection]);
 
-  const selectedWarningIssue =
-    selectedNode
-      ? issues.find(
-          (issue) =>
-            issue.level === "warning" &&
-            issue.targetType === "node" &&
-            issue.targetId === selectedNode.id,
-        )
-      : selectedEdge
-        ? issues.find(
-            (issue) =>
-              issue.level === "warning" &&
-              issue.targetType === "edge" &&
-              issue.targetId === selectedEdge.id,
-          )
-      : undefined;
   const translationAccess = canOpenTranslationView(history.present);
   const currentErSignature = buildErTranslationSourceSignature(history.present);
   const currentTranslatedSignature = buildErTranslationSourceSignature(translationHistory.present.translatedDiagram);
@@ -1240,15 +1222,6 @@ export default function App() {
     restoredSessionNoticeShownRef.current = true;
     setStatusMessage("Sessione precedente ripristinata automaticamente.");
   }, [sessionBootstrap.restored]);
-
-  useEffect(() => {
-    if (!selectedWarningIssue) {
-      dismissStickyNotices("selection-warning");
-      return;
-    }
-
-    showSelectionWarningNotice(selectedWarningIssue);
-  }, [selectedWarningIssue]);
 
   useEffect(() => {
     const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
@@ -1681,29 +1654,8 @@ export default function App() {
   }
 
   function handleIssueNotice(issue: ValidationIssue) {
-    if (issue.level === "error") {
-      const formattedIssue = formatErrorFromRawMessage(
-        issue.message,
-        t,
-        t("errors.rawFallbackHow"),
-      );
-      setStatusMessage(formattedIssue);
-      showErrorNotice(formattedIssue);
-      return;
-    }
-
     setStatusMessage(issue.message);
-
-    const warningTargetSelected =
-      issue.targetType === "node"
-        ? selectedNode?.id === issue.targetId
-        : selectedEdge?.id === issue.targetId;
-
-    if (!warningTargetSelected) {
-      return;
-    }
-
-    showWarningNotice(issue.message);
+    selectIssueTarget(issue);
   }
 
   function getIssueElementLabel(issue: ValidationIssue): string {

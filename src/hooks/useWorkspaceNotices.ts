@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import type { ValidationIssue } from "../types/diagram";
 
 export interface WorkspaceNotice {
   id: number;
@@ -7,7 +6,7 @@ export interface WorkspaceNotice {
   message: string;
   tone: "success" | "warning" | "error" | "info";
   sticky?: boolean;
-  stickyType?: "source-selection" | "selection-warning";
+  stickyType?: "source-selection";
   targetId?: string;
   createdAt: number;
   actionLabel?: string;
@@ -90,37 +89,6 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     });
   }
 
-  function showSelectionWarningNotice(issue: ValidationIssue) {
-    if (issue.level !== "warning") {
-      return;
-    }
-
-    setNotices((current) => {
-      const existing = current.find((notice) => notice.stickyType === "selection-warning");
-      if (existing && existing.targetId === issue.targetId && existing.message === issue.message) {
-        return current;
-      }
-
-      const selectionWarningNotices = current.filter((notice) => notice.stickyType === "selection-warning");
-      selectionWarningNotices.forEach((notice) => clearNoticeTimer(notice.id));
-
-      const retained = current.filter((notice) => notice.stickyType !== "selection-warning");
-      return [
-        {
-          id: nextNoticeIdRef.current++,
-          title: "Avviso di validazione",
-          message: issue.message,
-          tone: "warning",
-          sticky: true,
-          stickyType: "selection-warning",
-          targetId: issue.targetId,
-          createdAt: Date.now(),
-        },
-        ...retained,
-      ];
-    });
-  }
-
   function showNotice(notice: Omit<WorkspaceNotice, "id" | "createdAt">, duration: number | null = NOTICE_DURATION_MS[notice.tone]) {
     let id = nextNoticeIdRef.current++;
     const createdAt = Date.now();
@@ -140,20 +108,15 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
         return [updated, ...current.filter((item) => item.id !== id)];
       }
 
-      const preservedSelectionWarningNotices =
-        notice.stickyType === "selection-warning"
-          ? []
-          : current.filter((item) => item.stickyType === "selection-warning");
       const retained = current
         .filter((item) => item.message !== notice.message && !item.sticky)
-        .slice(0, MAX_NOTICE_HISTORY - preservedSelectionWarningNotices.length - 1);
+        .slice(0, MAX_NOTICE_HISTORY - 1);
       const removed = current.filter(
         (item) =>
-          !retained.some((kept) => kept.id === item.id) &&
-          !preservedSelectionWarningNotices.some((kept) => kept.id === item.id),
+          !retained.some((kept) => kept.id === item.id),
       );
       removed.forEach((item) => clearNoticeTimer(item.id));
-      return [{ id, createdAt, ...notice }, ...preservedSelectionWarningNotices, ...retained];
+      return [{ id, createdAt, ...notice }, ...retained];
     });
 
     if (duration !== null) {
@@ -177,6 +140,9 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     });
   }
 
+  // Toast policy: success notices confirm completed user actions; warning notices
+  // report immediate invalid operations; error notices report blocking failures.
+  // validateDiagram issues stay in Errors, canvas diagnostics, and status text.
   function showWarningNotice(message: string, options?: WorkspaceNoticeOptions) {
     const sticky = options?.sticky === true || options?.stickyType !== undefined;
     showNotice(
@@ -276,7 +242,6 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     showWarningNotice,
     showSuccessNotice,
     showInfoNotice,
-    showSelectionWarningNotice,
     removeNotice,
     clearNotices,
     dismissStickyNotices,
