@@ -33,6 +33,7 @@ import {
   type LogicalColumnSqlPatch,
 } from "../utils/logicalSqlMetadata";
 import { LOGICAL_SQL_DIALECT_OPTIONS, generateLogicalSql, type LogicalSqlDialect } from "../utils/logicalSql";
+import { generateLogicalRelationalSchema } from "../utils/logicalRelationalSchema";
 import { EntityKeyChoicePreview } from "./EntityKeyChoicePreview";
 import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } from "./LogicalTransformationCanvas";
 import { StudioIcon } from "../components/icons/StudioIcon";
@@ -40,6 +41,7 @@ import { FloatingExportMenu } from "../components/FloatingExportMenu";
 
 type LogicalBulkStep = Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">;
 type ColumnMoveDirection = "up" | "down" | "top" | "bottom";
+type CodePreviewMode = "sql" | "relational";
 
 export function getLogicalCanvasViewMode(logicalStage: LogicalStage): LogicalTransformationCanvasMode {
   return logicalStage === "schema" ? "schema" : "transformation";
@@ -345,6 +347,19 @@ function downloadSql(sql: string): void {
   window.URL.revokeObjectURL(url);
 }
 
+function downloadRelationalSchema(schema: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const blob = new Blob([schema], { type: "text/plain;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "logical-relational-schema.txt";
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+}
+
 function renameWithPrompt(label: string, currentValue: string, onRename: (nextValue: string) => void): void {
   const nextValue = window.prompt(label, currentValue)?.trim();
   if (nextValue && nextValue !== currentValue) {
@@ -416,9 +431,14 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     [props.workspace, props.selection, selectedTranslationItem],
   );
   const [sqlDialect, setSqlDialect] = useState<LogicalSqlDialect>("generic");
+  const [codePreviewMode, setCodePreviewMode] = useState<CodePreviewMode>("sql");
   const sqlPreview = useMemo(
     () => generateLogicalSql(props.workspace.model, { dialect: sqlDialect }),
     [props.workspace.model, sqlDialect],
+  );
+  const relationalSchemaPreview = useMemo(
+    () => generateLogicalRelationalSchema(props.workspace.model),
+    [props.workspace.model],
   );
   const canvasViewMode = getLogicalCanvasViewMode(props.logicalStage);
   const [fixMenuOpen, setFixMenuOpen] = useState(false);
@@ -449,7 +469,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   }, 0);
   const blockingConflicts = props.workspace.translation.conflicts.filter((conflict) => conflict.level === "error");
   const doneDisabled = logicalPendingCount > 0 || blockingConflicts.length > 0;
-  const hasSql = props.workspace.model.tables.length > 0;
+  const hasLogicalModel = props.workspace.model.tables.length > 0;
   const sqlOpen = props.logicalStage === "schema" && props.panelMode === "sql";
   const selectedTargetKey = selectedTranslationItem ? buildTargetKey(selectedTranslationItem) : null;
   const activeTargetKeys = props.logicalStage === "translation" ? openItemsForStep.map(buildTargetKey) : [];
@@ -617,6 +637,12 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   async function copySql(): Promise<void> {
     if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
       await navigator.clipboard.writeText(sqlPreview);
+    }
+  }
+
+  async function copyRelationalSchema(): Promise<void> {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      await navigator.clipboard.writeText(relationalSchemaPreview);
     }
   }
 
@@ -828,8 +854,15 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               key: "sql",
               label: t("logical.export.sql"),
               onClick: () => downloadSql(sqlPreview),
-              disabled: !hasSql,
-              title: !hasSql ? t("logical.designer.noSql") : undefined,
+              disabled: !hasLogicalModel,
+              title: !hasLogicalModel ? t("logical.designer.noSql") : undefined,
+            },
+            {
+              key: "relational-schema",
+              label: t("logical.export.relationalSchema"),
+              onClick: () => downloadRelationalSchema(relationalSchemaPreview),
+              disabled: !hasLogicalModel,
+              title: !hasLogicalModel ? t("logical.designer.noRelationalSchema") : undefined,
             },
             { key: "png", label: t("logical.export.png"), onClick: props.onExportPng },
             { key: "jpeg", label: t("logical.export.jpeg"), onClick: props.onExportJpeg },
@@ -1047,33 +1080,71 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
         <div className={["designer-logical-workspace", sqlOpen ? "sql-open" : ""].filter(Boolean).join(" ")}>
           {sqlOpen ? (
-            <aside className="designer-sql-dock" aria-label="SQL">
+            <aside className="designer-sql-dock" aria-label={t("logical.export.sql")}>
               <div className="designer-sql-dock-header">
-                <span>{t("logical.export.sql")}</span>
-                <div className="designer-sql-actions">
-                  <select
-                    aria-label={t("logical.toolbars.sqlDialect")}
-                    value={sqlDialect}
-                    onChange={(event) => setSqlDialect(event.target.value as LogicalSqlDialect)}
+                <div className="designer-code-preview-tabs" role="tablist" aria-label={t("logical.export.sql")}>
+                  <button
+                    type="button"
+                    role="tab"
+                    className={["designer-code-preview-tab", codePreviewMode === "sql" ? "active" : ""].filter(Boolean).join(" ")}
+                    aria-selected={codePreviewMode === "sql"}
+                    onClick={() => setCodePreviewMode("sql")}
                   >
-                    {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={copySql}>
-                    {t("logical.designer.copySql")}
+                    {t("logical.designer.sqlTab")}
                   </button>
-                  <button type="button" onClick={() => downloadSql(sqlPreview)}>
-                    {t("logical.designer.downloadSql")}
+                  <button
+                    type="button"
+                    role="tab"
+                    className={["designer-code-preview-tab", codePreviewMode === "relational" ? "active" : ""].filter(Boolean).join(" ")}
+                    aria-selected={codePreviewMode === "relational"}
+                    onClick={() => setCodePreviewMode("relational")}
+                  >
+                    {t("logical.designer.relationalSchemaTab")}
                   </button>
                 </div>
+                <div className="designer-sql-actions">
+                  {codePreviewMode === "sql" ? (
+                    <>
+                      <select
+                        aria-label={t("logical.toolbars.sqlDialect")}
+                        value={sqlDialect}
+                        onChange={(event) => setSqlDialect(event.target.value as LogicalSqlDialect)}
+                      >
+                        {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" onClick={copySql} disabled={!hasLogicalModel}>
+                        {t("logical.designer.copySql")}
+                      </button>
+                      <button type="button" onClick={() => downloadSql(sqlPreview)} disabled={!hasLogicalModel}>
+                        {t("logical.designer.downloadSql")}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" onClick={copyRelationalSchema} disabled={!hasLogicalModel}>
+                        {t("logical.designer.copyRelationalSchema")}
+                      </button>
+                      <button type="button" onClick={() => downloadRelationalSchema(relationalSchemaPreview)} disabled={!hasLogicalModel}>
+                        {t("logical.designer.downloadRelationalSchema")}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-              <pre
-                className="designer-sql-output"
-                dangerouslySetInnerHTML={{ __html: highlightSql(sqlPreview, props.workspace.model) }}
-              />
+              {codePreviewMode === "sql" ? (
+                <pre
+                  className="designer-sql-output"
+                  dangerouslySetInnerHTML={{ __html: hasLogicalModel ? highlightSql(sqlPreview, props.workspace.model) : escapeHtml(t("logical.designer.noSql")) }}
+                />
+              ) : (
+                <pre className="designer-sql-output designer-relational-schema-output">
+                  {hasLogicalModel ? relationalSchemaPreview : t("logical.designer.noRelationalSchema")}
+                </pre>
+              )}
             </aside>
           ) : null}
 

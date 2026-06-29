@@ -4980,6 +4980,32 @@ textarea:disabled {
   text-transform: uppercase;
 }
 
+.designer-code-preview-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+}
+
+.designer-code-preview-tab {
+  border: 0;
+  background: transparent;
+  color: var(--editor-text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.designer-code-preview-tab.active {
+  background: var(--editor-panel);
+  color: var(--editor-text);
+  box-shadow: 0 0 0 1px var(--editor-border);
+}
+
 .designer-sql-actions {
   display: flex;
   gap: 6px;
@@ -4995,6 +5021,11 @@ textarea:disabled {
   padding: 4px 7px;
 }
 
+.designer-sql-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .designer-sql-actions select {
   max-width: 150px;
 }
@@ -5007,6 +5038,11 @@ textarea:disabled {
   font: 0.86rem/1.55 "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
   white-space: pre;
   tab-size: 2;
+}
+
+.designer-relational-schema-output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .sql-token-keyword {

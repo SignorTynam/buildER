@@ -3868,8 +3868,13 @@ textarea {
   }
 
   .designer-sql-dock-header,
+  .designer-code-preview-tabs,
   .designer-sql-actions {
     flex-wrap: wrap;
+  }
+
+  .designer-code-preview-tab {
+    min-height: 40px;
   }
 
   .designer-sql-actions button,
