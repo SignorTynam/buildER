@@ -4986,7 +4986,7 @@ textarea:disabled {
   gap: 3px;
   padding: 3px;
   border: 1px solid var(--editor-border);
-  background: var(--editor-panel-strong);
+  background: color-mix(in srgb, var(--editor-panel-strong) 86%, var(--studio-accent) 14%);
 }
 
 .designer-code-preview-tab {
@@ -5001,9 +5001,9 @@ textarea:disabled {
 }
 
 .designer-code-preview-tab.active {
-  background: var(--editor-panel);
-  color: var(--editor-text);
-  box-shadow: 0 0 0 1px var(--editor-border);
+  background: color-mix(in srgb, var(--studio-accent) 16%, var(--editor-panel) 84%);
+  color: var(--studio-accent-strong);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--studio-accent) 45%, var(--editor-border) 55%);
 }
 
 .designer-sql-actions {
@@ -5014,11 +5014,17 @@ textarea:disabled {
 .designer-sql-actions button,
 .designer-sql-actions select {
   border: 1px solid var(--editor-border);
-  background: var(--editor-panel-strong);
+  background: color-mix(in srgb, var(--editor-panel-strong) 88%, var(--studio-accent) 12%);
   color: var(--editor-text);
   font: inherit;
   font-size: 0.72rem;
   padding: 4px 7px;
+}
+
+.designer-sql-actions button:not(:disabled):hover,
+.designer-sql-actions select:hover {
+  border-color: color-mix(in srgb, var(--studio-accent) 55%, var(--editor-border) 45%);
+  color: var(--studio-accent-strong);
 }
 
 .designer-sql-actions button:disabled {
@@ -5043,6 +5049,41 @@ textarea:disabled {
 .designer-relational-schema-output {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.designer-relational-schema-table {
+  color: var(--studio-accent-strong);
+  font-weight: 700;
+}
+
+.designer-relational-schema-column {
+  color: var(--editor-text);
+}
+
+.designer-relational-schema-primary-key {
+  color: #0a5e74;
+  text-decoration-line: underline;
+  text-decoration-color: #0a5e74;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+  text-decoration-skip-ink: none;
+}
+
+.designer-relational-schema-foreign-key {
+  color: #7a3f00;
+}
+
+.designer-relational-schema-fk-separator {
+  color: var(--editor-text-muted);
+}
+
+.designer-relational-schema-fk-target {
+  color: #0076a8;
+  font-weight: 700;
+}
+
+.designer-relational-schema-punctuation {
+  color: var(--editor-text-muted);
 }
 
 .sql-token-keyword {

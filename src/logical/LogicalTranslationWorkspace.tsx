@@ -33,7 +33,11 @@ import {
   type LogicalColumnSqlPatch,
 } from "../utils/logicalSqlMetadata";
 import { LOGICAL_SQL_DIALECT_OPTIONS, generateLogicalSql, type LogicalSqlDialect } from "../utils/logicalSql";
-import { generateLogicalRelationalSchema } from "../utils/logicalRelationalSchema";
+import {
+  buildLogicalRelationalSchemaRows,
+  generateLogicalRelationalSchema,
+  type LogicalRelationalSchemaRow,
+} from "../utils/logicalRelationalSchema";
 import { EntityKeyChoicePreview } from "./EntityKeyChoicePreview";
 import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } from "./LogicalTransformationCanvas";
 import { StudioIcon } from "../components/icons/StudioIcon";
@@ -360,6 +364,41 @@ function downloadRelationalSchema(schema: string): void {
   window.URL.revokeObjectURL(url);
 }
 
+function renderRelationalSchemaRows(rows: LogicalRelationalSchemaRow[]): ReactNode {
+  return rows.map((row, rowIndex) => (
+    <span key={`${row.tableName}-${rowIndex}`} className="designer-relational-schema-row">
+      <span className="designer-relational-schema-table">{row.tableName}</span>
+      <span className="designer-relational-schema-punctuation">( </span>
+      {row.attributes.map((attribute, attributeIndex) => (
+        <span key={`${row.tableName}-${attribute.columnName}-${attributeIndex}`} className="designer-relational-schema-attribute">
+          <span
+            className={[
+              "designer-relational-schema-column",
+              attribute.isPrimaryKey ? "designer-relational-schema-primary-key" : "",
+              attribute.targetTableName ? "designer-relational-schema-foreign-key" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {attribute.columnName}
+          </span>
+          {attribute.targetTableName ? (
+            <>
+              <span className="designer-relational-schema-fk-separator">:</span>
+              <span className="designer-relational-schema-fk-target">{attribute.targetTableName}</span>
+            </>
+          ) : null}
+          {attributeIndex < row.attributes.length - 1 ? (
+            <span className="designer-relational-schema-punctuation">, </span>
+          ) : null}
+        </span>
+      ))}
+      <span className="designer-relational-schema-punctuation"> )</span>
+      {rowIndex < rows.length - 1 ? "\n\n" : null}
+    </span>
+  ));
+}
+
 function renameWithPrompt(label: string, currentValue: string, onRename: (nextValue: string) => void): void {
   const nextValue = window.prompt(label, currentValue)?.trim();
   if (nextValue && nextValue !== currentValue) {
@@ -438,6 +477,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   );
   const relationalSchemaPreview = useMemo(
     () => generateLogicalRelationalSchema(props.workspace.model),
+    [props.workspace.model],
+  );
+  const relationalSchemaRows = useMemo(
+    () => buildLogicalRelationalSchemaRows(props.workspace.model),
     [props.workspace.model],
   );
   const canvasViewMode = getLogicalCanvasViewMode(props.logicalStage);
@@ -1142,7 +1185,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                 />
               ) : (
                 <pre className="designer-sql-output designer-relational-schema-output">
-                  {hasLogicalModel ? relationalSchemaPreview : t("logical.designer.noRelationalSchema")}
+                  {hasLogicalModel ? renderRelationalSchemaRows(relationalSchemaRows) : t("logical.designer.noRelationalSchema")}
                 </pre>
               )}
             </aside>

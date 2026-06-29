@@ -4,6 +4,7 @@ import test from "node:test";
 
 import type { LogicalColumn, LogicalModel } from "../src/types/logical.ts";
 import {
+  buildLogicalRelationalSchemaRows,
   generateLogicalRelationalSchema,
   underlineRelationalIdentifier,
 } from "../src/utils/logicalRelationalSchema.ts";
@@ -202,11 +203,43 @@ test("handles missing foreign key mapping safely", () => {
   assert.doesNotMatch(schema, /undefined/);
 });
 
+test("builds structured rows so UI punctuation stays outside primary key styling", () => {
+  const model = createModel({
+    tables: [
+      {
+        id: "course",
+        name: "COURSE",
+        kind: "entity",
+        x: 0,
+        y: 0,
+        width: 180,
+        height: 120,
+        columns: [
+          createColumn("course-id", "id", { isPrimaryKey: true }),
+          createColumn("course-code", "code"),
+        ],
+      },
+    ],
+  });
+
+  assert.deepEqual(buildLogicalRelationalSchemaRows(model), [
+    {
+      tableName: "COURSE",
+      attributes: [
+        { columnName: "id", isPrimaryKey: true, targetTableName: undefined },
+        { columnName: "code", isPrimaryKey: false, targetTableName: undefined },
+      ],
+    },
+  ]);
+});
+
 test("logical workspace exposes relational schema preview controls", () => {
   const source = readFileSync(new URL("../src/logical/LogicalTranslationWorkspace.tsx", import.meta.url), "utf8");
 
   assert.match(source, /generateLogicalRelationalSchema/);
+  assert.match(source, /buildLogicalRelationalSchemaRows/);
   assert.match(source, /logical\.designer\.sqlTab/);
   assert.match(source, /logical\.designer\.relationalSchemaTab/);
   assert.match(source, /key: "relational-schema"/);
+  assert.match(source, /designer-relational-schema-primary-key/);
 });
