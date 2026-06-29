@@ -221,6 +221,15 @@ test("translation workspace uses centralized image export handlers", () => {
   assert.match(translationWorkspaceSource, /svgRef:\s*RefObject<SVGSVGElement>/);
   assert.doesNotMatch(translationWorkspaceSource, /useRef<SVGSVGElement/);
   assert.match(translationWorkspaceSource, /svgRef=\{props\.svgRef\}/);
+  assert.match(translationWorkspaceSource, /<FloatingExportMenu/);
+  assert.match(translationWorkspaceSource, /buttonRef=\{exportButtonRef\}/);
+  assert.match(translationWorkspaceSource, /ariaHasPopup="menu"/);
+  assert.match(translationWorkspaceSource, /key:\s*"png",\s*label:\s*t\("toolbar\.export\.png"\),\s*onClick:\s*props\.onExportPng/);
+  assert.match(translationWorkspaceSource, /key:\s*"jpeg",\s*label:\s*t\("toolbar\.export\.jpeg"\),\s*onClick:\s*props\.onExportJpeg/);
+  assert.match(translationWorkspaceSource, /key:\s*"svg",\s*label:\s*t\("toolbar\.export\.svg"\),\s*onClick:\s*props\.onExportSvg/);
+  assert.doesNotMatch(translationWorkspaceSource, /<ToolbarButton label=\{t\("logical\.export\.png"\)\}/);
+  assert.doesNotMatch(translationWorkspaceSource, /<ToolbarButton label=\{t\("logical\.export\.jpeg"\)\}/);
+  assert.doesNotMatch(translationWorkspaceSource, /<ToolbarButton label=\{t\("logical\.export\.svg"\)\}/);
   assert.match(appSource, /onExportPng=\{handleExportPng\}/);
   assert.match(appSource, /onExportJpeg=\{handleExportJpeg\}/);
   assert.match(appSource, /onExportSvg=\{handleExportSvg\}/);

@@ -1,5 +1,6 @@
-import { type ReactNode, type RefObject, useMemo, useState } from "react";
+import { type ReactNode, type RefObject, useMemo, useRef, useState } from "react";
 import { DiagramCanvas } from "../canvas/DiagramCanvas";
+import { FloatingExportMenu } from "../components/FloatingExportMenu";
 import type { DiagramDocument, DiagramEdge, DiagramHighlights, SelectionState, Viewport } from "../types/diagram";
 import type { ErTranslationChoice, ErTranslationItem, ErTranslationWorkspaceDocument } from "../types/translation";
 import {
@@ -139,15 +140,21 @@ function ToolbarButton(props: {
   disabled?: boolean;
   title?: string;
   active?: boolean;
+  buttonRef?: RefObject<HTMLButtonElement>;
+  ariaHasPopup?: "menu";
+  ariaExpanded?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      ref={props.buttonRef}
       className={props.active ? "designer-toolbar-button active" : "designer-toolbar-button"}
       disabled={props.disabled}
       title={props.title}
       onClick={props.onClick}
+      aria-haspopup={props.ariaHasPopup}
+      aria-expanded={props.ariaExpanded}
     >
       <span className="designer-toolbar-icon" aria-hidden="true">{props.icon}</span>
       <span className="designer-toolbar-label">{props.label}</span>
@@ -159,6 +166,8 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const { t } = useI18n();
   const [canvasStatus, setCanvasStatus] = useState("");
   const [fixOpen, setFixOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
   const overview = useMemo(() => buildErTranslationOverview(props.workspace), [props.workspace]);
   const logicalAccess = useMemo(() => canOpenLogicalView(props.workspace), [props.workspace]);
   const selectedItem = useMemo(
@@ -215,11 +224,29 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
             onClick={props.onOpenLogical}
           />
           <span className="designer-toolbar-separator designer-toolbar-spacer" aria-hidden="true" />
-          <ToolbarButton label={t("translation.restructuring.export")} icon={<StudioIcon name="export" />} onClick={props.onExportProject} />
-          <ToolbarButton label={t("logical.export.png")} icon={<StudioIcon name="export" />} onClick={props.onExportPng} />
-          <ToolbarButton label={t("logical.export.jpeg")} icon={<StudioIcon name="export" />} onClick={props.onExportJpeg} />
-          <ToolbarButton label={t("logical.export.svg")} icon={<StudioIcon name="export" />} onClick={props.onExportSvg} />
+          <ToolbarButton
+            label={t("translation.restructuring.export")}
+            icon={<StudioIcon name="export" />}
+            active={exportMenuOpen}
+            onClick={() => setExportMenuOpen((current) => !current)}
+            buttonRef={exportButtonRef}
+            ariaHasPopup="menu"
+            ariaExpanded={exportMenuOpen}
+          />
         </div>
+
+        <FloatingExportMenu
+          open={exportMenuOpen}
+          anchorRef={exportButtonRef}
+          ariaLabel={t("toolbar.export.aria")}
+          onClose={() => setExportMenuOpen(false)}
+          items={[
+            { key: "project", label: t("toolbar.export.project"), onClick: props.onExportProject },
+            { key: "png", label: t("toolbar.export.png"), onClick: props.onExportPng },
+            { key: "jpeg", label: t("toolbar.export.jpeg"), onClick: props.onExportJpeg },
+            { key: "svg", label: t("toolbar.export.svg"), onClick: props.onExportSvg },
+          ]}
+        />
 
         <button
           type="button"
