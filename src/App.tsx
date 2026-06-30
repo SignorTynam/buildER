@@ -3198,7 +3198,7 @@ export default function App() {
       setDiagramView("translation");
       setStatus(choice.summary);
     } catch (error) {
-      setStatusWarning(error instanceof Error ? error.message : "Decisione di ristrutturazione non applicabile.");
+      setStatusWarning(error instanceof Error ? error.message : t("workspace.errors.erTranslationDecisionNotApplicable"));
     }
   }
 
@@ -3213,7 +3213,11 @@ export default function App() {
     );
     commitLogicalWorkspace(nextWorkspace, previousWorkspace);
     setDiagramView("logical");
-    showLogicalStageAfterFix(nextWorkspace, choice.summary, `${choice.summary} Schema logico attivo.`);
+    showLogicalStageAfterFix(
+      nextWorkspace,
+      choice.summary,
+      t("workspace.logicalSchemaActiveAfterFix", { summary: choice.summary }),
+    );
   }
 
   async function handleNewProject() {
@@ -4512,9 +4516,9 @@ export default function App() {
     ) {
       setStatusError(
         buildStructuredErrorMessage(
-          "la modifica dell'attributo non e stata applicata",
-          "un attributo collegato a un'associazione non puo diventare identificatore",
-          "rimuovi il collegamento con l'associazione o disattiva il flag identificatore",
+          t("workspace.errors.attributeRelationshipIdentifierNotApplied.what"),
+          t("workspace.errors.attributeRelationshipIdentifierNotApplied.why"),
+          t("workspace.errors.attributeRelationshipIdentifierNotApplied.how"),
         ),
       );
       return;
@@ -4556,9 +4560,9 @@ export default function App() {
         if (!canAttributeBecomeComposite(workingDiagram, currentNode)) {
           setStatusError(
             buildStructuredErrorMessage(
-              "la modifica dell'attributo non e stata applicata",
-              `l'attributo "${currentNode.label}" appartiene gia a un attributo composto e non puo diventare composto`,
-              "usa come composto solo attributi collegati direttamente a entita o relazioni",
+              t("workspace.errors.attributeCompositeNotApplied.what"),
+              t("workspace.errors.attributeCompositeNotApplied.why", { label: currentNode.label }),
+              t("workspace.errors.attributeCompositeNotApplied.how"),
             ),
           );
           return;
@@ -6229,7 +6233,7 @@ export default function App() {
                 </span>
                 <div>
                   <h2 id="errors-dialog-title">Errors</h2>
-                  <p>{issues.filter(issueTargetExists).length} warning/errori nel diagramma</p>
+                  <p>{t("errors.issueCount", { count: issues.filter(issueTargetExists).length })}</p>
                 </div>
               </div>
               <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)} aria-label={t("errors.closeAria")}>
@@ -6243,19 +6247,19 @@ export default function App() {
                   className={["errors-modal-diagnostics-toggle", showDiagnostics ? "active" : ""].filter(Boolean).join(" ")}
                   onClick={handleToggleDiagnosticsVisibility}
                   aria-pressed={showDiagnostics}
-                  aria-label={showDiagnostics ? "Nascondi diagnostica sul canvas" : "Mostra diagnostica sul canvas"}
+                  aria-label={showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}
                 >
                   <StudioIcon
                     name={showDiagnostics ? "viewOn" : "viewOff"}
                     className="errors-modal-diagnostics-icon"
                     aria-hidden="true"
                   />
-                  <span>Mostra diagnostica sul canvas</span>
+                  <span>{showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}</span>
                 </button>
               </div>
               {!showDiagnostics && issues.filter(issueTargetExists).length > 0 ? (
                 <p className="errors-modal-note">
-                  Gli indicatori sul canvas sono nascosti; la validazione resta attiva.
+                  {t("errors.diagnostics.hiddenNote")}
                 </p>
               ) : null}
               {issues.filter(issueTargetExists).length === 0 ? (

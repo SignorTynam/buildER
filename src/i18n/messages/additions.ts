@@ -42,6 +42,29 @@ export const messageAdditions = {
       export: { aria: "Esporta ER", project: "Progetto buildER", diagramCode: "Codice diagramma", png: "PNG", jpeg: "JPEG", svg: "SVG" },
     },
     codePanel: { closeAria: "Chiudi codice ERS" },
+    workspaceStage: {
+      aria: "Workflow di modellazione",
+      er: "Modello ER",
+      translation: "Traduzione",
+      logical: "Schema logico",
+      logicalOutdated: "Schema logico da riallineare",
+    },
+    workspace: {
+      logicalSchemaActiveAfterFix: "{{summary}} Schema logico attivo.",
+      errors: {
+        erTranslationDecisionNotApplicable: "Decisione di ristrutturazione non applicabile.",
+        attributeCompositeNotApplied: {
+          what: "la modifica dell'attributo non e stata applicata",
+          why: "l'attributo \"{{label}}\" appartiene gia a un attributo composto e non puo diventare composto",
+          how: "usa come composto solo attributi collegati direttamente a entita o relazioni",
+        },
+        attributeRelationshipIdentifierNotApplied: {
+          what: "la modifica dell'attributo non e stata applicata",
+          why: "un attributo collegato a un'associazione non puo diventare identificatore",
+          how: "rimuovi il collegamento con l'associazione o disattiva il flag identificatore",
+        },
+      },
+    },
     notesPanel: {
       toolbar: {
         bold: "Grassetto", italic: "Corsivo", underline: "Sottolineato", strike: "Barrato", quote: "Citazione", codeBlock: "Blocco codice",
@@ -61,6 +84,12 @@ export const messageAdditions = {
         defaultHow: "controlla i dati e riprova",
       },
       rawFallbackHow: "controlla i dati inseriti e riprova",
+      issueCount: "{{count}} warning/errori nel diagramma",
+      diagnostics: {
+        show: "Mostra diagnostica sul canvas",
+        hide: "Nascondi diagnostica sul canvas",
+        hiddenNote: "Gli indicatori sul canvas sono nascosti; la validazione resta attiva.",
+      },
       ers: { defaultReason: "codice ERS non valido", what: "il codice ERS non è stato applicato", how: "correggi la riga indicata e riprova" },
       projectFile: {
         what: "il file progetto non è stato caricato",
@@ -180,6 +209,8 @@ export const messageAdditions = {
         next: "Prossima",
         completeEveryChoice: "Completa una scelta per ogni entità.",
         applyFixEntities: "Applica Fix Entities",
+        previewAria: "Preview della chiave primaria per {{entity}}",
+        noColumns: "Nessuna colonna disponibile",
       },
     },
   },
@@ -204,6 +235,29 @@ export const messageAdditions = {
       export: { aria: "Export ER", project: "buildER Project", diagramCode: "Diagram Code", png: "PNG", jpeg: "JPEG", svg: "SVG" },
     },
     codePanel: { closeAria: "Close ERS code" },
+    workspaceStage: {
+      aria: "Modeling workflow",
+      er: "ER model",
+      translation: "Translation",
+      logical: "Logical schema",
+      logicalOutdated: "Logical schema needs realignment",
+    },
+    workspace: {
+      logicalSchemaActiveAfterFix: "{{summary}} Logical schema active.",
+      errors: {
+        erTranslationDecisionNotApplicable: "Restructuring decision cannot be applied.",
+        attributeCompositeNotApplied: {
+          what: "the attribute change was not applied",
+          why: "attribute \"{{label}}\" already belongs to a composite attribute and cannot become composite",
+          how: "use composite mode only for attributes connected directly to entities or relationships",
+        },
+        attributeRelationshipIdentifierNotApplied: {
+          what: "the attribute change was not applied",
+          why: "an attribute linked to a relationship cannot become an identifier",
+          how: "remove the relationship link or disable the identifier flag",
+        },
+      },
+    },
     notesPanel: {
       toolbar: { bold: "Bold", italic: "Italic", underline: "Underline", strike: "Strikethrough", quote: "Quote", codeBlock: "Code block", heading1: "Heading 1", heading2: "Heading 2", paragraph: "Paragraph", orderedList: "Ordered list", unorderedList: "Unordered list", subscript: "Subscript", superscript: "Superscript", alignLeft: "Align left", alignCenter: "Align center", alignRight: "Align right", clearFormatting: "Clear formatting", link: "Link", image: "Image", hide: "Hide" },
       prompts: { linkUrl: "URL", imageUrl: "Image URL" },
@@ -213,6 +267,12 @@ export const messageAdditions = {
       empty: "No error or warning in the diagram.",
       structured: { template: "Error: {{what}} because {{why}}; to fix it, {{how}}.", defaultWhat: "operation not completed", defaultWhy: "an unspecified problem occurred", defaultHow: "check the data and try again" },
       rawFallbackHow: "check the entered data and try again",
+      issueCount: "{{count}} warnings/errors in the diagram",
+      diagnostics: {
+        show: "Show diagnostics on canvas",
+        hide: "Hide diagnostics on canvas",
+        hiddenNote: "Canvas indicators are hidden; validation remains active.",
+      },
       ers: { defaultReason: "invalid ERS code", what: "the ERS code was not applied", how: "fix the indicated line and try again" },
       projectFile: { what: "the project file was not loaded", why: "an unexpected problem occurred during import", how: "check the selected file and try again" },
     },
@@ -249,7 +309,7 @@ export const messageAdditions = {
       toolbars: { translationTools: "Logical translation tools", schemaTools: "Logical schema tools", sqlDialect: "SQL dialect" },
       export: { aria: "Logical export", project: "buildER Project", sql: "SQL", relationalSchema: "Relational schema", png: "PNG", jpeg: "JPEG", svg: "SVG" },
       designer: { sqlTab: "SQL", relationalSchemaTab: "Relational schema", copyRelationalSchema: "Copy schema", downloadRelationalSchema: "Download schema", noRelationalSchema: "No relational schema available.", showForeignKeys: "Show FK", hideForeignKeys: "Hide FK", showForeignKeyLabelsTitle: "Show foreign key labels", hideForeignKeyLabelsTitle: "Hide foreign key labels" },
-      entityKeyModal: { title: "Choose primary key", description: "Select which identifier becomes the PK. Other candidate identifiers will be translated as UNIQUE NOT NULL.", page: "Entity {{current}} of {{total}}", completed: "{{completed}} choices completed of {{total}}", cancelChoiceAria: "Cancel primary key choice", currentEntity: "Current entity", candidateIdentifiers: { one: "one candidate identifier", other: "{{count}} candidate identifiers" }, choiceResult: "Choice result", noAlternative: "No alternative", appliesTo: "This alternative will be applied to {{entity}}.", previewFirst: "Preview of the first alternative. Select a card on the left to confirm.", allReady: "All entities are ready for conversion.", entityCompleted: "{{entity}} completed.", selectForEntity: "Select a primary key for {{entity}}.", selectForEveryEntity: "Select a primary key for every entity.", previous: "Previous", next: "Next", completeEveryChoice: "Complete one choice for every entity.", applyFixEntities: "Apply Fix Entities" },
+      entityKeyModal: { title: "Choose primary key", description: "Select which identifier becomes the PK. Other candidate identifiers will be translated as UNIQUE NOT NULL.", page: "Entity {{current}} of {{total}}", completed: "{{completed}} choices completed of {{total}}", cancelChoiceAria: "Cancel primary key choice", currentEntity: "Current entity", candidateIdentifiers: { one: "one candidate identifier", other: "{{count}} candidate identifiers" }, choiceResult: "Choice result", noAlternative: "No alternative", appliesTo: "This alternative will be applied to {{entity}}.", previewFirst: "Preview of the first alternative. Select a card on the left to confirm.", allReady: "All entities are ready for conversion.", entityCompleted: "{{entity}} completed.", selectForEntity: "Select a primary key for {{entity}}.", selectForEveryEntity: "Select a primary key for every entity.", previous: "Previous", next: "Next", completeEveryChoice: "Complete one choice for every entity.", applyFixEntities: "Apply Fix Entities", previewAria: "Primary key preview for {{entity}}", noColumns: "No columns available" },
     },
   },
   sq: {
@@ -260,12 +320,35 @@ export const messageAdditions = {
       export: { aria: "Eksporto ER", project: "Projekt buildER", diagramCode: "Kodi i diagramit", png: "PNG", jpeg: "JPEG", svg: "SVG" },
     },
     codePanel: { closeAria: "Mbyll kodin ERS" },
+    workspaceStage: {
+      aria: "Rrjedha e modelimit",
+      er: "Modeli ER",
+      translation: "Perkthim",
+      logical: "Skema logjike",
+      logicalOutdated: "Skema logjike duhet rirreshtuar",
+    },
+    workspace: {
+      logicalSchemaActiveAfterFix: "{{summary}} Skema logjike aktive.",
+      errors: {
+        erTranslationDecisionNotApplicable: "Vendimi i ristrukturimit nuk mund te aplikohet.",
+        attributeCompositeNotApplied: {
+          what: "ndryshimi i atributit nuk u aplikua",
+          why: "atributi \"{{label}}\" i perket tashme nje atributi te perbere dhe nuk mund te behet i perbere",
+          how: "perdor menyren e perbere vetem per atribute te lidhura direkt me entitete ose marredhenie",
+        },
+        attributeRelationshipIdentifierNotApplied: {
+          what: "ndryshimi i atributit nuk u aplikua",
+          why: "nje atribut i lidhur me nje marredhenie nuk mund te behet identifikues",
+          how: "hiq lidhjen me marredhenien ose caktivizo flag-un identifikues",
+        },
+      },
+    },
     notesPanel: { toolbar: { bold: "Trashë", italic: "Kursive", underline: "Nënvizuar", strike: "Vijë në mes", quote: "Citim", codeBlock: "Bllok kodi", heading1: "Titull 1", heading2: "Titull 2", paragraph: "Paragraf", orderedList: "Listë e numëruar", unorderedList: "Listë me pika", subscript: "Nënshkrim", superscript: "Mbishkrim", alignLeft: "Rreshto majtas", alignCenter: "Rreshto në qendër", alignRight: "Rreshto djathtas", clearFormatting: "Hiq formatimin", link: "Lidhje", image: "Imazh", hide: "Fshih" }, prompts: { linkUrl: "URL", imageUrl: "URL e imazhit" } },
-    errors: { closeAria: "Mbyll gabimet dhe paralajmërimet", empty: "Nuk ka gabim ose paralajmërim në diagram.", structured: { template: "Gabim: {{what}} sepse {{why}}; për ta zgjidhur, {{how}}.", defaultWhat: "operacioni nuk u përfundua", defaultWhy: "ndodhi një problem i paspecifikuar", defaultHow: "kontrollo të dhënat dhe provo përsëri" }, rawFallbackHow: "kontrollo të dhënat e futura dhe provo përsëri", ers: { defaultReason: "kod ERS i pavlefshëm", what: "kodi ERS nuk u aplikua", how: "korrigjo rreshtin e treguar dhe provo përsëri" }, projectFile: { what: "skedari i projektit nuk u ngarkua", why: "ndodhi një problem i papritur gjatë importimit", how: "kontrollo skedarin e zgjedhur dhe provo përsëri" } },
+    errors: { closeAria: "Mbyll gabimet dhe paralajmërimet", empty: "Nuk ka gabim ose paralajmërim në diagram.", structured: { template: "Gabim: {{what}} sepse {{why}}; për ta zgjidhur, {{how}}.", defaultWhat: "operacioni nuk u përfundua", defaultWhy: "ndodhi një problem i paspecifikuar", defaultHow: "kontrollo të dhënat dhe provo përsëri" }, rawFallbackHow: "kontrollo të dhënat e futura dhe provo përsëri", issueCount: "{{count}} paralajmerime/gabime ne diagram", diagnostics: { show: "Shfaq diagnostiken ne canvas", hide: "Fshih diagnostiken ne canvas", hiddenNote: "Indikatoret ne canvas jane fshehur; validimi mbetet aktiv." }, ers: { defaultReason: "kod ERS i pavlefshëm", what: "kodi ERS nuk u aplikua", how: "korrigjo rreshtin e treguar dhe provo përsëri" }, projectFile: { what: "skedari i projektit nuk u ngarkua", why: "ndodhi një problem i papritur gjatë importimit", how: "kontrollo skedarin e zgjedhur dhe provo përsëri" } },
     connection: { errors: { self: "Nuk mund ta lidhësh një element me veten.", twoEntities: "Dy entitete nuk lidhen drejtpërdrejt: vendos një marrëdhënie midis tyre.", twoRelationships: "Dy marrëdhënie nuk lidhen drejtpërdrejt me lidhje Chen.", attributeNeedsAttributeTool: "Për një atribut përdor mjetin Atribut, jo Lidhje.", invalidConnector: "Lidhje e pavlefshme midis {{sourceKind}} dhe {{targetKind}}: lidhja Chen kërkon një entitet dhe një marrëdhënie.", inheritanceNeedsEntities: "Përgjithësimi kërkon dy entitete. Ke zgjedhur {{sourceKind}} dhe {{targetKind}}.", attributeNeedsOneAttribute: "Lidhja e atributit kërkon të paktën një atribut. Ke zgjedhur {{sourceKind}} dhe {{targetKind}}.", invalidAttributeConnection: "Një atribut mund të lidhet vetëm me entitet, marrëdhënie ose atribut. Ke zgjedhur {{sourceKind}} dhe {{targetKind}}." } },
     cardinalityModal: { badge: { newConnector: "Lidhje e re", edit: "Ndrysho" }, title: "Konfiguro kardinalitetin", primary: { createConnector: "Krijo lidhje", save: "Ruaj kardinalitetin" }, cancel: "Anulo", visual: { entityFallback: "Entitet", relationshipFallback: "Marrëdhënie", cardinality: "kardinalitet" }, presets: { aria: "Preset-et e kardinalitetit", optionalMaxOne: "opsionale, maksimumi një", requiredOne: "e detyrueshme, vetëm një", optionalMany: "opsionale, shumë", requiredMany: "e detyrueshme, shumë" }, custom: { label: "E personalizuar", aria: "Kardinalitet i personalizuar", help: "Pranon forma si 0,N, (1,N) ose 1..4." }, subtitle: { attributeWithLabel: "Vendos kardinalitetin e atributit {{label}}", attributeSelected: "Vendos kardinalitetin e atributit të zgjedhur", completeConnectorWithLabels: "Plotëso lidhjen midis {{source}} dhe {{target}}", completeConnector: "Plotëso lidhjen e re", editConnectorWithLabels: "Ndrysho pjesëmarrjen e {{source}} në {{target}}", editConnector: "Ndrysho kardinalitetin e lidhjes" } },
     sqlReverse: { input: { title: "Reverse Engineering SQL", betaBadge: "Beta", betaDescription: "Kjo veçori është në beta. Aktualisht mbështet vetëm instruksione CREATE TABLE. Konstrukte të tjera SQL do të mbështeten në versionin final.", closeAria: "Mbyll rrjedhën SQL reverse", sourceLabel: "Skema SQL", sourceAria: "Skemë SQL CREATE TABLE", errorTitle: "Gabim", warningTitle: "Paralajmërim", warningSummary: { one: "SQL u analizua me një paralajmërim jo bllokues.", other: "SQL u analizua me {{count}} paralajmërime jo bllokuese." }, summaryAria: "Përmbledhje e analizës SQL", tablesCount: { one: "tabelë", other: "tabela" }, unsupportedStatementsCount: { one: "statement i pambështetur", other: "statement-e të pambështetura" }, sqlIssuesCount: { one: "issue SQL", other: "issue SQL" }, logicalIssuesCount: { one: "issue logjike", other: "issue logjike" }, sqlIssuesAria: "Issue SQL", logicalIssuesAria: "Issue logjike", loadSql: "Ngarko .sql", loadSqlAria: "Ngarko skedar SQL", clear: "Pastro", cancel: "Anulo", analyze: "Analizo SQL" }, preview: { ribbon: "PARAPAMJE", back: "Prapa", cancelImport: "Anulo importin", done: "Përfundo", erReady: "Parapamja ER është gati.", readOnly: "Parapamje vetëm për lexim.", logicalTitle: "Parapamje logjike", erTitle: "Parapamje konceptuale ER", logicalSubtitle: "Hapi 2 nga 3 - Tabela, çelësa dhe kufizime nga CREATE TABLE.", erSubtitle: "Hapi 3 nga 3 - Diagram ER i gjeneruar nga skema SQL.", applyLogical: "Vazhdo", applyEr: "Përfundo" }, app: { onlyErView: "Reverse Engineering SQL është i disponueshëm vetëm në pamjen ER.", importCancelled: "Importi SQL u anulua.", betaCreateTableOnly: "Beta pranon vetëm CREATE TABLE. Hiq statement-et e pambështetura dhe provo përsëri.", sqlNotImportable: "SQL nuk mund të importohet: korrigjo gabimet e listuara.", analyzedWithWarnings: "SQL u analizua me paralajmërime. Parapamja logjike është gati.", analyzedTables: { one: "SQL u analizua: u njoh një tabelë.", other: "SQL u analizua: u njohën {{count}} tabela." }, analysisError: "Gabim gjatë analizës SQL.", logicalPreviewReady: "Parapamja logjike është gati.", previewUnavailable: "Parapamja SQL nuk është e disponueshme.", confirmImportTitle: "Importo diagram nga SQL", confirmImportMessage: "Diagrami aktual do të zëvendësohet nga diagrami i gjeneruar nga skema SQL. Të vazhdoj?", confirmImport: "Importo", importedWithWarnings: { one: "Diagrami ER u importua nga SQL me një paralajmërim.", other: "Diagrami ER u importua nga SQL me {{count}} paralajmërime." }, importedTables: { one: "Diagrami ER u importua nga SQL: u njoh një tabelë.", other: "Diagrami ER u importua nga SQL: u njohën {{count}} tabela." }, emptyFile: "Skedari SQL i ngarkuar është bosh.", fileNotCreateTable: "Skedari i ngarkuar: përmbajtja nuk duket si skemë SQL CREATE TABLE.", fileLoaded: "Skedari SQL u ngarkua: {{fileName}}.", fileReadError: "Nuk mund të lexohet skedari SQL.", cleared: "Importi SQL u pastrua." } },
     canvas: { externalIdentifier: { importsFrom: "Importo {{attributes}} nga {{entity}}" } },
-    logical: { toolbars: { translationTools: "Mjete përkthimi logjik", schemaTools: "Mjete të skemës logjike", sqlDialect: "Dialekti SQL" }, export: { aria: "Eksport logjik", project: "Projekt buildER", sql: "SQL", relationalSchema: "Skema relacionale", png: "PNG", jpeg: "JPEG", svg: "SVG" }, designer: { sqlTab: "SQL", relationalSchemaTab: "Skema relacionale", copyRelationalSchema: "Kopjo skemën", downloadRelationalSchema: "Shkarko skemën", noRelationalSchema: "Nuk ka skemë relacionale të disponueshme.", showForeignKeys: "Shfaq FK", hideForeignKeys: "Fshih FK", showForeignKeyLabelsTitle: "Shfaq etiketat e foreign key", hideForeignKeyLabelsTitle: "Fshih etiketat e foreign key" }, entityKeyModal: { title: "Zgjidh çelësin primar", description: "Zgjidh cili identifikues bëhet PK. Identifikuesit e tjerë kandidatë do të përkthehen si UNIQUE NOT NULL.", page: "Entiteti {{current}} nga {{total}}", completed: "{{completed}} zgjedhje të përfunduara nga {{total}}", cancelChoiceAria: "Anulo zgjedhjen e çelësit primar", currentEntity: "Entiteti aktual", candidateIdentifiers: { one: "një identifikues kandidat", other: "{{count}} identifikues kandidatë" }, choiceResult: "Rezultati i zgjedhjes", noAlternative: "Asnjë alternativë", appliesTo: "Kjo alternativë do të aplikohet te {{entity}}.", previewFirst: "Parapamje e alternativës së parë. Zgjidh një kartë majtas për ta konfirmuar.", allReady: "Të gjitha entitetet janë gati për konvertim.", entityCompleted: "{{entity}} u përfundua.", selectForEntity: "Zgjidh një çelës primar për {{entity}}.", selectForEveryEntity: "Zgjidh një çelës primar për çdo entitet.", previous: "I mëparshëm", next: "Tjetri", completeEveryChoice: "Plotëso një zgjedhje për çdo entitet.", applyFixEntities: "Apliko rregullimin e entiteteve" } },
+    logical: { toolbars: { translationTools: "Mjete përkthimi logjik", schemaTools: "Mjete të skemës logjike", sqlDialect: "Dialekti SQL" }, export: { aria: "Eksport logjik", project: "Projekt buildER", sql: "SQL", relationalSchema: "Skema relacionale", png: "PNG", jpeg: "JPEG", svg: "SVG" }, designer: { sqlTab: "SQL", relationalSchemaTab: "Skema relacionale", copyRelationalSchema: "Kopjo skemën", downloadRelationalSchema: "Shkarko skemën", noRelationalSchema: "Nuk ka skemë relacionale të disponueshme.", showForeignKeys: "Shfaq FK", hideForeignKeys: "Fshih FK", showForeignKeyLabelsTitle: "Shfaq etiketat e foreign key", hideForeignKeyLabelsTitle: "Fshih etiketat e foreign key" }, entityKeyModal: { title: "Zgjidh çelësin primar", description: "Zgjidh cili identifikues bëhet PK. Identifikuesit e tjerë kandidatë do të përkthehen si UNIQUE NOT NULL.", page: "Entiteti {{current}} nga {{total}}", completed: "{{completed}} zgjedhje të përfunduara nga {{total}}", cancelChoiceAria: "Anulo zgjedhjen e çelësit primar", currentEntity: "Entiteti aktual", candidateIdentifiers: { one: "një identifikues kandidat", other: "{{count}} identifikues kandidatë" }, choiceResult: "Rezultati i zgjedhjes", noAlternative: "Asnjë alternativë", appliesTo: "Kjo alternativë do të aplikohet te {{entity}}.", previewFirst: "Parapamje e alternativës së parë. Zgjidh një kartë majtas për ta konfirmuar.", allReady: "Të gjitha entitetet janë gati për konvertim.", entityCompleted: "{{entity}} u përfundua.", selectForEntity: "Zgjidh një çelës primar për {{entity}}.", selectForEveryEntity: "Zgjidh një çelës primar për çdo entitet.", previous: "I mëparshëm", next: "Tjetri", completeEveryChoice: "Plotëso një zgjedhje për çdo entitet.", applyFixEntities: "Apliko rregullimin e entiteteve", previewAria: "Parapamje e çelësit primar për {{entity}}", noColumns: "Nuk ka kolona të disponueshme" } },
   },
 } as const;

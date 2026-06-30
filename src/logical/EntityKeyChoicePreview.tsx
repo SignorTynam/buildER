@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import type { DiagramDocument } from "../types/diagram";
 import type { LogicalTranslationChoice } from "../types/logical";
+import { t } from "../i18n";
 import type { LogicalEntityKeySelectionRequest } from "../utils/logicalTranslation";
 import {
   buildEntityKeyChoicePreviewData,
@@ -122,7 +123,7 @@ function renderLogicalTableSvg(options: {
         );
       }) : (
         <text className="entity-key-preview-empty" x={options.x + options.width / 2} y={options.y + headerHeight + 23} textAnchor="middle">
-          Nessuna colonna disponibile
+          {t("logical.entityKeyModal.noColumns")}
         </text>
       )}
     </g>
@@ -145,7 +146,7 @@ export function EntityKeyChoicePreview(props: EntityKeyChoicePreviewProps) {
   const edgeMidX = (hostX + hostWidth + sourceX) / 2;
 
   return (
-    <div className="entity-key-preview" aria-label={`Preview della chiave primaria per ${preview.hostEntityLabel}`}>
+    <div className="entity-key-preview" aria-label={t("logical.entityKeyModal.previewAria", { entity: preview.hostEntityLabel })}>
       <div className="entity-key-preview-diagram entity-key-preview-logical-stage">
         <svg className="entity-key-preview-svg" viewBox="0 0 640 360" role="img" aria-label={preview.summary}>
           <defs>

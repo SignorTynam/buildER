@@ -1,4 +1,5 @@
 import type { WorkspaceView } from "../types/translation";
+import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
 
 interface WorkspaceStageBarProps {
@@ -25,8 +26,10 @@ function StageIcon({ stage }: { stage: "er" | "translation" | "logical" }) {
 }
 
 export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
+  const { t } = useI18n();
+
   return (
-    <nav className="workspace-stage-bar" aria-label="Workflow di modellazione">
+    <nav className="workspace-stage-bar" aria-label={t("workspaceStage.aria")}>
       <div className="workspace-stage-tabs">
         <button
           type="button"
@@ -35,7 +38,7 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
           aria-current={props.currentView === "er" ? "page" : undefined}
         >
           <StageIcon stage="er" />
-          <span className="workspace-stage-tab-label">Modello ER</span>
+          <span className="workspace-stage-tab-label">{t("workspaceStage.er")}</span>
           {props.erIssuesCount > 0 && (
             <span className="workspace-stage-badge workspace-stage-badge-warning">{props.erIssuesCount}</span>
           )}
@@ -52,7 +55,7 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
           aria-current={props.currentView === "translation" ? "page" : undefined}
         >
           <StageIcon stage="translation" />
-          <span className="workspace-stage-tab-label">Traduzione</span>
+          <span className="workspace-stage-tab-label">{t("workspaceStage.translation")}</span>
           {props.translationPendingCount > 0 && (
             <span className="workspace-stage-badge">{props.translationPendingCount}</span>
           )}
@@ -67,10 +70,10 @@ export function WorkspaceStageBar(props: WorkspaceStageBarProps) {
           className={`workspace-stage-tab ${props.currentView === "logical" ? "active" : ""}`}
           onClick={props.onOpenLogical}
           aria-current={props.currentView === "logical" ? "page" : undefined}
-          title={props.logicalOutOfDate ? "Schema logico da riallineare" : undefined}
+          title={props.logicalOutOfDate ? t("workspaceStage.logicalOutdated") : undefined}
         >
           <StageIcon stage="logical" />
-          <span className="workspace-stage-tab-label">Schema logico</span>
+          <span className="workspace-stage-tab-label">{t("workspaceStage.logical")}</span>
           {props.logicalPendingCount > 0 && (
             <span className="workspace-stage-badge">{props.logicalPendingCount}</span>
           )}
