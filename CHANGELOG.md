@@ -15,6 +15,33 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [6.2] - 2026-06-30
+
+### Added
+- Major update b: aggiunta nuova entry `impact: "major"` nel changelog applicativo e nell'annuncio versione.
+- Aggiunto versioning locale dei progetti `.ersp` con cronologia commit, snapshot completi, HEAD e stato working copy.
+- Aggiunto pannello Versioni progetto con creazione commit inline, messaggi suggeriti, stato clean/dirty e badge HEAD.
+- Aggiunto diff strutturato tra versioni per schema ER, layout, modello logico, codice ERS e stato workspace.
+- Aggiunto ripristino protetto delle versioni con backup automatico dello stato corrente prima del restore.
+- Aggiunto confronto visuale full-screen tra due snapshot con workspace affiancati in sola lettura.
+- Aggiunte evidenziazioni visuali per elementi aggiunti, rimossi, modificati e variazioni di layout nelle viste ER e logica.
+- Aggiunto export dello schema relazionale, con azioni dedicate di copia/download nella vista logica.
+- Aggiunto menu export flottante con formati PNG, JPEG, SVG, ERS, progetto e schema relazionale.
+
+### Changed
+- Versione applicativa aggiornata a buildER 6.2 in `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README, changelog e changelog localizzato.
+- Il formato progetto `.ersp` ora conserva anche cronologia versioni, snapshot, impostazioni di versioning e stato del workspace.
+- La UI di confronto versioni sostituisce la vecchia modal con un ambiente di comparazione full-screen piu leggibile.
+- Rendering e stile dello schema relazionale migliorati per lettura, export e integrazione con il dock tecnico.
+- Export e stampa hanno stili piu coerenti, formati aggiuntivi e comportamento piu uniforme tra viste ER e logiche.
+- Standardizzato il border radius dei componenti UI per rendere modali, pannelli, toolbar e card piu coerenti.
+
+### Fixed
+- Corretto il ripristino delle versioni per evitare perdita dello stato corrente grazie al backup automatico.
+- Corretto il confronto visuale quando una snapshot non contiene vista Traduzione o schema logico salvati.
+- Corretto il rendering dei cambiamenti di layout e degli elementi focalizzati durante il confronto tra versioni.
+- Corrette regressioni di export, comandi non applicabili e compatibilita dei vecchi file progetto senza versioning.
+
 ## [6.1] - 2026-06-26
 
 ### Added

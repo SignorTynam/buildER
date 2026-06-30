@@ -304,8 +304,8 @@ const APP_MODAL_I18N_KEYS = [
   "about.sections.tools.items.shortcuts",
   "about.sections.code.items.live",
   "about.sections.notation.items.available",
-  "changelog.entries.v6_1.hero.title",
-  "changelog.entries.v6_1.highlights.code.description",
+  "changelog.entries.v6_2.hero.title",
+  "changelog.entries.v6_2.highlights.code.description",
   "changelog.entries.generic.updates.0",
 ] as const;
 const APP_STATUS_I18N_KEYS = [

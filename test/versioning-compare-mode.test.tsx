@@ -110,7 +110,7 @@ test("VersionCompareMode sostituisce la modal con due workspace full-screen", ()
   const markup = renderWithI18n(
     <VersionCompareMode
       appTitle="buildER"
-      appVersion="6.1"
+      appVersion="6.2"
       versioning={versioning}
       currentSnapshot={createSnapshot("Visual changed", "changed")}
       initialLeft={{ kind: "commit", commitId: "commit-base" }}
@@ -123,7 +123,7 @@ test("VersionCompareMode sostituisce la modal con due workspace full-screen", ()
   assert.match(markup, /data-testid="version-compare-instance-left"/);
   assert.match(markup, /data-testid="version-compare-instance-right"/);
   assert.match(markup, /Esci dal confronto/);
-  assert.match(markup, /v6\.1/);
+  assert.match(markup, /v6\.2/);
   assert.doesNotMatch(markup, /data-testid="visual-compare-toolbar"/);
   assert.doesNotMatch(markup, /Modalit.+sola lettura/);
   assert.doesNotMatch(markup, /Aggiunti/);

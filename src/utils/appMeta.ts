@@ -1,7 +1,7 @@
 import type { MessageKey, TranslationParams } from "../i18n";
 
 export const APP_NAME = "buildER";
-export const APP_VERSION = "6.1";
+export const APP_VERSION = "6.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export type AppChangelogImpact = "patch" | "minor" | "major";
@@ -38,6 +38,7 @@ interface ChangelogMetaEntry {
 }
 
 const CHANGELOG_META: ChangelogMetaEntry[] = [
+  { version: "6.2", date: "2026-06-30", impact: "major", updateCount: 12 },
   { version: "6.1", date: "2026-06-26", impact: "major", updateCount: 10 },
   { version: "6.0", date: "2026-06-25", impact: "major", updateCount: 6 },
   { version: "5.4", date: "2026-06-25", impact: "patch", updateCount: 4 },
