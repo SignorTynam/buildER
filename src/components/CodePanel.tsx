@@ -14,6 +14,8 @@ interface CodePanelProps {
   onBlur?: () => void;
   onClose?: () => void;
   embedded?: boolean;
+  showHeader?: boolean;
+  showCloseButton?: boolean;
 }
 
 function escapeHtml(value: string): string {
@@ -78,6 +80,8 @@ export function CodePanel(props: CodePanelProps) {
   const isReadOnly = !props.editable || !props.onCodeChange;
   const lineNumbers = buildLineNumbers(props.code);
   const placeholder = props.placeholder ?? t("codePanel.placeholder");
+  const showHeader = props.showHeader ?? !props.embedded;
+  const showCloseButton = props.showCloseButton ?? (!props.embedded && Boolean(props.onClose));
 
   function syncScroll() {
     if (!editorRef.current || !highlightRef.current) {
@@ -139,15 +143,17 @@ export function CodePanel(props: CodePanelProps) {
   }, [props.code]);
 
   return (
-    <aside className="designer-code-dock diagram-code-panel" aria-label={t("codePanel.shellAria")}>
-      <div className="designer-panel-caption">
-        <span>CODE</span>
-        {props.onClose ? (
+    <aside className={props.embedded ? "designer-code-dock diagram-code-panel embedded" : "designer-code-dock diagram-code-panel"} aria-label={t("codePanel.shellAria")}>
+      {showHeader ? (
+        <div className="designer-panel-caption">
+          <span>{t("codePanel.title")}</span>
+          {showCloseButton ? (
           <button type="button" className="designer-panel-close" onClick={props.onClose} aria-label={t("codePanel.closeAria")}>
             <StudioIcon name="close" aria-hidden="true" />
           </button>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="designer-code-editor">
         <div ref={lineNumberRef} className="designer-code-line-numbers" aria-hidden="true">
           {lineNumbers.map((lineNumber) => (

@@ -12,7 +12,10 @@ import {
   type ProjectActivityItem,
 } from "./components/project/ProjectActivityPanel";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
+import { ProjectTextFilePanel } from "./components/project/ProjectTextFilePanel";
+import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { CommitDialog } from "./components/versioning/CommitDialog";
+import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
 import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
 import { VersionCompareMode } from "./components/versioning/VersionCompareMode";
 import { VersioningPanel } from "./components/versioning/VersioningPanel";
@@ -25,7 +28,6 @@ import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { NotesModal } from "./components/NotesModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
-import { SqlReverseInputModal } from "./components/SqlReverseInputModal";
 import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
 import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
 import { WorkspaceToastStack } from "./components/WorkspaceToastStack";
@@ -1047,6 +1049,7 @@ export default function App() {
   const [restoreDialogError, setRestoreDialogError] = useState("");
   const [commitDialogError, setCommitDialogError] = useState("");
   const [commitDialogBusy, setCommitDialogBusy] = useState(false);
+  const [sourceControlCommitMessage, setSourceControlCommitMessage] = useState("");
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -1252,8 +1255,25 @@ export default function App() {
     ],
   );
   const currentProjectCommitSnapshot = useMemo(
-    () =>
-      createProjectCommitSnapshot({
+    () => {
+      const syncedProject = syncActiveSchemaToProject(projectExplorer);
+      return createProjectCommitSnapshot({
+        project: syncedProject.project,
+        files: syncedProject.files,
+        explorerView: syncedProject.view,
+        activeFileId: syncedProject.project.activeFileId ?? syncedProject.view.activeFileId,
+        activeWorkspace: {
+          diagramView,
+          viewport,
+          translationViewport,
+          logicalViewport,
+          selection,
+          translationSelection,
+          logicalSelection,
+          codeDraft,
+          codeDirty,
+          showDiagnostics,
+        },
         diagram: history.present,
         translationWorkspace: translationHistory.present,
         logicalWorkspace: logicalHistory.present,
@@ -1264,16 +1284,25 @@ export default function App() {
         translationViewport,
         logicalViewport,
         ...currentProjectWorkspaceState,
-      }),
+      });
+    },
     [
+      codeDirty,
+      codeDraft,
       currentProjectWorkspaceState,
       diagramView,
       history.present,
       logicalGenerated,
       logicalHistory.present,
       logicalStage,
+      logicalSelection,
       logicalViewport,
+      projectExplorer,
+      projectVersioning.versioning,
+      selection,
+      showDiagnostics,
       translationHistory.present,
+      translationSelection,
       translationViewport,
       viewport,
     ],
@@ -1955,9 +1984,6 @@ export default function App() {
     if (issue.id.startsWith("loop-role-duplicate-")) {
       return t("validationIssues.loopRoleDuplicate");
     }
-    if (issue.id.startsWith("entity-disconnected-")) {
-      return t("validationIssues.entityDisconnected", { label });
-    }
     if (issue.id.startsWith("entity-no-attributes-")) {
       return t("validationIssues.entityNoAttributes", { label });
     }
@@ -2082,9 +2108,11 @@ export default function App() {
 
     setFocusMode(false);
     closeTechnicalPanel();
+    setActiveActivityPanel("reverse");
+    setWorkspaceActivityOpen(true);
     setSqlReverseWorkflow((current) => ({
       ...createInitialSqlReverseWorkflowState(current.sourceSql),
-      step: "input",
+      step: "idle",
     }));
   }
 
@@ -2251,7 +2279,7 @@ export default function App() {
       const text = await file.text();
       setSqlReverseWorkflow((current) => ({
         ...createInitialSqlReverseWorkflowState(text),
-        step: current.step === "idle" ? "input" : current.step,
+        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
       }));
 
       if (!text.trim()) {
@@ -2273,7 +2301,7 @@ export default function App() {
   function handleClearSqlReverse() {
     setSqlReverseWorkflow((current) => ({
       ...createInitialSqlReverseWorkflowState(""),
-      step: current.step === "idle" ? "input" : current.step,
+      step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
     }));
     setStatus(t("sqlReverse.app.cleared"));
   }
@@ -2590,10 +2618,39 @@ export default function App() {
     setProjectExplorer(setProjectActiveFile(synced, fileId));
     setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
     if (file.kind === "sql") {
-      setLogicalPanelMode("sql");
+      setActiveActivityPanel("reverse");
+      setWorkspaceActivityOpen(true);
+      handleSqlReverseSourceChange(file.content);
     } else {
-      setCodePanelOpen(true);
+      setActiveActivityPanel("file");
+      setWorkspaceActivityOpen(true);
     }
+  }
+
+  function handleActiveTextFileChange(content: string) {
+    const activeFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
+    if (!activeFileId) {
+      return;
+    }
+
+    const activeFile = projectExplorer.files[activeFileId];
+    if (!activeFile || (activeFile.kind !== "text" && activeFile.kind !== "sql" && activeFile.kind !== "unknown")) {
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    setProjectExplorer((current) => ({
+      ...current,
+      files: {
+        ...current.files,
+        [activeFileId]: {
+          ...activeFile,
+          content,
+          updatedAt,
+        },
+      },
+    }));
+    hasUnsavedChangesRef.current = true;
   }
 
   async function handleProjectExplorerCreateSchema(parentId: string) {
@@ -2635,6 +2692,32 @@ export default function App() {
     const kind = /\.sql$/i.test(normalized) ? "sql" : "text";
     const uniqueName = getUniqueProjectNodeName(projectExplorer.project, parentId, ensureProjectFileExtension(normalized, kind));
     const result = addProjectFile(syncActiveSchemaToProject(), parentId, createTextWorkspaceFile(uniqueName, kind));
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+
+    applyProjectExplorerState(result.state);
+    setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
+  }
+
+  async function handleProjectExplorerCreateSqlFile(parentId: string) {
+    const requestedName = await requestPromptDialog({
+      title: t("projectExplorer.dialogs.newSqlFileTitle"),
+      label: t("projectExplorer.dialogs.nameLabel"),
+      initialValue: t("projectExplorer.defaults.sqlFileName"),
+      required: true,
+    });
+    if (requestedName == null) {
+      return;
+    }
+
+    const uniqueName = getUniqueProjectNodeName(
+      projectExplorer.project,
+      parentId,
+      ensureProjectFileExtension(requestedName, "sql"),
+    );
+    const result = addProjectFile(syncActiveSchemaToProject(), parentId, createTextWorkspaceFile(uniqueName, "sql"));
     if (!result.ok) {
       setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
       return;
@@ -5855,20 +5938,59 @@ export default function App() {
       }
 
       const restoreSnapshot = result.restoreCommit.snapshot;
-      applyWorkspaceDocument(restoreSnapshot.diagram, t("versioning.restore.restored"), {
-        translationWorkspace: restoreSnapshot.translationWorkspace,
-        logicalWorkspace: restoreSnapshot.logicalWorkspace,
-        logicalGenerated: restoreSnapshot.logicalGenerated,
-        logicalStage: restoreSnapshot.logicalStage,
-        diagramView: restoreSnapshot.diagramView,
-        viewport: restoreSnapshot.viewport,
-        translationViewport: restoreSnapshot.translationViewport,
-        logicalViewport: restoreSnapshot.logicalViewport,
-        versioning: result.versioning,
-        workspace: createWorkspaceStateFromProjectCommitSnapshot(restoreSnapshot),
-        resetHistory: true,
-        markBaseline: false,
-      });
+      if (restoreSnapshot.project && restoreSnapshot.files && restoreSnapshot.explorerView) {
+        const restoredProjectExplorer: ProjectExplorerState = {
+          project: {
+            ...restoreSnapshot.project,
+            activeFileId: restoreSnapshot.activeFileId ?? restoreSnapshot.project.activeFileId,
+          },
+          files: restoreSnapshot.files,
+          view: {
+            ...restoreSnapshot.explorerView,
+            activeFileId: restoreSnapshot.activeFileId ?? restoreSnapshot.explorerView.activeFileId,
+          },
+        };
+        const activeFileId =
+          restoredProjectExplorer.project.activeFileId ??
+          restoredProjectExplorer.view.activeFileId ??
+          Object.values(restoredProjectExplorer.files).find((file) => file.kind === "schema")?.id ??
+          null;
+        const activeFile = activeFileId ? restoredProjectExplorer.files[activeFileId] : undefined;
+        setProjectExplorer(restoredProjectExplorer);
+        if (activeFile?.kind === "schema") {
+          applyWorkspaceDocument(activeFile.schema.diagram, t("versioning.restore.restored"), {
+            translationWorkspace: activeFile.schema.translationWorkspace,
+            logicalWorkspace: activeFile.schema.logicalWorkspace,
+            logicalGenerated: activeFile.schema.logicalGenerated,
+            logicalStage: activeFile.schema.logicalStage,
+            diagramView: activeFile.schema.view.current,
+            viewport: activeFile.schema.view.erViewport,
+            translationViewport: activeFile.schema.view.translationViewport,
+            logicalViewport: activeFile.schema.view.logicalViewport,
+            versioning: result.versioning,
+            workspace: activeFile.schema.workspace,
+            resetHistory: true,
+            markBaseline: false,
+          });
+        } else {
+          projectVersioning.setVersioning(result.versioning);
+        }
+      } else {
+        applyWorkspaceDocument(restoreSnapshot.diagram, t("versioning.restore.restored"), {
+          translationWorkspace: restoreSnapshot.translationWorkspace,
+          logicalWorkspace: restoreSnapshot.logicalWorkspace,
+          logicalGenerated: restoreSnapshot.logicalGenerated,
+          logicalStage: restoreSnapshot.logicalStage,
+          diagramView: restoreSnapshot.diagramView,
+          viewport: restoreSnapshot.viewport,
+          translationViewport: restoreSnapshot.translationViewport,
+          logicalViewport: restoreSnapshot.logicalViewport,
+          versioning: result.versioning,
+          workspace: createWorkspaceStateFromProjectCommitSnapshot(restoreSnapshot),
+          resetHistory: true,
+          markBaseline: false,
+        });
+      }
 
       setRestoreCommitId(null);
       setRestoreDialogError("");
@@ -6255,43 +6377,50 @@ export default function App() {
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
   const visibleActivityIssues = issues.filter(issueTargetExists);
+  const activeProjectFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
+  const activeProjectFile = activeProjectFileId ? projectExplorer.files[activeProjectFileId] : undefined;
+  const activeTextFile = activeProjectFile && activeProjectFile.kind === "text" ? activeProjectFile : null;
+  async function handleCreateSourceControlCommit() {
+    const created = await handleCreateProjectCommit(sourceControlCommitMessage);
+    if (created) {
+      setSourceControlCommitMessage("");
+    }
+  }
   const activityPanelContent =
     activeActivityPanel === "file" ? (
       <div className="project-activity-file">
-        <div className="project-activity-file-actions" aria-label={t("workspaceActivity.file.actionsAria")}>
-          <button type="button" className="project-activity-action compact" onClick={handleNewProject}>
-            <StudioIcon name="newProject" aria-hidden="true" />
-            <span>{t("appHeader.commands.newProject")}</span>
-          </button>
-          <button type="button" className="project-activity-action compact" onClick={handleLoadProjectRequest}>
-            <StudioIcon name="openProject" aria-hidden="true" />
-            <span>{t("appHeader.commands.openProject")}</span>
-          </button>
-          <button type="button" className="project-activity-action compact" onClick={handleSaveProject}>
-            <StudioIcon name="save" aria-hidden="true" />
-            <span>{t("appHeader.commands.saveProject")}</span>
-          </button>
-        </div>
-        <ProjectExplorer
-          embedded
-          project={projectExplorer.project}
-          files={projectExplorer.files}
-          view={projectExplorer.view}
-          onOpenFile={handleProjectExplorerOpenFile}
-          onCreateSchema={handleProjectExplorerCreateSchema}
-          onCreateTextFile={handleProjectExplorerCreateTextFile}
-          onCreateFolder={handleProjectExplorerCreateFolder}
-          onRename={handleProjectExplorerRename}
-          onDelete={handleProjectExplorerDelete}
-          onToggleFolder={handleProjectExplorerToggleFolder}
-          onCollapseAll={handleProjectExplorerCollapseAll}
-          onToggleOpen={handleToggleActivityPanelOpen}
-          onResizeStart={handleProjectExplorerResizeStart}
-        />
+        {activeTextFile ? (
+          <ProjectTextFilePanel
+            fileName={activeTextFile.name}
+            content={activeTextFile.content}
+            editable={mode === "edit"}
+            onChange={handleActiveTextFileChange}
+          />
+        ) : (
+          <ProjectExplorer
+            embedded
+            project={projectExplorer.project}
+            files={projectExplorer.files}
+            view={projectExplorer.view}
+            onOpenFile={handleProjectExplorerOpenFile}
+            onCreateSchema={handleProjectExplorerCreateSchema}
+            onCreateTextFile={handleProjectExplorerCreateTextFile}
+            onCreateSqlFile={handleProjectExplorerCreateSqlFile}
+            onCreateFolder={handleProjectExplorerCreateFolder}
+            onRename={handleProjectExplorerRename}
+            onDelete={handleProjectExplorerDelete}
+            onToggleFolder={handleProjectExplorerToggleFolder}
+            onCollapseAll={handleProjectExplorerCollapseAll}
+            onToggleOpen={handleToggleActivityPanelOpen}
+            onResizeStart={handleProjectExplorerResizeStart}
+          />
+        )}
       </div>
     ) : activeActivityPanel === "code" ? (
       <CodePanel
         embedded
+        showHeader={false}
+        showCloseButton={false}
         code={codeDraft}
         editable={mode === "edit"}
         parseError={codeError}
@@ -6301,22 +6430,19 @@ export default function App() {
         onClose={handleToggleCodePanel}
       />
     ) : activeActivityPanel === "reverse" ? (
-      <section className="project-activity-section" aria-label={t("workspaceActivity.reverse.title")}>
-        <header className="project-activity-section__header">
-          <h2>{t("workspaceActivity.reverse.title")}</h2>
-          <p>{t("workspaceActivity.reverse.description")}</p>
-        </header>
-        <div className="project-activity-actions">
-          <button type="button" className="project-activity-action" onClick={handleOpenSqlReverseWorkflow}>
-            <StudioIcon name="databaseReverse" aria-hidden="true" />
-            <span>{t("appHeader.commands.openSqlReverse")}</span>
-          </button>
-          <button type="button" className="project-activity-action" onClick={handleOpenSqlReverseWorkflow}>
-            <StudioIcon name="upload" aria-hidden="true" />
-            <span>{t("appHeader.commands.importSql")}</span>
-          </button>
-        </div>
-      </section>
+      <SqlReversePanel
+        sql={sqlReverseWorkflow.sourceSql}
+        errorMessage={sqlReverseWorkflow.errorMessage}
+        issues={sqlReverseWorkflow.issues}
+        logicalIssues={sqlReverseWorkflow.logicalIssues}
+        tableCount={sqlReverseWorkflow.tableCount}
+        unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
+        isPreviewReady={sqlReverseWorkflow.isPreviewReady}
+        onSqlChange={handleSqlReverseSourceChange}
+        onAnalyze={handleAnalyzeSqlReverseWorkflow}
+        onLoadFile={handleLoadSqlReverseFile}
+        onClear={handleClearSqlReverse}
+      />
     ) : activeActivityPanel === "errors" ? (
       <section className="project-activity-section" aria-label={t("workspaceActivity.errors.title")}>
         <header className="project-activity-section__header">
@@ -6356,31 +6482,18 @@ export default function App() {
         )}
       </section>
     ) : activeActivityPanel === "version" ? (
-      <section className="project-activity-section" aria-label={t("workspaceActivity.version.title")}>
-        <header className="project-activity-section__header">
-          <h2>{t("workspaceActivity.version.title")}</h2>
-          <p>{hasVersioningUncommittedChanges ? t("versioning.uncommittedChanges") : t("versioning.noChangesComparedToHead")}</p>
-        </header>
-        <div className="project-activity-summary">
-          <span>{t("versioning.commitCount", { count: projectVersioning.versioning.commits.length })}</span>
-          <span>{commitDialogHint || t("workspaceActivity.version.clean")}</span>
-        </div>
-        <div className="project-activity-actions">
-          <button type="button" className="project-activity-action" onClick={() => setVersioningPanelOpen(true)}>
-            <StudioIcon name="history" aria-hidden="true" />
-            <span>{t("workspaceActivity.version.openHistory")}</span>
-          </button>
-          <button
-            type="button"
-            className="project-activity-action"
-            onClick={() => setCommitDialogOpen(true)}
-            disabled={!versioningChangeState.summary.canCommit}
-          >
-            <StudioIcon name="done" aria-hidden="true" />
-            <span>{t("versioning.createCommit")}</span>
-          </button>
-        </div>
-      </section>
+      <SourceControlPanel
+        projectName={projectExplorer.project.name}
+        branchName="newfeatures"
+        commitMessage={sourceControlCommitMessage}
+        changeState={versioningChangeState}
+        files={projectExplorer.files}
+        commits={projectVersioning.commitsNewestFirst}
+        onCommitMessageChange={setSourceControlCommitMessage}
+        onCommit={handleCreateSourceControlCommit}
+        onOpenHistory={() => setVersioningPanelOpen(true)}
+        onRefresh={() => setStatus(commitDialogHint || t("workspaceActivity.version.clean"))}
+      />
     ) : (
       <section className="project-activity-section" aria-label={t("workspaceActivity.export.title")}>
         <header className="project-activity-section__header">
@@ -6472,8 +6585,13 @@ export default function App() {
         showDiagnostics={showDiagnostics}
         activeActivityPanel={activeActivityPanel}
         onNewProject={handleNewProject}
+        onCloseProject={handleNewProject}
         onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+        onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
+        onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
+        onNewFolder={() => handleProjectExplorerCreateFolder(projectExplorer.project.rootId)}
         onImportSchema={handleImportSchemaRequest}
+        onImportErs={handleLoadErsRequest}
         onExportCurrentSchema={handleSaveCurrentSchema}
         onRenameProject={() => {
           const input = document.querySelector<HTMLInputElement>('[data-project-name-input="true"]');
@@ -6498,6 +6616,10 @@ export default function App() {
         onOpenCommandMenu={openCommandMenu}
         onOpenShortcuts={openKeyboardShortcuts}
         onActivityPanelSelect={handleSelectActivityPanel}
+        onCreateCommit={() => {
+          setActiveActivityPanel("version");
+          setWorkspaceActivityOpen(true);
+        }}
         onDiagramNameChange={handleDiagramNameChange}
       />
 
@@ -6786,23 +6908,6 @@ export default function App() {
         onSave={handleNotesChange}
         onClose={() => setNotesPanelOpen(false)}
       />
-
-      {sqlReverseWorkflow.step === "input" ? (
-        <SqlReverseInputModal
-          sql={sqlReverseWorkflow.sourceSql}
-          errorMessage={sqlReverseWorkflow.errorMessage}
-          issues={sqlReverseWorkflow.issues}
-          logicalIssues={sqlReverseWorkflow.logicalIssues}
-          tableCount={sqlReverseWorkflow.tableCount}
-          unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
-          isPreviewReady={sqlReverseWorkflow.isPreviewReady}
-          onSqlChange={handleSqlReverseSourceChange}
-          onAnalyze={handleAnalyzeSqlReverseWorkflow}
-          onLoadFile={handleLoadSqlReverseFile}
-          onClear={handleClearSqlReverse}
-          onCancel={handleCancelSqlReverseWorkflow}
-        />
-      ) : null}
 
       {commandMenuOpen ? (
         <CommandMenuModal

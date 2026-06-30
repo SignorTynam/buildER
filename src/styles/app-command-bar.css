@@ -1,28 +1,100 @@
 .app-command-topbar,
 .designer-topbar.app-header-view-er,
 .designer-topbar.app-header-view-translation,
-.designer-topbar.app-header-view-logical,
-.designer-topbar:has(.app-command-bar) {
-  grid-template-columns: auto minmax(180px, 320px) minmax(240px, 1fr) auto;
-  grid-template-areas: "brand project commands actions";
+.designer-topbar.app-header-view-logical {
+  grid-template-columns: auto auto minmax(220px, 360px) minmax(120px, 1fr) auto;
+  grid-template-areas: "brand file project spacer actions";
   overflow: visible;
 }
 
 .app-command-topbar .designer-brand,
 .designer-topbar.app-header-view-er .designer-brand,
 .designer-topbar.app-header-view-translation .designer-brand,
-.designer-topbar.app-header-view-logical .designer-brand,
-.designer-topbar:has(.app-command-bar) .designer-brand {
+.designer-topbar.app-header-view-logical .designer-brand {
   grid-area: brand;
+}
+
+.app-file-menu {
+  grid-area: file;
+  position: relative;
+}
+
+.app-file-menu__trigger {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: currentColor;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.app-file-menu__trigger:hover,
+.app-file-menu__trigger[aria-expanded="true"] {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
+}
+
+.app-file-menu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 90;
+  min-width: 260px;
+  max-height: min(70vh, 620px);
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+  color: var(--editor-text);
+  box-shadow: var(--studio-shadow-floating);
+}
+
+.app-file-menu__panel button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.app-file-menu__panel button:hover {
+  background: var(--editor-panel-muted);
+  color: var(--editor-text-strong);
+}
+
+.app-file-menu__trigger:focus-visible,
+.app-file-menu__panel button:focus-visible {
+  outline: 2px solid var(--studio-focus-ring);
+  outline-offset: 2px;
+}
+
+.app-file-menu__separator {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--editor-border);
+}
+
+.app-file-menu__section {
+  display: block;
+  padding: 5px 9px 3px;
+  color: var(--editor-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .app-command-topbar .designer-project-name,
 .designer-topbar.app-header-view-er .designer-project-name,
 .designer-topbar.app-header-view-translation .designer-project-name,
-.designer-topbar.app-header-view-logical .designer-project-name,
-.designer-topbar:has(.app-command-bar) .designer-project-name {
+.designer-topbar.app-header-view-logical .designer-project-name {
   grid-area: project;
-  justify-self: stretch;
+  justify-self: center;
   width: 100%;
 }
 
@@ -39,8 +111,7 @@
 .app-command-topbar .designer-topbar-actions,
 .designer-topbar.app-header-view-er .designer-topbar-actions,
 .designer-topbar.app-header-view-translation .designer-topbar-actions,
-.designer-topbar.app-header-view-logical .designer-topbar-actions,
-.designer-topbar:has(.app-command-bar) .designer-topbar-actions {
+.designer-topbar.app-header-view-logical .designer-topbar-actions {
   grid-area: actions;
   flex-wrap: nowrap;
   gap: 10px;
@@ -128,10 +199,9 @@
   .app-command-topbar,
   .designer-topbar.app-header-view-er,
   .designer-topbar.app-header-view-translation,
-  .designer-topbar.app-header-view-logical,
-  .designer-topbar:has(.app-command-bar) {
-    grid-template-columns: minmax(78px, max-content) minmax(0, 1fr) auto;
-    grid-template-areas: "brand project actions";
+  .designer-topbar.app-header-view-logical {
+    grid-template-columns: minmax(78px, max-content) auto minmax(0, 1fr) auto;
+    grid-template-areas: "brand file project actions";
   }
 
   .app-command-bar {

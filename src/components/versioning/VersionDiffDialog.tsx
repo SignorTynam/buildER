@@ -14,7 +14,19 @@ interface VersionDiffDialogProps {
   onClose: () => void;
 }
 
-const SECTION_KEYS: ProjectVersionDiffSectionKey[] = ["er", "layout", "logical", "code", "workspace"];
+const SECTION_KEYS: ProjectVersionDiffSectionKey[] = [
+  "project",
+  "files",
+  "folders",
+  "schemas",
+  "notes",
+  "sql",
+  "er",
+  "layout",
+  "logical",
+  "code",
+  "workspace",
+];
 
 function getItemKindKey(kind: string): string {
   switch (kind) {

@@ -18,6 +18,7 @@ interface ProjectExplorerProps {
   onOpenFile: (fileId: string) => void;
   onCreateSchema: (parentId: string) => void;
   onCreateTextFile: (parentId: string) => void;
+  onCreateSqlFile?: (parentId: string) => void;
   onCreateFolder: (parentId: string) => void;
   onRename: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
@@ -43,6 +44,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     delete: t("projectExplorer.actions.delete"),
     newSchema: t("projectExplorer.actions.newSchema"),
     newTextFile: t("projectExplorer.actions.newTextFile"),
+    newSqlFile: t("projectExplorer.actions.newSqlFile"),
     newFolder: t("projectExplorer.actions.newFolder"),
   };
 
@@ -78,7 +80,10 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
             <StudioIcon name="newProject" />
           </button>
           <button type="button" title={labels.newTextFile} onClick={() => props.onCreateTextFile(props.project.rootId)}>
-            <StudioIcon name="type" />
+            <StudioIcon name="fileText" />
+          </button>
+          <button type="button" title={labels.newSqlFile} onClick={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(props.project.rootId)}>
+            <StudioIcon name="database" />
           </button>
           <button type="button" title={labels.newFolder} onClick={() => props.onCreateFolder(props.project.rootId)}>
             <StudioIcon name="openProject" />
@@ -111,6 +116,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
               onDelete={props.onDelete}
               onCreateSchema={props.onCreateSchema}
               onCreateTextFile={props.onCreateTextFile}
+              onCreateSqlFile={props.onCreateSqlFile}
               onCreateFolder={props.onCreateFolder}
             />
           </ul>

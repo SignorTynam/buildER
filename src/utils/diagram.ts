@@ -4106,7 +4106,6 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         const otherNode = nodeMap.get(otherId);
         return otherNode?.type === "relationship";
       });
-
       const hasInheritanceConnection = connectedEdges.some((edge) => edge.type === "inheritance");
       const isInheritanceChild = connectedEdges.some(
         (edge) => edge.type === "inheritance" && edge.sourceId === node.id,
@@ -4114,17 +4113,6 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       const isInheritanceParent = connectedEdges.some(
         (edge) => edge.type === "inheritance" && edge.targetId === node.id,
       );
-      const hasEntityConnection = hasRelationshipConnection || hasInheritanceConnection;
-
-      if (!hasEntityConnection) {
-        issues.push({
-          id: `entity-disconnected-${node.id}`,
-          level: "warning",
-          message: `L'entita "${node.label}" non e collegata ad altre entita o relazioni.`,
-          targetId: node.id,
-          targetType: "node",
-        });
-      }
 
       const hasAttribute = connectedEdges.some((edge) => {
         if (edge.type !== "attribute") {

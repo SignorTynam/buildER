@@ -17,6 +17,7 @@ interface ProjectExplorerTreeItemProps {
     delete: string;
     newSchema: string;
     newTextFile: string;
+    newSqlFile: string;
     newFolder: string;
   };
   onOpenFile: (fileId: string) => void;
@@ -25,6 +26,7 @@ interface ProjectExplorerTreeItemProps {
   onDelete: (nodeId: string) => void;
   onCreateSchema: (parentId: string) => void;
   onCreateTextFile: (parentId: string) => void;
+  onCreateSqlFile?: (parentId: string) => void;
   onCreateFolder: (parentId: string) => void;
 }
 
@@ -39,7 +41,7 @@ function getIconName(node: ProjectExplorerNode) {
     return "database";
   }
   if (node.kind === "text") {
-    return "notes";
+    return "fileText";
   }
   return "type";
 }
@@ -86,7 +88,10 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
                 <StudioIcon name="newProject" />
               </button>
               <button type="button" title={props.labels.newTextFile} onClick={() => props.onCreateTextFile(props.node.id)}>
-                <StudioIcon name="type" />
+                <StudioIcon name="fileText" />
+              </button>
+              <button type="button" title={props.labels.newSqlFile} onClick={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(props.node.id)}>
+                <StudioIcon name="database" />
               </button>
               <button type="button" title={props.labels.newFolder} onClick={() => props.onCreateFolder(props.node.id)}>
                 <StudioIcon name="openProject" />

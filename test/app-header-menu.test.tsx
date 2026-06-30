@@ -6,34 +6,28 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { AppHeader } from "../src/components/AppHeader.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
-import {
-  DEFAULT_LOCALE,
-  SUPPORTED_LOCALES,
-  getLanguageMenuLabel,
-  setCurrentLocale,
-} from "../src/i18n/index.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
-function renderHeader(): string {
+function renderHeader() {
   return renderToStaticMarkup(
     <I18nProvider>
       <AppHeader
         appTitle="buildER"
-        appVersion="5.2"
-        diagramName="Test"
+        appVersion="6.2"
+        diagramName="ER Studio"
         diagramView="er"
         logicalSqlOpen={false}
         codePanelOpen={false}
         notesPanelOpen={false}
         logicalOutOfDate={false}
         focusMode={false}
-        hasUncommittedChanges
-        versioningCommitCount={3}
+        hasUncommittedChanges={false}
+        versioningCommitCount={0}
         issueCount={0}
         warningCount={0}
         showDiagnostics
-        activeActivityPanel="file"
+        activeActivityPanel="code"
         onNewProject={() => undefined}
         onCloseProject={() => undefined}
         onNewSchema={() => undefined}
@@ -68,51 +62,22 @@ function renderHeader(): string {
   );
 }
 
-test("AppHeader renders the language button between help and command menu", () => {
-  setCurrentLocale("en");
+test("AppHeader mostra File ma non le tab activity nella topbar", () => {
   const markup = renderHeader();
 
-  const helpIndex = markup.indexOf('data-testid="app-header-help"');
-  const languageIndex = markup.indexOf('data-testid="app-header-language"');
-  const menuIndex = markup.indexOf('data-testid="app-header-menu"');
-
-  assert.ok(languageIndex >= 0, "language button is rendered");
-  assert.ok(helpIndex < languageIndex, "language button follows help");
-  assert.ok(languageIndex < menuIndex, "language button precedes command menu");
-  assert.match(markup, /aria-haspopup="menu"/);
-  assert.match(markup, /aria-expanded="false"/);
-  assert.match(markup, /Change interface language/);
-  assert.match(markup, /File/);
-  assert.doesNotMatch(markup, /class="app-command-tab"/);
+  assert.match(markup, /data-testid="app-header-file-menu"/);
+  assert.doesNotMatch(markup, /app-command-tab/);
   assert.doesNotMatch(markup, />Code</);
   assert.doesNotMatch(markup, />Reverse</);
+  assert.doesNotMatch(markup, />Errors</);
   assert.doesNotMatch(markup, />Version</);
-
-  setCurrentLocale(DEFAULT_LOCALE);
+  assert.doesNotMatch(markup, />Export</);
 });
 
-test("AppHeader language menu supports every configured locale", () => {
-  setCurrentLocale("it");
-
-  assert.deepEqual(SUPPORTED_LOCALES, ["it", "en", "sq"]);
-  assert.equal(getLanguageMenuLabel("it"), "Italiano (Italiano)");
-  assert.equal(getLanguageMenuLabel("en"), "Inglese (English)");
-  assert.equal(getLanguageMenuLabel("sq"), "Albanese (Shqip)");
-
-  setCurrentLocale(DEFAULT_LOCALE);
-});
-
-test("AppHeader language menu keeps the expected interactive wiring", () => {
+test("File trigger non seleziona activity panel", () => {
   const source = readFileSync(new URL("../src/components/AppHeader.tsx", import.meta.url), "utf8");
+  const triggerBlock = source.slice(source.indexOf("app-file-menu__trigger"), source.indexOf("app-file-menu__panel"));
 
-  assert.match(source, /SUPPORTED_LOCALES\.map/);
-  assert.match(source, /data-testid="app-header-language-menu"/);
-  assert.match(source, /role="menuitemradio"/);
-  assert.match(source, /aria-checked=\{locale === language\}/);
-  assert.match(source, /StudioIcon name="globe"/);
-  assert.match(source, /StudioIcon name="done"/);
-  assert.match(source, /setLocale\(language\);/);
-  assert.match(source, /setLanguageMenuOpen\(false\);/);
+  assert.doesNotMatch(triggerBlock, /onActivityPanelSelect/);
   assert.match(source, /event\.key === "Escape"/);
-  assert.match(source, /document\.addEventListener\("pointerdown"/);
 });

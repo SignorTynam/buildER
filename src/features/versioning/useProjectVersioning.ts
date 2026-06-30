@@ -35,6 +35,12 @@ export type CreateProjectCommitResult =
 export type ProjectUncommittedChangeStatus = "no-head-empty" | "no-head-with-content" | "clean" | "dirty";
 
 export interface ProjectUncommittedChangeCategories {
+  project: boolean;
+  files: boolean;
+  folders: boolean;
+  schemas: boolean;
+  notes: boolean;
+  sql: boolean;
   er: boolean;
   layout: boolean;
   logical: boolean;
@@ -56,6 +62,12 @@ export interface ProjectUncommittedChangeState {
 }
 
 const EMPTY_CHANGE_CATEGORIES: ProjectUncommittedChangeCategories = {
+  project: false,
+  files: false,
+  folders: false,
+  schemas: false,
+  notes: false,
+  sql: false,
   er: false,
   layout: false,
   logical: false,
@@ -87,6 +99,10 @@ export function sortProjectCommitsNewestFirst(commits: ProjectCommit[]): Project
 }
 
 export function hasProjectSnapshotSignificantContent(snapshot: ProjectCommitSnapshot): boolean {
+  if (snapshot.project && snapshot.files) {
+    return Object.keys(snapshot.files).length > 0 || snapshot.project.fileTree.length > 0;
+  }
+
   return (
     snapshot.diagram.nodes.length > 0 ||
     snapshot.diagram.edges.length > 0 ||
@@ -204,6 +220,60 @@ function getWorkspaceProjection(snapshot: ProjectCommitSnapshot) {
   };
 }
 
+function getProjectMetadataProjection(snapshot: ProjectCommitSnapshot) {
+  return {
+    project: snapshot.project
+      ? {
+          id: snapshot.project.id,
+          name: snapshot.project.name,
+          rootId: snapshot.project.rootId,
+          activeFileId: snapshot.project.activeFileId,
+        }
+      : null,
+    activeFileId: snapshot.activeFileId ?? null,
+  };
+}
+
+function getProjectFolderProjection(snapshot: ProjectCommitSnapshot) {
+  return (snapshot.project?.fileTree ?? [])
+    .filter((node) => node.kind === "folder")
+    .map((node) => ({
+      id: node.id,
+      name: node.name,
+      parentId: node.parentId,
+      children: node.children ?? [],
+    }));
+}
+
+function getProjectFileProjection(snapshot: ProjectCommitSnapshot) {
+  return {
+    tree: (snapshot.project?.fileTree ?? [])
+      .filter((node) => node.kind !== "folder")
+      .map((node) => ({
+        id: node.id,
+        name: node.name,
+        kind: node.kind,
+        parentId: node.parentId,
+        fileId: node.fileId,
+      })),
+    fileIds: Object.keys(snapshot.files ?? {}).sort(),
+  };
+}
+
+function getFilesByKindProjection(snapshot: ProjectCommitSnapshot, kind: "schema" | "text" | "sql") {
+  return Object.values(snapshot.files ?? {})
+    .filter((file) => file.kind === kind)
+    .map((file) => file);
+}
+
+function getProjectWorkspaceProjection(snapshot: ProjectCommitSnapshot) {
+  return {
+    explorerView: snapshot.explorerView,
+    activeWorkspace: snapshot.activeWorkspace,
+    legacyWorkspace: getWorkspaceProjection(snapshot),
+  };
+}
+
 function hasLogicalContent(snapshot: ProjectCommitSnapshot): boolean {
   return (
     snapshot.logicalGenerated ||
@@ -238,6 +308,27 @@ function hasWorkspaceContent(snapshot: ProjectCommitSnapshot): boolean {
 }
 
 function getNoHeadCategories(snapshot: ProjectCommitSnapshot): ProjectUncommittedChangeCategories {
+  if (snapshot.project && snapshot.files) {
+    return {
+      project: true,
+      files: Object.keys(snapshot.files).length > 0,
+      folders: (snapshot.project.fileTree ?? []).some((node) => node.kind === "folder"),
+      schemas: Object.values(snapshot.files).some((file) => file.kind === "schema"),
+      notes: Object.values(snapshot.files).some((file) => file.kind === "text" && file.content.trim().length > 0),
+      sql: Object.values(snapshot.files).some((file) => file.kind === "sql" && file.content.trim().length > 0),
+      er: true,
+      layout: false,
+      logical: Object.values(snapshot.files).some((file) => file.kind === "schema" && hasLogicalContent({
+        ...snapshot,
+        logicalGenerated: file.schema.logicalGenerated,
+        logicalWorkspace: file.schema.logicalWorkspace,
+      })),
+      code: snapshot.codeDirty && snapshot.codeDraft.trim().length > 0,
+      workspace: true,
+      versioning: false,
+    };
+  }
+
   const er =
     snapshot.diagram.nodes.length > 0 ||
     snapshot.diagram.edges.length > 0 ||
@@ -245,6 +336,12 @@ function getNoHeadCategories(snapshot: ProjectCommitSnapshot): ProjectUncommitte
     (snapshot.diagram.generalizationGroups?.length ?? 0) > 0;
 
   return {
+    project: false,
+    files: false,
+    folders: false,
+    schemas: false,
+    notes: false,
+    sql: false,
     er,
     layout: false,
     logical: hasLogicalContent(snapshot),
@@ -308,11 +405,17 @@ export function getProjectUncommittedChangeState(
   }
 
   const categories: ProjectUncommittedChangeCategories = {
+    project: changed(getProjectMetadataProjection(currentSnapshot), getProjectMetadataProjection(headCommit.snapshot)),
+    files: changed(getProjectFileProjection(currentSnapshot), getProjectFileProjection(headCommit.snapshot)),
+    folders: changed(getProjectFolderProjection(currentSnapshot), getProjectFolderProjection(headCommit.snapshot)),
+    schemas: changed(getFilesByKindProjection(currentSnapshot, "schema"), getFilesByKindProjection(headCommit.snapshot, "schema")),
+    notes: changed(getFilesByKindProjection(currentSnapshot, "text"), getFilesByKindProjection(headCommit.snapshot, "text")),
+    sql: changed(getFilesByKindProjection(currentSnapshot, "sql"), getFilesByKindProjection(headCommit.snapshot, "sql")),
     er: changed(getDiagramErProjection(currentSnapshot), getDiagramErProjection(headCommit.snapshot)),
     layout: changed(getLayoutProjection(currentSnapshot), getLayoutProjection(headCommit.snapshot)),
     logical: changed(getLogicalProjection(currentSnapshot), getLogicalProjection(headCommit.snapshot)),
     code: changed(getCodeProjection(currentSnapshot), getCodeProjection(headCommit.snapshot)),
-    workspace: changed(getWorkspaceProjection(currentSnapshot), getWorkspaceProjection(headCommit.snapshot)),
+    workspace: changed(getProjectWorkspaceProjection(currentSnapshot), getProjectWorkspaceProjection(headCommit.snapshot)),
     versioning: false,
   };
 

@@ -23,6 +23,7 @@ function renderExplorer() {
           onOpenFile={() => undefined}
           onCreateSchema={() => undefined}
           onCreateTextFile={() => undefined}
+          onCreateSqlFile={() => undefined}
           onCreateFolder={() => undefined}
           onRename={() => undefined}
           onDelete={() => undefined}
@@ -51,5 +52,7 @@ test("ProjectExplorer espone handler per apertura file e nuovo schema", () => {
 
   assert.match(source, /props\.onOpenFile\(props\.node\.fileId\)/);
   assert.match(source, /props\.onCreateSchema\(props\.node\.id\)/);
+  assert.match(source, /onCreateSqlFile/);
+  assert.match(source, /fileText/);
   assert.match(shellSource, /onClick=\{\(\) => props\.onCreateSchema\(props\.project\.rootId\)\}/);
 });

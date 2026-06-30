@@ -15,7 +15,18 @@ import {
   type ProjectVersioningState,
 } from "./projectCommitSnapshot";
 
-export type ProjectVersionDiffSectionKey = "er" | "layout" | "logical" | "code" | "workspace";
+export type ProjectVersionDiffSectionKey =
+  | "project"
+  | "files"
+  | "folders"
+  | "schemas"
+  | "notes"
+  | "sql"
+  | "er"
+  | "layout"
+  | "logical"
+  | "code"
+  | "workspace";
 
 export interface ProjectVersionDiffItemDetail {
   label: string;
@@ -47,6 +58,8 @@ export interface ProjectVersionDiffSummary {
   modifiedCount: number;
   changedSectionCount: number;
   hasErChanges: boolean;
+  hasProjectChanges: boolean;
+  hasFileChanges: boolean;
   hasLayoutChanges: boolean;
   hasLogicalChanges: boolean;
   hasCodeChanges: boolean;
@@ -784,6 +797,101 @@ function diffWorkspace(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot
   return finalizeSection(section);
 }
 
+function createSimpleProjectItem(id: string, kind: string, label: string, path: string): ProjectVersionDiffItem {
+  return { id, kind, label, path };
+}
+
+function diffProjectMetadata(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot): ProjectVersionDiffSection {
+  const section = createSection("project");
+  const details = compactDetails([
+    comparePrimitiveDetail("name", left.project?.name, right.project?.name),
+    comparePrimitiveDetail("activeFileId", left.activeFileId ?? left.project?.activeFileId ?? null, right.activeFileId ?? right.project?.activeFileId ?? null),
+  ]);
+  if (details) {
+    section.modified.push({
+      id: "project.metadata",
+      kind: "project",
+      label: right.project?.name ?? right.diagram.meta.name,
+      path: "project",
+      details,
+    });
+  }
+  return finalizeSection(section);
+}
+
+function diffProjectTreeSection(
+  key: Extract<ProjectVersionDiffSectionKey, "files" | "folders">,
+  left: ProjectCommitSnapshot,
+  right: ProjectCommitSnapshot,
+): ProjectVersionDiffSection {
+  const section = createSection(key);
+  const isFolder = key === "folders";
+  const leftNodes = mapById((left.project?.fileTree ?? []).filter((node) => isFolder ? node.kind === "folder" : node.kind !== "folder"));
+  const rightNodes = mapById((right.project?.fileTree ?? []).filter((node) => isFolder ? node.kind === "folder" : node.kind !== "folder"));
+
+  for (const node of rightNodes.values()) {
+    if (!leftNodes.has(node.id)) {
+      section.added.push(createSimpleProjectItem(node.id, node.kind, node.name, `project.fileTree.${node.id}`));
+    }
+  }
+  for (const node of leftNodes.values()) {
+    if (!rightNodes.has(node.id)) {
+      section.removed.push(createSimpleProjectItem(node.id, node.kind, node.name, `project.fileTree.${node.id}`));
+    }
+  }
+  for (const [id, leftNode] of leftNodes) {
+    const rightNode = rightNodes.get(id);
+    if (rightNode && stableStringify(leftNode) !== stableStringify(rightNode)) {
+      section.modified.push({
+        ...createSimpleProjectItem(id, rightNode.kind, rightNode.name, `project.fileTree.${id}`),
+        details: compactDetails([
+          comparePrimitiveDetail("name", leftNode.name, rightNode.name),
+          comparePrimitiveDetail("parentId", leftNode.parentId, rightNode.parentId),
+          comparePrimitiveDetail("children", leftNode.children ?? [], rightNode.children ?? []),
+        ]),
+      });
+    }
+  }
+
+  return finalizeSection(section);
+}
+
+function diffProjectFileContents(
+  key: Extract<ProjectVersionDiffSectionKey, "schemas" | "notes" | "sql">,
+  left: ProjectCommitSnapshot,
+  right: ProjectCommitSnapshot,
+): ProjectVersionDiffSection {
+  const section = createSection(key);
+  const kind = key === "schemas" ? "schema" : key === "notes" ? "text" : "sql";
+  const leftFiles = mapById(Object.values(left.files ?? {}).filter((file) => file.kind === kind));
+  const rightFiles = mapById(Object.values(right.files ?? {}).filter((file) => file.kind === kind));
+
+  for (const file of rightFiles.values()) {
+    if (!leftFiles.has(file.id)) {
+      section.added.push(createSimpleProjectItem(file.id, file.kind, file.name, `files.${file.id}`));
+    }
+  }
+  for (const file of leftFiles.values()) {
+    if (!rightFiles.has(file.id)) {
+      section.removed.push(createSimpleProjectItem(file.id, file.kind, file.name, `files.${file.id}`));
+    }
+  }
+  for (const [id, leftFile] of leftFiles) {
+    const rightFile = rightFiles.get(id);
+    if (rightFile && stableStringify(leftFile) !== stableStringify(rightFile)) {
+      section.modified.push({
+        ...createSimpleProjectItem(id, rightFile.kind, rightFile.name, `files.${id}`),
+        details: compactDetails([
+          comparePrimitiveDetail("name", leftFile.name, rightFile.name),
+          comparePrimitiveDetail("content", leftFile.kind === "schema" ? leftFile.schema : leftFile.content, rightFile.kind === "schema" ? rightFile.schema : rightFile.content),
+        ]),
+      });
+    }
+  }
+
+  return finalizeSection(section);
+}
+
 function buildSummary(sections: Record<ProjectVersionDiffSectionKey, ProjectVersionDiffSection>): ProjectVersionDiffSummary {
   const values = Object.values(sections);
   return {
@@ -791,6 +899,8 @@ function buildSummary(sections: Record<ProjectVersionDiffSectionKey, ProjectVers
     removedCount: values.reduce((total, section) => total + section.removed.length, 0),
     modifiedCount: values.reduce((total, section) => total + section.modified.length, 0),
     changedSectionCount: values.filter((section) => section.changed).length,
+    hasProjectChanges: sections.project.changed,
+    hasFileChanges: sections.files.changed || sections.folders.changed || sections.schemas.changed || sections.notes.changed || sections.sql.changed,
     hasErChanges: sections.er.changed,
     hasLayoutChanges: sections.layout.changed,
     hasLogicalChanges: sections.logical.changed,
@@ -807,6 +917,12 @@ export function buildProjectVersionDiff(
   const left = cloneProjectCommitSnapshot(leftSnapshot);
   const right = cloneProjectCommitSnapshot(rightSnapshot);
   const sections: Record<ProjectVersionDiffSectionKey, ProjectVersionDiffSection> = {
+    project: diffProjectMetadata(left, right),
+    files: diffProjectTreeSection("files", left, right),
+    folders: diffProjectTreeSection("folders", left, right),
+    schemas: diffProjectFileContents("schemas", left, right),
+    notes: diffProjectFileContents("notes", left, right),
+    sql: diffProjectFileContents("sql", left, right),
     er: diffEr(left, right),
     layout: diffLayout(left, right),
     logical: diffLogical(left, right),

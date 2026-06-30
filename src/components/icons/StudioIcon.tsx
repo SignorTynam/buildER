@@ -23,10 +23,12 @@ import {
   FileCode2,
   FileImage,
   FilePlus,
+  FileText,
   FileType,
   Focus,
   FolderOpen,
   GitBranchPlus,
+  GitBranch,
   Globe2,
   History,
   Image,
@@ -72,6 +74,7 @@ export type StudioIconName =
   | "arrowUp"
   | "attribute"
   | "bookOpen"
+  | "branch"
   | "braces"
   | "cardinality"
   | "center"
@@ -93,6 +96,7 @@ export type StudioIconName =
   | "export"
   | "externalId"
   | "fileImage"
+  | "fileText"
   | "fit"
   | "fix"
   | "focus"
@@ -157,6 +161,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   arrowRight: ArrowRight,
   arrowUp: ArrowUp,
   bookOpen: BookOpen,
+  branch: GitBranch,
   braces: Braces,
   center: Crosshair,
   close: XIcon,
@@ -173,6 +178,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   errors: CircleAlert,
   export: Download,
   fileImage: FileImage,
+  fileText: FileText,
   fit: Scan,
   fix: WandSparkles,
   focus: Focus,

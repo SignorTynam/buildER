@@ -1,6 +1,11 @@
 import type { TechnicalPanelTab } from "../../components/TechnicalDockPanel";
 import type { DiagramDocument, EditorMode, SelectionState, ToolKind, Viewport } from "../../types/diagram";
 import type {
+  ProjectExplorerProject,
+  ProjectExplorerViewState,
+  ProjectWorkspaceFile,
+} from "../../types/projectExplorer";
+import type {
   LogicalSelection,
   LogicalStage,
   LogicalTransformationState,
@@ -25,6 +30,22 @@ import { createEmptyLogicalWorkspace } from "../../utils/logicalWorkspace";
 import { parseDiagram } from "../../utils/diagram";
 
 export interface ProjectCommitSnapshot {
+  project?: ProjectExplorerProject;
+  files?: Record<string, ProjectWorkspaceFile>;
+  explorerView?: ProjectExplorerViewState;
+  activeFileId?: string | null;
+  activeWorkspace?: {
+    diagramView: WorkspaceView;
+    viewport: Viewport;
+    translationViewport: Viewport;
+    logicalViewport: Viewport;
+    selection: SelectionState;
+    translationSelection: SelectionState;
+    logicalSelection: LogicalSelection;
+    codeDraft: string;
+    codeDirty: boolean;
+    showDiagnostics: boolean;
+  };
   diagram: DiagramDocument;
   translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
@@ -128,6 +149,30 @@ function cloneJson<T>(value: T): T {
 
 function clonePlainRecord(value: unknown): Record<string, unknown> | undefined {
   return isRecord(value) ? cloneJson(value) : undefined;
+}
+
+function sanitizeProjectExplorerProjectSnapshot(value: unknown): ProjectExplorerProject | undefined {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.name !== "string" || typeof value.rootId !== "string" || !Array.isArray(value.fileTree)) {
+    return undefined;
+  }
+
+  return cloneJson(value) as unknown as ProjectExplorerProject;
+}
+
+function sanitizeProjectExplorerFilesSnapshot(value: unknown): Record<string, ProjectWorkspaceFile> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return cloneJson(value) as Record<string, ProjectWorkspaceFile>;
+}
+
+function sanitizeProjectExplorerViewSnapshot(value: unknown): ProjectExplorerViewState | undefined {
+  if (!isRecord(value) || !Array.isArray(value.expandedFolderIds)) {
+    return undefined;
+  }
+
+  return cloneJson(value) as unknown as ProjectExplorerViewState;
 }
 
 function normalizeSelection(value: unknown): SelectionState {
@@ -267,7 +312,27 @@ function normalizeSnapshotRecord(
     const logicalStage: LogicalStage = logicalGenerated && value.logicalStage === "schema" ? "schema" : "translation";
     const diagramView = sanitizeDiagramView(value.diagramView, logicalGenerated);
 
+    const activeWorkspace = isRecord(value.activeWorkspace)
+      ? {
+          diagramView: sanitizeDiagramView(value.activeWorkspace.diagramView, logicalGenerated),
+          viewport: sanitizeViewport(value.activeWorkspace.viewport, fallbackViewport),
+          translationViewport: sanitizeViewport(value.activeWorkspace.translationViewport, fallbackViewport),
+          logicalViewport: sanitizeViewport(value.activeWorkspace.logicalViewport, fallbackViewport),
+          selection: normalizeSelection(value.activeWorkspace.selection),
+          translationSelection: normalizeSelection(value.activeWorkspace.translationSelection),
+          logicalSelection: sanitizeLogicalSelectionState(value.activeWorkspace.logicalSelection),
+          codeDraft: typeof value.activeWorkspace.codeDraft === "string" ? value.activeWorkspace.codeDraft : "",
+          codeDirty: value.activeWorkspace.codeDirty === true,
+          showDiagnostics: typeof value.activeWorkspace.showDiagnostics === "boolean" ? value.activeWorkspace.showDiagnostics : true,
+        }
+      : undefined;
+
     return {
+      project: sanitizeProjectExplorerProjectSnapshot(value.project),
+      files: sanitizeProjectExplorerFilesSnapshot(value.files),
+      explorerView: sanitizeProjectExplorerViewSnapshot(value.explorerView),
+      activeFileId: typeof value.activeFileId === "string" || value.activeFileId === null ? value.activeFileId : undefined,
+      activeWorkspace,
       diagram,
       translationWorkspace,
       logicalWorkspace,
@@ -406,15 +471,22 @@ export function areProjectCommitSnapshotsEqual(
 
 export function buildProjectCommitStats(snapshot: ProjectCommitSnapshot): ProjectCommitStats {
   const normalized = cloneProjectCommitSnapshot(snapshot);
+  const schemaFiles = normalized.files
+    ? Object.values(normalized.files).filter((file): file is Extract<ProjectWorkspaceFile, { kind: "schema" }> => file.kind === "schema")
+    : [];
+  const diagrams = schemaFiles.length > 0 ? schemaFiles.map((file) => file.schema.diagram) : [normalized.diagram];
+  const logicalWorkspaces = schemaFiles.length > 0
+    ? schemaFiles.map((file) => file.schema.logicalWorkspace)
+    : [normalized.logicalWorkspace];
   const warningCount = normalized.logicalWorkspace.model.issues.filter((issue) => issue.level === "warning").length;
   const errorCount = normalized.logicalWorkspace.model.issues.filter((issue) => issue.level === "error").length;
 
   return {
-    entityCount: normalized.diagram.nodes.filter((node) => node.type === "entity").length,
-    relationshipCount: normalized.diagram.nodes.filter((node) => node.type === "relationship").length,
-    attributeCount: normalized.diagram.nodes.filter((node) => node.type === "attribute").length,
-    edgeCount: normalized.diagram.edges.length,
-    tableCount: normalized.logicalWorkspace.model.tables.length,
+    entityCount: diagrams.reduce((count, diagram) => count + diagram.nodes.filter((node) => node.type === "entity").length, 0),
+    relationshipCount: diagrams.reduce((count, diagram) => count + diagram.nodes.filter((node) => node.type === "relationship").length, 0),
+    attributeCount: diagrams.reduce((count, diagram) => count + diagram.nodes.filter((node) => node.type === "attribute").length, 0),
+    edgeCount: diagrams.reduce((count, diagram) => count + diagram.edges.length, 0),
+    tableCount: logicalWorkspaces.reduce((count, workspace) => count + workspace.model.tables.length, 0),
     warningCount,
     errorCount,
   };
