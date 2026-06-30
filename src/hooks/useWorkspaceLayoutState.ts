@@ -21,15 +21,15 @@ export const RESIZER_WIDTH = 12;
 
 export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootstrap) {
   const restoredTechnicalPanelTab: TechnicalPanelTab = sessionBootstrap.technicalPanelTab;
-  const [technicalPanelOpen, setTechnicalPanelOpen] = useState(
-    sessionBootstrap.technicalPanelOpen && restoredTechnicalPanelTab !== "code",
-  );
+  const shouldRestoreTechnicalPanel =
+    sessionBootstrap.technicalPanelOpen &&
+    restoredTechnicalPanelTab !== "code" &&
+    restoredTechnicalPanelTab !== "notes";
+  const [technicalPanelOpen, setTechnicalPanelOpen] = useState(shouldRestoreTechnicalPanel);
   const [technicalPanelTab, setTechnicalPanelTab] = useState<TechnicalPanelTab>(restoredTechnicalPanelTab);
   const [codePanelOpen, setCodePanelOpen] = useState(sessionBootstrap.codePanelOpen);
   const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
-  const [notesPanelOpen, setNotesPanelOpen] = useState(
-    sessionBootstrap.notesPanelOpen && restoredTechnicalPanelTab === "notes",
-  );
+  const [notesPanelOpen, setNotesPanelOpen] = useState(false);
   const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
