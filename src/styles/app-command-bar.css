@@ -5,6 +5,9 @@
   grid-template-columns: auto auto minmax(220px, 360px) minmax(120px, 1fr) auto;
   grid-template-areas: "brand file project spacer actions";
   overflow: visible;
+  position: relative;
+  z-index: 1000;
+  isolation: isolate;
 }
 
 .app-command-topbar .designer-brand,
@@ -17,6 +20,7 @@
 .app-file-menu {
   grid-area: file;
   position: relative;
+  z-index: 1001;
 }
 
 .app-file-menu__trigger {
@@ -39,7 +43,7 @@
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 90;
+  z-index: 10000;
   min-width: 260px;
   max-height: min(70vh, 620px);
   overflow: auto;

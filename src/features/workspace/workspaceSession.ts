@@ -34,7 +34,7 @@ import {
   sanitizeProjectVersioningState,
   type ProjectVersioningState,
 } from "../../utils/projectFile";
-import { createProjectFromSchema } from "../../utils/projectExplorer";
+import { createEmptyProjectExplorerState, createProjectFromSchema } from "../../utils/projectExplorer";
 import { createSchemaDocumentFromProjectState } from "../../utils/projectSchemaFile";
 
 export const DEFAULT_VIEWPORT: Viewport = {
@@ -341,7 +341,7 @@ export function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootst
     },
     versioning: createEmptyProjectVersioningState(),
   });
-  const projectState = createProjectFromSchema("Nuovo progetto", schema);
+  const projectState = createEmptyProjectExplorerState("Nuovo progetto");
   return {
     diagram,
     translationWorkspace,

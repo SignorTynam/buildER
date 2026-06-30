@@ -24,6 +24,13 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await expect(page.getByRole("menu", { name: "File" })).toContainText("Nuovo progetto");
   await expect(page.getByRole("menu", { name: "File" })).toContainText("Apri progetto");
   await page.keyboard.press("Escape");
+
+  await expect(page.locator(".workspace-welcome-page")).toBeVisible();
+  await page.getByRole("main", { name: "buildER" }).getByRole("button", { name: "Nuovo schema" }).click();
+  await expect(page.locator(".action-modal")).toBeVisible();
+  await page.locator(".action-modal-actions .mode-button.active").click();
+  await expect(page.locator(".designer-canvas-region")).toBeVisible();
+
   await expect(page.locator(".designer-er-toolbar")).toContainText("Selezione");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Entit");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Esporta");

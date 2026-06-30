@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   addProjectFile,
   addProjectFolder,
+  createEmptyProjectExplorerState,
   createEmptySchemaDocument,
   createProjectFromSchema,
   createSchemaWorkspaceFile,
@@ -20,6 +21,19 @@ function createState() {
 test("normalizeProjectNodeName rifiuta/sanitizza nomi vuoti e caratteri non validi", () => {
   assert.equal(normalizeProjectNodeName("   "), "");
   assert.equal(normalizeProjectNodeName(" bad/name?.erschema "), "bad name .erschema");
+});
+
+test("createEmptyProjectExplorerState crea root folder senza file attivo", () => {
+  const state = createEmptyProjectExplorerState("Empty Project");
+
+  assert.equal(state.project.name, "Empty Project");
+  assert.equal(state.project.activeFileId, null);
+  assert.equal(state.view.activeFileId, null);
+  assert.deepEqual(state.files, {});
+  assert.equal(state.project.fileTree.length, 1);
+  assert.equal(state.project.fileTree[0].kind, "folder");
+  assert.deepEqual(state.project.fileTree[0].children, []);
+  assert.deepEqual(state.view.expandedFolderIds, [state.project.rootId]);
 });
 
 test("getUniqueProjectNodeName gestisce duplicati nella stessa cartella", () => {
@@ -64,7 +78,7 @@ test("deleteProjectNode impedisce eliminazione root folder", () => {
   assert.deepEqual(deleteProjectNode(state, state.project.rootId), { ok: false, reason: "root-delete" });
 });
 
-test("deleteProjectNode sceglie un nuovo schema attivo o crea fallback", () => {
+test("deleteProjectNode sceglie un nuovo schema attivo o lascia il progetto senza schema", () => {
   const state = createState();
   const secondFile = createSchemaWorkspaceFile("Second.erschema");
   const added = addProjectFile(state, state.project.rootId, secondFile);
@@ -89,6 +103,7 @@ test("deleteProjectNode sceglie un nuovo schema attivo o crea fallback", () => {
   if (!deletedLast.ok) {
     return;
   }
-  assert.ok(deletedLast.state.project.activeFileId);
-  assert.equal(Object.values(deletedLast.state.files).filter((file) => file.kind === "schema").length, 1);
+  assert.equal(deletedLast.state.project.activeFileId, null);
+  assert.equal(deletedLast.state.view.activeFileId, null);
+  assert.equal(Object.values(deletedLast.state.files).filter((file) => file.kind === "schema").length, 0);
 });

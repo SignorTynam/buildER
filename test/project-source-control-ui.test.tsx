@@ -19,7 +19,6 @@ test("Source Control panel mostra repository, changes, input e bottone commit", 
     <I18nProvider>
       <SourceControlPanel
         projectName="ER Studio"
-        branchName="newfeatures"
         commitMessage="Initial commit"
         changeState={changeState}
         files={snapshot.files ?? {}}
@@ -35,9 +34,17 @@ test("Source Control panel mostra repository, changes, input e bottone commit", 
   assert.match(markup, /Source Control/i);
   assert.match(markup, /Repositories/i);
   assert.match(markup, /Changes/i);
-  assert.match(markup, /newfeatures/);
+  assert.doesNotMatch(markup, /newfeatures/);
   assert.match(markup, /textarea/);
   assert.match(markup, /Create first commit|Crea primo commit/);
+});
+
+test("Source Control panel non mostra branch fake", () => {
+  const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
+
+  assert.doesNotMatch(source, /branchName/);
+  assert.doesNotMatch(source, /source-control-branch/);
+  assert.doesNotMatch(source, /newfeatures/);
 });
 
 test("Source Control panel supporta Ctrl+Enter per commit", () => {

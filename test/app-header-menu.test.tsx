@@ -81,3 +81,12 @@ test("File trigger non seleziona activity panel", () => {
   assert.doesNotMatch(triggerBlock, /onActivityPanelSelect/);
   assert.match(source, /event\.key === "Escape"/);
 });
+
+test("File menu usa stacking context sopra workspace e toolbox", () => {
+  const css = readFileSync(new URL("../src/styles/app-command-bar.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.app-command-topbar[\s\S]*z-index:\s*1000/);
+  assert.match(css, /\.app-command-topbar[\s\S]*isolation:\s*isolate/);
+  assert.match(css, /\.app-file-menu\s*\{[\s\S]*z-index:\s*1001/);
+  assert.match(css, /\.app-file-menu__panel\s*\{[\s\S]*z-index:\s*10000/);
+});

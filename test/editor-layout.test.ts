@@ -10,6 +10,7 @@ const workspaceLayoutStateSource = readFileSync(
 const editorCssSource = readFileSync(new URL("../src/styles/editor-refactor.css", import.meta.url), "utf8");
 const panelsCssSource = readFileSync(new URL("../src/styles/panels.css", import.meta.url), "utf8");
 const projectExplorerCssSource = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
+const appCommandCssSource = readFileSync(new URL("../src/styles/app-command-bar.css", import.meta.url), "utf8");
 const allCssSource = `${editorCssSource}\n${panelsCssSource}\n${projectExplorerCssSource}`;
 
 function cssBlock(selector: string): string {
@@ -83,4 +84,20 @@ test("ER canvas region remains full size with the activity panel open", () => {
   assert.doesNotMatch(appSource, /code-drawer-open/);
   assert.doesNotMatch(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-context-toolbar/);
   assert.doesNotMatch(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-quick-actions-bar/);
+});
+
+test("empty workspace renders welcome instead of canvas tooling", () => {
+  assert.match(appSource, /const hasOpenSchema = Boolean\(activeSchemaFile\)/);
+  assert.match(appSource, /!hasOpenSchema \? \(/);
+  assert.match(appSource, /<WorkspaceWelcomePage/);
+
+  const welcomeStart = appSource.indexOf("<WorkspaceWelcomePage");
+  const toolbarStart = appSource.indexOf("<Toolbar", welcomeStart);
+  assert.ok(toolbarStart > welcomeStart, "Toolbar must stay in the schema-only branch after welcome");
+});
+
+test("File menu stacking is above workspace activity and canvas controls", () => {
+  assert.match(appCommandCssSource, /\.app-command-topbar[\s\S]*z-index:\s*1000/);
+  assert.match(appCommandCssSource, /\.app-file-menu__panel[\s\S]*z-index:\s*10000/);
+  assert.doesNotMatch(projectExplorerCssSource, /z-index:\s*10000/);
 });

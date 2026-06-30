@@ -33,7 +33,8 @@ test("shows the buildER loading screen and opens the studio without the ERS guid
   expect(faviconHref).toContain("favicon.svg");
 
   await expect(page.locator(".app-shell")).toBeVisible();
-  await expect(page.locator(".designer-canvas-region")).toBeVisible();
+  await expect(page.locator(".workspace-welcome-page")).toBeVisible();
+  await expect(page.locator(".designer-canvas-region")).toHaveCount(0);
 
   await page.getByTestId("app-header-menu").click();
   await expect(page.getByRole("dialog", { name: "Menu comandi" })).toBeVisible();

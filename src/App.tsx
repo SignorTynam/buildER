@@ -12,8 +12,9 @@ import {
   type ProjectActivityItem,
 } from "./components/project/ProjectActivityPanel";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
-import { ProjectTextFilePanel } from "./components/project/ProjectTextFilePanel";
+import { ProjectTextFileModal } from "./components/project/ProjectTextFileModal";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
+import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
 import { CommitDialog } from "./components/versioning/CommitDialog";
 import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
 import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
@@ -198,7 +199,7 @@ import {
   MIN_PROJECT_EXPLORER_WIDTH,
   addProjectFile,
   addProjectFolder,
-  createProjectFromSchema,
+  createEmptyProjectExplorerState,
   createSchemaWorkspaceFile,
   createTextWorkspaceFile,
   deleteProjectNode,
@@ -1050,6 +1051,7 @@ export default function App() {
   const [commitDialogError, setCommitDialogError] = useState("");
   const [commitDialogBusy, setCommitDialogBusy] = useState(false);
   const [sourceControlCommitMessage, setSourceControlCommitMessage] = useState("");
+  const [textFileModalFileId, setTextFileModalFileId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -1164,7 +1166,15 @@ export default function App() {
   const restoredSessionNoticeShownRef = useRef(false);
   latestDiagramRef.current = history.present;
 
-  const issues = validateDiagram(history.present);
+  const activeProjectFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
+  const activeProjectFile = activeProjectFileId ? projectExplorer.files[activeProjectFileId] : undefined;
+  const activeSchemaFile = activeProjectFile?.kind === "schema" ? activeProjectFile : null;
+  const hasOpenSchema = Boolean(activeSchemaFile);
+  const activeTextModalFile =
+    textFileModalFileId && projectExplorer.files[textFileModalFileId]?.kind === "text"
+      ? projectExplorer.files[textFileModalFileId]
+      : null;
+  const issues = hasOpenSchema ? validateDiagram(history.present) : [];
   const canvasIssues = showDiagnostics ? issues : [];
   const selectedNode =
     selection.nodeIds.length === 1 && selection.edgeIds.length === 0
@@ -2622,13 +2632,14 @@ export default function App() {
       setWorkspaceActivityOpen(true);
       handleSqlReverseSourceChange(file.content);
     } else {
+      setTextFileModalFileId(fileId);
       setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
     }
   }
 
   function handleActiveTextFileChange(content: string) {
-    const activeFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
+    const activeFileId = textFileModalFileId ?? projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
     if (!activeFileId) {
       return;
     }
@@ -2639,17 +2650,24 @@ export default function App() {
     }
 
     const updatedAt = new Date().toISOString();
-    setProjectExplorer((current) => ({
-      ...current,
-      files: {
-        ...current.files,
-        [activeFileId]: {
-          ...activeFile,
-          content,
-          updatedAt,
+    setProjectExplorer((current) => {
+      const currentFile = current.files[activeFileId];
+      if (!currentFile || (currentFile.kind !== "text" && currentFile.kind !== "sql" && currentFile.kind !== "unknown")) {
+        return current;
+      }
+
+      return {
+        ...current,
+        files: {
+          ...current.files,
+          [activeFileId]: {
+            ...currentFile,
+            content,
+            updatedAt,
+          },
         },
-      },
-    }));
+      };
+    });
     hasUnsavedChangesRef.current = true;
   }
 
@@ -2691,13 +2709,24 @@ export default function App() {
     const normalized = normalizeProjectNodeName(requestedName);
     const kind = /\.sql$/i.test(normalized) ? "sql" : "text";
     const uniqueName = getUniqueProjectNodeName(projectExplorer.project, parentId, ensureProjectFileExtension(normalized, kind));
-    const result = addProjectFile(syncActiveSchemaToProject(), parentId, createTextWorkspaceFile(uniqueName, kind));
+    const file = createTextWorkspaceFile(uniqueName, kind);
+    const result = addProjectFile(syncActiveSchemaToProject(), parentId, file);
     if (!result.ok) {
       setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
       return;
     }
 
-    applyProjectExplorerState(result.state);
+    const nextState = setProjectActiveFile(result.state, file.id);
+    applyProjectExplorerState(nextState);
+    if (file.kind === "text") {
+      setTextFileModalFileId(file.id);
+      setActiveActivityPanel("file");
+      setWorkspaceActivityOpen(true);
+    } else if (file.kind === "sql") {
+      setActiveActivityPanel("reverse");
+      setWorkspaceActivityOpen(true);
+      handleSqlReverseSourceChange(file.content);
+    }
     setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
   }
 
@@ -2717,13 +2746,17 @@ export default function App() {
       parentId,
       ensureProjectFileExtension(requestedName, "sql"),
     );
-    const result = addProjectFile(syncActiveSchemaToProject(), parentId, createTextWorkspaceFile(uniqueName, "sql"));
+    const file = createTextWorkspaceFile(uniqueName, "sql");
+    const result = addProjectFile(syncActiveSchemaToProject(), parentId, file);
     if (!result.ok) {
       setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
       return;
     }
 
-    applyProjectExplorerState(result.state);
+    applyProjectExplorerState(setProjectActiveFile(result.state, file.id));
+    setActiveActivityPanel("reverse");
+    setWorkspaceActivityOpen(true);
+    handleSqlReverseSourceChange(file.content);
     setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
   }
 
@@ -2821,6 +2854,9 @@ export default function App() {
     const nextActiveFileId = result.state.project.activeFileId;
     const nextActiveFile = nextActiveFileId ? result.state.files[nextActiveFileId] : undefined;
     applyProjectExplorerState(result.state);
+    if (node.fileId === textFileModalFileId || (textFileModalFileId && !result.state.files[textFileModalFileId])) {
+      setTextFileModalFileId(null);
+    }
     if (nextActiveFile?.kind === "schema") {
       openSchemaWorkspaceFile(nextActiveFile.id, result.state);
     }
@@ -3796,8 +3832,9 @@ export default function App() {
       },
       versioning: createEmptyProjectVersioningState(),
     });
-    const nextProject = createProjectFromSchema(t("workspace.newDiagramName"), schema);
+    const nextProject = createEmptyProjectExplorerState(t("workspace.newDiagramName"));
     setProjectExplorer(nextProject);
+    setTextFileModalFileId(null);
     applyWorkspaceDocument(
       newDiagram,
       t("workspace.newProject"),
@@ -5732,6 +5769,10 @@ export default function App() {
   }
 
   function handleSaveCurrentSchema() {
+    if (!hasOpenSchema) {
+      setStatusWarning(t("workspace.noSchemaExportWarning"));
+      return;
+    }
     const activeFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
     const activeFile = activeFileId ? projectExplorer.files[activeFileId] : undefined;
     const fallbackName = activeFile?.name ?? `${history.present.meta.name}${SCHEMA_FILE_EXTENSION}`;
@@ -5750,6 +5791,10 @@ export default function App() {
   }
 
   function handleSaveErs() {
+    if (!hasOpenSchema) {
+      setStatusWarning(t("workspace.noSchemaCodeWarning"));
+      return;
+    }
     const source = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
     downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}.ers`);
     markCodeSaved(source);
@@ -6118,10 +6163,39 @@ export default function App() {
     try {
       const rawText = await file.text();
       const parsed = parseErsDiagram(rawText, history.present);
-      applyWorkspaceDocument(
-        parsed,
-        t("workspace.ersLoaded"),
+      const translationWorkspace = createEmptyErTranslationWorkspace(parsed);
+      const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+      const schema = createSchemaDocumentFromProjectState({
+        diagram: parsed,
+        translationWorkspace,
+        logicalWorkspace,
+        logicalGenerated: false,
+        logicalStage: "translation",
+        diagramView: "er",
+        viewport,
+        translationViewport,
+        logicalViewport,
+        workspace: {
+          ...currentProjectWorkspaceState,
+          codeDraft: rawText,
+          codeDirty: false,
+        },
+        versioning: projectVersioning.versioning,
+      });
+      const synced = syncActiveSchemaToProject();
+      const uniqueName = getUniqueProjectNodeName(
+        synced.project,
+        synced.project.rootId,
+        ensureProjectFileExtension(file.name || parsed.meta.name, "schema"),
       );
+      const schemaFile = createSchemaWorkspaceFile(uniqueName, schema);
+      const result = addProjectFile(synced, synced.project.rootId, schemaFile);
+      if (!result.ok) {
+        setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+        return;
+      }
+      openSchemaWorkspaceFile(schemaFile.id, result.state);
+      setStatus(t("workspace.ersLoaded"));
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : t("workspace.invalidErsCode");
@@ -6134,11 +6208,19 @@ export default function App() {
   }
 
   function handleResetCodeFromDiagram() {
+    if (!hasOpenSchema) {
+      setStatusWarning(t("workspace.noSchemaCodeWarning"));
+      return;
+    }
     syncCodeDraftWithDiagram(history.present);
     setStatus(t("workspace.codeRegenerated"));
   }
 
   async function handleExportPng() {
+    if (!hasOpenSchema) {
+      setStatusWarning(t("workspace.noSchemaExportWarning"));
+      return;
+    }
     if (!svgRef.current) {
       setStatusWarning(t("workspace.exportCanvasUnavailablePng"));
       return;
@@ -6161,6 +6243,10 @@ export default function App() {
   }
 
   async function handleExportJpeg() {
+    if (!hasOpenSchema) {
+      setStatusWarning(t("workspace.noSchemaExportWarning"));
+      return;
+    }
     if (!svgRef.current) {
       setStatusWarning(t("workspace.exportCanvasUnavailableJpeg"));
       return;
@@ -6183,6 +6269,10 @@ export default function App() {
   }
 
   function handleExportSvg() {
+    if (!hasOpenSchema) {
+      setStatusWarning(t("workspace.noSchemaExportWarning"));
+      return;
+    }
     if (!svgRef.current) {
       setStatusWarning(t("workspace.exportCanvasUnavailableSvg"));
       return;
@@ -6377,9 +6467,6 @@ export default function App() {
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
   const visibleActivityIssues = issues.filter(issueTargetExists);
-  const activeProjectFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
-  const activeProjectFile = activeProjectFileId ? projectExplorer.files[activeProjectFileId] : undefined;
-  const activeTextFile = activeProjectFile && activeProjectFile.kind === "text" ? activeProjectFile : null;
   async function handleCreateSourceControlCommit() {
     const created = await handleCreateProjectCommit(sourceControlCommitMessage);
     if (created) {
@@ -6389,46 +6476,43 @@ export default function App() {
   const activityPanelContent =
     activeActivityPanel === "file" ? (
       <div className="project-activity-file">
-        {activeTextFile ? (
-          <ProjectTextFilePanel
-            fileName={activeTextFile.name}
-            content={activeTextFile.content}
-            editable={mode === "edit"}
-            onChange={handleActiveTextFileChange}
-          />
-        ) : (
-          <ProjectExplorer
-            embedded
-            project={projectExplorer.project}
-            files={projectExplorer.files}
-            view={projectExplorer.view}
-            onOpenFile={handleProjectExplorerOpenFile}
-            onCreateSchema={handleProjectExplorerCreateSchema}
-            onCreateTextFile={handleProjectExplorerCreateTextFile}
-            onCreateSqlFile={handleProjectExplorerCreateSqlFile}
-            onCreateFolder={handleProjectExplorerCreateFolder}
-            onRename={handleProjectExplorerRename}
-            onDelete={handleProjectExplorerDelete}
-            onToggleFolder={handleProjectExplorerToggleFolder}
-            onCollapseAll={handleProjectExplorerCollapseAll}
-            onToggleOpen={handleToggleActivityPanelOpen}
-            onResizeStart={handleProjectExplorerResizeStart}
-          />
-        )}
+        <ProjectExplorer
+          embedded
+          project={projectExplorer.project}
+          files={projectExplorer.files}
+          view={projectExplorer.view}
+          onOpenFile={handleProjectExplorerOpenFile}
+          onCreateSchema={handleProjectExplorerCreateSchema}
+          onCreateTextFile={handleProjectExplorerCreateTextFile}
+          onCreateSqlFile={handleProjectExplorerCreateSqlFile}
+          onCreateFolder={handleProjectExplorerCreateFolder}
+          onRename={handleProjectExplorerRename}
+          onDelete={handleProjectExplorerDelete}
+          onToggleFolder={handleProjectExplorerToggleFolder}
+          onCollapseAll={handleProjectExplorerCollapseAll}
+          onToggleOpen={handleToggleActivityPanelOpen}
+          onResizeStart={handleProjectExplorerResizeStart}
+        />
       </div>
     ) : activeActivityPanel === "code" ? (
-      <CodePanel
-        embedded
-        showHeader={false}
-        showCloseButton={false}
-        code={codeDraft}
-        editable={mode === "edit"}
-        parseError={codeError}
-        onCodeChange={updateCodeDraft}
-        onFocus={handleCodeEditorFocus}
-        onBlur={handleCodeEditorBlur}
-        onClose={handleToggleCodePanel}
-      />
+      hasOpenSchema ? (
+        <CodePanel
+          embedded
+          showHeader={false}
+          showCloseButton={false}
+          code={codeDraft}
+          editable={mode === "edit"}
+          parseError={codeError}
+          onCodeChange={updateCodeDraft}
+          onFocus={handleCodeEditorFocus}
+          onBlur={handleCodeEditorBlur}
+          onClose={handleToggleCodePanel}
+        />
+      ) : (
+        <section className="project-activity-section" aria-label={t("appHeader.menus.code")}>
+          <p className="project-activity-empty">{t("workspace.noSchemaCodeWarning")}</p>
+        </section>
+      )
     ) : activeActivityPanel === "reverse" ? (
       <SqlReversePanel
         sql={sqlReverseWorkflow.sourceSql}
@@ -6484,7 +6568,6 @@ export default function App() {
     ) : activeActivityPanel === "version" ? (
       <SourceControlPanel
         projectName={projectExplorer.project.name}
-        branchName="newfeatures"
         commitMessage={sourceControlCommitMessage}
         changeState={versioningChangeState}
         files={projectExplorer.files}
@@ -6656,6 +6739,15 @@ export default function App() {
 
         {sqlReversePreviewContent ? (
           sqlReversePreviewContent
+        ) : !hasOpenSchema ? (
+          <WorkspaceWelcomePage
+            projectName={projectExplorer.project.name}
+            onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+            onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
+            onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
+            onOpenProject={handleLoadProjectRequest}
+            onImportSchema={handleImportSchemaRequest}
+          />
         ) : (
           <div
             className={
@@ -6907,6 +6999,15 @@ export default function App() {
         editable={mode === "edit"}
         onSave={handleNotesChange}
         onClose={() => setNotesPanelOpen(false)}
+      />
+
+      <ProjectTextFileModal
+        open={Boolean(activeTextModalFile)}
+        fileName={activeTextModalFile?.name ?? ""}
+        content={activeTextModalFile?.content ?? ""}
+        editable={mode === "edit"}
+        onChange={handleActiveTextFileChange}
+        onClose={() => setTextFileModalFileId(null)}
       />
 
       {commandMenuOpen ? (

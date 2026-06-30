@@ -31,8 +31,8 @@ import type {
 } from "../types/projectExplorer";
 import {
   DEFAULT_PROJECT_EXPLORER_WIDTH,
+  createEmptySchemaDocument,
   createProjectFromSchema,
-  createSchemaWorkspaceFile,
   stripKnownProjectExtension,
   type ProjectExplorerState,
 } from "./projectExplorer";
@@ -742,11 +742,14 @@ function createProjectFileDocument(
   });
   const fallbackProjectState = createProjectFromSchema(diagram.meta.name || "buildER Project", schema);
   const resolvedProjectState = projectState ?? fallbackProjectState;
-  const activeFileId =
-    resolvedProjectState.project.activeFileId ??
-    resolvedProjectState.view.activeFileId ??
-    Object.values(resolvedProjectState.files).find((file) => file.kind === "schema")?.id ??
-    null;
+  const activeFileId = projectState
+    ? (resolvedProjectState.project.activeFileId ?? resolvedProjectState.view.activeFileId ?? null)
+    : (
+        resolvedProjectState.project.activeFileId ??
+        resolvedProjectState.view.activeFileId ??
+        Object.values(resolvedProjectState.files).find((file) => file.kind === "schema")?.id ??
+        null
+      );
   const explorerView: ProjectExplorerViewState = {
     activeFileId,
     explorerOpen: resolvedProjectState.view.explorerOpen !== false,
@@ -976,59 +979,20 @@ function parseMultiFileProjectFile(
     fileTree: value.project.fileTree as ProjectExplorerProject["fileTree"],
   };
   const explorerView = sanitizeProjectExplorerView(value.view, project);
-  const activeFileId = explorerView.activeFileId ?? project.activeFileId;
-  const activeFile = activeFileId ? files[activeFileId] : undefined;
+  const requestedActiveFileId = explorerView.activeFileId ?? project.activeFileId;
+  const activeFile = requestedActiveFileId ? files[requestedActiveFileId] : undefined;
+  const activeFileId = activeFile ? requestedActiveFileId : null;
+  project.activeFileId = activeFileId;
+  explorerView.activeFileId = activeFileId;
 
-  if (!activeFile || activeFile.kind !== "schema" || !isRecord(activeFile.schema)) {
-    const firstSchema = Object.values(files).find((file): file is Extract<ProjectWorkspaceFile, { kind: "schema" }> => file.kind === "schema");
-    if (!firstSchema) {
-      const fallbackSchema = createSchemaWorkspaceFile("Main schema.erschema");
-      const projectState = createProjectFromSchema(project.name, fallbackSchema.schema);
-      const document = createProjectFileDocument(
-        fallbackSchema.schema.diagram,
-        fallbackSchema.schema.translationWorkspace,
-        fallbackSchema.schema.logicalWorkspace,
-        fallbackSchema.schema.logicalGenerated,
-        fallbackSchema.schema.logicalStage,
-        fallbackSchema.schema.savedAt,
-        fallbackSchema.schema.view,
-        sanitizeProjectVersioningState(value.versioning, options),
-        fallbackSchema.schema.workspace,
-        projectState,
-      );
-      return {
-        document,
-        state: normalizeProjectState(
-          fallbackSchema.schema.diagram,
-          fallbackSchema.schema.translationWorkspace,
-          fallbackSchema.schema.logicalWorkspace,
-          fallbackSchema.schema.logicalGenerated,
-          fallbackSchema.schema.logicalStage,
-          fallbackSchema.schema.savedAt,
-          fallbackSchema.schema.view,
-          document.versioning,
-          fallbackSchema.schema.workspace,
-          projectStateFromDocument(document),
-        ),
-        source: "project-file",
-      };
-    }
-    project.activeFileId = firstSchema.id;
-    explorerView.activeFileId = firstSchema.id;
-  }
-
-  const schemaFile = files[project.activeFileId ?? explorerView.activeFileId ?? ""] as
-    | Extract<ProjectWorkspaceFile, { kind: "schema" }>
-    | undefined;
-  if (!schemaFile || schemaFile.kind !== "schema") {
-    throw new ProjectFileError("invalid-format", {
-      what: "il file progetto non e stato caricato",
-      why: "il progetto non contiene uno schema attivo valido",
-      how: "riesporta il progetto o importa uno schema .erschema nel progetto",
-    });
-  }
-
-  const schema = schemaFile.schema;
+  const schemaFile =
+    activeFile?.kind === "schema" && isRecord(activeFile.schema)
+      ? (activeFile as Extract<ProjectWorkspaceFile, { kind: "schema" }>)
+      : Object.values(files).find(
+          (file): file is Extract<ProjectWorkspaceFile, { kind: "schema" }> =>
+            file.kind === "schema" && isRecord(file.schema),
+        );
+  const schema = schemaFile?.schema ?? createEmptySchemaDocument(project.name || "buildER Project");
   const diagram = parseDiagram(JSON.stringify(schema.diagram));
   const translationWorkspace = sanitizeTranslationWorkspace(schema.translationWorkspace, diagram);
   const logicalWorkspace = sanitizeLogicalWorkspace(schema.logicalWorkspace, translationWorkspace.translatedDiagram);
@@ -1059,12 +1023,12 @@ function parseMultiFileProjectFile(
   const projectState: ProjectExplorerState = {
     project: {
       ...project,
-      activeFileId: schemaFile.id,
+      activeFileId,
     },
     files,
     view: {
       ...explorerView,
-      activeFileId: schemaFile.id,
+      activeFileId,
     },
   };
   const document = createProjectFileDocument(

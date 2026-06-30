@@ -14,6 +14,12 @@ import {
   serializeProjectFile,
   type ProjectFileWorkspaceState,
 } from "../src/utils/projectFile.ts";
+import {
+  addProjectFile,
+  createEmptyProjectExplorerState,
+  createSchemaWorkspaceFile,
+  createTextWorkspaceFile,
+} from "../src/utils/projectExplorer.ts";
 
 const DEFAULT_VIEWPORT = { x: 180, y: 110, zoom: 1 };
 
@@ -727,4 +733,65 @@ test("serializeProjectFile versione 6 include root, fileTree, files e activeFile
   assert.ok(document.project.fileTree.some((node: { fileId?: string }) => node.fileId === document.project.activeFileId));
   assert.equal(parsed.state.project?.activeFileId, document.project.activeFileId);
   assert.equal(parsed.state.files?.[document.project.activeFileId].kind, "schema");
+});
+
+test("parseProjectFile versione 6 con activeFileId null mantiene Welcome Page senza aprire il primo schema", () => {
+  const serializable = createSerializableProject("Workspace vuoto");
+  const emptyProject = createEmptyProjectExplorerState("Workspace vuoto");
+  const schema = createSchemaWorkspaceFile("Schema nascosto.erschema");
+  const withSchema = addProjectFile(emptyProject, emptyProject.project.rootId, schema);
+  assert.equal(withSchema.ok, true);
+  if (!withSchema.ok) {
+    return;
+  }
+  const projectState = {
+    ...withSchema.state,
+    project: {
+      ...withSchema.state.project,
+      activeFileId: null,
+    },
+    view: {
+      ...withSchema.state.view,
+      activeFileId: null,
+    },
+  };
+  const serialized = serializeProjectFile({
+    ...serializable,
+    project: projectState.project,
+    files: projectState.files,
+    explorerView: projectState.view,
+  });
+  const parsed = parseProjectFile(serialized);
+
+  assert.equal(JSON.parse(serialized).project.activeFileId, null);
+  assert.equal(parsed.state.project?.activeFileId, null);
+  assert.equal(parsed.state.explorerView?.activeFileId, null);
+  assert.equal(Object.values(parsed.state.files ?? {}).filter((file) => file.kind === "schema").length, 1);
+});
+
+test("serializeProjectFile preserva contenuto note txt nel progetto", () => {
+  const serializable = createSerializableProject("Note project");
+  const emptyProject = createEmptyProjectExplorerState("Note project");
+  const note = createTextWorkspaceFile("notes.txt", "text", "Project note");
+  const withNote = addProjectFile(emptyProject, emptyProject.project.rootId, note);
+  assert.equal(withNote.ok, true);
+  if (!withNote.ok) {
+    return;
+  }
+  const projectState = {
+    ...withNote.state,
+    project: { ...withNote.state.project, activeFileId: note.id },
+    view: { ...withNote.state.view, activeFileId: note.id },
+  };
+  const parsed = parseProjectFile(serializeProjectFile({
+    ...serializable,
+    project: projectState.project,
+    files: projectState.files,
+    explorerView: projectState.view,
+  }));
+  const parsedNote = parsed.state.files?.[note.id];
+
+  assert.equal(parsed.state.project?.activeFileId, note.id);
+  assert.equal(parsedNote?.kind, "text");
+  assert.equal(parsedNote?.kind === "text" ? parsedNote.content : "", "Project note");
 });

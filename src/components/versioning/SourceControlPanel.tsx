@@ -7,7 +7,6 @@ import { StudioIcon } from "../icons/StudioIcon";
 
 interface SourceControlPanelProps {
   projectName: string;
-  branchName: string;
   commitMessage: string;
   changeState: ProjectUncommittedChangeState;
   files: Record<string, ProjectWorkspaceFile>;
@@ -33,7 +32,6 @@ function getFileExtensionLabel(file: ProjectWorkspaceFile): string {
 
 export function SourceControlPanel({
   projectName,
-  branchName,
   commitMessage,
   changeState,
   files,
@@ -72,10 +70,6 @@ export function SourceControlPanel({
         <div className="source-control-repository">
           <StudioIcon name="openProject" aria-hidden="true" />
           <span className="source-control-repository-name">{projectName}</span>
-          <span className="source-control-branch">
-            <StudioIcon name="branch" aria-hidden="true" />
-            {branchName}
-          </span>
           <button type="button" className="source-control-icon-button" onClick={onOpenHistory} aria-label={t("sourceControl.more")}>
             <StudioIcon name="menu" />
           </button>

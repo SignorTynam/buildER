@@ -56,3 +56,16 @@ test("ProjectExplorer espone handler per apertura file e nuovo schema", () => {
   assert.match(source, /fileText/);
   assert.match(shellSource, /onClick=\{\(\) => props\.onCreateSchema\(props\.project\.rootId\)\}/);
 });
+
+test("file txt apre il modal note senza sostituire Explorer o aprire CodePanel", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const filePanelStart = appSource.indexOf('activeActivityPanel === "file"');
+  const filePanelEnd = appSource.indexOf(') : activeActivityPanel === "code"', filePanelStart);
+  const filePanelSource = appSource.slice(filePanelStart, filePanelEnd);
+
+  assert.match(appSource, /setTextFileModalFileId\(fileId\)/);
+  assert.match(appSource, /<ProjectTextFileModal/);
+  assert.match(filePanelSource, /<ProjectExplorer/);
+  assert.doesNotMatch(filePanelSource, /ProjectTextFilePanel/);
+  assert.doesNotMatch(filePanelSource, /<CodePanel/);
+});

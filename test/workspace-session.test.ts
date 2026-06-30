@@ -113,6 +113,9 @@ test("workspace session bootstrap defaults when storage is empty", () => {
   assert.equal(restored.diagramView, "er");
   assert.equal(restored.tool, "select");
   assert.deepEqual(restored.viewport, DEFAULT_VIEWPORT);
+  assert.equal(restored.project.activeFileId, null);
+  assert.equal(restored.explorerView.activeFileId, null);
+  assert.equal(Object.keys(restored.files).length, 0);
 });
 
 test("workspace session bootstrap defaults when storage contains invalid JSON", () => {

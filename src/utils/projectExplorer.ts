@@ -220,6 +220,39 @@ export function createTextWorkspaceFile(
   };
 }
 
+export function createEmptyProjectExplorerState(name = "buildER Project"): ProjectExplorerState {
+  const now = new Date().toISOString();
+  const projectId = createId("project");
+  const rootId = createId("folder");
+  const projectName = normalizeProjectNodeName(name) || "buildER Project";
+  const rootNode: ProjectExplorerNode = {
+    id: rootId,
+    name: projectName,
+    kind: "folder",
+    parentId: null,
+    children: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return {
+    project: {
+      id: projectId,
+      name: projectName,
+      rootId,
+      activeFileId: null,
+      fileTree: [rootNode],
+    },
+    files: {},
+    view: {
+      activeFileId: null,
+      explorerOpen: true,
+      explorerWidth: DEFAULT_PROJECT_EXPLORER_WIDTH,
+      expandedFolderIds: [rootId],
+    },
+  };
+}
+
 export function createProjectFromSchema(name: string, schema: SchemaFileDocument): ProjectExplorerState {
   const now = new Date().toISOString();
   const projectId = createId("project");
@@ -491,38 +524,9 @@ export function deleteProjectNode(state: ProjectExplorerState, nodeId: string): 
     expandedFolderIds: state.view.expandedFolderIds.filter((id) => !deletedNodeIds.has(id)),
   };
 
-  let nextActiveFileId = deletedFileIds.has(state.project.activeFileId ?? "")
+  const nextActiveFileId = deletedFileIds.has(state.project.activeFileId ?? "")
     ? getFirstSchemaFileId(project, files)
     : state.project.activeFileId;
-
-  if (!nextActiveFileId) {
-    const fallbackFile = createSchemaWorkspaceFile("Main schema.erschema");
-    const addResult = addProjectFile(
-      {
-        project,
-        files,
-        view,
-      },
-      project.rootId,
-      fallbackFile,
-    );
-    if (addResult.ok) {
-      return {
-        ok: true,
-        state: {
-          ...addResult.state,
-          project: {
-            ...addResult.state.project,
-            activeFileId: fallbackFile.id,
-          },
-          view: {
-            ...addResult.state.view,
-            activeFileId: fallbackFile.id,
-          },
-        },
-      };
-    }
-  }
 
   project = {
     ...project,
