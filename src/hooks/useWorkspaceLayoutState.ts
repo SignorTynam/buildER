@@ -21,6 +21,10 @@ export const RESIZER_WIDTH = 12;
 
 export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootstrap) {
   const restoredTechnicalPanelTab: TechnicalPanelTab = sessionBootstrap.technicalPanelTab;
+  if (restoredTechnicalPanelTab === "notes") {
+    sessionBootstrap.technicalPanelOpen = false;
+    sessionBootstrap.notesPanelOpen = false;
+  }
   const shouldRestoreTechnicalPanel =
     sessionBootstrap.technicalPanelOpen &&
     restoredTechnicalPanelTab !== "code" &&
