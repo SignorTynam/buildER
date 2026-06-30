@@ -1,9 +1,50 @@
+.app-command-topbar,
+.designer-topbar.app-header-view-er,
+.designer-topbar.app-header-view-translation,
+.designer-topbar.app-header-view-logical,
+.designer-topbar:has(.app-command-bar) {
+  grid-template-columns: auto minmax(180px, 320px) minmax(240px, 1fr) auto;
+  grid-template-areas: "brand project commands actions";
+  overflow: visible;
+}
+
+.app-command-topbar .designer-brand,
+.designer-topbar.app-header-view-er .designer-brand,
+.designer-topbar.app-header-view-translation .designer-brand,
+.designer-topbar.app-header-view-logical .designer-brand,
+.designer-topbar:has(.app-command-bar) .designer-brand {
+  grid-area: brand;
+}
+
+.app-command-topbar .designer-project-name,
+.designer-topbar.app-header-view-er .designer-project-name,
+.designer-topbar.app-header-view-translation .designer-project-name,
+.designer-topbar.app-header-view-logical .designer-project-name,
+.designer-topbar:has(.app-command-bar) .designer-project-name {
+  grid-area: project;
+  justify-self: stretch;
+  width: 100%;
+}
+
 .app-command-bar {
+  grid-area: commands;
   display: flex;
   align-items: center;
   gap: 2px;
   min-width: 0;
-  margin-inline: 8px auto;
+  margin-inline: 0;
+  overflow: visible;
+}
+
+.app-command-topbar .designer-topbar-actions,
+.designer-topbar.app-header-view-er .designer-topbar-actions,
+.designer-topbar.app-header-view-translation .designer-topbar-actions,
+.designer-topbar.app-header-view-logical .designer-topbar-actions,
+.designer-topbar:has(.app-command-bar) .designer-topbar-actions {
+  grid-area: actions;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: max-content;
 }
 
 .app-command-menu {
@@ -18,16 +59,16 @@
   padding: 4px 9px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--editor-text);
+  color: currentColor;
   font-size: 0.84rem;
   cursor: pointer;
 }
 
 .app-command-menu > button:hover,
 .app-command-menu > button.active {
-  background: var(--editor-panel-muted);
-  border-color: var(--editor-border);
-  color: var(--editor-text-strong);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
+  color: currentColor;
 }
 
 .app-command-menu > button:focus-visible,
@@ -88,8 +129,17 @@
 }
 
 @media (max-width: 980px) {
+  .app-command-topbar,
+  .designer-topbar.app-header-view-er,
+  .designer-topbar.app-header-view-translation,
+  .designer-topbar.app-header-view-logical,
+  .designer-topbar:has(.app-command-bar) {
+    grid-template-columns: minmax(78px, max-content) minmax(0, 1fr) auto;
+    grid-template-areas: "brand project actions";
+  }
+
   .app-command-bar {
-    overflow-x: auto;
+    display: none;
   }
 
   .app-command-menu__panel {

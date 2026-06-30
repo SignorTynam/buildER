@@ -180,7 +180,7 @@ export function AppHeader(props: AppHeaderProps) {
   ];
 
   return (
-    <header className={`designer-topbar app-header-view-${props.diagramView}`}>
+    <header className={`designer-topbar app-command-topbar app-header-view-${props.diagramView}`}>
       <div className="designer-brand" aria-label={t("appHeader.brandAria")}>
         <strong>{props.appTitle}</strong>
         <span>v{props.appVersion}</span>
