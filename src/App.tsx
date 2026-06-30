@@ -1844,8 +1844,87 @@ export default function App() {
   }
 
   function handleIssueNotice(issue: ValidationIssue) {
-    setStatusMessage(issue.message);
+    setStatusMessage(getLocalizedValidationIssueMessage(issue));
     selectIssueTarget(issue);
+  }
+
+  function getIssueTargetNodeLabel(issue: ValidationIssue): string {
+    if (issue.targetType !== "node") {
+      return issue.targetId;
+    }
+    return history.present.nodes.find((candidate) => candidate.id === issue.targetId)?.label ?? issue.targetId;
+  }
+
+  function getIssueEdgeLabels(issue: ValidationIssue): { source: string; target: string } {
+    if (issue.targetType !== "edge") {
+      return { source: issue.targetId, target: issue.targetId };
+    }
+
+    const edge = history.present.edges.find((candidate) => candidate.id === issue.targetId);
+    if (!edge) {
+      return { source: issue.targetId, target: issue.targetId };
+    }
+
+    return {
+      source: history.present.nodes.find((node) => node.id === edge.sourceId)?.label ?? edge.sourceId,
+      target: history.present.nodes.find((node) => node.id === edge.targetId)?.label ?? edge.targetId,
+    };
+  }
+
+  function getLocalizedValidationIssueMessage(issue: ValidationIssue): string {
+    const label = getIssueTargetNodeLabel(issue);
+    const edgeLabels = getIssueEdgeLabels(issue);
+
+    if (issue.id.startsWith("attribute-conflict-")) {
+      return t("validationIssues.attributeConflict", { label });
+    }
+    if (issue.id.startsWith("attribute-invalid-cardinality-")) {
+      return t("validationIssues.attributeInvalidCardinality", { label });
+    }
+    if (issue.id.startsWith("attribute-")) {
+      return t("validationIssues.attributeMissingHost", { label });
+    }
+    if (issue.id.startsWith("relationship-identifier-")) {
+      return t("validationIssues.relationshipIdentifierAttribute", { label });
+    }
+    if (issue.id.startsWith("relationship-")) {
+      return t("validationIssues.relationshipNeedsEntities", { label });
+    }
+    if (issue.id.startsWith("loop-role-missing-")) {
+      return t("validationIssues.loopRoleMissing");
+    }
+    if (issue.id.startsWith("loop-role-duplicate-")) {
+      return t("validationIssues.loopRoleDuplicate");
+    }
+    if (issue.id.startsWith("entity-disconnected-")) {
+      return t("validationIssues.entityDisconnected", { label });
+    }
+    if (issue.id.startsWith("entity-no-attributes-")) {
+      return t("validationIssues.entityNoAttributes", { label });
+    }
+    if (issue.id.startsWith("subtype-no-attributes-")) {
+      return t("validationIssues.subtypeNoAttributes", { label });
+    }
+    if (issue.id.startsWith("supertype-no-relationship-")) {
+      return t("validationIssues.supertypeNoRelationship", { label });
+    }
+    if (issue.id.startsWith("weak-entity-")) {
+      return t("validationIssues.weakEntityNoExternalIdentifier", { label });
+    }
+    if (issue.id.startsWith("missing-")) {
+      return t("validationIssues.edgeMissingEndpoint", { id: issue.targetId });
+    }
+    if (issue.id.startsWith("invalid-")) {
+      return t("validationIssues.edgeInvalidConnection", edgeLabels);
+    }
+    if (issue.id.startsWith("duplicate-")) {
+      return t("validationIssues.edgeDuplicate", edgeLabels);
+    }
+    if (issue.id.startsWith("cardinality-")) {
+      return t("validationIssues.edgeMissingCardinality", edgeLabels);
+    }
+
+    return issue.message;
   }
 
   function getIssueElementLabel(issue: ValidationIssue): string {
@@ -5604,7 +5683,7 @@ export default function App() {
               level={issue.level}
               onClick={() => handleIssueNotice(issue)}
             >
-              {issue.message}
+              {getLocalizedValidationIssueMessage(issue)}
             </WarningCard>
           ))}
         </div>
@@ -6280,9 +6359,9 @@ export default function App() {
                       <StudioIcon name={issue.level === "error" ? "error" : "warning"} />
                     </span>
                     <span className="errors-modal-item-copy">
-                      <strong>{issue.level === "error" ? "error" : "warning"}</strong>
+                      <strong>{issue.level === "error" ? t("common.status.error") : t("common.status.warning")}</strong>
                       <span>{getIssueElementLabel(issue)}</span>
-                      <p>{issue.message}</p>
+                      <p>{getLocalizedValidationIssueMessage(issue)}</p>
                     </span>
                   </button>
                 ))

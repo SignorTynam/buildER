@@ -78,7 +78,7 @@ test("validation warnings are not promoted to toast notices", () => {
 test("validation issue click does not show toast", () => {
   const handleIssueNoticeBody = getFunctionBody(appSource, "handleIssueNotice");
 
-  assert.match(handleIssueNoticeBody, /setStatusMessage\(issue\.message\)/);
+  assert.match(handleIssueNoticeBody, /setStatusMessage\(getLocalizedValidationIssueMessage\(issue\)\)/);
   assert.match(handleIssueNoticeBody, /selectIssueTarget\(issue\)/);
   assert.doesNotMatch(handleIssueNoticeBody, /showWarningNotice\(issue\.message\)/);
   assert.doesNotMatch(handleIssueNoticeBody, /showErrorNotice\(formattedIssue\)/);
