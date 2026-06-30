@@ -6,6 +6,11 @@ import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { ChangelogModal } from "./components/ChangelogModal";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
+import {
+  ProjectActivityPanel,
+  type ProjectActivityId,
+  type ProjectActivityItem,
+} from "./components/project/ProjectActivityPanel";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
 import { CommitDialog } from "./components/versioning/CommitDialog";
 import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
@@ -1114,6 +1119,9 @@ export default function App() {
     files: sessionBootstrap.files,
     view: sessionBootstrap.explorerView,
   }));
+  const [activeActivityPanel, setActiveActivityPanel] = useState<ProjectActivityId>(
+    sessionBootstrap.codePanelOpen ? "code" : "file",
+  );
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -2750,16 +2758,6 @@ export default function App() {
     applyProjectExplorerState(setProjectExplorerExpandedFolders(projectExplorer, [projectExplorer.project.rootId]));
   }
 
-  function handleProjectExplorerToggleOpen() {
-    applyProjectExplorerState({
-      ...projectExplorer,
-      view: {
-        ...projectExplorer.view,
-        explorerOpen: !projectExplorer.view.explorerOpen,
-      },
-    });
-  }
-
   function handleProjectExplorerResizeStart(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
     const startX = event.clientX;
@@ -2812,12 +2810,53 @@ export default function App() {
     }
   }
 
-  function handleToggleCodePanel() {
-    if (codePanelOpen) {
-      handleCodeEditorBlur();
+  function setWorkspaceActivityOpen(open: boolean) {
+    setProjectExplorer((current) => ({
+      ...current,
+      view: {
+        ...current.view,
+        explorerOpen: open,
+      },
+    }));
+  }
+
+  function handleSelectActivityPanel(panel: ProjectActivityId) {
+    setActiveActivityPanel(panel);
+    setWorkspaceActivityOpen(true);
+
+    if (panel === "code") {
+      setCodePanelOpen(true);
+      return;
     }
 
-    toggleWorkspaceCodePanel();
+    if (codePanelOpen) {
+      handleCodeEditorBlur();
+      setCodePanelOpen(false);
+    }
+  }
+
+  function handleToggleActivityPanelOpen() {
+    const nextOpen = !projectExplorer.view.explorerOpen;
+    setWorkspaceActivityOpen(nextOpen);
+    if (!nextOpen && codePanelOpen) {
+      handleCodeEditorBlur();
+      setCodePanelOpen(false);
+    }
+  }
+
+  function handleToggleCodePanel() {
+    if (codePanelOpen && activeActivityPanel === "code" && projectExplorer.view.explorerOpen) {
+      handleCodeEditorBlur();
+      setCodePanelOpen(false);
+      setWorkspaceActivityOpen(false);
+      return;
+    }
+
+    if (!codePanelOpen) {
+      toggleWorkspaceCodePanel();
+    }
+    setActiveActivityPanel("code");
+    setWorkspaceActivityOpen(true);
   }
 
   function rememberCodeLayout(diagram: DiagramDocument) {
@@ -6207,6 +6246,180 @@ export default function App() {
         />
       </SqlReversePreviewFrame>
     ) : null;
+  const activityItems: ProjectActivityItem[] = [
+    { id: "file", label: t("appHeader.menus.file"), icon: "openProject" },
+    { id: "code", label: t("appHeader.menus.code"), icon: "code" },
+    { id: "reverse", label: t("appHeader.menus.reverse"), icon: "databaseReverse" },
+    { id: "errors", label: t("appHeader.menus.errors"), icon: issues.some((issue) => issue.level === "error") ? "error" : "warning", badge: issues.length },
+    { id: "version", label: t("appHeader.menus.version"), icon: "history", badge: hasVersioningUncommittedChanges ? 1 : undefined },
+    { id: "export", label: t("appHeader.menus.export"), icon: "export" },
+  ];
+  const visibleActivityIssues = issues.filter(issueTargetExists);
+  const activityPanelContent =
+    activeActivityPanel === "file" ? (
+      <div className="project-activity-file">
+        <div className="project-activity-file-actions" aria-label={t("workspaceActivity.file.actionsAria")}>
+          <button type="button" className="project-activity-action compact" onClick={handleNewProject}>
+            <StudioIcon name="newProject" aria-hidden="true" />
+            <span>{t("appHeader.commands.newProject")}</span>
+          </button>
+          <button type="button" className="project-activity-action compact" onClick={handleLoadProjectRequest}>
+            <StudioIcon name="openProject" aria-hidden="true" />
+            <span>{t("appHeader.commands.openProject")}</span>
+          </button>
+          <button type="button" className="project-activity-action compact" onClick={handleSaveProject}>
+            <StudioIcon name="save" aria-hidden="true" />
+            <span>{t("appHeader.commands.saveProject")}</span>
+          </button>
+        </div>
+        <ProjectExplorer
+          embedded
+          project={projectExplorer.project}
+          files={projectExplorer.files}
+          view={projectExplorer.view}
+          onOpenFile={handleProjectExplorerOpenFile}
+          onCreateSchema={handleProjectExplorerCreateSchema}
+          onCreateTextFile={handleProjectExplorerCreateTextFile}
+          onCreateFolder={handleProjectExplorerCreateFolder}
+          onRename={handleProjectExplorerRename}
+          onDelete={handleProjectExplorerDelete}
+          onToggleFolder={handleProjectExplorerToggleFolder}
+          onCollapseAll={handleProjectExplorerCollapseAll}
+          onToggleOpen={handleToggleActivityPanelOpen}
+          onResizeStart={handleProjectExplorerResizeStart}
+        />
+      </div>
+    ) : activeActivityPanel === "code" ? (
+      <CodePanel
+        embedded
+        code={codeDraft}
+        editable={mode === "edit"}
+        parseError={codeError}
+        onCodeChange={updateCodeDraft}
+        onFocus={handleCodeEditorFocus}
+        onBlur={handleCodeEditorBlur}
+        onClose={handleToggleCodePanel}
+      />
+    ) : activeActivityPanel === "reverse" ? (
+      <section className="project-activity-section" aria-label={t("workspaceActivity.reverse.title")}>
+        <header className="project-activity-section__header">
+          <h2>{t("workspaceActivity.reverse.title")}</h2>
+          <p>{t("workspaceActivity.reverse.description")}</p>
+        </header>
+        <div className="project-activity-actions">
+          <button type="button" className="project-activity-action" onClick={handleOpenSqlReverseWorkflow}>
+            <StudioIcon name="databaseReverse" aria-hidden="true" />
+            <span>{t("appHeader.commands.openSqlReverse")}</span>
+          </button>
+          <button type="button" className="project-activity-action" onClick={handleOpenSqlReverseWorkflow}>
+            <StudioIcon name="upload" aria-hidden="true" />
+            <span>{t("appHeader.commands.importSql")}</span>
+          </button>
+        </div>
+      </section>
+    ) : activeActivityPanel === "errors" ? (
+      <section className="project-activity-section" aria-label={t("workspaceActivity.errors.title")}>
+        <header className="project-activity-section__header">
+          <h2>{t("workspaceActivity.errors.title")}</h2>
+          <p>{t("errors.issueCount", { count: visibleActivityIssues.length })}</p>
+        </header>
+        <div className="project-activity-actions">
+          <button
+            type="button"
+            className={["project-activity-action", showDiagnostics ? "active" : ""].filter(Boolean).join(" ")}
+            onClick={handleToggleDiagnosticsVisibility}
+            aria-pressed={showDiagnostics}
+          >
+            <StudioIcon name={showDiagnostics ? "viewOn" : "viewOff"} aria-hidden="true" />
+            <span>{showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}</span>
+          </button>
+        </div>
+        {visibleActivityIssues.length === 0 ? (
+          <p className="project-activity-empty">{t("errors.empty")}</p>
+        ) : (
+          <div className="project-activity-issue-list">
+            {visibleActivityIssues.map((issue) => (
+              <button
+                type="button"
+                key={issue.id}
+                className={`project-activity-issue level-${issue.level}`}
+                onClick={() => selectIssueTarget(issue)}
+              >
+                <StudioIcon name={issue.level === "error" ? "error" : "warning"} aria-hidden="true" />
+                <span>
+                  <strong>{getIssueElementLabel(issue)}</strong>
+                  <small>{getLocalizedValidationIssueMessage(issue)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    ) : activeActivityPanel === "version" ? (
+      <section className="project-activity-section" aria-label={t("workspaceActivity.version.title")}>
+        <header className="project-activity-section__header">
+          <h2>{t("workspaceActivity.version.title")}</h2>
+          <p>{hasVersioningUncommittedChanges ? t("versioning.uncommittedChanges") : t("versioning.noChangesComparedToHead")}</p>
+        </header>
+        <div className="project-activity-summary">
+          <span>{t("versioning.commitCount", { count: projectVersioning.versioning.commits.length })}</span>
+          <span>{commitDialogHint || t("workspaceActivity.version.clean")}</span>
+        </div>
+        <div className="project-activity-actions">
+          <button type="button" className="project-activity-action" onClick={() => setVersioningPanelOpen(true)}>
+            <StudioIcon name="history" aria-hidden="true" />
+            <span>{t("workspaceActivity.version.openHistory")}</span>
+          </button>
+          <button
+            type="button"
+            className="project-activity-action"
+            onClick={() => setCommitDialogOpen(true)}
+            disabled={!versioningChangeState.summary.canCommit}
+          >
+            <StudioIcon name="done" aria-hidden="true" />
+            <span>{t("versioning.createCommit")}</span>
+          </button>
+        </div>
+      </section>
+    ) : (
+      <section className="project-activity-section" aria-label={t("workspaceActivity.export.title")}>
+        <header className="project-activity-section__header">
+          <h2>{t("workspaceActivity.export.title")}</h2>
+          <p>{t("workspaceActivity.export.description")}</p>
+        </header>
+        <div className="project-activity-actions">
+          <button type="button" className="project-activity-action" onClick={handleExportPng}>
+            <StudioIcon name="fileImage" aria-hidden="true" />
+            <span>{t("appHeader.commands.exportPng")}</span>
+          </button>
+          <button type="button" className="project-activity-action" onClick={handleExportJpeg}>
+            <StudioIcon name="image" aria-hidden="true" />
+            <span>{t("appHeader.commands.exportJpeg")}</span>
+          </button>
+          <button type="button" className="project-activity-action" onClick={handleExportSvg}>
+            <StudioIcon name="export" aria-hidden="true" />
+            <span>{t("appHeader.commands.exportSvg")}</span>
+          </button>
+          <button type="button" className="project-activity-action" onClick={handleSaveProject}>
+            <StudioIcon name="save" aria-hidden="true" />
+            <span>{t("appHeader.commands.exportProject")}</span>
+          </button>
+          <button type="button" className="project-activity-action" onClick={handleSaveCurrentSchema}>
+            <StudioIcon name="download" aria-hidden="true" />
+            <span>{t("appHeader.commands.exportCurrentSchema")}</span>
+          </button>
+          <button
+            type="button"
+            className="project-activity-action"
+            onClick={handleSaveLogicalSql}
+            disabled={diagramView !== "logical" || logicalHistory.present.model.tables.length === 0}
+          >
+            <StudioIcon name="database" aria-hidden="true" />
+            <span>{t("appHeader.commands.exportSql")}</span>
+          </button>
+        </div>
+      </section>
+    );
 
   if (booting) {
     return <AppLoadingScreen />;
@@ -6257,6 +6470,7 @@ export default function App() {
         issueCount={issues.length}
         warningCount={issues.filter((issue) => issue.level === "warning").length}
         showDiagnostics={showDiagnostics}
+        activeActivityPanel={activeActivityPanel}
         onNewProject={handleNewProject}
         onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
         onImportSchema={handleImportSchemaRequest}
@@ -6283,6 +6497,7 @@ export default function App() {
         onExportSql={handleSaveLogicalSql}
         onOpenCommandMenu={openCommandMenu}
         onOpenShortcuts={openKeyboardShortcuts}
+        onActivityPanelSelect={handleSelectActivityPanel}
         onDiagramNameChange={handleDiagramNameChange}
       />
 
@@ -6302,21 +6517,20 @@ export default function App() {
           ) : null}
         </div>
 
-        <ProjectExplorer
-          project={projectExplorer.project}
-          files={projectExplorer.files}
-          view={projectExplorer.view}
-          onOpenFile={handleProjectExplorerOpenFile}
-          onCreateSchema={handleProjectExplorerCreateSchema}
-          onCreateTextFile={handleProjectExplorerCreateTextFile}
-          onCreateFolder={handleProjectExplorerCreateFolder}
-          onRename={handleProjectExplorerRename}
-          onDelete={handleProjectExplorerDelete}
-          onToggleFolder={handleProjectExplorerToggleFolder}
-          onCollapseAll={handleProjectExplorerCollapseAll}
-          onToggleOpen={handleProjectExplorerToggleOpen}
+        <ProjectActivityPanel
+          items={activityItems}
+          activeId={activeActivityPanel}
+          open={projectExplorer.view.explorerOpen}
+          width={projectExplorer.view.explorerWidth}
+          title={t("workspaceActivity.title")}
+          openLabel={t("workspaceActivity.openPanel")}
+          closeLabel={t("workspaceActivity.closePanel")}
+          onSelect={handleSelectActivityPanel}
+          onToggleOpen={handleToggleActivityPanelOpen}
           onResizeStart={handleProjectExplorerResizeStart}
-        />
+        >
+          {activityPanelContent}
+        </ProjectActivityPanel>
 
         {sqlReversePreviewContent ? (
           sqlReversePreviewContent
@@ -6339,77 +6553,7 @@ export default function App() {
           >
           {diagramView === "er" ? (
             <div className="designer-workspace">
-              <div className={codePanelOpen ? "designer-canvas-region code-drawer-open" : "designer-canvas-region"}>
-                {codePanelOpen ? (
-                  <div className="designer-code-drawer">
-                    <CodePanel
-                      embedded
-                      code={codeDraft}
-                      editable={mode === "edit"}
-                      parseError={codeError}
-                      onCodeChange={updateCodeDraft}
-                      onFocus={handleCodeEditorFocus}
-                      onBlur={handleCodeEditorBlur}
-                      onClose={handleToggleCodePanel}
-                    />
-                  </div>
-                ) : null}
-
-                <div className="designer-quick-actions-bar designer-side-toggle-group" aria-label={t("workspace.quickPanels.aria")}>
-                  <button
-                    type="button"
-                    className={["designer-side-toggle", codePanelOpen ? "active" : ""].filter(Boolean).join(" ")}
-                    onClick={handleToggleCodePanel}
-                    title={codePanelOpen ? t("workspace.quickPanels.closeCodeTitle") : t("workspace.quickPanels.openCodeTitle")}
-                    aria-label={codePanelOpen ? t("workspace.quickPanels.closeCodeAria") : t("workspace.quickPanels.openCodeAria")}
-                    aria-pressed={codePanelOpen}
-                  >
-                    <span className="designer-side-toggle-icon" aria-hidden="true">
-                      <StudioIcon name="code" />
-                    </span>
-                    <span className="designer-side-toggle-label">Code</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="designer-side-toggle"
-                    onClick={handleOpenSqlReverseWorkflow}
-                    title={t("workspace.quickPanels.importSqlTitle")}
-                    aria-label={t("workspace.quickPanels.openSqlReverseAria")}
-                  >
-                    <span className="designer-side-toggle-icon" aria-hidden="true">
-                      <StudioIcon name="databaseReverse" />
-                    </span>
-                    <span className="designer-side-toggle-label">Reverse</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`designer-side-toggle designer-side-toggle-errors ${
-                      issues.length > 0 ? "has-issues" : ""
-                    }`}
-                    onClick={() => setErrorsPanelOpen(true)}
-                    title={t("workspace.quickPanels.openErrorsTitle")}
-                    aria-label={t("workspace.quickPanels.openErrorsAria")}
-                  >
-                    <span className="designer-side-toggle-icon" aria-hidden="true">
-                      <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} />
-                    </span>
-                    <span className="designer-side-toggle-label">Errors</span>
-                    {issues.length > 0 ? <span className="designer-side-toggle-badge">{issues.length}</span> : null}
-                  </button>
-                  <button
-                    type="button"
-                    className={["designer-side-toggle", notesPanelOpen ? "active" : ""].filter(Boolean).join(" ")}
-                    onClick={handleToggleNotesPanel}
-                    title={notesPanelOpen ? t("workspace.quickPanels.closeNotesTitle") : t("workspace.quickPanels.openNotesTitle")}
-                    aria-label={notesPanelOpen ? t("workspace.quickPanels.closeNotesAria") : t("workspace.quickPanels.openNotesAria")}
-                    aria-pressed={notesPanelOpen}
-                  >
-                    <span className="designer-side-toggle-icon" aria-hidden="true">
-                      <StudioIcon name="notes" />
-                    </span>
-                    <span className="designer-side-toggle-label">Notes</span>
-                  </button>
-                </div>
+              <div className="designer-canvas-region">
 
                 <Toolbar
                   diagram={history.present}

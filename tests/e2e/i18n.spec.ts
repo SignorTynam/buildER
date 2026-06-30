@@ -18,8 +18,9 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await page.goto("/");
   await expect(page.locator(".app-shell")).toBeVisible();
 
-  await expect(page.getByTestId("app-header-new-project")).toContainText("Nuovo progetto");
-  await expect(page.getByTestId("app-header-open-project")).toContainText("Apri progetto");
+  await expect(page.locator(".app-command-tab", { hasText: "File" })).toHaveClass(/active/);
+  await expect(page.locator(".project-activity-file-actions")).toContainText("Nuovo progetto");
+  await expect(page.locator(".project-activity-file-actions")).toContainText("Apri progetto");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Selezione");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Entit");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Esporta");
@@ -30,8 +31,8 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await expect(page.getByTestId("command-menu-search")).toHaveAttribute("placeholder", "Cerca comando...");
 
   await page.getByTestId("language-command-en").click();
-  await expect(page.getByTestId("app-header-new-project")).toContainText("New project");
-  await expect(page.getByTestId("app-header-open-project")).toContainText("Open project");
+  await expect(page.locator(".project-activity-file-actions")).toContainText("New Project");
+  await expect(page.locator(".project-activity-file-actions")).toContainText("Open Project");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Select");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Entity");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Export");
@@ -43,8 +44,8 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await expect(page.getByText("Menu comandi")).toHaveCount(0);
 
   await page.getByTestId("language-command-sq").click();
-  await expect(page.getByTestId("app-header-new-project")).toContainText("Projekt i ri");
-  await expect(page.getByTestId("app-header-open-project")).toContainText("Hap projektin");
+  await expect(page.locator(".project-activity-file-actions")).toContainText("Projekt i ri");
+  await expect(page.locator(".project-activity-file-actions")).toContainText("Hap projekt");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Përzgjedhje");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Entitet");
   await expect(page.locator(".designer-er-toolbar")).toContainText("Eksporto");
@@ -59,7 +60,7 @@ test("switches app chrome and command menu across Italian, English, and Albanian
 
   await page.reload();
   await expect(page.locator(".app-shell")).toBeVisible();
-  await expect(page.getByTestId("app-header-new-project")).toContainText("Projekt i ri");
+  await expect(page.locator(".project-activity-file-actions")).toContainText("Projekt i ri");
 
   await page.getByTestId("app-header-menu").click();
   await expect(page.getByRole("dialog", { name: "Menuja e komandave" })).toBeVisible();

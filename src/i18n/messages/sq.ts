@@ -131,6 +131,7 @@ export const sq: DeepPartialMessages = {
       code: "Code",
       reverse: "Reverse",
       errors: "Errors",
+      version: "Version",
       export: "Export",
     },
     commands: {
@@ -174,6 +175,30 @@ export const sq: DeepPartialMessages = {
       languageMenuAria: "Zgjedhja e gjuhës së ndërfaqes",
       menuTitle: "Menu",
       menuAria: "Hap menunë e komandave",
+    },
+  },
+  workspaceActivity: {
+    title: "Paneli i workspace",
+    openPanel: "Hap panelin e workspace",
+    closePanel: "Mbyll panelin e workspace",
+    file: {
+      actionsAria: "Veprime file projekti",
+    },
+    reverse: {
+      title: "Reverse",
+      description: "Importo SQL dhe gjenero preview ER/logjike nga komandat CREATE TABLE.",
+    },
+    errors: {
+      title: "Errors",
+    },
+    version: {
+      title: "Version",
+      clean: "Working copy e paster.",
+      openHistory: "Hap historikun e versioneve",
+    },
+    export: {
+      title: "Export",
+      description: "Shkarko projektin, skemen aktuale, burimin ERS, imazhet ose SQL logjik.",
     },
   },
   projectExplorer: {

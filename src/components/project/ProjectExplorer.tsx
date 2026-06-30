@@ -14,6 +14,7 @@ interface ProjectExplorerProps {
   project: ProjectExplorerProject;
   files: Record<string, ProjectWorkspaceFile>;
   view: ProjectExplorerViewState;
+  embedded?: boolean;
   onOpenFile: (fileId: string) => void;
   onCreateSchema: (parentId: string) => void;
   onCreateTextFile: (parentId: string) => void;
@@ -45,7 +46,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     newFolder: t("projectExplorer.actions.newFolder"),
   };
 
-  if (!props.view.explorerOpen) {
+  if (!props.embedded && !props.view.explorerOpen) {
     return (
       <aside className="project-explorer project-explorer--collapsed" aria-label={t("projectExplorer.title")}>
         <button
@@ -63,8 +64,8 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
 
   return (
     <aside
-      className="project-explorer"
-      style={{ "--project-explorer-width": `${props.view.explorerWidth}px` } as CSSProperties}
+      className={props.embedded ? "project-explorer project-explorer--embedded" : "project-explorer"}
+      style={props.embedded ? undefined : ({ "--project-explorer-width": `${props.view.explorerWidth}px` } as CSSProperties)}
       aria-label={t("projectExplorer.title")}
     >
       <div className="project-explorer-header">
@@ -124,13 +125,15 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
         )}
       </div>
 
-      <div
-        className="project-explorer-resizer"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={t("projectExplorer.resizeAria")}
-        onPointerDown={props.onResizeStart}
-      />
+      {!props.embedded ? (
+        <div
+          className="project-explorer-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t("projectExplorer.resizeAria")}
+          onPointerDown={props.onResizeStart}
+        />
+      ) : null}
     </aside>
   );
 }

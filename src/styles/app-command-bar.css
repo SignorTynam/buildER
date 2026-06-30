@@ -30,7 +30,7 @@
   grid-area: commands;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   margin-inline: 0;
   overflow: visible;
@@ -47,11 +47,7 @@
   min-width: max-content;
 }
 
-.app-command-menu {
-  position: relative;
-}
-
-.app-command-menu > button {
+.app-command-tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -64,14 +60,14 @@
   cursor: pointer;
 }
 
-.app-command-menu > button:hover,
-.app-command-menu > button.active {
+.app-command-tab:hover,
+.app-command-tab.active {
   background: color-mix(in srgb, currentColor 12%, transparent);
   border-color: color-mix(in srgb, currentColor 24%, transparent);
   color: currentColor;
 }
 
-.app-command-menu > button:focus-visible,
+.app-command-tab:focus-visible,
 .app-command-menu__panel button:focus-visible {
   outline: 2px solid var(--studio-focus-ring);
   outline-offset: 2px;

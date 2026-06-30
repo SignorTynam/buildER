@@ -1,16 +1,110 @@
-.project-explorer {
+.project-activity-panel {
   grid-column: 1;
   grid-row: 1;
-  width: var(--project-explorer-width, 260px);
-  min-width: var(--project-explorer-width, 260px);
-  max-width: var(--project-explorer-width, 260px);
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  width: calc(var(--project-explorer-width, 260px) + 42px);
+  min-width: calc(var(--project-explorer-width, 260px) + 42px);
+  max-width: calc(var(--project-explorer-width, 260px) + 42px);
   background: var(--editor-panel);
   border-right: 1px solid var(--editor-border);
   color: var(--editor-text);
   overflow: hidden;
+}
+
+.project-activity-panel--collapsed {
+  grid-template-columns: 42px;
+  width: 42px;
+  min-width: 42px;
+  max-width: 42px;
+}
+
+.project-activity-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-right: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+}
+
+.project-activity-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--editor-text-muted);
+  cursor: pointer;
+}
+
+.project-activity-button:hover,
+.project-activity-button.active {
+  border-color: var(--editor-border);
+  background: var(--editor-panel-muted);
+  color: var(--editor-text-strong);
+}
+
+.project-activity-button.active::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  background: var(--studio-accent);
+}
+
+.project-activity-collapse {
+  margin-top: auto;
+}
+
+.project-activity-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--studio-danger);
+  color: var(--studio-surface-strong);
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.project-activity-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.project-explorer {
+  display: flex;
+  flex-direction: column;
+  width: var(--project-explorer-width, 260px);
+  min-width: var(--project-explorer-width, 260px);
+  max-width: var(--project-explorer-width, 260px);
+  position: relative;
+  background: var(--editor-panel);
+  border-right: 1px solid var(--editor-border);
+  color: var(--editor-text);
+  overflow: hidden;
+}
+
+.project-explorer--embedded {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 100%;
+  border-right: 0;
 }
 
 .app-workspace-region {
@@ -61,12 +155,170 @@
 }
 
 .project-explorer-collapsed-button:focus-visible,
+.project-activity-button:focus-visible,
+.project-activity-action:focus-visible,
+.project-activity-issue:focus-visible,
 .project-explorer-header__actions button:focus-visible,
 .project-explorer-item__actions button:focus-visible,
 .project-explorer-item__main:focus-visible,
 .project-explorer-empty button:focus-visible {
   outline: 2px solid var(--studio-focus-ring);
   outline-offset: 2px;
+}
+
+.project-activity-file {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+
+.project-activity-file-actions {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+}
+
+.project-activity-section {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+  color: var(--editor-text);
+}
+
+.project-activity-section__header {
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+}
+
+.project-activity-section__header h2 {
+  margin: 0;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  color: var(--editor-text-strong);
+}
+
+.project-activity-section__header p {
+  margin: 4px 0 0;
+  color: var(--editor-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.project-activity-actions,
+.project-activity-summary {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.project-activity-summary {
+  border-bottom: 1px solid var(--editor-border);
+  color: var(--editor-text-muted);
+  font-size: 0.78rem;
+}
+
+.project-activity-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel);
+  color: var(--editor-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-activity-action.compact {
+  min-height: 30px;
+  font-size: 0.8rem;
+}
+
+.project-activity-action:hover,
+.project-activity-action.active {
+  background: var(--editor-panel-muted);
+  color: var(--editor-text-strong);
+}
+
+.project-activity-action:disabled {
+  cursor: not-allowed;
+  color: var(--editor-text-muted);
+  opacity: 0.58;
+}
+
+.project-activity-empty {
+  margin: 0;
+  padding: 14px 12px;
+  color: var(--editor-text-muted);
+  font-size: 0.82rem;
+}
+
+.project-activity-issue-list {
+  overflow: auto;
+  padding: 8px;
+}
+
+.project-activity-issue {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel);
+  color: var(--editor-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-activity-issue + .project-activity-issue {
+  margin-top: 6px;
+}
+
+.project-activity-issue:hover {
+  background: var(--editor-panel-muted);
+}
+
+.project-activity-issue.level-error svg {
+  color: var(--studio-danger);
+}
+
+.project-activity-issue.level-warning svg {
+  color: var(--studio-warning);
+}
+
+.project-activity-issue strong,
+.project-activity-issue small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-activity-issue strong {
+  color: var(--editor-text-strong);
+  font-size: 0.78rem;
+}
+
+.project-activity-issue small {
+  margin-top: 2px;
+  color: var(--editor-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.project-activity-content .designer-code-dock {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 .project-explorer-header {
@@ -208,6 +460,18 @@
 }
 
 @media (max-width: 860px) {
+  .project-activity-panel {
+    width: calc(min(var(--project-explorer-width, 260px), 46vw) + 42px);
+    min-width: calc(min(var(--project-explorer-width, 260px), 46vw) + 42px);
+    max-width: calc(min(var(--project-explorer-width, 260px), 46vw) + 42px);
+  }
+
+  .project-activity-panel--collapsed {
+    width: 42px;
+    min-width: 42px;
+    max-width: 42px;
+  }
+
   .project-explorer {
     width: min(var(--project-explorer-width, 260px), 46vw);
     min-width: min(var(--project-explorer-width, 260px), 46vw);

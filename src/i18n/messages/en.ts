@@ -131,6 +131,7 @@ export const en: DeepPartialMessages = {
       code: "Code",
       reverse: "Reverse",
       errors: "Errors",
+      version: "Version",
       export: "Export",
     },
     commands: {
@@ -174,6 +175,30 @@ export const en: DeepPartialMessages = {
       languageMenuAria: "Interface language selection",
       menuTitle: "Menu",
       menuAria: "Open command menu",
+    },
+  },
+  workspaceActivity: {
+    title: "Workspace panel",
+    openPanel: "Open workspace panel",
+    closePanel: "Close workspace panel",
+    file: {
+      actionsAria: "Project file actions",
+    },
+    reverse: {
+      title: "Reverse",
+      description: "Import SQL and generate ER/logical previews from CREATE TABLE statements.",
+    },
+    errors: {
+      title: "Errors",
+    },
+    version: {
+      title: "Version",
+      clean: "Working copy clean.",
+      openHistory: "Open version history",
+    },
+    export: {
+      title: "Export",
+      description: "Download the project, current schema, ERS source, images, or logical SQL.",
     },
   },
   projectExplorer: {

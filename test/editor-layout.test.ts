@@ -9,7 +9,8 @@ const workspaceLayoutStateSource = readFileSync(
 );
 const editorCssSource = readFileSync(new URL("../src/styles/editor-refactor.css", import.meta.url), "utf8");
 const panelsCssSource = readFileSync(new URL("../src/styles/panels.css", import.meta.url), "utf8");
-const allCssSource = `${editorCssSource}\n${panelsCssSource}`;
+const projectExplorerCssSource = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
+const allCssSource = `${editorCssSource}\n${panelsCssSource}\n${projectExplorerCssSource}`;
 
 function cssBlock(selector: string): string {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -18,32 +19,31 @@ function cssBlock(selector: string): string {
   return match[0];
 }
 
-test("ER code panel renders as a drawer inside the canvas region", () => {
+test("ER code panel renders inside the unified workspace activity panel", () => {
   assert.doesNotMatch(appSource, /designer-workspace code-open/);
   assert.match(appSource, /<div className="designer-workspace">/);
-  assert.match(
-    appSource,
-    /<div className=\{codePanelOpen \? "designer-canvas-region code-drawer-open" : "designer-canvas-region"\}>/,
-  );
+  assert.match(appSource, /<ProjectActivityPanel/);
 
-  const erWorkspaceStart = appSource.indexOf('<div className="designer-workspace">');
-  const canvasRegionStart = appSource.indexOf("designer-canvas-region code-drawer-open", erWorkspaceStart);
-  const codeDrawerStart = appSource.indexOf('className="designer-code-drawer"', canvasRegionStart);
-  const codePanelStart = appSource.indexOf("<CodePanel", codeDrawerStart);
-  const quickActionsStart = appSource.indexOf("designer-quick-actions-bar", codePanelStart);
+  const activityContentStart = appSource.indexOf("const activityPanelContent");
+  const codePanelStart = appSource.indexOf("<CodePanel", activityContentStart);
+  const activityPanelStart = appSource.indexOf("<ProjectActivityPanel", codePanelStart);
+  const erWorkspaceStart = appSource.indexOf('<div className="designer-workspace">', codePanelStart);
+  const canvasRegionStart = appSource.indexOf('className="designer-canvas-region"', erWorkspaceStart);
 
+  assert.notEqual(activityContentStart, -1, "activity panel content should be defined");
+  assert.notEqual(codePanelStart, -1, "CodePanel should be rendered in the activity panel content");
+  assert.notEqual(activityPanelStart, -1, "workspace activity panel should exist");
   assert.notEqual(erWorkspaceStart, -1, "ER designer workspace should exist");
-  assert.notEqual(canvasRegionStart, -1, "ER canvas region should own the open state class");
-  assert.notEqual(codeDrawerStart, -1, "Code drawer wrapper should exist");
-  assert.notEqual(codePanelStart, -1, "CodePanel should be rendered inside the drawer");
-  assert.notEqual(quickActionsStart, -1, "quick actions should render after the drawer overlay");
+  assert.notEqual(canvasRegionStart, -1, "ER canvas region should remain plain");
+  assert.ok(codePanelStart > activityContentStart);
+  assert.ok(activityPanelStart > codePanelStart);
+  assert.ok(erWorkspaceStart > codePanelStart);
   assert.ok(canvasRegionStart > erWorkspaceStart);
-  assert.ok(codeDrawerStart > canvasRegionStart);
-  assert.ok(codePanelStart > codeDrawerStart);
-  assert.ok(quickActionsStart > codePanelStart);
+  assert.doesNotMatch(appSource, /designer-code-drawer/);
+  assert.doesNotMatch(appSource, /designer-quick-actions-bar/);
 });
 
-test("ER code drawer does not activate the legacy technical side panel layout", () => {
+test("ER code activity panel does not activate the legacy technical side panel layout", () => {
   assert.doesNotMatch(workspaceLayoutStateSource, /const technicalPanelVisible = technicalPanelOpen;/);
   assert.match(
     workspaceLayoutStateSource,
@@ -61,18 +61,18 @@ test("ER code drawer does not activate the legacy technical side panel layout", 
   assert.doesNotMatch(erShellClassBlock, /technical-workspace-shell/);
 });
 
-test("ER code drawer CSS keeps the workspace at one canvas column", () => {
+test("ER code activity panel CSS keeps the workspace at one canvas column", () => {
   assert.doesNotMatch(allCssSource, /designer-workspace\.code-open[\s\S]*grid-template-columns:\s*minmax\(320px,\s*25vw\)\s+minmax\(0,\s*1fr\)/);
-  assert.match(editorCssSource, /\.designer-code-drawer\s*\{/);
+  assert.match(projectExplorerCssSource, /\.project-activity-panel\s*\{/);
+  assert.match(projectExplorerCssSource, /\.project-activity-content \.designer-code-dock\s*\{/);
 
   const workspaceBlock = cssBlock(".designer-workspace");
   assert.match(workspaceBlock, /display:\s*grid/);
   assert.match(workspaceBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
 
-test("ER canvas region remains full size when the code drawer is open", () => {
+test("ER canvas region remains full size with the activity panel open", () => {
   const canvasRegionBlock = cssBlock(".designer-canvas-region");
-  const codeDrawerBlock = cssBlock(".designer-code-drawer");
 
   assert.match(canvasRegionBlock, /position:\s*relative/);
   assert.match(canvasRegionBlock, /width:\s*100%/);
@@ -80,8 +80,7 @@ test("ER canvas region remains full size when the code drawer is open", () => {
   assert.match(canvasRegionBlock, /min-width:\s*0/);
   assert.match(canvasRegionBlock, /min-height:\s*0/);
   assert.match(canvasRegionBlock, /overflow:\s*hidden/);
-  assert.match(codeDrawerBlock, /position:\s*absolute/);
-  assert.doesNotMatch(codeDrawerBlock, /width:\s*100%/);
-  assert.match(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-context-toolbar/);
-  assert.match(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-quick-actions-bar/);
+  assert.doesNotMatch(appSource, /code-drawer-open/);
+  assert.doesNotMatch(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-context-toolbar/);
+  assert.doesNotMatch(editorCssSource, /\.designer-canvas-region\.code-drawer-open \.designer-quick-actions-bar/);
 });

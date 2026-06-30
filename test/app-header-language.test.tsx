@@ -30,14 +30,33 @@ function renderHeader(): string {
         focusMode={false}
         hasUncommittedChanges
         versioningCommitCount={3}
+        issueCount={0}
+        warningCount={0}
+        showDiagnostics
+        activeActivityPanel="file"
         onNewProject={() => undefined}
+        onNewSchema={() => undefined}
+        onImportSchema={() => undefined}
+        onExportCurrentSchema={() => undefined}
+        onRenameProject={() => undefined}
         onOpenVersioningPanel={() => undefined}
         onToggleCodePanel={() => undefined}
         onToggleNotesPanel={() => undefined}
+        onRegenerateErs={() => undefined}
         onSaveProject={() => undefined}
         onLoadProject={() => undefined}
+        onSaveErs={() => undefined}
+        onOpenSqlReverseWorkflow={() => undefined}
+        onImportSql={() => undefined}
+        onOpenErrorsPanel={() => undefined}
+        onToggleDiagnostics={() => undefined}
+        onExportPng={() => undefined}
+        onExportJpeg={() => undefined}
+        onExportSvg={() => undefined}
+        onExportSql={() => undefined}
         onOpenCommandMenu={() => undefined}
         onOpenShortcuts={() => undefined}
+        onActivityPanelSelect={() => undefined}
       />
     </I18nProvider>,
   );
@@ -57,9 +76,8 @@ test("AppHeader renders the language button between help and command menu", () =
   assert.match(markup, /aria-haspopup="menu"/);
   assert.match(markup, /aria-expanded="false"/);
   assert.match(markup, /Change interface language/);
-  assert.match(markup, /Open project versions\. 3 commits, uncommitted changes\./);
-  assert.match(markup, /aria-label="Uncommitted changes"/);
-  assert.match(markup, /aria-label="3 commits"/);
+  assert.match(markup, /File/);
+  assert.match(markup, /Version/);
 
   setCurrentLocale(DEFAULT_LOCALE);
 });
