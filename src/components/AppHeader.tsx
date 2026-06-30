@@ -16,22 +16,50 @@ interface AppHeaderProps {
   focusMode: boolean;
   hasUncommittedChanges: boolean;
   versioningCommitCount: number;
+  issueCount: number;
+  warningCount: number;
+  showDiagnostics: boolean;
   onNewProject: () => void;
+  onNewSchema: () => void;
+  onImportSchema: () => void;
+  onExportCurrentSchema: () => void;
+  onRenameProject: () => void;
   onOpenVersioningPanel: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
+  onRegenerateErs: () => void;
   onSaveProject: () => void;
   onLoadProject: () => void;
+  onSaveErs: () => void;
+  onOpenSqlReverseWorkflow: () => void;
+  onImportSql: () => void;
+  onOpenErrorsPanel: () => void;
+  onToggleDiagnostics: () => void;
+  onExportPng: () => void;
+  onExportJpeg: () => void;
+  onExportSvg: () => void;
+  onExportSql: () => void;
   onOpenCommandMenu: () => void;
   onOpenShortcuts: () => void;
   onDiagramNameChange?: (name: string) => void;
+}
+
+type HeaderMenuId = "file" | "code" | "reverse" | "errors" | "export";
+
+interface HeaderCommandItem {
+  label: string;
+  action: () => void;
+  disabled?: boolean;
+  badge?: string;
 }
 
 export function AppHeader(props: AppHeaderProps) {
   const { locale, setLocale, getLanguageMenuLabel, t } = useI18n();
   const [draftName, setDraftName] = useState(props.diagramName);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [activeCommandMenu, setActiveCommandMenu] = useState<HeaderMenuId | null>(null);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
+  const commandMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const activeElement = typeof document === "undefined" ? null : document.activeElement;
@@ -41,7 +69,7 @@ export function AppHeader(props: AppHeaderProps) {
   }, [props.diagramName]);
 
   useEffect(() => {
-    if (!languageMenuOpen || typeof document === "undefined") {
+    if ((!languageMenuOpen && !activeCommandMenu) || typeof document === "undefined") {
       return undefined;
     }
 
@@ -50,12 +78,17 @@ export function AppHeader(props: AppHeaderProps) {
       if (target instanceof Node && languageMenuRef.current?.contains(target)) {
         return;
       }
+      if (target instanceof Node && commandMenuRef.current?.contains(target)) {
+        return;
+      }
       setLanguageMenuOpen(false);
+      setActiveCommandMenu(null);
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setLanguageMenuOpen(false);
+        setActiveCommandMenu(null);
       }
     }
 
@@ -65,7 +98,7 @@ export function AppHeader(props: AppHeaderProps) {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [languageMenuOpen]);
+  }, [activeCommandMenu, languageMenuOpen]);
 
   function commitProjectName() {
     const trimmed = draftName.trim() || t("appHeader.defaultProjectName");
@@ -74,6 +107,77 @@ export function AppHeader(props: AppHeaderProps) {
       props.onDiagramNameChange?.(trimmed);
     }
   }
+
+  function runHeaderCommand(action: () => void) {
+    setActiveCommandMenu(null);
+    action();
+  }
+
+  const headerMenus: Array<{ id: HeaderMenuId; label: string; items: HeaderCommandItem[] }> = [
+    {
+      id: "file",
+      label: t("appHeader.menus.file"),
+      items: [
+        { label: t("appHeader.commands.newProject"), action: props.onNewProject },
+        { label: t("appHeader.commands.openProject"), action: props.onLoadProject },
+        { label: t("appHeader.commands.saveProject"), action: props.onSaveProject },
+        { label: t("appHeader.commands.newSchema"), action: props.onNewSchema },
+        { label: t("appHeader.commands.importSchema"), action: props.onImportSchema },
+        { label: t("appHeader.commands.exportCurrentSchema"), action: props.onExportCurrentSchema },
+        { label: t("appHeader.commands.downloadErs"), action: props.onSaveErs },
+        { label: t("appHeader.commands.renameProject"), action: props.onRenameProject },
+      ],
+    },
+    {
+      id: "code",
+      label: t("appHeader.menus.code"),
+      items: [
+        {
+          label: props.codePanelOpen ? t("appHeader.commands.closeCode") : t("appHeader.commands.openCode"),
+          action: props.onToggleCodePanel,
+        },
+        { label: t("appHeader.commands.regenerateErs"), action: props.onRegenerateErs },
+        { label: t("appHeader.commands.downloadErs"), action: props.onSaveErs },
+      ],
+    },
+    {
+      id: "reverse",
+      label: t("appHeader.menus.reverse"),
+      items: [
+        { label: t("appHeader.commands.openSqlReverse"), action: props.onOpenSqlReverseWorkflow },
+        { label: t("appHeader.commands.importSql"), action: props.onImportSql },
+      ],
+    },
+    {
+      id: "errors",
+      label: t("appHeader.menus.errors"),
+      items: [
+        {
+          label: t("appHeader.commands.openErrors"),
+          action: props.onOpenErrorsPanel,
+          badge: props.issueCount > 0 ? String(props.issueCount) : undefined,
+        },
+        {
+          label: props.showDiagnostics
+            ? t("appHeader.commands.hideDiagnostics")
+            : t("appHeader.commands.showDiagnostics"),
+          action: props.onToggleDiagnostics,
+        },
+      ],
+    },
+    {
+      id: "export",
+      label: t("appHeader.menus.export"),
+      items: [
+        { label: t("appHeader.commands.exportPng"), action: props.onExportPng },
+        { label: t("appHeader.commands.exportJpeg"), action: props.onExportJpeg },
+        { label: t("appHeader.commands.exportSvg"), action: props.onExportSvg },
+        { label: t("appHeader.commands.exportProject"), action: props.onSaveProject },
+        { label: t("appHeader.commands.exportCurrentSchema"), action: props.onExportCurrentSchema },
+        { label: t("appHeader.commands.exportSql"), action: props.onExportSql, disabled: props.diagramView !== "logical" },
+      ],
+    },
+  ];
 
   return (
     <header className={`designer-topbar app-header-view-${props.diagramView}`}>
@@ -95,6 +199,43 @@ export function AppHeader(props: AppHeaderProps) {
         }}
         aria-label={t("appHeader.projectNameAria")}
       />
+
+      <nav className="app-command-bar" aria-label={t("appHeader.commandBarAria")} ref={commandMenuRef}>
+        {headerMenus.map((menu) => (
+          <div className="app-command-menu" key={menu.id}>
+            <button
+              type="button"
+              className={activeCommandMenu === menu.id ? "active" : ""}
+              aria-haspopup="menu"
+              aria-expanded={activeCommandMenu === menu.id}
+              onClick={() => setActiveCommandMenu((current) => (current === menu.id ? null : menu.id))}
+            >
+              <span>{menu.label}</span>
+              {menu.id === "errors" && props.issueCount > 0 ? (
+                <span className="app-command-menu__badge" title={t("appHeader.commands.errorBadge", { count: props.issueCount, warnings: props.warningCount })}>
+                  {props.issueCount}
+                </span>
+              ) : null}
+            </button>
+            {activeCommandMenu === menu.id ? (
+              <div className="app-command-menu__panel" role="menu">
+                {menu.items.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    role="menuitem"
+                    disabled={item.disabled}
+                    onClick={() => runHeaderCommand(item.action)}
+                  >
+                    <span>{item.label}</span>
+                    {item.badge ? <span className="app-command-menu__badge">{item.badge}</span> : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </nav>
 
       <div className="designer-topbar-actions">
         <button

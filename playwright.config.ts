@@ -29,7 +29,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      VITE_APP_BOOT_DELAY_MS: "1200",
+      VITE_APP_BOOT_DELAY_MS: "3000",
     },
   },
 });

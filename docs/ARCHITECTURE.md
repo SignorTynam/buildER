@@ -81,6 +81,16 @@ Azione utente
   → eventuale serializzazione ERS o salvataggio .ersp
 ```
 
+## Progetti multi-file
+
+Dal formato progetto versione 6, `.ersp` rappresenta un intero progetto buildER: file tree, cartelle, file schema e stato Explorer. Lo schema aperto resta sincronizzato con lo stato workspace esistente di `App.tsx`, ma al salvataggio viene scritto dentro `files[activeFileId]`.
+
+- `.ersp`: progetto completo multi-file.
+- `.erschema`: singolo schema con diagramma ER, traduzione, logico, view state, workspace state e versioning opzionale.
+- `.ers`: codice ERS testuale, invariato.
+
+I vecchi `.ersp` single-schema e i diagrammi JSON legacy vengono convertiti in un progetto con root folder e un file schema iniziale.
+
 ## Aree ad alto rischio
 
 | Area | Rischio | Mitigazione |

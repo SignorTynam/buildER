@@ -1,0 +1,101 @@
+.app-command-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin-inline: 8px auto;
+}
+
+.app-command-menu {
+  position: relative;
+}
+
+.app-command-menu > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--editor-text);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.app-command-menu > button:hover,
+.app-command-menu > button.active {
+  background: var(--editor-panel-muted);
+  border-color: var(--editor-border);
+  color: var(--editor-text-strong);
+}
+
+.app-command-menu > button:focus-visible,
+.app-command-menu__panel button:focus-visible {
+  outline: 2px solid var(--studio-focus-ring);
+  outline-offset: 2px;
+}
+
+.app-command-menu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 80;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+  box-shadow: var(--studio-shadow-floating);
+}
+
+.app-command-menu__panel button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--editor-text);
+  text-align: left;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.app-command-menu__panel button:hover {
+  background: var(--editor-panel-muted);
+  color: var(--editor-text-strong);
+}
+
+.app-command-menu__panel button:disabled {
+  cursor: not-allowed;
+  color: var(--editor-text-muted);
+  opacity: 0.6;
+}
+
+.app-command-menu__badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  background: var(--studio-danger-soft);
+  color: var(--studio-danger);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .app-command-bar {
+    overflow-x: auto;
+  }
+
+  .app-command-menu__panel {
+    position: fixed;
+    top: 48px;
+    left: 8px;
+    right: 8px;
+  }
+}

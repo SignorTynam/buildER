@@ -9,6 +9,11 @@ import type {
   LogicalWorkspaceDocument,
 } from "../../types/logical";
 import type { ErTranslationState, ErTranslationWorkspaceDocument, WorkspaceView } from "../../types/translation";
+import type {
+  ProjectExplorerProject,
+  ProjectExplorerViewState,
+  ProjectWorkspaceFile,
+} from "../../types/projectExplorer";
 import {
   createEmptyDiagram,
   parseDiagram,
@@ -29,6 +34,8 @@ import {
   sanitizeProjectVersioningState,
   type ProjectVersioningState,
 } from "../../utils/projectFile";
+import { createProjectFromSchema } from "../../utils/projectExplorer";
+import { createSchemaDocumentFromProjectState } from "../../utils/projectSchemaFile";
 
 export const DEFAULT_VIEWPORT: Viewport = {
   x: 180,
@@ -55,7 +62,7 @@ const TOOL_KIND_VALUES: ToolKind[] = [
 ];
 
 export interface WorkspaceSessionSnapshot {
-  version: 5;
+  version: 6;
   savedAt: string;
   diagram: DiagramDocument;
   translationWorkspace: ErTranslationWorkspaceDocument;
@@ -84,6 +91,9 @@ export interface WorkspaceSessionSnapshot {
   toolbarWidth: number;
   showDiagnostics: boolean;
   versioning: ProjectVersioningState;
+  project?: ProjectExplorerProject;
+  files?: Record<string, ProjectWorkspaceFile>;
+  explorerView?: ProjectExplorerViewState;
 }
 
 export interface WorkspaceSessionBootstrap {
@@ -114,6 +124,9 @@ export interface WorkspaceSessionBootstrap {
   toolbarWidth: number;
   showDiagnostics: boolean;
   versioning: ProjectVersioningState;
+  project: ProjectExplorerProject;
+  files: Record<string, ProjectWorkspaceFile>;
+  explorerView: ProjectExplorerViewState;
   restored: boolean;
 }
 
@@ -296,10 +309,43 @@ export function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocumen
 export function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
   const diagram = synchronizeNodeNameIdentity(createEmptyDiagram("Nuovo diagramma")).diagram;
   const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+  const schema = createSchemaDocumentFromProjectState({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "er",
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+    workspace: {
+      tool: "select",
+      mode: "edit",
+      selection: { nodeIds: [], edgeIds: [] },
+      translationSelection: { nodeIds: [], edgeIds: [] },
+      logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+      codeDraft: serializeDiagramToErs(diagram),
+      codeDirty: false,
+      technicalPanelOpen: false,
+      technicalPanelTab: "review",
+      codePanelOpen: false,
+      codePanelWidth: DEFAULT_CODE_PANEL_WIDTH,
+      notesPanelOpen: false,
+      notesPanelWidth: DEFAULT_NOTES_PANEL_WIDTH,
+      toolbarCollapsed: INITIAL_WINDOW_WIDTH < 1460,
+      focusMode: false,
+      toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
+      showDiagnostics: true,
+    },
+    versioning: createEmptyProjectVersioningState(),
+  });
+  const projectState = createProjectFromSchema("Nuovo progetto", schema);
   return {
     diagram,
     translationWorkspace,
-    logicalWorkspace: createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
+    logicalWorkspace,
     logicalGenerated: false,
     logicalStage: "translation",
     diagramView: "er",
@@ -324,6 +370,9 @@ export function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootst
     toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
     showDiagnostics: true,
     versioning: createEmptyProjectVersioningState(),
+    project: projectState.project,
+    files: projectState.files,
+    explorerView: projectState.view,
     restored: false,
   };
 }
@@ -355,7 +404,8 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
         parsed.version !== 2 &&
         parsed.version !== 3 &&
         parsed.version !== 4 &&
-        parsed.version !== 5)
+        parsed.version !== 5 &&
+        parsed.version !== 6)
     ) {
       return fallback;
     }
@@ -397,16 +447,73 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
       parsed.version >= 3
         ? sanitizeErTranslationWorkspace(parsed.translationWorkspace, storedDiagram)
         : createEmptyErTranslationWorkspace(storedDiagram);
+    const storedLogicalWorkspace =
+      parsed.version >= 2
+        ? sanitizeLogicalWorkspace(parsed.logicalWorkspace, storedTranslationWorkspace.translatedDiagram)
+        : createEmptyLogicalWorkspace(storedTranslationWorkspace.translatedDiagram);
+    const storedLogicalGenerated = parsed.logicalGenerated === true;
+    const storedLogicalStage: LogicalStage = parsed.logicalStage === "schema" ? "schema" : "translation";
+    const storedVersioning = sanitizeProjectVersioningState(parsed.versioning, { fallbackViewport: DEFAULT_VIEWPORT });
+    const fallbackProjectState = createProjectFromSchema(
+      storedDiagram.meta.name || "buildER Project",
+      createSchemaDocumentFromProjectState({
+        diagram: storedDiagram,
+        translationWorkspace: storedTranslationWorkspace,
+        logicalWorkspace: storedLogicalWorkspace,
+        logicalGenerated: storedLogicalGenerated,
+        logicalStage: storedLogicalStage,
+        diagramView: storedDiagramView,
+        viewport: storedViewport,
+        translationViewport: storedTranslationViewport,
+        logicalViewport: storedLogicalViewport,
+        workspace: {
+          tool: storedTool,
+          mode: "edit",
+          selection: storedSelection,
+          translationSelection: storedTranslationSelection,
+          logicalSelection: storedLogicalSelection,
+          codeDraft: storedCodeDraft,
+          codeDirty: parsed.codeDirty === true,
+          technicalPanelOpen: storedTechnicalPanelOpen,
+          technicalPanelTab: storedTechnicalPanelTab,
+          codePanelOpen: storedCodePanelOpen || storedLegacyCodePanelOpen,
+          codePanelWidth:
+            typeof parsed.codePanelWidth === "number" && Number.isFinite(parsed.codePanelWidth)
+              ? parsed.codePanelWidth
+              : fallback.codePanelWidth,
+          notesPanelOpen: restoredNotesPanelOpen,
+          notesPanelWidth:
+            typeof parsed.notesPanelWidth === "number" && Number.isFinite(parsed.notesPanelWidth)
+              ? parsed.notesPanelWidth
+              : fallback.notesPanelWidth,
+          toolbarCollapsed: typeof parsed.toolbarCollapsed === "boolean" ? parsed.toolbarCollapsed : fallback.toolbarCollapsed,
+          focusMode: typeof parsed.focusMode === "boolean" ? parsed.focusMode : false,
+          toolbarWidth:
+            typeof parsed.toolbarWidth === "number" && Number.isFinite(parsed.toolbarWidth)
+              ? parsed.toolbarWidth
+              : fallback.toolbarWidth,
+          showDiagnostics: typeof parsed.showDiagnostics === "boolean" ? parsed.showDiagnostics : true,
+        },
+        versioning: storedVersioning,
+      }),
+    );
+    const storedProject =
+      isRecord(parsed.project) && Array.isArray(parsed.project.fileTree)
+        ? (parsed.project as unknown as ProjectExplorerProject)
+        : fallbackProjectState.project;
+    const storedFiles =
+      isRecord(parsed.files) ? (parsed.files as Record<string, ProjectWorkspaceFile>) : fallbackProjectState.files;
+    const storedExplorerView =
+      isRecord(parsed.explorerView)
+        ? (parsed.explorerView as unknown as ProjectExplorerViewState)
+        : fallbackProjectState.view;
 
     return {
       diagram: storedDiagram,
       translationWorkspace: storedTranslationWorkspace,
-      logicalWorkspace:
-        parsed.version >= 2
-          ? sanitizeLogicalWorkspace(parsed.logicalWorkspace, storedTranslationWorkspace.translatedDiagram)
-          : createEmptyLogicalWorkspace(storedTranslationWorkspace.translatedDiagram),
-      logicalGenerated: parsed.logicalGenerated === true,
-      logicalStage: parsed.logicalStage === "schema" ? "schema" : "translation",
+      logicalWorkspace: storedLogicalWorkspace,
+      logicalGenerated: storedLogicalGenerated,
+      logicalStage: storedLogicalStage,
       diagramView: storedDiagramView,
       tool: storedTool,
       mode: "edit",
@@ -437,7 +544,10 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
           ? parsed.toolbarWidth
           : fallback.toolbarWidth,
       showDiagnostics: typeof parsed.showDiagnostics === "boolean" ? parsed.showDiagnostics : true,
-      versioning: sanitizeProjectVersioningState(parsed.versioning, { fallbackViewport: DEFAULT_VIEWPORT }),
+      versioning: storedVersioning,
+      project: storedProject,
+      files: storedFiles,
+      explorerView: storedExplorerView,
       restored: true,
     };
   } catch {
@@ -449,7 +559,7 @@ export function serializeWorkspaceSessionSnapshot(
   snapshot: Omit<WorkspaceSessionSnapshot, "version" | "savedAt">,
 ): WorkspaceSessionSnapshot {
   return {
-    version: 5,
+    version: 6,
     savedAt: new Date().toISOString(),
     ...snapshot,
   };

@@ -714,3 +714,17 @@ test("un file con kind errato viene rifiutato con errore strutturato", () => {
     },
   );
 });
+
+test("serializeProjectFile versione 6 include root, fileTree, files e activeFileId", () => {
+  const serialized = serializeProjectFile(createSerializableProject("Progetto multi-file"));
+  const document = JSON.parse(serialized);
+  const parsed = parseProjectFile(serialized);
+
+  assert.equal(document.version, CURRENT_PROJECT_FILE_VERSION);
+  assert.equal(document.project.rootId, document.project.fileTree[0].id);
+  assert.equal(typeof document.project.activeFileId, "string");
+  assert.equal(document.files[document.project.activeFileId].kind, "schema");
+  assert.ok(document.project.fileTree.some((node: { fileId?: string }) => node.fileId === document.project.activeFileId));
+  assert.equal(parsed.state.project?.activeFileId, document.project.activeFileId);
+  assert.equal(parsed.state.files?.[document.project.activeFileId].kind, "schema");
+});

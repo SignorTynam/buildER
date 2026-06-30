@@ -24,17 +24,39 @@ import { parseDiagram, serializeDiagram } from "./diagram";
 import { serializeDiagramToErs } from "./ers";
 import { createEmptyErTranslationWorkspace, refreshErTranslationWorkspace } from "./erTranslation";
 import { createEmptyLogicalModel, createEmptyLogicalWorkspace, refreshLogicalWorkspace } from "./logicalWorkspace";
+import type {
+  ProjectExplorerProject,
+  ProjectExplorerViewState,
+  ProjectWorkspaceFile,
+} from "../types/projectExplorer";
+import {
+  DEFAULT_PROJECT_EXPLORER_WIDTH,
+  createProjectFromSchema,
+  createSchemaWorkspaceFile,
+  stripKnownProjectExtension,
+  type ProjectExplorerState,
+} from "./projectExplorer";
+import {
+  SCHEMA_FILE_KIND,
+  createSchemaDocumentFromProjectState,
+  parseSchemaFile,
+  type SchemaFileDocument,
+} from "./projectSchemaFile";
 
 export const PROJECT_FILE_KIND = "er-studio-project";
 export const PROJECT_FILE_EXTENSION = ".ersp";
 export const PROJECT_FILE_MIME_TYPE = "application/json;charset=utf-8";
 export const PROJECT_FILE_ACCEPT = ".ersp,.json,application/json";
-export const CURRENT_PROJECT_FILE_VERSION = 5;
+export const CURRENT_PROJECT_FILE_VERSION = 6;
 export const PROJECT_VERSIONING_STATE_VERSION = 1;
 export const DEFAULT_PROJECT_VERSIONING_MAX_COMMITS = 200;
 
 export type ProjectFileWorkspaceView = WorkspaceView;
-export type ParsedProjectFileSource = "project-file" | "legacy-project-json" | "legacy-diagram-json";
+export type ParsedProjectFileSource =
+  | "project-file"
+  | "schema-file"
+  | "legacy-project-json"
+  | "legacy-diagram-json";
 export type ProjectFileErrorCode =
   | "invalid-json"
   | "invalid-format"
@@ -106,20 +128,25 @@ export interface ProjectFileState {
   savedAt?: string;
   versioning?: ProjectVersioningState;
   workspace?: ProjectFileWorkspaceState;
+  project?: ProjectExplorerProject;
+  files?: Record<string, ProjectWorkspaceFile>;
+  explorerView?: ProjectExplorerViewState;
 }
 
 export interface ProjectFileDocument {
   version: typeof CURRENT_PROJECT_FILE_VERSION;
   kind: typeof PROJECT_FILE_KIND;
   savedAt: string;
-  diagram: DiagramDocument;
-  translationWorkspace: ErTranslationWorkspaceDocument;
-  logicalWorkspace: LogicalWorkspaceDocument;
-  logicalGenerated: boolean;
-  logicalStage?: LogicalStage;
-  view: ProjectFileViewState;
+  project: ProjectExplorerProject;
+  files: Record<string, ProjectWorkspaceFile>;
+  view: ProjectExplorerViewState & Partial<ProjectFileViewState>;
   workspace: ProjectFileWorkspaceState;
   versioning: ProjectVersioningState;
+  diagram?: DiagramDocument;
+  translationWorkspace?: ErTranslationWorkspaceDocument;
+  logicalWorkspace?: LogicalWorkspaceDocument;
+  logicalGenerated?: boolean;
+  logicalStage?: LogicalStage;
 }
 
 export type ParsedProjectFileState = ProjectFileState & {
@@ -156,7 +183,7 @@ export class ProjectFileError extends Error {
 }
 
 type LegacyProjectFileDocument = {
-  version: 2 | 3 | 4;
+  version: 2 | 3 | 4 | 5;
   kind: typeof PROJECT_FILE_KIND;
   savedAt?: unknown;
   diagram?: unknown;
@@ -252,7 +279,7 @@ function assertProjectKind(value: unknown): asserts value is typeof PROJECT_FILE
 function assertSupportedProjectVersion(
   value: unknown,
 ): asserts value is ProjectFileDocument["version"] | LegacyProjectFileDocument["version"] {
-  if (value !== CURRENT_PROJECT_FILE_VERSION && value !== 4 && value !== 3 && value !== 2) {
+  if (value !== CURRENT_PROJECT_FILE_VERSION && value !== 5 && value !== 4 && value !== 3 && value !== 2) {
     throw new ProjectFileError("unsupported-version", {
       what: "il file progetto non e stato caricato",
       why: "la versione del formato progetto non e supportata",
@@ -660,6 +687,7 @@ function normalizeProjectState(
   view: ProjectFileViewState,
   versioning: ProjectVersioningState,
   workspace: ProjectFileWorkspaceState,
+  projectState?: ProjectExplorerState,
 ): ParsedProjectFileState {
   const diagramView =
     view.current === "logical" && logicalGenerated
@@ -680,6 +708,9 @@ function normalizeProjectState(
     savedAt,
     versioning,
     workspace,
+    project: projectState?.project,
+    files: projectState?.files,
+    explorerView: projectState?.view,
   };
 }
 
@@ -693,22 +724,83 @@ function createProjectFileDocument(
   view: ProjectFileViewState,
   versioning: ProjectVersioningState,
   workspace: ProjectFileWorkspaceState,
+  projectState?: ProjectExplorerState,
 ): ProjectFileDocument {
+  const schema = createSchemaDocumentFromProjectState({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage,
+    diagramView: view.current,
+    viewport: view.erViewport,
+    translationViewport: view.translationViewport,
+    logicalViewport: view.logicalViewport,
+    workspace,
+    versioning,
+    savedAt,
+  });
+  const fallbackProjectState = createProjectFromSchema(diagram.meta.name || "buildER Project", schema);
+  const resolvedProjectState = projectState ?? fallbackProjectState;
+  const activeFileId =
+    resolvedProjectState.project.activeFileId ??
+    resolvedProjectState.view.activeFileId ??
+    Object.values(resolvedProjectState.files).find((file) => file.kind === "schema")?.id ??
+    null;
+  const explorerView: ProjectExplorerViewState = {
+    activeFileId,
+    explorerOpen: resolvedProjectState.view.explorerOpen !== false,
+    explorerWidth:
+      typeof resolvedProjectState.view.explorerWidth === "number" && Number.isFinite(resolvedProjectState.view.explorerWidth)
+        ? resolvedProjectState.view.explorerWidth
+        : DEFAULT_PROJECT_EXPLORER_WIDTH,
+    expandedFolderIds: Array.isArray(resolvedProjectState.view.expandedFolderIds)
+      ? resolvedProjectState.view.expandedFolderIds
+      : [resolvedProjectState.project.rootId],
+  };
+
   return {
     version: CURRENT_PROJECT_FILE_VERSION,
     kind: PROJECT_FILE_KIND,
     savedAt,
+    project: {
+      ...resolvedProjectState.project,
+      activeFileId,
+    },
+    files: resolvedProjectState.files,
+    view: {
+      ...explorerView,
+      current: view.current,
+      logicalStage: logicalGenerated && logicalStage === "schema" ? "schema" : "translation",
+      erViewport: view.erViewport,
+      translationViewport: view.translationViewport,
+      logicalViewport: view.logicalViewport,
+    },
+    workspace,
+    versioning,
     diagram,
     translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
     logicalStage: logicalGenerated && logicalStage === "schema" ? "schema" : "translation",
+  };
+}
+
+function projectStateFromDocument(document: ProjectFileDocument): ProjectExplorerState {
+  return {
+    project: document.project,
+    files: document.files,
     view: {
-      ...view,
-      logicalStage: logicalGenerated && logicalStage === "schema" ? "schema" : "translation",
+      activeFileId: document.view.activeFileId,
+      explorerOpen: document.view.explorerOpen !== false,
+      explorerWidth:
+        typeof document.view.explorerWidth === "number" && Number.isFinite(document.view.explorerWidth)
+          ? document.view.explorerWidth
+          : DEFAULT_PROJECT_EXPLORER_WIDTH,
+      expandedFolderIds: Array.isArray(document.view.expandedFolderIds)
+        ? document.view.expandedFolderIds
+        : [document.project.rootId],
     },
-    workspace,
-    versioning,
   };
 }
 
@@ -761,6 +853,7 @@ function parseLegacyProjectFile(
     versioning,
     workspace,
   );
+  const projectState = projectStateFromDocument(document);
 
   return {
     document,
@@ -774,12 +867,13 @@ function parseLegacyProjectFile(
       view,
       versioning,
       workspace,
+      projectState,
     ),
     source: "legacy-project-json",
   };
 }
 
-function parseCurrentProjectFile(
+function parseSingleSchemaProjectFile(
   value: Record<string, unknown>,
   options?: ParseProjectFileOptions,
 ): ParsedProjectFile {
@@ -822,6 +916,7 @@ function parseCurrentProjectFile(
     versioning,
     workspace,
   );
+  const projectState = projectStateFromDocument(document);
 
   return {
     document,
@@ -835,9 +930,183 @@ function parseCurrentProjectFile(
       view,
       versioning,
       workspace,
+      projectState,
+    ),
+    source: value.version === 5 ? "legacy-project-json" : "project-file",
+  };
+}
+
+function sanitizeProjectExplorerView(value: unknown, project: ProjectExplorerProject): ProjectExplorerViewState {
+  const candidate = isRecord(value) ? value : {};
+  const activeFileId =
+    typeof candidate.activeFileId === "string" && candidate.activeFileId.trim().length > 0
+      ? candidate.activeFileId
+      : project.activeFileId;
+
+  return {
+    activeFileId,
+    explorerOpen: candidate.explorerOpen !== false,
+    explorerWidth:
+      typeof candidate.explorerWidth === "number" && Number.isFinite(candidate.explorerWidth)
+        ? candidate.explorerWidth
+        : DEFAULT_PROJECT_EXPLORER_WIDTH,
+    expandedFolderIds: Array.isArray(candidate.expandedFolderIds)
+      ? candidate.expandedFolderIds.filter((id): id is string => typeof id === "string")
+      : [project.rootId],
+  };
+}
+
+function parseMultiFileProjectFile(
+  value: Record<string, unknown>,
+  options?: ParseProjectFileOptions,
+): ParsedProjectFile {
+  if (!isRecord(value.project) || !Array.isArray(value.project.fileTree) || !isRecord(value.files)) {
+    return parseSingleSchemaProjectFile(value, options);
+  }
+
+  const files = value.files as Record<string, ProjectWorkspaceFile>;
+  const project: ProjectExplorerProject = {
+    id: sanitizeNonEmptyString(value.project.id, "project"),
+    name: sanitizeNonEmptyString(value.project.name, "buildER Project"),
+    rootId: sanitizeNonEmptyString(value.project.rootId, "root"),
+    activeFileId:
+      typeof value.project.activeFileId === "string" && value.project.activeFileId.trim().length > 0
+        ? value.project.activeFileId
+        : null,
+    fileTree: value.project.fileTree as ProjectExplorerProject["fileTree"],
+  };
+  const explorerView = sanitizeProjectExplorerView(value.view, project);
+  const activeFileId = explorerView.activeFileId ?? project.activeFileId;
+  const activeFile = activeFileId ? files[activeFileId] : undefined;
+
+  if (!activeFile || activeFile.kind !== "schema" || !isRecord(activeFile.schema)) {
+    const firstSchema = Object.values(files).find((file): file is Extract<ProjectWorkspaceFile, { kind: "schema" }> => file.kind === "schema");
+    if (!firstSchema) {
+      const fallbackSchema = createSchemaWorkspaceFile("Main schema.erschema");
+      const projectState = createProjectFromSchema(project.name, fallbackSchema.schema);
+      const document = createProjectFileDocument(
+        fallbackSchema.schema.diagram,
+        fallbackSchema.schema.translationWorkspace,
+        fallbackSchema.schema.logicalWorkspace,
+        fallbackSchema.schema.logicalGenerated,
+        fallbackSchema.schema.logicalStage,
+        fallbackSchema.schema.savedAt,
+        fallbackSchema.schema.view,
+        sanitizeProjectVersioningState(value.versioning, options),
+        fallbackSchema.schema.workspace,
+        projectState,
+      );
+      return {
+        document,
+        state: normalizeProjectState(
+          fallbackSchema.schema.diagram,
+          fallbackSchema.schema.translationWorkspace,
+          fallbackSchema.schema.logicalWorkspace,
+          fallbackSchema.schema.logicalGenerated,
+          fallbackSchema.schema.logicalStage,
+          fallbackSchema.schema.savedAt,
+          fallbackSchema.schema.view,
+          document.versioning,
+          fallbackSchema.schema.workspace,
+          projectStateFromDocument(document),
+        ),
+        source: "project-file",
+      };
+    }
+    project.activeFileId = firstSchema.id;
+    explorerView.activeFileId = firstSchema.id;
+  }
+
+  const schemaFile = files[project.activeFileId ?? explorerView.activeFileId ?? ""] as
+    | Extract<ProjectWorkspaceFile, { kind: "schema" }>
+    | undefined;
+  if (!schemaFile || schemaFile.kind !== "schema") {
+    throw new ProjectFileError("invalid-format", {
+      what: "il file progetto non e stato caricato",
+      why: "il progetto non contiene uno schema attivo valido",
+      how: "riesporta il progetto o importa uno schema .erschema nel progetto",
+    });
+  }
+
+  const schema = schemaFile.schema;
+  const diagram = parseDiagram(JSON.stringify(schema.diagram));
+  const translationWorkspace = sanitizeTranslationWorkspace(schema.translationWorkspace, diagram);
+  const logicalWorkspace = sanitizeLogicalWorkspace(schema.logicalWorkspace, translationWorkspace.translatedDiagram);
+  const logicalGenerated = schema.logicalGenerated === true;
+  const view = sanitizeCurrentProjectView(isRecord(value.view) ? value.view : schema.view, options);
+  const logicalStage =
+    schema.logicalStage === "schema" || view.logicalStage === "schema" ? "schema" : "translation";
+  const savedAt =
+    typeof value.savedAt === "string" && value.savedAt.trim().length > 0
+      ? value.savedAt
+      : schema.savedAt;
+  const versioning = sanitizeProjectVersioningState(value.versioning ?? schema.versioning, options);
+  const diagramView =
+    view.current === "logical" && logicalGenerated
+      ? "logical"
+      : view.current === "translation"
+        ? "translation"
+        : "er";
+  const workspace = sanitizeProjectFileWorkspaceState(value.workspace ?? schema.workspace, {
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage,
+    diagramView,
+    view,
+  });
+  const projectState: ProjectExplorerState = {
+    project: {
+      ...project,
+      activeFileId: schemaFile.id,
+    },
+    files,
+    view: {
+      ...explorerView,
+      activeFileId: schemaFile.id,
+    },
+  };
+  const document = createProjectFileDocument(
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage,
+    savedAt,
+    view,
+    versioning,
+    workspace,
+    projectState,
+  );
+
+  return {
+    document,
+    state: normalizeProjectState(
+      diagram,
+      translationWorkspace,
+      logicalWorkspace,
+      logicalGenerated,
+      logicalStage,
+      savedAt,
+      view,
+      versioning,
+      workspace,
+      projectStateFromDocument(document),
     ),
     source: "project-file",
   };
+}
+
+function parseCurrentProjectFile(
+  value: Record<string, unknown>,
+  options?: ParseProjectFileOptions,
+): ParsedProjectFile {
+  if (value.version === CURRENT_PROJECT_FILE_VERSION && isRecord(value.project) && isRecord(value.files)) {
+    return parseMultiFileProjectFile(value, options);
+  }
+
+  return parseSingleSchemaProjectFile(value, options);
 }
 
 function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptions): ParsedProjectFile {
@@ -874,6 +1143,7 @@ function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptio
     versioning,
     workspace,
   );
+  const projectState = projectStateFromDocument(document);
 
   return {
     document,
@@ -887,6 +1157,7 @@ function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptio
       view,
       versioning,
       workspace,
+      projectState,
     ),
     source: "legacy-diagram-json",
   };
@@ -898,13 +1169,10 @@ export function isProjectFileDocument(value: unknown): value is ProjectFileDocum
     value.version === CURRENT_PROJECT_FILE_VERSION &&
     value.kind === PROJECT_FILE_KIND &&
     typeof value.savedAt === "string" &&
-    looksLikeDiagramDocument(value.diagram) &&
-    isRecord(value.translationWorkspace) &&
-    isRecord(value.logicalWorkspace) &&
+    isRecord(value.project) &&
+    isRecord(value.files) &&
+    Array.isArray(value.project.fileTree) &&
     isRecord(value.view) &&
-    isRecord(value.view.erViewport) &&
-    isRecord(value.view.translationViewport) &&
-    isRecord(value.view.logicalViewport) &&
     isRecord(value.workspace) &&
     isRecord(value.versioning)
   );
@@ -938,6 +1206,45 @@ export function serializeProjectFile(state: ProjectFileState): string {
     diagramView,
     view,
   });
+  const activeSchema = createSchemaDocumentFromProjectState({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    logicalStage: state.logicalStage,
+    diagramView,
+    viewport: view.erViewport,
+    translationViewport: view.translationViewport,
+    logicalViewport: view.logicalViewport,
+    workspace,
+    versioning,
+    savedAt: state.savedAt ?? new Date().toISOString(),
+  });
+  let projectState: ProjectExplorerState | undefined;
+  if (state.project && state.files && state.explorerView) {
+    const activeFileId = state.project.activeFileId ?? state.explorerView.activeFileId;
+    const files = { ...state.files };
+    if (activeFileId && files[activeFileId]?.kind === "schema") {
+      const activeFile = files[activeFileId] as Extract<ProjectWorkspaceFile, { kind: "schema" }>;
+      files[activeFileId] = {
+        ...activeFile,
+        name: activeFile.name,
+        updatedAt: activeSchema.savedAt,
+        schema: activeSchema,
+      };
+    }
+    projectState = {
+      project: {
+        ...state.project,
+        activeFileId: activeFileId ?? null,
+      },
+      files,
+      view: {
+        ...state.explorerView,
+        activeFileId: activeFileId ?? null,
+      },
+    };
+  }
   const document = createProjectFileDocument(
     diagram,
     translationWorkspace,
@@ -948,6 +1255,7 @@ export function serializeProjectFile(state: ProjectFileState): string {
     view,
     versioning,
     workspace,
+    projectState,
   );
 
   return JSON.stringify(document, null, 2);
@@ -969,6 +1277,41 @@ export function parseProjectFile(rawText: string, options?: ParseProjectFileOpti
   assertProjectFileRoot(parsedJson);
 
   if ("kind" in parsedJson) {
+    if (parsedJson.kind === SCHEMA_FILE_KIND) {
+      const schema = parseSchemaFile(rawText, getFallbackViewport(options));
+      const projectState = createProjectFromSchema(schema.diagram.meta.name || "buildER Project", schema);
+      const view = sanitizeCurrentProjectView(schema.view, options);
+      const versioning = sanitizeProjectVersioningState(schema.versioning, options);
+      const document = createProjectFileDocument(
+        schema.diagram,
+        schema.translationWorkspace,
+        schema.logicalWorkspace,
+        schema.logicalGenerated,
+        schema.logicalStage,
+        schema.savedAt,
+        view,
+        versioning,
+        schema.workspace,
+        projectState,
+      );
+      return {
+        document,
+        state: normalizeProjectState(
+          schema.diagram,
+          schema.translationWorkspace,
+          schema.logicalWorkspace,
+          schema.logicalGenerated,
+          schema.logicalStage,
+          schema.savedAt,
+          view,
+          versioning,
+          schema.workspace,
+          projectStateFromDocument(document),
+        ),
+        source: "schema-file",
+      };
+    }
+
     assertProjectKind(parsedJson.kind);
     assertSupportedProjectVersion(parsedJson.version);
 

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ChangeEvent } from "react";
+import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { ChangelogModal } from "./components/ChangelogModal";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
+import { ProjectExplorer } from "./components/project/ProjectExplorer";
 import { CommitDialog } from "./components/versioning/CommitDialog";
 import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
 import { VersionCompareMode } from "./components/versioning/VersionCompareMode";
@@ -70,6 +71,7 @@ import type {
   ErTranslationWorkspaceDocument,
   WorkspaceView,
 } from "./types/translation";
+import type { ProjectExplorerProject, ProjectExplorerViewState, ProjectWorkspaceFile } from "./types/projectExplorer";
 import {
   DEFAULT_VIEWPORT,
   WORKSPACE_SESSION_SAVE_DEBOUNCE_MS,
@@ -183,6 +185,33 @@ import {
   type ProjectCommitSnapshot,
   type ProjectVersioningState,
 } from "./utils/projectFile";
+import {
+  DEFAULT_PROJECT_EXPLORER_WIDTH,
+  MAX_PROJECT_EXPLORER_WIDTH,
+  MIN_PROJECT_EXPLORER_WIDTH,
+  addProjectFile,
+  addProjectFolder,
+  createProjectFromSchema,
+  createSchemaWorkspaceFile,
+  createTextWorkspaceFile,
+  deleteProjectNode,
+  ensureProjectFileExtension,
+  getUniqueProjectNodeName,
+  normalizeProjectNodeName,
+  renameProjectNode,
+  setProjectActiveFile,
+  setProjectExplorerExpandedFolders,
+  stripKnownProjectExtension,
+  type ProjectExplorerState,
+} from "./utils/projectExplorer";
+import {
+  SCHEMA_FILE_ACCEPT,
+  SCHEMA_FILE_EXTENSION,
+  SCHEMA_FILE_MIME_TYPE,
+  createSchemaDocumentFromProjectState,
+  parseSchemaFile,
+  serializeSchemaFile,
+} from "./utils/projectSchemaFile";
 import {
   getProjectUncommittedChangeState,
   useProjectVersioning,
@@ -346,7 +375,7 @@ interface SqlReverseWorkflowState {
 }
 
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
-const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 1200);
+const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 3200);
 
 function normalizeMessagePart(value: string): string {
   return value.trim().replace(/\s+/g, " ").replace(/[;:,.!?]+$/g, "");
@@ -1080,6 +1109,11 @@ export default function App() {
   );
   const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
   const projectVersioning = useProjectVersioning(sessionBootstrap.versioning);
+  const [projectExplorer, setProjectExplorer] = useState<ProjectExplorerState>(() => ({
+    project: sessionBootstrap.project,
+    files: sessionBootstrap.files,
+    view: sessionBootstrap.explorerView,
+  }));
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -1090,6 +1124,7 @@ export default function App() {
 
   const svgRef = useRef<SVGSVGElement>(null);
   const projectFileInputRef = useRef<HTMLInputElement | null>(null);
+  const schemaFileInputRef = useRef<HTMLInputElement | null>(null);
   const ersFileInputRef = useRef<HTMLInputElement | null>(null);
   const lastSerializedCodeRef = useRef(codeDraft);
   const codeDraftRef = useRef(codeDraft);
@@ -1107,6 +1142,11 @@ export default function App() {
   const lastSavedWorkspaceRef = useRef(
     JSON.stringify(createProjectFileWorkspaceStateFromBootstrap(sessionBootstrap)),
   );
+  const lastSavedProjectExplorerRef = useRef(JSON.stringify({
+    project: sessionBootstrap.project,
+    files: sessionBootstrap.files,
+    view: sessionBootstrap.explorerView,
+  }));
   const hasUnsavedChangesRef = useRef(false);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
@@ -1391,12 +1431,14 @@ export default function App() {
     const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
     const currentVersioning = JSON.stringify(projectVersioning.versioning);
     const currentWorkspace = JSON.stringify(currentProjectWorkspaceState);
+    const currentProjectExplorer = JSON.stringify(projectExplorer);
     hasUnsavedChangesRef.current =
       serializeDiagram(history.present) !== lastSavedDiagramRef.current ||
       currentCode !== lastSavedCodeRef.current ||
       currentVersioning !== lastSavedVersioningRef.current ||
-      currentWorkspace !== lastSavedWorkspaceRef.current;
-  }, [history.present, codeDraft, currentProjectWorkspaceState, projectVersioning.versioning]);
+      currentWorkspace !== lastSavedWorkspaceRef.current ||
+      currentProjectExplorer !== lastSavedProjectExplorerRef.current;
+  }, [history.present, codeDraft, currentProjectWorkspaceState, projectExplorer, projectVersioning.versioning]);
 
   useEffect(() => {
     latestSessionSnapshotRef.current = serializeWorkspaceSessionSnapshot({
@@ -1433,6 +1475,9 @@ export default function App() {
       toolbarWidth,
       showDiagnostics,
       versioning: projectVersioning.versioning,
+      project: projectExplorer.project,
+      files: projectExplorer.files,
+      explorerView: projectExplorer.view,
     });
   }, [
     codeDraft,
@@ -1462,6 +1507,7 @@ export default function App() {
     showDiagnostics,
     viewport,
     projectVersioning.versioning,
+    projectExplorer,
   ]);
 
   useEffect(() => {
@@ -1500,6 +1546,7 @@ export default function App() {
     translationSelection,
     translationViewport,
     viewport,
+    projectExplorer,
   ]);
 
   useEffect(() => {
@@ -1719,6 +1766,10 @@ export default function App() {
 
   function markWorkspaceSaved(workspace: ProjectFileWorkspaceState) {
     lastSavedWorkspaceRef.current = JSON.stringify(workspace);
+  }
+
+  function markProjectExplorerSaved(state: ProjectExplorerState) {
+    lastSavedProjectExplorerRef.current = JSON.stringify(state);
   }
 
   async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
@@ -2261,9 +2312,20 @@ export default function App() {
 
   function handleDiagramNameChange(nextName: string) {
     const normalizedName = nextName.trim() || "ER project";
-    if (normalizedName === history.present.meta.name) {
+    if (normalizedName === projectExplorer.project.name && normalizedName === history.present.meta.name) {
       return;
     }
+
+    setProjectExplorer((current) => ({
+      ...current,
+      project: {
+        ...current.project,
+        name: normalizedName,
+        fileTree: current.project.fileTree.map((node) =>
+          node.id === current.project.rootId ? { ...node, name: normalizedName, updatedAt: new Date().toISOString() } : node,
+        ),
+      },
+    }));
 
     commitDiagram(
       {
@@ -2276,7 +2338,7 @@ export default function App() {
       history.present,
       { suppressExternalIdentifierWarnings: true },
     );
-    setStatus("Nome progetto aggiornato.");
+    setStatus(t("projectExplorer.status.projectRenamed"));
   }
 
   function replaceCodeDraft(nextCode: string) {
@@ -2438,6 +2500,290 @@ export default function App() {
     setTool(nextWorkspace?.tool ?? "select");
     setStatus(status);
     reportExternalIdentifierInvalidations(normalizedIncoming.invalidations, "notice");
+  }
+
+  function createCurrentSchemaDocument() {
+    return createSchemaDocumentFromProjectState({
+      diagram: history.present,
+      translationWorkspace: translationHistory.present,
+      logicalWorkspace: logicalHistory.present,
+      logicalGenerated,
+      logicalStage,
+      diagramView,
+      viewport,
+      translationViewport,
+      logicalViewport,
+      workspace: currentProjectWorkspaceState,
+      versioning: projectVersioning.versioning,
+    });
+  }
+
+  function syncActiveSchemaToProject(state: ProjectExplorerState = projectExplorer): ProjectExplorerState {
+    const activeFileId = state.project.activeFileId ?? state.view.activeFileId;
+    if (!activeFileId || state.files[activeFileId]?.kind !== "schema") {
+      return state;
+    }
+
+    const schema = createCurrentSchemaDocument();
+    const activeFile = state.files[activeFileId] as Extract<ProjectWorkspaceFile, { kind: "schema" }>;
+    return {
+      ...state,
+      files: {
+        ...state.files,
+        [activeFileId]: {
+          ...activeFile,
+          updatedAt: schema.savedAt,
+          schema,
+        },
+      },
+    };
+  }
+
+  function applyProjectExplorerState(nextState: ProjectExplorerState) {
+    setProjectExplorer(nextState);
+    hasUnsavedChangesRef.current = true;
+  }
+
+  function openSchemaWorkspaceFile(fileId: string, state: ProjectExplorerState) {
+    const file = state.files[fileId];
+    if (!file || file.kind !== "schema") {
+      return;
+    }
+
+    setProjectExplorer(setProjectActiveFile(state, fileId));
+    applyWorkspaceDocument(file.schema.diagram, t("projectExplorer.status.schemaOpened", { name: file.name }), {
+      translationWorkspace: file.schema.translationWorkspace,
+      logicalWorkspace: file.schema.logicalWorkspace,
+      logicalGenerated: file.schema.logicalGenerated,
+      logicalStage: file.schema.logicalStage,
+      diagramView: file.schema.view.current,
+      viewport: file.schema.view.erViewport,
+      translationViewport: file.schema.view.translationViewport,
+      logicalViewport: file.schema.view.logicalViewport,
+      versioning: file.schema.versioning ?? projectVersioning.versioning,
+      workspace: file.schema.workspace,
+      resetHistory: true,
+      markBaseline: false,
+    });
+  }
+
+  function handleProjectExplorerOpenFile(fileId: string) {
+    const file = projectExplorer.files[fileId];
+    if (!file) {
+      return;
+    }
+
+    const synced = syncActiveSchemaToProject();
+    if (file.kind === "schema") {
+      openSchemaWorkspaceFile(fileId, synced);
+      return;
+    }
+
+    setProjectExplorer(setProjectActiveFile(synced, fileId));
+    setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
+    if (file.kind === "sql") {
+      setLogicalPanelMode("sql");
+    } else {
+      setCodePanelOpen(true);
+    }
+  }
+
+  async function handleProjectExplorerCreateSchema(parentId: string) {
+    const requestedName = await requestPromptDialog({
+      title: t("projectExplorer.dialogs.newSchemaTitle"),
+      label: t("projectExplorer.dialogs.nameLabel"),
+      initialValue: t("projectExplorer.defaults.schemaName"),
+      required: true,
+    });
+    if (requestedName == null) {
+      return;
+    }
+
+    const name = ensureProjectFileExtension(requestedName, "schema");
+    const uniqueName = getUniqueProjectNodeName(projectExplorer.project, parentId, name);
+    const file = createSchemaWorkspaceFile(uniqueName);
+    const result = addProjectFile(syncActiveSchemaToProject(), parentId, file);
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+
+    openSchemaWorkspaceFile(file.id, result.state);
+    setStatus(t("projectExplorer.status.schemaCreated", { name: file.name }));
+  }
+
+  async function handleProjectExplorerCreateTextFile(parentId: string) {
+    const requestedName = await requestPromptDialog({
+      title: t("projectExplorer.dialogs.newTextFileTitle"),
+      label: t("projectExplorer.dialogs.nameLabel"),
+      initialValue: t("projectExplorer.defaults.textFileName"),
+      required: true,
+    });
+    if (requestedName == null) {
+      return;
+    }
+
+    const normalized = normalizeProjectNodeName(requestedName);
+    const kind = /\.sql$/i.test(normalized) ? "sql" : "text";
+    const uniqueName = getUniqueProjectNodeName(projectExplorer.project, parentId, ensureProjectFileExtension(normalized, kind));
+    const result = addProjectFile(syncActiveSchemaToProject(), parentId, createTextWorkspaceFile(uniqueName, kind));
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+
+    applyProjectExplorerState(result.state);
+    setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
+  }
+
+  async function handleProjectExplorerCreateFolder(parentId: string) {
+    const requestedName = await requestPromptDialog({
+      title: t("projectExplorer.dialogs.newFolderTitle"),
+      label: t("projectExplorer.dialogs.nameLabel"),
+      initialValue: t("projectExplorer.defaults.folderName"),
+      required: true,
+    });
+    if (requestedName == null) {
+      return;
+    }
+
+    const uniqueName = getUniqueProjectNodeName(projectExplorer.project, parentId, requestedName);
+    const result = addProjectFolder(projectExplorer, parentId, uniqueName);
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+
+    applyProjectExplorerState(result.state);
+    setStatus(t("projectExplorer.status.folderCreated", { name: uniqueName }));
+  }
+
+  async function handleProjectExplorerRename(nodeId: string) {
+    const node = projectExplorer.project.fileTree.find((candidate) => candidate.id === nodeId);
+    if (!node) {
+      return;
+    }
+
+    const requestedName = await requestPromptDialog({
+      title: t("projectExplorer.dialogs.renameTitle"),
+      label: t("projectExplorer.dialogs.nameLabel"),
+      initialValue: node.name,
+      required: true,
+    });
+    if (requestedName == null) {
+      return;
+    }
+
+    const result = renameProjectNode(syncActiveSchemaToProject(), nodeId, requestedName);
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+
+    const renamedNode = result.state.project.fileTree.find((candidate) => candidate.id === nodeId);
+    applyProjectExplorerState(result.state);
+    if (renamedNode?.fileId === result.state.project.activeFileId && result.state.files[renamedNode.fileId]?.kind === "schema") {
+      const activeFile = result.state.files[renamedNode.fileId] as Extract<ProjectWorkspaceFile, { kind: "schema" }>;
+      applyWorkspaceDocument(activeFile.schema.diagram, t("projectExplorer.status.renamed", { name: renamedNode.name }), {
+        translationWorkspace: activeFile.schema.translationWorkspace,
+        logicalWorkspace: activeFile.schema.logicalWorkspace,
+        logicalGenerated: activeFile.schema.logicalGenerated,
+        logicalStage: activeFile.schema.logicalStage,
+        diagramView,
+        viewport,
+        translationViewport,
+        logicalViewport,
+        versioning: projectVersioning.versioning,
+        workspace: currentProjectWorkspaceState,
+        resetHistory: true,
+        markBaseline: false,
+      });
+    }
+    setStatus(t("projectExplorer.status.renamed", { name: renamedNode?.name ?? requestedName }));
+  }
+
+  async function handleProjectExplorerDelete(nodeId: string) {
+    const node = projectExplorer.project.fileTree.find((candidate) => candidate.id === nodeId);
+    if (!node) {
+      return;
+    }
+    if (node.id === projectExplorer.project.rootId) {
+      setStatusWarning(t("projectExplorer.errors.root-delete"));
+      return;
+    }
+
+    const confirmed = await requestConfirmDialog({
+      title: t("projectExplorer.dialogs.deleteTitle"),
+      message: t("projectExplorer.dialogs.deleteMessage", { name: node.name }),
+      confirmLabel: t("common.actions.delete"),
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    const result = deleteProjectNode(syncActiveSchemaToProject(), nodeId);
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+
+    const nextActiveFileId = result.state.project.activeFileId;
+    const nextActiveFile = nextActiveFileId ? result.state.files[nextActiveFileId] : undefined;
+    applyProjectExplorerState(result.state);
+    if (nextActiveFile?.kind === "schema") {
+      openSchemaWorkspaceFile(nextActiveFile.id, result.state);
+    }
+    setStatus(t("projectExplorer.status.deleted", { name: node.name }));
+  }
+
+  function handleProjectExplorerToggleFolder(folderId: string) {
+    const expanded = new Set(projectExplorer.view.expandedFolderIds);
+    if (expanded.has(folderId)) {
+      expanded.delete(folderId);
+    } else {
+      expanded.add(folderId);
+    }
+    applyProjectExplorerState(setProjectExplorerExpandedFolders(projectExplorer, Array.from(expanded)));
+  }
+
+  function handleProjectExplorerCollapseAll() {
+    applyProjectExplorerState(setProjectExplorerExpandedFolders(projectExplorer, [projectExplorer.project.rootId]));
+  }
+
+  function handleProjectExplorerToggleOpen() {
+    applyProjectExplorerState({
+      ...projectExplorer,
+      view: {
+        ...projectExplorer.view,
+        explorerOpen: !projectExplorer.view.explorerOpen,
+      },
+    });
+  }
+
+  function handleProjectExplorerResizeStart(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = projectExplorer.view.explorerWidth || DEFAULT_PROJECT_EXPLORER_WIDTH;
+
+    function handlePointerMove(moveEvent: PointerEvent) {
+      const nextWidth = clampValue(startWidth + moveEvent.clientX - startX, MIN_PROJECT_EXPLORER_WIDTH, MAX_PROJECT_EXPLORER_WIDTH);
+      setProjectExplorer((current) => ({
+        ...current,
+        view: {
+          ...current.view,
+          explorerWidth: nextWidth,
+        },
+      }));
+    }
+
+    function handlePointerUp() {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      hasUnsavedChangesRef.current = true;
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
   }
 
   function updateCodeDraft(nextCode: string) {
@@ -3304,10 +3650,49 @@ export default function App() {
       return;
     }
 
+    const newDiagram = createEmptyDiagram(t("workspace.newDiagramName"));
+    const translationWorkspace = createEmptyErTranslationWorkspace(newDiagram);
+    const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+    const schema = createSchemaDocumentFromProjectState({
+      diagram: newDiagram,
+      translationWorkspace,
+      logicalWorkspace,
+      logicalGenerated: false,
+      logicalStage: "translation",
+      diagramView: "er",
+      viewport: DEFAULT_VIEWPORT,
+      translationViewport: DEFAULT_VIEWPORT,
+      logicalViewport: DEFAULT_VIEWPORT,
+      workspace: {
+        ...currentProjectWorkspaceState,
+        tool: "select",
+        selection: { nodeIds: [], edgeIds: [] },
+        translationSelection: { nodeIds: [], edgeIds: [] },
+        logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+        codeDraft: serializeDiagramToErs(newDiagram),
+        codeDirty: false,
+      },
+      versioning: createEmptyProjectVersioningState(),
+    });
+    const nextProject = createProjectFromSchema(t("workspace.newDiagramName"), schema);
+    setProjectExplorer(nextProject);
     applyWorkspaceDocument(
-      createEmptyDiagram(t("workspace.newDiagramName")),
+      newDiagram,
       t("workspace.newProject"),
+      {
+        translationWorkspace,
+        logicalWorkspace,
+        logicalGenerated: false,
+        logicalStage: "translation",
+        diagramView: "er",
+        viewport: DEFAULT_VIEWPORT,
+        translationViewport: DEFAULT_VIEWPORT,
+        logicalViewport: DEFAULT_VIEWPORT,
+        versioning: createEmptyProjectVersioningState(),
+        workspace: schema.workspace,
+      },
     );
+    markProjectExplorerSaved(nextProject);
   }
 
   function handleCreateNode(
@@ -5187,6 +5572,7 @@ export default function App() {
 
   function handleSaveProject() {
     try {
+      const syncedProject = syncActiveSchemaToProject();
       const serializedProject = serializeProjectFile({
         diagram: history.present,
         translationWorkspace: translationHistory.present,
@@ -5199,16 +5585,21 @@ export default function App() {
         logicalViewport,
         versioning: projectVersioning.versioning,
         workspace: currentProjectWorkspaceState,
+        project: syncedProject.project,
+        files: syncedProject.files,
+        explorerView: syncedProject.view,
       });
+      setProjectExplorer(syncedProject);
       downloadTextFile(
         serializedProject,
-        `${sanitizeFileNameBase(history.present.meta.name)}${PROJECT_FILE_EXTENSION}`,
+        `${sanitizeFileNameBase(syncedProject.project.name)}${PROJECT_FILE_EXTENSION}`,
         PROJECT_FILE_MIME_TYPE,
       );
       markDiagramSaved(history.present);
       markCodeSaved(codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present));
       markVersioningSaved();
       markWorkspaceSaved(currentProjectWorkspaceState);
+      markProjectExplorerSaved(syncedProject);
       hasUnsavedChangesRef.current = false;
       setStatus(t("workspace.projectSaved"));
       showSuccessNotice(t("workspace.downloads.projectDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
@@ -5216,6 +5607,24 @@ export default function App() {
       console.error(error);
       setStatusError(formatProjectFileErrorMessage(error));
     }
+  }
+
+  function handleSaveCurrentSchema() {
+    const activeFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
+    const activeFile = activeFileId ? projectExplorer.files[activeFileId] : undefined;
+    const fallbackName = activeFile?.name ?? `${history.present.meta.name}${SCHEMA_FILE_EXTENSION}`;
+    const schema = createCurrentSchemaDocument();
+    downloadTextFile(
+      serializeSchemaFile(schema),
+      `${sanitizeFileNameBase(stripKnownProjectExtension(fallbackName))}${SCHEMA_FILE_EXTENSION}`,
+      SCHEMA_FILE_MIME_TYPE,
+    );
+    setStatus(t("projectExplorer.status.schemaExported"));
+    showSuccessNotice(t("workspace.downloads.schemaExported"), { title: t("workspace.noticeTitles.downloadCompleted") });
+  }
+
+  function handleImportSchemaRequest() {
+    schemaFileInputRef.current?.click();
   }
 
   function handleSaveErs() {
@@ -5472,7 +5881,20 @@ export default function App() {
       const loadStatus =
         parsedProject.source === "legacy-diagram-json"
           ? t("workspace.legacyProjectLoaded")
+          : parsedProject.source === "legacy-project-json"
+            ? t("projectExplorer.status.legacyConverted")
+            : parsedProject.source === "schema-file"
+              ? t("projectExplorer.status.schemaImported")
           : t("workspace.projectLoaded");
+      if (parsedProject.state.project && parsedProject.state.files && parsedProject.state.explorerView) {
+        const nextProjectExplorer = {
+          project: parsedProject.state.project,
+          files: parsedProject.state.files,
+          view: parsedProject.state.explorerView,
+        };
+        setProjectExplorer(nextProjectExplorer);
+        markProjectExplorerSaved(nextProjectExplorer);
+      }
       applyWorkspaceDocument(parsedProject.state.diagram, loadStatus, {
         translationWorkspace: parsedProject.state.translationWorkspace,
         logicalWorkspace: parsedProject.state.logicalWorkspace,
@@ -5485,6 +5907,39 @@ export default function App() {
         versioning: parsedProject.state.versioning,
         workspace: parsedProject.state.workspace,
       });
+    } catch (error) {
+      console.error(error);
+      setStatusError(formatProjectFileErrorMessage(error));
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function handleLoadSchemaFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const rawText = await file.text();
+      const schema = parseSchemaFile(rawText, DEFAULT_VIEWPORT);
+      const synced = syncActiveSchemaToProject();
+      const uniqueName = getUniqueProjectNodeName(
+        synced.project,
+        synced.project.rootId,
+        ensureProjectFileExtension(file.name || schema.diagram.meta.name, "schema"),
+      );
+      const schemaFile = createSchemaWorkspaceFile(uniqueName, schema);
+      const result = addProjectFile(synced, synced.project.rootId, schemaFile);
+      if (!result.ok) {
+        setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+        return;
+      }
+
+      openSchemaWorkspaceFile(schemaFile.id, result.state);
+      setStatus(t("projectExplorer.status.schemaImported"));
+      showSuccessNotice(t("projectExplorer.status.schemaImported"), { title: t("workspace.noticeTitles.downloadCompleted") });
     } catch (error) {
       console.error(error);
       setStatusError(formatProjectFileErrorMessage(error));
@@ -5790,7 +6245,7 @@ export default function App() {
       <AppHeader
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
-        diagramName={history.present.meta.name}
+        diagramName={projectExplorer.project.name}
         diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
@@ -5799,12 +6254,33 @@ export default function App() {
         focusMode={focusMode}
         hasUncommittedChanges={hasVersioningUncommittedChanges}
         versioningCommitCount={projectVersioning.versioning.commits.length}
+        issueCount={issues.length}
+        warningCount={issues.filter((issue) => issue.level === "warning").length}
+        showDiagnostics={showDiagnostics}
         onNewProject={handleNewProject}
+        onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+        onImportSchema={handleImportSchemaRequest}
+        onExportCurrentSchema={handleSaveCurrentSchema}
+        onRenameProject={() => {
+          const input = document.querySelector<HTMLInputElement>('[data-project-name-input="true"]');
+          input?.focus();
+          input?.select();
+        }}
         onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
         onToggleCodePanel={handleToggleCodePanel}
         onToggleNotesPanel={handleToggleNotesPanel}
+        onRegenerateErs={handleResetCodeFromDiagram}
         onSaveProject={handleSaveProject}
         onLoadProject={handleLoadProjectRequest}
+        onSaveErs={handleSaveErs}
+        onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
+        onImportSql={handleOpenSqlReverseWorkflow}
+        onOpenErrorsPanel={() => setErrorsPanelOpen(true)}
+        onToggleDiagnostics={() => setShowDiagnostics((current) => !current)}
+        onExportPng={handleExportPng}
+        onExportJpeg={handleExportJpeg}
+        onExportSvg={handleExportSvg}
+        onExportSql={handleSaveLogicalSql}
         onOpenCommandMenu={openCommandMenu}
         onOpenShortcuts={openKeyboardShortcuts}
         onDiagramNameChange={handleDiagramNameChange}
@@ -5825,6 +6301,22 @@ export default function App() {
             </div>
           ) : null}
         </div>
+
+        <ProjectExplorer
+          project={projectExplorer.project}
+          files={projectExplorer.files}
+          view={projectExplorer.view}
+          onOpenFile={handleProjectExplorerOpenFile}
+          onCreateSchema={handleProjectExplorerCreateSchema}
+          onCreateTextFile={handleProjectExplorerCreateTextFile}
+          onCreateFolder={handleProjectExplorerCreateFolder}
+          onRename={handleProjectExplorerRename}
+          onDelete={handleProjectExplorerDelete}
+          onToggleFolder={handleProjectExplorerToggleFolder}
+          onCollapseAll={handleProjectExplorerCollapseAll}
+          onToggleOpen={handleProjectExplorerToggleOpen}
+          onResizeStart={handleProjectExplorerResizeStart}
+        />
 
         {sqlReversePreviewContent ? (
           sqlReversePreviewContent
@@ -6088,6 +6580,13 @@ export default function App() {
         onChange={handleLoadProjectFile}
       />
       <input
+        ref={schemaFileInputRef}
+        className="hidden-input"
+        type="file"
+        accept={SCHEMA_FILE_ACCEPT}
+        onChange={handleLoadSchemaFile}
+      />
+      <input
         ref={ersFileInputRef}
         className="hidden-input"
         type="file"
@@ -6197,6 +6696,9 @@ export default function App() {
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}
+          onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+          onImportSchema={handleImportSchemaRequest}
+          onExportCurrentSchema={handleSaveCurrentSchema}
           onSaveErs={handleSaveErs}
           onLoadProject={handleLoadProjectRequest}
           onLoadErs={handleLoadErsRequest}

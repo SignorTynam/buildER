@@ -23,6 +23,7 @@ buildER/
 | Area | Dove va | Cosa contiene |
 | --- | --- | --- |
 | UI condivisa | `src/components` | Header, modali, pannelli, componenti riutilizzabili |
+| Explorer progetto | `src/components/project` | File Explorer, tree item e azioni progetto multi-file |
 | Canvas ER | `src/canvas` | Rendering SVG, nodi, edge e interazioni del diagramma |
 | Inspector | `src/inspector` | Sezioni di editing per entità, attributi e relazioni |
 | Toolbar | `src/toolbar` | Strumenti e controlli del canvas |
@@ -40,6 +41,10 @@ buildER/
 3. Non aggiungere CSS locale isolato se esiste già un pattern o token condiviso.
 4. Ogni nuova feature deve avere almeno una verifica: test unitario, test di integrazione, test E2E o checklist manuale documentata nella PR.
 5. I file di compatibilità progetto `.ersp` e le funzioni di parsing/serializzazione vanno trattati come API interne stabili.
+
+## Formati progetto
+
+`src/utils/projectFile.ts` gestisce `.ersp` come progetto multi-file dalla versione 6. `src/utils/projectSchemaFile.ts` gestisce `.erschema` per esportare/importare un singolo schema. `src/utils/projectExplorer.ts` contiene la logica pura per file tree, nomi, cartelle, rename, delete e fallback dello schema attivo. Il formato `.ers` resta il sorgente testuale ERS esistente.
 
 ## Debito tecnico da gestire con calma
 

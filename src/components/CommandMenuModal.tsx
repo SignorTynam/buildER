@@ -39,6 +39,9 @@ interface CommandMenuModalProps {
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
   onSaveProject: () => void;
+  onNewSchema: () => void;
+  onImportSchema: () => void;
+  onExportCurrentSchema: () => void;
   onSaveErs: () => void;
   onLoadProject: () => void;
   onLoadErs: () => void;
@@ -371,6 +374,27 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
         shortcut: "Ctrl/Cmd S",
         icon: "save",
         action: props.onSaveProject,
+      },
+      {
+        id: "file-new-schema",
+        category: "file",
+        label: t("commandMenu.commands.fileNewSchema.label"),
+        icon: "newProject",
+        action: props.onNewSchema,
+      },
+      {
+        id: "file-import-schema",
+        category: "file",
+        label: t("commandMenu.commands.fileImportSchema.label"),
+        icon: "upload",
+        action: props.onImportSchema,
+      },
+      {
+        id: "file-export-schema",
+        category: "file",
+        label: t("commandMenu.commands.fileExportSchema.label"),
+        icon: "download",
+        action: props.onExportCurrentSchema,
       },
       {
         id: "file-download-ers",

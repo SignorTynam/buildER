@@ -60,6 +60,9 @@ function createValidSnapshot(overrides: Partial<Parameters<typeof serializeWorks
     toolbarWidth: bootstrap.toolbarWidth,
     showDiagnostics: bootstrap.showDiagnostics,
     versioning: bootstrap.versioning,
+    project: bootstrap.project,
+    files: bootstrap.files,
+    explorerView: bootstrap.explorerView,
     ...overrides,
   });
 }
@@ -343,4 +346,28 @@ test("workspace session preserva commit automatici di backup e restore", async (
   assert.deepEqual(restored.versioning.commits[2]?.tags, [PROJECT_RESTORE_BACKUP_TAG]);
   assert.equal(restored.versioning.commits[3]?.parentId, "commit-backup");
   assert.deepEqual(restored.versioning.commits[3]?.tags, [PROJECT_RESTORE_TAG]);
+});
+
+test("workspace session serializza e ripristina project explorer", () => {
+  const storage = new MemoryStorage();
+  const snapshot = createValidSnapshot();
+  const explorerView = {
+    ...snapshot.explorerView,
+    explorerOpen: false,
+    explorerWidth: 312,
+    expandedFolderIds: [snapshot.project.rootId],
+  };
+
+  saveWorkspaceSessionSnapshot({ ...snapshot, explorerView }, storage);
+
+  const raw = storage.getItem(WORKSPACE_SESSION_STORAGE_KEY);
+  assert.ok(raw);
+  assert.equal(JSON.parse(raw).version, 6);
+  assert.equal(JSON.parse(raw).explorerView.explorerWidth, 312);
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+  assert.equal(restored.project.rootId, snapshot.project.rootId);
+  assert.equal(restored.explorerView.explorerOpen, false);
+  assert.equal(restored.explorerView.explorerWidth, 312);
+  assert.equal(Object.keys(restored.files).length, Object.keys(snapshot.files).length);
 });
