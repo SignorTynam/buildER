@@ -18,11 +18,8 @@ import { ProjectTextFileModal } from "./components/project/ProjectTextFileModal"
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
-import { CommitDialog } from "./components/versioning/CommitDialog";
 import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
-import { RestoreVersionDialog } from "./components/versioning/RestoreVersionDialog";
 import { VersionCompareMode } from "./components/versioning/VersionCompareMode";
-import { VersioningPanel } from "./components/versioning/VersioningPanel";
 import {
   CardinalityModal,
   type CardinalityDialogState,
@@ -1056,15 +1053,13 @@ export default function App() {
     removeNotice: dismissNotice,
   } = useWorkspaceNotices({ formatErrorMessage: (message) => formatErrorFromRawMessage(message, t) });
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
-  const [versioningPanelOpen, setVersioningPanelOpen] = useState(false);
-  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [versionCompareSession, setVersionCompareSession] = useState<VersionCompareSession | null>(null);
-  const [restoreCommitId, setRestoreCommitId] = useState<string | null>(null);
-  const [restoreDialogBusy, setRestoreDialogBusy] = useState(false);
-  const [restoreDialogError, setRestoreDialogError] = useState("");
-  const [commitDialogError, setCommitDialogError] = useState("");
-  const [commitDialogBusy, setCommitDialogBusy] = useState(false);
+  const [, setRestoreDialogBusy] = useState(false);
+  const [, setRestoreDialogError] = useState("");
+  const [, setCommitDialogError] = useState("");
+  const [, setCommitDialogBusy] = useState(false);
   const [sourceControlCommitMessage, setSourceControlCommitMessage] = useState("");
+  const [selectedSourceCommitId, setSelectedSourceCommitId] = useState<string | null>(null);
   const [textFileModalFileId, setTextFileModalFileId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -1348,10 +1343,6 @@ export default function App() {
     () => getProjectUncommittedChangeState(projectVersioning.versioning, currentProjectCommitSnapshot),
     [currentProjectCommitSnapshot, projectVersioning.versioning],
   );
-  const restoreTargetCommit = useMemo(
-    () => projectVersioning.getCommitById(restoreCommitId),
-    [projectVersioning, restoreCommitId],
-  );
   const hasVersioningUncommittedChanges = versioningChangeState.hasChanges;
   const commitDialogHint =
     versioningChangeState.status === "no-head-empty"
@@ -1410,8 +1401,6 @@ export default function App() {
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
   const versionAnnouncementBlocked =
     commandMenuOpen ||
-    versioningPanelOpen ||
-    commitDialogOpen ||
     keyboardShortcutsOpen ||
     aboutOpen ||
     whatsNewOpen ||
@@ -1864,8 +1853,6 @@ export default function App() {
     setWhatsNewOpen(false);
     setIntroOpen(false);
     setKeyboardShortcutsOpen(false);
-    setVersioningPanelOpen(false);
-    setCommitDialogOpen(false);
     setCommandMenuOpen(true);
   }
 
@@ -1874,8 +1861,6 @@ export default function App() {
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
-    setVersioningPanelOpen(false);
-    setCommitDialogOpen(false);
     setKeyboardShortcutsOpen(true);
   }
 
@@ -2343,7 +2328,6 @@ export default function App() {
         codeDraft: serializeDiagramToErs(preview.diagram),
         codeDirty: false,
       },
-      versioning: projectVersioning.versioning,
     });
     const schemaFile = createSchemaWorkspaceFile(generatedName, schema);
     const result = addProjectFile(synced, synced.project.rootId, schemaFile);
@@ -2675,7 +2659,6 @@ export default function App() {
       translationViewport,
       logicalViewport,
       workspace: currentProjectWorkspaceState,
-      versioning: projectVersioning.versioning,
     });
   }
 
@@ -6120,9 +6103,7 @@ export default function App() {
         return false;
       }
 
-      setCommitDialogOpen(false);
       setCommitDialogError("");
-      setVersioningPanelOpen(true);
       setStatus(t("versioning.commitCreated"));
       showSuccessNotice(t("versioning.commitCreated"), { title: t("versioning.commit") });
       return true;
@@ -6148,7 +6129,6 @@ export default function App() {
       return;
     }
 
-    setVersioningPanelOpen(false);
     setVersionCompareSession({
       left: { kind: "commit", commitId },
       right: { kind: "working-copy" },
@@ -6172,44 +6152,47 @@ export default function App() {
       return;
     }
 
-    setVersioningPanelOpen(false);
     setVersionCompareSession({
       left: { kind: "commit", commitId },
       right: { kind: "head" },
     });
   }
 
-  function handleOpenRestoreCommit(commitId: string) {
-    setVersioningPanelOpen(false);
-    setRestoreCommitId(commitId);
-    setRestoreDialogError("");
-  }
-
-  function handleCloseRestoreDialog() {
-    if (restoreDialogBusy) {
+  function handleCompareCommitWithParent(commitId: string) {
+    const commit = projectVersioning.getCommitById(commitId);
+    if (!commit) {
+      handleMissingDiffCommit(commitId);
       return;
     }
 
-    setRestoreCommitId(null);
-    setRestoreDialogError("");
-  }
-
-  async function handleConfirmRestoreCommit() {
-    if (!restoreCommitId) {
+    if (!commit.parentId) {
+      setStatusWarning(t("versioning.diff.commitNotFound", { commitId }));
       return;
     }
 
+    if (!projectVersioning.getCommitById(commit.parentId)) {
+      handleMissingDiffCommit(commit.parentId);
+      return;
+    }
+
+    setVersionCompareSession({
+      left: { kind: "commit", commitId: commit.parentId },
+      right: { kind: "commit", commitId },
+    });
+  }
+
+  async function handleConfirmRestoreCommit(requestedCommitId: string) {
     setRestoreDialogBusy(true);
     setRestoreDialogError("");
 
     try {
-      const result = await projectVersioning.restoreCommit(restoreCommitId, currentProjectCommitSnapshot, {
+      const result = await projectVersioning.restoreCommit(requestedCommitId, currentProjectCommitSnapshot, {
         backupMessage: t("versioning.restore.backupMessage"),
-        backupDescription: t("versioning.restore.backupDescription", { commitId: restoreCommitId.slice(0, 8) }),
+        backupDescription: t("versioning.restore.backupDescription", { commitId: requestedCommitId.slice(0, 8) }),
         restoreMessage: t("versioning.restore.restoreMessage", {
-          message: projectVersioning.getCommitById(restoreCommitId)?.message ?? restoreCommitId.slice(0, 8),
+          message: projectVersioning.getCommitById(requestedCommitId)?.message ?? requestedCommitId.slice(0, 8),
         }),
-        restoreDescription: t("versioning.restore.restoreDescription", { commitId: restoreCommitId.slice(0, 8) }),
+        restoreDescription: t("versioning.restore.restoreDescription", { commitId: requestedCommitId.slice(0, 8) }),
       });
 
       if (result.status === "missing-commit") {
@@ -6295,10 +6278,8 @@ export default function App() {
         });
       }
 
-      setRestoreCommitId(null);
       setRestoreDialogError("");
       setVersionCompareSession(null);
-      setVersioningPanelOpen(true);
       setStatus(t("versioning.restore.restored"));
       showSuccessNotice(t("versioning.restore.restoredWithBackup"), {
         title: t("versioning.restore.title"),
@@ -6312,6 +6293,28 @@ export default function App() {
     } finally {
       setRestoreDialogBusy(false);
     }
+  }
+
+  function handleDeleteProjectCommit(commitId: string) {
+    const result = projectVersioning.deleteCommit(commitId);
+    if (result.status === "missing-commit") {
+      handleMissingDiffCommit(commitId);
+      return;
+    }
+
+    if (selectedSourceCommitId === commitId) {
+      setSelectedSourceCommitId(null);
+    }
+    if (
+      versionCompareSession &&
+      ((versionCompareSession.left.kind === "commit" && versionCompareSession.left.commitId === commitId) ||
+        (versionCompareSession.right.kind === "commit" && versionCompareSession.right.commitId === commitId))
+    ) {
+      setVersionCompareSession(null);
+    }
+    const message = `Commit ${commitId.slice(0, 8)} deleted`;
+    setStatus(message);
+    showSuccessNotice(message, { title: t("sourceControl.title") });
   }
 
   async function handleLoadProjectRequest() {
@@ -6441,7 +6444,6 @@ export default function App() {
           codeDraft: rawText,
           codeDirty: false,
         },
-        versioning: projectVersioning.versioning,
       });
       const synced = syncActiveSchemaToProject();
       const uniqueName = getUniqueProjectNodeName(
@@ -6847,12 +6849,18 @@ export default function App() {
         projectName={projectExplorer.project.name}
         commitMessage={sourceControlCommitMessage}
         changeState={versioningChangeState}
-        files={projectExplorer.files}
         commits={projectVersioning.commitsNewestFirst}
+        headCommitId={projectVersioning.versioning.headCommitId}
+        selectedCommitId={selectedSourceCommitId}
         onCommitMessageChange={setSourceControlCommitMessage}
         onCommit={handleCreateSourceControlCommit}
-        onOpenHistory={() => setVersioningPanelOpen(true)}
         onRefresh={() => setStatus(commitDialogHint || t("workspaceActivity.version.clean"))}
+        onSelectCommit={setSelectedSourceCommitId}
+        onCompareWithCurrent={handleCompareCommitWithCurrent}
+        onCompareWithHead={handleCompareCommitWithHead}
+        onCompareWithParent={handleCompareCommitWithParent}
+        onRestoreCommit={(commitId) => void handleConfirmRestoreCommit(commitId)}
+        onDeleteCommit={handleDeleteProjectCommit}
         onClose={handleToggleActivityPanelOpen}
         closeLabel={t("workspaceActivity.closePanel")}
       />
@@ -6912,20 +6920,10 @@ export default function App() {
           currentSnapshot={currentProjectCommitSnapshot}
           initialLeft={versionCompareSession.left}
           initialRight={versionCompareSession.right}
-          restoreDialogOpen={restoreCommitId !== null}
           onExitCompareMode={() => setVersionCompareSession(null)}
         />
 
         <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
-
-        <RestoreVersionDialog
-          open={restoreCommitId !== null}
-          busy={restoreDialogBusy}
-          error={restoreDialogError}
-          commit={restoreTargetCommit}
-          onClose={handleCloseRestoreDialog}
-          onConfirm={handleConfirmRestoreCommit}
-        />
       </>
     );
   }
@@ -6963,7 +6961,10 @@ export default function App() {
           input?.focus();
           input?.select();
         }}
-        onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
+        onOpenVersioningPanel={() => {
+          setActiveActivityPanel("version");
+          setWorkspaceActivityOpen(true);
+        }}
         onToggleCodePanel={handleToggleCodePanel}
         onToggleNotesPanel={handleToggleNotesPanel}
         onRegenerateErs={handleResetCodeFromDiagram}
@@ -7264,47 +7265,6 @@ export default function App() {
         onChange={handleLoadErsFile}
       />
 
-      <VersioningPanel
-        open={versioningPanelOpen}
-        commits={projectVersioning.commitsNewestFirst}
-        headCommitId={projectVersioning.versioning.headCommitId}
-        changeState={versioningChangeState}
-        commitBusy={commitDialogBusy}
-        commitError={commitDialogError}
-        commitHint={commitDialogHint}
-        onClose={() => setVersioningPanelOpen(false)}
-        onCreateCommit={handleCreateProjectCommit}
-        onCompareWithCurrent={handleCompareCommitWithCurrent}
-        onCompareWithHead={handleCompareCommitWithHead}
-        onRestoreCommit={handleOpenRestoreCommit}
-      />
-
-      <RestoreVersionDialog
-        open={restoreCommitId !== null}
-        busy={restoreDialogBusy}
-        error={restoreDialogError}
-        commit={restoreTargetCommit}
-        onClose={handleCloseRestoreDialog}
-        onConfirm={handleConfirmRestoreCommit}
-      />
-
-      <CommitDialog
-        open={commitDialogOpen}
-        busy={commitDialogBusy}
-        error={commitDialogError}
-        canCommit={versioningChangeState.summary.canCommit}
-        hint={commitDialogHint}
-        categories={versioningChangeState.categories}
-        firstCommit={!versioningChangeState.hasHead}
-        onClose={() => {
-          if (!commitDialogBusy) {
-            setCommitDialogOpen(false);
-            setCommitDialogError("");
-          }
-        }}
-        onSubmit={handleCreateProjectCommit}
-      />
-
       <NotesModal
         open={notesPanelOpen}
         notes={history.present.notes}
@@ -7354,7 +7314,10 @@ export default function App() {
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
-          onOpenVersioningPanel={() => setVersioningPanelOpen(true)}
+          onOpenVersioningPanel={() => {
+            setActiveActivityPanel("version");
+            setWorkspaceActivityOpen(true);
+          }}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}

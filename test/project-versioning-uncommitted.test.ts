@@ -113,7 +113,7 @@ test("categorie: label entita e relazione cambiano lo schema ER", async () => {
   assert.equal(getProjectUncommittedChangeState(versioning, withRelation).categories.er, true);
 });
 
-test("categorie: layout, viewport, logical, code, workspace e selection sono classificati", async () => {
+test("categorie: layout, logical e code sono classificati senza falsi dirty UI", async () => {
   const base = createSnapshot("A");
   const versioning = await createHead(base);
 
@@ -126,7 +126,8 @@ test("categorie: layout, viewport, logical, code, workspace e selection sono cla
   const zoomed = cloneSnapshot(base);
   zoomed.viewport = { ...zoomed.viewport, zoom: 1.5 };
   state = getProjectUncommittedChangeState(versioning, zoomed);
-  assert.equal(state.categories.layout, true);
+  assert.equal(state.hasChanges, false);
+  assert.equal(state.categories.layout, false);
 
   const logical = cloneSnapshot(base);
   logical.logicalGenerated = true;
@@ -143,19 +144,21 @@ test("categorie: layout, viewport, logical, code, workspace e selection sono cla
   const panel = cloneSnapshot(base);
   panel.codePanelOpen = true;
   state = getProjectUncommittedChangeState(versioning, panel);
-  assert.equal(state.categories.workspace, true);
+  assert.equal(state.hasChanges, false);
+  assert.equal(state.categories.workspace, false);
 
   const selected = cloneSnapshot(base);
   selected.selection = { nodeIds: ["entity-a"], edgeIds: [] };
   state = getProjectUncommittedChangeState(versioning, selected);
-  assert.equal(state.categories.workspace, true);
+  assert.equal(state.hasChanges, false);
+  assert.equal(state.categories.workspace, false);
 });
 
 test("hasProjectUncommittedChanges continua a riflettere lo stato strutturato", async () => {
   const base = createSnapshot("A");
   const versioning = await createHead(base);
   const dirty = cloneSnapshot(base);
-  dirty.codePanelOpen = true;
+  dirty.diagram.nodes[0].label = "B";
 
   assert.equal(hasProjectUncommittedChanges(versioning, base), false);
   assert.equal(hasProjectUncommittedChanges(versioning, dirty), true);

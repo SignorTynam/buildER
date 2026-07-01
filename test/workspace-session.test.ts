@@ -13,6 +13,7 @@ import {
   buildProjectCommitDraft,
   createProjectCommitSnapshot,
 } from "../src/features/versioning/projectCommitSnapshot.ts";
+import { createProjectCommitInState } from "../src/features/versioning/useProjectVersioning.ts";
 import { PROJECT_RESTORE_BACKUP_TAG, PROJECT_RESTORE_TAG } from "../src/features/versioning/projectVersionRestore.ts";
 import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
 import type { WorkspaceView } from "../src/types/translation.ts";
@@ -373,4 +374,34 @@ test("workspace session serializza e ripristina project explorer", () => {
   assert.equal(restored.explorerView.explorerOpen, false);
   assert.equal(restored.explorerView.explorerWidth, 312);
   assert.equal(Object.keys(restored.files).length, Object.keys(snapshot.files).length);
+});
+
+test("workspace session salva e ripristina molti commit senza versioning annidato nei file schema", async () => {
+  const storage = new MemoryStorage();
+  let versioning = createEmptyProjectVersioningState();
+
+  for (let index = 0; index < 25; index += 1) {
+    const result = await createProjectCommitInState(versioning, {
+      snapshot: createVersioningCommitSnapshot(`Schema ${index}`),
+      message: `Commit ${index}`,
+    });
+    assert.equal(result.status, "created");
+    if (result.status !== "created") throw new Error("commit failed");
+    versioning = result.versioning;
+  }
+
+  const snapshot = createValidSnapshot({ versioning });
+  const schemaFile = Object.values(snapshot.files ?? {}).find((file) => file.kind === "schema");
+  if (schemaFile?.kind === "schema") {
+    schemaFile.schema.versioning = versioning;
+  }
+  saveWorkspaceSessionSnapshot(snapshot, storage);
+
+  const raw = storage.getItem(WORKSPACE_SESSION_STORAGE_KEY);
+  assert.ok(raw);
+  assert.equal(JSON.stringify(JSON.parse(raw).files).includes('"versioning"'), false);
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+  assert.equal(restored.versioning.commits.length, 25);
+  assert.equal(restored.versioning.headCommitId, versioning.headCommitId);
 });

@@ -209,7 +209,7 @@ test("normalizeProjectCommitSnapshot applica fallback coerenti", () => {
   assert.equal(normalized.showDiagnostics, true);
 });
 
-test("checksum snapshot cambia per contenuti, layout, viewport, codice, pannelli e workspace logico", async () => {
+test("checksum snapshot cambia per contenuti, layout, codice dirty e workspace logico ma ignora UI session", async () => {
   const snapshot = createProjectCommitSnapshot(createSnapshotInput());
   const same = cloneProjectCommitSnapshot(snapshot);
 
@@ -235,7 +235,7 @@ test("checksum snapshot cambia per contenuti, layout, viewport, codice, pannelli
 
   const viewportChanged = cloneProjectCommitSnapshot(snapshot);
   viewportChanged.viewport.x += 1;
-  assert.notEqual(
+  assert.equal(
     await calculateProjectCommitSnapshotChecksum(snapshot),
     await calculateProjectCommitSnapshotChecksum(viewportChanged),
   );
@@ -250,7 +250,7 @@ test("checksum snapshot cambia per contenuti, layout, viewport, codice, pannelli
   const panelChanged = cloneProjectCommitSnapshot(snapshot);
   panelChanged.codePanelOpen = !panelChanged.codePanelOpen;
   panelChanged.codePanelWidth += 1;
-  assert.notEqual(
+  assert.equal(
     await calculateProjectCommitSnapshotChecksum(snapshot),
     await calculateProjectCommitSnapshotChecksum(panelChanged),
   );

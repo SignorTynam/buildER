@@ -616,9 +616,10 @@
 .source-control-section {
   border-bottom: 1px solid var(--editor-border);
   padding: 6px 8px 10px;
+  min-height: 0;
 }
 
-.source-control-section--grow {
+.source-control-changes {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -718,8 +719,33 @@
 }
 
 .source-control-history {
-  max-height: 190px;
-  overflow: auto;
+  display: flex;
+  flex: 0 1 35%;
+  flex-direction: column;
+  max-height: min(240px, 35%);
+  min-height: 116px;
+  overflow: hidden;
+}
+
+.source-control-history-header {
+  flex: 0 0 auto;
+}
+
+.source-control-disclosure {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.source-control-history-scroll {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .source-control-history-list {
@@ -729,19 +755,182 @@
 }
 
 .source-control-history-list li {
+  min-height: 0;
+}
+
+.source-control-graph-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 24px;
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--editor-text);
+  cursor: pointer;
   font-size: 0.78rem;
+  text-align: left;
 }
 
-.source-control-history-dot {
+.source-control-graph-row:hover,
+.source-control-graph-row:focus-visible {
+  background: var(--editor-panel-muted);
+  color: var(--editor-text-strong);
+}
+
+.source-control-graph-row.is-selected {
+  border-color: color-mix(in srgb, var(--editor-accent) 48%, transparent);
+  background: color-mix(in srgb, var(--editor-accent) 14%, transparent);
+}
+
+.source-control-graph-row.is-head .source-control-graph-node {
+  border-color: var(--editor-accent);
+  background: var(--editor-accent);
+}
+
+.source-control-graph-rail {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+}
+
+.source-control-graph-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--editor-border-strong, var(--editor-border));
+}
+
+.source-control-graph-node {
+  position: relative;
   width: 8px;
   height: 8px;
+  box-sizing: border-box;
   border: 1px solid var(--editor-text-muted);
   background: var(--editor-panel);
+}
+
+.source-control-graph-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.source-control-graph-title {
+  overflow: hidden;
+  color: var(--editor-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-graph-meta {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  color: var(--editor-text-muted);
+  font-size: 0.7rem;
+}
+
+.source-control-branch-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 16px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--editor-accent) 42%, transparent);
+  color: var(--editor-accent);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.source-control-commit-details {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--editor-border);
+  font-size: 0.76rem;
+}
+
+.source-control-commit-details strong {
+  display: block;
+  overflow: hidden;
+  color: var(--editor-text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-commit-details dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin: 6px 0;
+}
+
+.source-control-commit-details dl div {
+  min-width: 0;
+}
+
+.source-control-commit-details dt {
+  color: var(--editor-text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.source-control-commit-details dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-commit-actions,
+.source-control-inline-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.source-control-inline-confirm {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--editor-danger, #dc2626) 35%, var(--editor-border));
+  background: color-mix(in srgb, var(--editor-danger, #dc2626) 8%, transparent);
+}
+
+.source-control-inline-confirm span {
+  flex: 1 0 100%;
+}
+
+.source-control-action-button {
+  min-height: 26px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+  color: var(--editor-text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.source-control-action-button:hover:not(:disabled),
+.source-control-action-button:focus-visible:not(:disabled) {
+  background: var(--editor-panel-muted);
+  color: var(--editor-text-strong);
+}
+
+.source-control-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.source-control-action-button.is-danger {
+  border-color: color-mix(in srgb, var(--editor-danger, #dc2626) 44%, var(--editor-border));
+  color: var(--editor-danger, #dc2626);
 }
 
 .sql-reverse-panel__header {

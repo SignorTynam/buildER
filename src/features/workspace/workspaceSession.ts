@@ -562,7 +562,35 @@ export function serializeWorkspaceSessionSnapshot(
     version: 6,
     savedAt: new Date().toISOString(),
     ...snapshot,
+    files: sanitizeWorkspaceSessionFiles(snapshot.files),
   };
+}
+
+function sanitizeWorkspaceSessionFiles(
+  files: Record<string, ProjectWorkspaceFile> | undefined,
+): Record<string, ProjectWorkspaceFile> | undefined {
+  if (!files) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(files).map(([fileId, file]) => {
+      if (file.kind !== "schema") {
+        return [fileId, file];
+      }
+
+      return [
+        fileId,
+        {
+          ...file,
+          schema: {
+            ...file.schema,
+            versioning: undefined,
+          },
+        },
+      ];
+    }),
+  );
 }
 
 export function saveWorkspaceSessionSnapshot(

@@ -3,7 +3,10 @@ import test from "node:test";
 
 import { createProjectCommitSnapshot } from "../src/features/versioning/projectCommitSnapshot.ts";
 import { buildProjectVersionDiff } from "../src/features/versioning/projectVersionDiff.ts";
-import { getProjectUncommittedChangeState } from "../src/features/versioning/useProjectVersioning.ts";
+import {
+  createProjectCommitInState,
+  getProjectUncommittedChangeState,
+} from "../src/features/versioning/useProjectVersioning.ts";
 import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
 import {
   addProjectFile,
@@ -124,4 +127,30 @@ test("dirty state project-wide include note SQL e schema", () => {
   assert.equal(changeState.categories.schemas, true);
   assert.equal(changeState.categories.notes, true);
   assert.equal(changeState.categories.sql, true);
+});
+
+test("dirty state project-wide mostra solo il file realmente modificato", async () => {
+  const before = createProjectWideSnapshot();
+  const first = await createProjectCommitInState(createEmptyProjectVersioningState(), {
+    snapshot: before,
+    message: "Initial",
+  });
+  assert.equal(first.status, "created");
+  if (first.status !== "created") return;
+
+  const after = createProjectCommitSnapshot(JSON.parse(JSON.stringify(before)));
+  assert.ok(after.files);
+  const note = Object.values(after.files).find((file) => file.kind === "text");
+  assert.ok(note && note.kind === "text");
+  after.files[note.id] = {
+    ...note,
+    content: "Only this note changed",
+  };
+
+  const changeState = getProjectUncommittedChangeState(first.versioning, after);
+
+  assert.equal(changeState.hasChanges, true);
+  assert.equal(changeState.files.length, 1);
+  assert.equal(changeState.files[0]?.fileId, note.id);
+  assert.equal(changeState.files[0]?.status, "modified");
 });

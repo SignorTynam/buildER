@@ -160,7 +160,7 @@ test("diff ER rileva attributo rimosso e cambio cardinalita", () => {
   assert.ok(removedDiff.sections.er.removed.some((item) => item.kind === "attribute" && item.id === "Nome"));
 });
 
-test("diff Layout separa posizione, dimensione, viewport e manualOffset dal diff ER", () => {
+test("diff Layout separa posizione, dimensione e manualOffset dal diff ER ignorando viewport", () => {
   const left = createSnapshot();
   const right = cloneSnapshot(left);
   right.diagram.nodes[0].x += 40;
@@ -174,7 +174,7 @@ test("diff Layout separa posizione, dimensione, viewport e manualOffset dal diff
   assert.equal(diff.sections.layout.changed, true);
   assert.ok(diff.sections.layout.modified.some((item) => item.kind === "node-layout"));
   assert.ok(diff.sections.layout.modified.some((item) => item.kind === "edge-offset"));
-  assert.ok(diff.sections.layout.modified.some((item) => item.kind === "viewport"));
+  assert.equal(diff.sections.layout.modified.some((item) => item.kind === "viewport"), false);
 });
 
 test("diff Logical rileva tabella, colonna, FK e stato logico", () => {
@@ -219,7 +219,7 @@ test("diff Logical rileva tabella, colonna, FK e stato logico", () => {
   assert.ok(diff.sections.logical.added.some((item) => item.kind === "foreign-key"));
 });
 
-test("diff Code e Workspace rilevano draft, dirty, pannelli, selection e toolbar", () => {
+test("diff Code rileva draft e dirty ma ignora pannelli, selection e toolbar", () => {
   const left = createSnapshot();
   const right = cloneSnapshot(left);
   right.codeDraft = "entity Studente";
@@ -236,10 +236,7 @@ test("diff Code e Workspace rilevano draft, dirty, pannelli, selection e toolbar
   assert.equal(diff.sections.code.changed, true);
   assert.ok(diff.sections.code.modified.some((item) => item.id === "codeDraft"));
   assert.ok(diff.sections.code.modified.some((item) => item.id === "codeDirty"));
-  assert.equal(diff.sections.workspace.changed, true);
-  assert.ok(diff.sections.workspace.modified.some((item) => item.id === "workspace.technicalPanelOpen"));
-  assert.ok(diff.sections.workspace.modified.some((item) => item.id === "workspace.selection"));
-  assert.ok(diff.sections.workspace.modified.some((item) => item.id === "workspace.toolbarCollapsed"));
+  assert.equal(diff.sections.workspace.changed, false);
 });
 
 test("summary conta added, removed, modified e sezioni cambiate", () => {
@@ -253,11 +250,11 @@ test("summary conta added, removed, modified e sezioni cambiate", () => {
 
   assert.equal(diff.isEqual, false);
   assert.equal(diff.summary.addedCount, 1);
-  assert.equal(diff.summary.modifiedCount, 2);
-  assert.equal(diff.summary.changedSectionCount, 3);
+  assert.equal(diff.summary.modifiedCount, 1);
+  assert.equal(diff.summary.changedSectionCount, 2);
   assert.equal(diff.summary.hasErChanges, true);
   assert.equal(diff.summary.hasLayoutChanges, true);
-  assert.equal(diff.summary.hasCodeChanges, true);
+  assert.equal(diff.summary.hasCodeChanges, false);
 });
 
 test("compare commit vs commit e commit vs working copy funzionano", async () => {
@@ -273,7 +270,7 @@ test("compare commit vs commit e commit vs working copy funzionano", async () =>
   }
 
   const workingCopy = cloneSnapshot(right);
-  workingCopy.viewport = { x: 10, y: 20, zoom: 1.4 };
+  workingCopy.diagram.nodes[0].x += 20;
   const workingDiff = createProjectVersionDiffFromCommitAndSnapshot(versioning, second.id, workingCopy);
   assert.equal(workingDiff.status, "ok");
   if (workingDiff.status === "ok") {

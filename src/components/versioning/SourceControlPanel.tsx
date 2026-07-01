@@ -1,7 +1,9 @@
-import type { KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { useI18n } from "../../i18n/useI18n";
-import type { ProjectWorkspaceFile } from "../../types/projectExplorer";
-import type { ProjectUncommittedChangeState } from "../../features/versioning/useProjectVersioning";
+import type {
+  ProjectFileChange,
+  ProjectUncommittedChangeState,
+} from "../../features/versioning/useProjectVersioning";
 import type { ProjectCommit } from "../../features/versioning/projectCommitSnapshot";
 import { StudioIcon } from "../icons/StudioIcon";
 
@@ -9,52 +11,100 @@ interface SourceControlPanelProps {
   projectName: string;
   commitMessage: string;
   changeState: ProjectUncommittedChangeState;
-  files: Record<string, ProjectWorkspaceFile>;
   commits: ProjectCommit[];
+  headCommitId: string | null;
+  selectedCommitId: string | null;
   onCommitMessageChange: (value: string) => void;
   onCommit: () => void;
-  onOpenHistory: () => void;
   onRefresh: () => void;
+  onSelectCommit: (commitId: string | null) => void;
+  onCompareWithCurrent: (commitId: string) => void;
+  onCompareWithHead: (commitId: string) => void;
+  onCompareWithParent: (commitId: string) => void;
+  onRestoreCommit: (commitId: string) => void;
+  onDeleteCommit: (commitId: string) => void;
   onClose?: () => void;
   closeLabel?: string;
 }
 
-function getFileExtensionLabel(file: ProjectWorkspaceFile): string {
-  if (file.kind === "schema") {
-    return ".erschema";
+type PendingAction = { kind: "restore" | "delete"; commitId: string } | null;
+
+function formatCommitDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function shortCommitId(id: string | null | undefined) {
+  return id ? id.slice(0, 8) : "-";
+}
+
+function getChangeStatusLabel(change: ProjectFileChange): string {
+  switch (change.status) {
+    case "added":
+      return "A";
+    case "deleted":
+      return "D";
+    case "renamed":
+      return "R";
+    case "modified":
+    default:
+      return "M";
   }
-  if (file.kind === "sql") {
-    return ".sql";
+}
+
+function getChangeIconName(change: ProjectFileChange) {
+  if (change.kind === "schema") {
+    return "entity";
   }
-  if (file.kind === "text") {
-    return ".txt";
+  if (change.kind === "sql") {
+    return "database";
   }
-  return "";
+  return "fileText";
 }
 
 export function SourceControlPanel({
   projectName,
   commitMessage,
   changeState,
-  files,
   commits,
+  headCommitId,
+  selectedCommitId,
   onCommitMessageChange,
   onCommit,
-  onOpenHistory,
   onRefresh,
+  onSelectCommit,
+  onCompareWithCurrent,
+  onCompareWithHead,
+  onCompareWithParent,
+  onRestoreCommit,
+  onDeleteCommit,
   onClose,
   closeLabel,
 }: SourceControlPanelProps) {
   const { t } = useI18n();
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const canCommit = changeState.summary.canCommit && commitMessage.trim().length > 0;
-  const changedFiles = Object.values(files).sort((left, right) => left.name.localeCompare(right.name));
-  const visibleChanges = changeState.hasChanges ? changedFiles : [];
+  const selectedCommit = commits.find((commit) => commit.id === selectedCommitId) ?? null;
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && canCommit) {
       event.preventDefault();
       onCommit();
     }
+  }
+
+  function handleConfirmPendingAction() {
+    if (!pendingAction) {
+      return;
+    }
+
+    if (pendingAction.kind === "restore") {
+      onRestoreCommit(pendingAction.commitId);
+    } else {
+      onDeleteCommit(pendingAction.commitId);
+    }
+    setPendingAction(null);
   }
 
   return (
@@ -79,19 +129,19 @@ export function SourceControlPanel({
           <span>{t("sourceControl.repositories")}</span>
         </div>
         <div className="source-control-repository">
-          <StudioIcon name="openProject" aria-hidden="true" />
+          <StudioIcon name="branch" aria-hidden="true" />
           <span className="source-control-repository-name">{projectName}</span>
-          <button type="button" className="source-control-icon-button" onClick={onOpenHistory} aria-label={t("sourceControl.more")}>
+          <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.more")}>
             <StudioIcon name="menu" />
           </button>
         </div>
       </div>
 
-      <div className="source-control-section source-control-section--grow">
+      <div className="source-control-section source-control-changes">
         <div className="source-control-section-title">
           <StudioIcon name="arrowDown" aria-hidden="true" />
           <span>{t("sourceControl.changes")}</span>
-          {changeState.hasChanges ? <span className="source-control-badge">{visibleChanges.length}</span> : null}
+          {changeState.hasChanges ? <span className="source-control-badge">{changeState.files.length}</span> : null}
         </div>
         <textarea
           className="source-control-commit-input"
@@ -108,14 +158,21 @@ export function SourceControlPanel({
 
         {changeState.hasChanges ? (
           <div className="source-control-change-list">
-            <div className="source-control-change-group">{t("sourceControl.modified")}</div>
-            {visibleChanges.map((file) => (
-              <div className="source-control-change-item" key={file.id}>
-                <StudioIcon name={file.kind === "schema" ? "entity" : file.kind === "sql" ? "database" : "fileText"} aria-hidden="true" />
-                <span>{file.name}</span>
-                <small>{getFileExtensionLabel(file)}</small>
+            {changeState.files.length === 0 ? (
+              <div className="source-control-change-item">
+                <StudioIcon name="openProject" aria-hidden="true" />
+                <span>{projectName}</span>
+                <small>M</small>
               </div>
-            ))}
+            ) : (
+              changeState.files.map((file) => (
+                <div className={`source-control-change-item is-${file.status}`} key={`${file.status}-${file.fileId}`}>
+                  <StudioIcon name={getChangeIconName(file)} aria-hidden="true" />
+                  <span title={file.previousName ? `${file.previousName} -> ${file.name}` : file.name}>{file.name}</span>
+                  <small>{getChangeStatusLabel(file)}</small>
+                </div>
+              ))
+            )}
           </div>
         ) : (
           <p className="source-control-empty">{t("sourceControl.noChanges")}</p>
@@ -123,23 +180,108 @@ export function SourceControlPanel({
       </div>
 
       <div className="source-control-section source-control-history">
-        <div className="source-control-section-title">
-          <StudioIcon name="arrowDown" aria-hidden="true" />
+        <div className="source-control-section-title source-control-history-header">
+          <button
+            type="button"
+            className="source-control-disclosure"
+            onClick={() => setHistoryCollapsed((current) => !current)}
+            aria-expanded={!historyCollapsed}
+            aria-label={historyCollapsed ? "Expand history" : "Collapse history"}
+          >
+            <StudioIcon name={historyCollapsed ? "arrowRight" : "arrowDown"} aria-hidden="true" />
+          </button>
           <span>{t("sourceControl.graph")}</span>
           <span className="source-control-count">{t("versioning.commitCount", { count: commits.length })}</span>
+          <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.refresh")}>
+            <StudioIcon name="refresh" />
+          </button>
         </div>
-        {commits.length === 0 ? (
-          <p className="source-control-empty">0 commit</p>
-        ) : (
-          <ol className="source-control-history-list">
-            {commits.slice(0, 6).map((commit) => (
-              <li key={commit.id}>
-                <span className="source-control-history-dot" aria-hidden="true" />
-                <span>{commit.message}</span>
-              </li>
-            ))}
-          </ol>
-        )}
+
+        {!historyCollapsed ? (
+          commits.length === 0 ? (
+            <p className="source-control-empty">0 commit</p>
+          ) : (
+            <div className="source-control-history-scroll" data-testid="source-control-history-scroll">
+              <ol className="source-control-history-list">
+                {commits.map((commit) => {
+                  const isHead = commit.id === headCommitId;
+                  const selected = commit.id === selectedCommitId;
+                  return (
+                    <li key={commit.id}>
+                      <button
+                        type="button"
+                        className={`source-control-graph-row${isHead ? " is-head" : ""}${selected ? " is-selected" : ""}`}
+                        onClick={() => {
+                          setPendingAction(null);
+                          onSelectCommit(commit.id);
+                        }}
+                        aria-pressed={selected}
+                        aria-label={`Select commit ${shortCommitId(commit.id)} ${commit.message}`}
+                      >
+                        <span className="source-control-graph-rail" aria-hidden="true">
+                          <span className="source-control-graph-line" />
+                          <span className="source-control-graph-node" />
+                        </span>
+                        <span className="source-control-graph-main">
+                          <span className="source-control-graph-title" title={commit.message}>{commit.message}</span>
+                          <span className="source-control-graph-meta">
+                            {shortCommitId(commit.id)}
+                            {isHead ? <span className="source-control-branch-pill">HEAD</span> : null}
+                            {isHead ? <span className="source-control-branch-pill">main</span> : null}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )
+        ) : null}
+
+        {selectedCommit ? (
+          <div className="source-control-commit-details" data-testid="source-control-commit-details">
+            <strong title={selectedCommit.message}>{selectedCommit.message}</strong>
+            <dl>
+              <div><dt>ID</dt><dd>{shortCommitId(selectedCommit.id)}</dd></div>
+              <div><dt>Parent</dt><dd>{shortCommitId(selectedCommit.parentId)}</dd></div>
+              <div><dt>Date</dt><dd>{formatCommitDate(selectedCommit.createdAt)}</dd></div>
+              <div><dt>Stats</dt><dd>{selectedCommit.stats.entityCount} ER, {selectedCommit.stats.tableCount ?? 0} tables</dd></div>
+            </dl>
+            <div className="source-control-commit-actions">
+              <button type="button" className="source-control-action-button" onClick={() => onCompareWithCurrent(selectedCommit.id)}>
+                Compare current
+              </button>
+              <button type="button" className="source-control-action-button" onClick={() => onCompareWithHead(selectedCommit.id)} disabled={!headCommitId || selectedCommit.id === headCommitId}>
+                Compare HEAD
+              </button>
+              <button type="button" className="source-control-action-button" onClick={() => onCompareWithParent(selectedCommit.id)} disabled={!selectedCommit.parentId}>
+                Compare previous
+              </button>
+              <button type="button" className="source-control-action-button" onClick={() => setPendingAction({ kind: "restore", commitId: selectedCommit.id })}>
+                Restore
+              </button>
+              <button type="button" className="source-control-action-button is-danger" onClick={() => setPendingAction({ kind: "delete", commitId: selectedCommit.id })}>
+                Delete commit
+              </button>
+            </div>
+            {pendingAction?.commitId === selectedCommit.id ? (
+              <div className="source-control-inline-confirm" role="alert">
+                <span>
+                  {pendingAction.kind === "restore"
+                    ? "Restore the working tree to this commit?"
+                    : "Delete this commit from history?"}
+                </span>
+                <button type="button" className="source-control-action-button" onClick={() => setPendingAction(null)}>
+                  Cancel
+                </button>
+                <button type="button" className="source-control-action-button is-danger" onClick={handleConfirmPendingAction}>
+                  {pendingAction.kind === "restore" ? "Restore" : "Delete commit"}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </section>
   );

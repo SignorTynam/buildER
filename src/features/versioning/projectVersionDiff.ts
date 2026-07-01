@@ -1,4 +1,4 @@
-import type { DiagramEdge, DiagramNode, GeneralizationGroup, Viewport } from "../../types/diagram";
+import type { DiagramEdge, DiagramNode, GeneralizationGroup } from "../../types/diagram";
 import type {
   LogicalColumn,
   LogicalEdge,
@@ -9,7 +9,8 @@ import type {
 } from "../../types/logical";
 import {
   cloneProjectCommitSnapshot,
-  stringifyProjectCommitSnapshot,
+  stringifyProjectContentSnapshot,
+  stringifyProjectFileContent,
   type ProjectCommit,
   type ProjectCommitSnapshot,
   type ProjectVersioningState,
@@ -405,24 +406,6 @@ function diffEr(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot): Proj
   return finalizeSection(section);
 }
 
-function diffViewport(id: string, label: string, left: Viewport, right: Viewport): ProjectVersionDiffItem | null {
-  const details = compactDetails([
-    comparePrimitiveDetail("x", left.x, right.x),
-    comparePrimitiveDetail("y", left.y, right.y),
-    comparePrimitiveDetail("zoom", left.zoom, right.zoom),
-  ]);
-
-  return details
-    ? {
-        id,
-        kind: "viewport",
-        label,
-        path: id,
-        details,
-      }
-    : null;
-}
-
 function diffLayout(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot): ProjectVersionDiffSection {
   const section = createSection("layout");
   const leftNodes = mapById(left.diagram.nodes);
@@ -466,13 +449,6 @@ function diffLayout(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot): 
       });
     }
   }
-
-  const viewportItems = [
-    diffViewport("viewport.er", "viewport.er", left.viewport, right.viewport),
-    diffViewport("viewport.translation", "viewport.translation", left.translationViewport, right.translationViewport),
-    diffViewport("viewport.logical", "viewport.logical", left.logicalViewport, right.logicalViewport),
-  ].filter((item): item is ProjectVersionDiffItem => item !== null);
-  section.modified.push(...viewportItems);
 
   return finalizeSection(section);
 }
@@ -724,13 +700,15 @@ function countLineChanges(left: string, right: string): ProjectVersionDiffItemDe
 
 function diffCode(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot): ProjectVersionDiffSection {
   const section = createSection("code");
-  if (left.codeDraft !== right.codeDraft) {
+  const leftCodeDraft = left.codeDirty ? left.codeDraft : "";
+  const rightCodeDraft = right.codeDirty ? right.codeDraft : "";
+  if (leftCodeDraft !== rightCodeDraft) {
     section.modified.push({
       id: "codeDraft",
       kind: "code-draft",
       label: "codeDraft",
       path: "codeDraft",
-      details: countLineChanges(left.codeDraft, right.codeDraft),
+      details: countLineChanges(leftCodeDraft, rightCodeDraft),
     });
   }
   if (left.codeDirty !== right.codeDirty) {
@@ -747,52 +725,8 @@ function diffCode(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot): Pr
   return finalizeSection(section);
 }
 
-function diffWorkspaceField(
-  field: keyof ProjectCommitSnapshot,
-  left: ProjectCommitSnapshot,
-  right: ProjectCommitSnapshot,
-): ProjectVersionDiffItem | null {
-  const before = left[field];
-  const after = right[field];
-  if (stableStringify(before) === stableStringify(after)) {
-    return null;
-  }
-
-  return {
-    id: `workspace.${String(field)}`,
-    kind: "workspace-field",
-    label: String(field),
-    path: String(field),
-    before: formatValue(before),
-    after: formatValue(after),
-  };
-}
-
-function diffWorkspace(left: ProjectCommitSnapshot, right: ProjectCommitSnapshot): ProjectVersionDiffSection {
+function diffWorkspace(_left: ProjectCommitSnapshot, _right: ProjectCommitSnapshot): ProjectVersionDiffSection {
   const section = createSection("workspace");
-  const fields: Array<keyof ProjectCommitSnapshot> = [
-    "tool",
-    "mode",
-    "selection",
-    "translationSelection",
-    "logicalSelection",
-    "technicalPanelOpen",
-    "technicalPanelTab",
-    "codePanelOpen",
-    "codePanelWidth",
-    "notesPanelOpen",
-    "notesPanelWidth",
-    "toolbarCollapsed",
-    "focusMode",
-    "toolbarWidth",
-    "showDiagnostics",
-  ];
-
-  section.modified.push(
-    ...fields
-      .map((field) => diffWorkspaceField(field, left, right))
-      .filter((item): item is ProjectVersionDiffItem => item !== null),
-  );
 
   return finalizeSection(section);
 }
@@ -805,7 +739,6 @@ function diffProjectMetadata(left: ProjectCommitSnapshot, right: ProjectCommitSn
   const section = createSection("project");
   const details = compactDetails([
     comparePrimitiveDetail("name", left.project?.name, right.project?.name),
-    comparePrimitiveDetail("activeFileId", left.activeFileId ?? left.project?.activeFileId ?? null, right.activeFileId ?? right.project?.activeFileId ?? null),
   ]);
   if (details) {
     section.modified.push({
@@ -878,7 +811,7 @@ function diffProjectFileContents(
   }
   for (const [id, leftFile] of leftFiles) {
     const rightFile = rightFiles.get(id);
-    if (rightFile && stableStringify(leftFile) !== stableStringify(rightFile)) {
+    if (rightFile && stringifyProjectFileContent(leftFile) !== stringifyProjectFileContent(rightFile)) {
       section.modified.push({
         ...createSimpleProjectItem(id, rightFile.kind, rightFile.name, `files.${id}`),
         details: compactDetails([
@@ -937,7 +870,7 @@ export function buildProjectVersionDiff(
     leftCommitId: options?.leftCommitId,
     rightCommitId: options?.rightCommitId,
     comparedAt: options?.comparedAt,
-    isEqual: stringifyProjectCommitSnapshot(left) === stringifyProjectCommitSnapshot(right),
+    isEqual: stringifyProjectContentSnapshot(left) === stringifyProjectContentSnapshot(right),
     summary,
     sections,
   };

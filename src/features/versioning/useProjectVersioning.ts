@@ -3,7 +3,8 @@ import {
   areProjectCommitSnapshotsEqual,
   buildProjectCommitDraft,
   cloneProjectCommitSnapshot,
-  stringifyProjectCommitSnapshot,
+  stringifyProjectContentSnapshot,
+  stringifyProjectFileContent,
   type ProjectCommit,
   type ProjectCommitSnapshot,
   type ProjectVersioningState,
@@ -14,6 +15,7 @@ import {
   type RestoreProjectCommitResult,
 } from "./projectVersionRestore";
 import { createEmptyProjectVersioningState } from "../../utils/projectFile";
+import type { ProjectWorkspaceFile } from "../../types/projectExplorer";
 
 export interface CreateProjectCommitInput {
   snapshot: ProjectCommitSnapshot;
@@ -55,11 +57,33 @@ export interface ProjectUncommittedChangeState {
   hasHead: boolean;
   headCommitId: string | null;
   categories: ProjectUncommittedChangeCategories;
+  files: ProjectFileChange[];
   summary: {
     changedCategoryCount: number;
     canCommit: boolean;
   };
 }
+
+export type ProjectFileChangeStatus = "added" | "modified" | "deleted" | "renamed";
+
+export interface ProjectFileChange {
+  fileId: string;
+  name: string;
+  kind: ProjectWorkspaceFile["kind"];
+  status: ProjectFileChangeStatus;
+  previousName?: string;
+}
+
+export type DeleteProjectCommitResult =
+  | {
+      status: "deleted";
+      versioning: ProjectVersioningState;
+      deletedCommit: ProjectCommit;
+    }
+  | {
+      status: "missing-commit";
+      commitId: string;
+    };
 
 const EMPTY_CHANGE_CATEGORIES: ProjectUncommittedChangeCategories = {
   project: false,
@@ -179,9 +203,6 @@ function getLayoutProjection(snapshot: ProjectCommitSnapshot) {
       id: edge.id,
       manualOffset: edge.manualOffset ?? null,
     })),
-    viewport: snapshot.viewport,
-    translationViewport: snapshot.translationViewport,
-    logicalViewport: snapshot.logicalViewport,
   };
 }
 
@@ -227,10 +248,8 @@ function getProjectMetadataProjection(snapshot: ProjectCommitSnapshot) {
           id: snapshot.project.id,
           name: snapshot.project.name,
           rootId: snapshot.project.rootId,
-          activeFileId: snapshot.project.activeFileId,
         }
       : null,
-    activeFileId: snapshot.activeFileId ?? null,
   };
 }
 
@@ -263,14 +282,16 @@ function getProjectFileProjection(snapshot: ProjectCommitSnapshot) {
 function getFilesByKindProjection(snapshot: ProjectCommitSnapshot, kind: "schema" | "text" | "sql") {
   return Object.values(snapshot.files ?? {})
     .filter((file) => file.kind === kind)
-    .map((file) => file);
+    .map((file) => stringifyProjectFileContent(file));
 }
 
 function getProjectWorkspaceProjection(snapshot: ProjectCommitSnapshot) {
   return {
-    explorerView: snapshot.explorerView,
-    activeWorkspace: snapshot.activeWorkspace,
-    legacyWorkspace: getWorkspaceProjection(snapshot),
+    explorerView: snapshot.explorerView
+      ? {
+          expandedFolderIds: [...snapshot.explorerView.expandedFolderIds].sort(),
+        }
+      : undefined,
   };
 }
 
@@ -324,7 +345,7 @@ function getNoHeadCategories(snapshot: ProjectCommitSnapshot): ProjectUncommitte
         logicalWorkspace: file.schema.logicalWorkspace,
       })),
       code: snapshot.codeDirty && snapshot.codeDraft.trim().length > 0,
-      workspace: true,
+      workspace: false,
       versioning: false,
     };
   }
@@ -346,7 +367,7 @@ function getNoHeadCategories(snapshot: ProjectCommitSnapshot): ProjectUncommitte
     layout: false,
     logical: hasLogicalContent(snapshot),
     code: snapshot.codeDirty && snapshot.codeDraft.trim().length > 0,
-    workspace: hasWorkspaceContent(snapshot),
+    workspace: false,
     versioning: false,
   };
 }
@@ -366,6 +387,7 @@ export function getProjectUncommittedChangeState(
       hasHead: false,
       headCommitId: null,
       categories: EMPTY_CHANGE_CATEGORIES,
+      files: [],
       summary: {
         changedCategoryCount: 0,
         canCommit: false,
@@ -383,6 +405,7 @@ export function getProjectUncommittedChangeState(
       hasHead: false,
       headCommitId: null,
       categories,
+      files: getProjectFileChanges(versioning, currentSnapshot),
       summary: {
         changedCategoryCount: countChangedCategories(categories),
         canCommit: hasContent,
@@ -390,13 +413,14 @@ export function getProjectUncommittedChangeState(
     };
   }
 
-  if (stringifyProjectCommitSnapshot(currentSnapshot) === stringifyProjectCommitSnapshot(headCommit.snapshot)) {
+  if (stringifyProjectContentSnapshot(currentSnapshot) === stringifyProjectContentSnapshot(headCommit.snapshot)) {
     return {
       status: "clean",
       hasChanges: false,
       hasHead: true,
       headCommitId: headCommit.id,
       categories: EMPTY_CHANGE_CATEGORIES,
+      files: [],
       summary: {
         changedCategoryCount: 0,
         canCommit: false,
@@ -415,7 +439,7 @@ export function getProjectUncommittedChangeState(
     layout: changed(getLayoutProjection(currentSnapshot), getLayoutProjection(headCommit.snapshot)),
     logical: changed(getLogicalProjection(currentSnapshot), getLogicalProjection(headCommit.snapshot)),
     code: changed(getCodeProjection(currentSnapshot), getCodeProjection(headCommit.snapshot)),
-    workspace: changed(getProjectWorkspaceProjection(currentSnapshot), getProjectWorkspaceProjection(headCommit.snapshot)),
+    workspace: false,
     versioning: false,
   };
 
@@ -425,6 +449,7 @@ export function getProjectUncommittedChangeState(
     hasHead: true,
     headCommitId: headCommit.id,
     categories,
+    files: getProjectFileChanges(versioning, currentSnapshot),
     summary: {
       changedCategoryCount: countChangedCategories(categories),
       canCommit: true,
@@ -463,16 +488,178 @@ export async function createProjectCommitInState(
     automatic: false,
     tags: [],
   });
-  const nextVersioning: ProjectVersioningState = {
+  const nextVersioning: ProjectVersioningState = applyProjectCommitLimit({
     ...versioning,
     headCommitId: commit.id,
     commits: [...versioning.commits, commit],
-  };
+  });
 
   return {
     status: "created",
     commit,
     versioning: nextVersioning,
+  };
+}
+
+function getFileMap(snapshot: ProjectCommitSnapshot | null): Record<string, ProjectWorkspaceFile> {
+  return snapshot?.files ?? {};
+}
+
+function getProjectTreeNodeMap(snapshot: ProjectCommitSnapshot | null) {
+  return new Map((snapshot?.project?.fileTree ?? []).map((node) => [node.fileId ?? node.id, node]));
+}
+
+export function getProjectFileChanges(
+  versioning: ProjectVersioningState,
+  currentSnapshot: ProjectCommitSnapshot | null,
+): ProjectFileChange[] {
+  if (!currentSnapshot) {
+    return [];
+  }
+
+  const headCommit = getProjectHeadCommit(versioning);
+  const leftFiles = getFileMap(headCommit?.snapshot ?? null);
+  const rightFiles = getFileMap(currentSnapshot);
+  const leftNodes = getProjectTreeNodeMap(headCommit?.snapshot ?? null);
+  const rightNodes = getProjectTreeNodeMap(currentSnapshot);
+  const fileIds = Array.from(new Set([...Object.keys(leftFiles), ...Object.keys(rightFiles)])).sort((left, right) => {
+    const leftName = rightFiles[left]?.name ?? leftFiles[left]?.name ?? left;
+    const rightName = rightFiles[right]?.name ?? leftFiles[right]?.name ?? right;
+    return leftName.localeCompare(rightName);
+  });
+
+  return fileIds.flatMap((fileId): ProjectFileChange[] => {
+    const leftFile = leftFiles[fileId];
+    const rightFile = rightFiles[fileId];
+
+    if (!leftFile && rightFile) {
+      return [{ fileId, name: rightFile.name, kind: rightFile.kind, status: "added" }];
+    }
+
+    if (leftFile && !rightFile) {
+      return [{ fileId, name: leftFile.name, kind: leftFile.kind, status: "deleted" }];
+    }
+
+    if (!leftFile || !rightFile) {
+      return [];
+    }
+
+    const leftSignature = stringifyProjectFileContent(leftFile);
+    const rightSignature = stringifyProjectFileContent(rightFile);
+    const leftNode = leftNodes.get(fileId);
+    const rightNode = rightNodes.get(fileId);
+    const renamed =
+      leftFile.name !== rightFile.name ||
+      (leftNode?.parentId ?? null) !== (rightNode?.parentId ?? null) ||
+      (leftNode?.name ?? leftFile.name) !== (rightNode?.name ?? rightFile.name);
+
+    if (leftSignature === rightSignature && !renamed) {
+      return [];
+    }
+
+    return [
+      {
+        fileId,
+        name: rightFile.name,
+        kind: rightFile.kind,
+        status: renamed && leftSignature === rightSignature ? "renamed" : "modified",
+        previousName: renamed ? leftFile.name : undefined,
+      },
+    ];
+  });
+}
+
+function getProtectedCommitIds(versioning: ProjectVersioningState): Set<string> {
+  const protectedIds = new Set<string>();
+  if (versioning.headCommitId) {
+    protectedIds.add(versioning.headCommitId);
+  }
+  if (versioning.settings.keepTaggedCommits !== false) {
+    versioning.tags.forEach((tag) => protectedIds.add(tag.commitId));
+    versioning.commits.forEach((commit) => {
+      if (commit.tags && commit.tags.length > 0) {
+        protectedIds.add(commit.id);
+      }
+    });
+  }
+  return protectedIds;
+}
+
+function reparentAfterRemovingCommit(commits: ProjectCommit[], removed: ProjectCommit): ProjectCommit[] {
+  return commits.map((commit) =>
+    commit.parentId === removed.id
+      ? {
+          ...commit,
+          parentId: removed.parentId,
+        }
+      : commit,
+  );
+}
+
+function applyProjectCommitLimit(versioning: ProjectVersioningState): ProjectVersioningState {
+  const maxCommits = versioning.settings.maxCommits;
+  if (!maxCommits || versioning.commits.length <= maxCommits) {
+    return versioning;
+  }
+
+  let commits = [...versioning.commits];
+  const protectedIds = getProtectedCommitIds(versioning);
+  const oldestFirst = [...commits].sort((left, right) => {
+    const byDate = Date.parse(left.createdAt) - Date.parse(right.createdAt);
+    return byDate !== 0 ? byDate : left.id.localeCompare(right.id);
+  });
+
+  for (const candidate of oldestFirst) {
+    if (commits.length <= maxCommits) {
+      break;
+    }
+    if (protectedIds.has(candidate.id)) {
+      continue;
+    }
+    commits = reparentAfterRemovingCommit(commits.filter((commit) => commit.id !== candidate.id), candidate);
+  }
+
+  const commitIds = new Set(commits.map((commit) => commit.id));
+  return {
+    ...versioning,
+    commits,
+    headCommitId: versioning.headCommitId && commitIds.has(versioning.headCommitId) ? versioning.headCommitId : null,
+    tags: versioning.tags.filter((tag) => commitIds.has(tag.commitId)),
+  };
+}
+
+export function deleteProjectCommitInState(
+  versioning: ProjectVersioningState,
+  commitId: string,
+): DeleteProjectCommitResult {
+  const deletedCommit = getProjectCommitById(versioning, commitId);
+  if (!deletedCommit) {
+    return { status: "missing-commit", commitId };
+  }
+
+  const commits = reparentAfterRemovingCommit(
+    versioning.commits.filter((commit) => commit.id !== commitId),
+    deletedCommit,
+  );
+  const commitIds = new Set(commits.map((commit) => commit.id));
+  const nextHeadCommitId =
+    versioning.headCommitId === commitId
+      ? deletedCommit.parentId && commitIds.has(deletedCommit.parentId)
+        ? deletedCommit.parentId
+        : null
+      : versioning.headCommitId && commitIds.has(versioning.headCommitId)
+        ? versioning.headCommitId
+        : null;
+
+  return {
+    status: "deleted",
+    deletedCommit,
+    versioning: {
+      ...versioning,
+      commits,
+      headCommitId: nextHeadCommitId,
+      tags: versioning.tags.filter((tag) => tag.commitId !== commitId && commitIds.has(tag.commitId)),
+    },
   };
 }
 
@@ -508,6 +695,15 @@ export function useProjectVersioning(initialVersioning?: ProjectVersioningState)
     return result;
   }
 
+  function deleteCommit(commitId: string): DeleteProjectCommitResult {
+    const result = deleteProjectCommitInState(versioning, commitId);
+    if (result.status === "deleted") {
+      setVersioning(result.versioning);
+    }
+
+    return result;
+  }
+
   return {
     versioning,
     setVersioning,
@@ -515,6 +711,7 @@ export function useProjectVersioning(initialVersioning?: ProjectVersioningState)
     headCommit,
     createCommit,
     restoreCommit,
+    deleteCommit,
     getHeadCommit: () => getProjectHeadCommit(versioning),
     getCommitById: (commitId: string | null) => getProjectCommitById(versioning, commitId),
   };

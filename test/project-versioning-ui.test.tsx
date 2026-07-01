@@ -183,7 +183,7 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
   assert.match(markup, /data-testid="versioning-uncommitted"/);
   assert.match(markup, /data-testid="versioning-timeline"/);
   assert.match(markup, /Modifiche al codice/);
-  assert.match(markup, /Modifiche al workspace/);
+  assert.doesNotMatch(markup, /Modifiche al workspace/);
   assert.match(markup, /Schema iniziale/);
   assert.match(markup, /Prima versione stabile/);
   assert.match(markup, /HEAD/);

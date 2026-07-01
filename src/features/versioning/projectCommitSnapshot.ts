@@ -143,6 +143,8 @@ export interface BuildProjectCommitDraftInput {
   tags?: string[];
 }
 
+export type ProjectContentSnapshot = StableJsonValue;
+
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -164,7 +166,25 @@ function sanitizeProjectExplorerFilesSnapshot(value: unknown): Record<string, Pr
     return undefined;
   }
 
-  return cloneJson(value) as Record<string, ProjectWorkspaceFile>;
+  const files = cloneJson(value) as Record<string, ProjectWorkspaceFile>;
+  return Object.fromEntries(
+    Object.entries(files).map(([fileId, file]) => {
+      if (file.kind !== "schema") {
+        return [fileId, file];
+      }
+
+      return [
+        fileId,
+        {
+          ...file,
+          schema: {
+            ...file.schema,
+            versioning: undefined,
+          },
+        },
+      ];
+    }),
+  );
 }
 
 function sanitizeProjectExplorerViewSnapshot(value: unknown): ProjectExplorerViewState | undefined {
@@ -433,6 +453,99 @@ export function stringifyProjectCommitSnapshot(snapshot: ProjectCommitSnapshot):
   return JSON.stringify(toStableJsonValue(cloneProjectCommitSnapshot(snapshot)));
 }
 
+function normalizeProjectTreeForContent(project: ProjectExplorerProject | undefined): StableJsonValue {
+  if (!project) {
+    return null;
+  }
+
+  return {
+    id: project.id,
+    name: project.name,
+    rootId: project.rootId,
+    fileTree: project.fileTree
+      .map((node) => ({
+        id: node.id,
+        name: node.name,
+        kind: node.kind,
+        parentId: node.parentId,
+        children: [...(node.children ?? [])].sort(),
+        fileId: node.fileId ?? null,
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
+function normalizeSchemaForContent(file: Extract<ProjectWorkspaceFile, { kind: "schema" }>): StableJsonValue {
+  return toStableJsonValue({
+    version: file.schema.version,
+    kind: file.schema.kind,
+    diagram: file.schema.diagram,
+    translationWorkspace: file.schema.translationWorkspace,
+    logicalWorkspace: file.schema.logicalWorkspace,
+    logicalGenerated: file.schema.logicalGenerated,
+    logicalStage: file.schema.logicalStage,
+  });
+}
+
+export function getProjectFileContentSnapshot(file: ProjectWorkspaceFile): ProjectContentSnapshot {
+  if (file.kind === "schema") {
+    return toStableJsonValue({
+      id: file.id,
+      name: file.name,
+      kind: file.kind,
+      schema: normalizeSchemaForContent(file),
+    });
+  }
+
+  return toStableJsonValue({
+    id: file.id,
+    name: file.name,
+    kind: file.kind,
+    content: file.content,
+  });
+}
+
+export function stringifyProjectFileContent(file: ProjectWorkspaceFile): string {
+  return JSON.stringify(getProjectFileContentSnapshot(file));
+}
+
+function normalizeProjectFilesForContent(files: Record<string, ProjectWorkspaceFile> | undefined): StableJsonValue {
+  if (!files) {
+    return null;
+  }
+
+  return Object.keys(files)
+    .sort()
+    .reduce<{ [key: string]: StableJsonValue }>((result, fileId) => {
+      result[fileId] = getProjectFileContentSnapshot(files[fileId]);
+      return result;
+    }, {});
+}
+
+export function getProjectContentSnapshot(snapshot: ProjectCommitSnapshot): ProjectContentSnapshot {
+  const normalized = cloneProjectCommitSnapshot(snapshot);
+
+  if (normalized.project && normalized.files) {
+    return toStableJsonValue({
+      project: normalizeProjectTreeForContent(normalized.project),
+      files: normalizeProjectFilesForContent(normalized.files),
+    });
+  }
+
+  return toStableJsonValue({
+    diagram: normalized.diagram,
+    translationWorkspace: normalized.translationWorkspace,
+    logicalWorkspace: normalized.logicalWorkspace,
+    logicalGenerated: normalized.logicalGenerated,
+    logicalStage: normalized.logicalStage,
+    codeDraft: normalized.codeDirty ? normalized.codeDraft : "",
+  });
+}
+
+export function stringifyProjectContentSnapshot(snapshot: ProjectCommitSnapshot): string {
+  return JSON.stringify(getProjectContentSnapshot(snapshot));
+}
+
 function fallbackChecksum(text: string): string {
   let hash = 0x811c9dc5;
 
@@ -451,7 +564,7 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 export async function calculateProjectCommitSnapshotChecksum(snapshot: ProjectCommitSnapshot): Promise<string> {
-  const serialized = stringifyProjectCommitSnapshot(snapshot);
+  const serialized = stringifyProjectContentSnapshot(snapshot);
   const subtle = globalThis.crypto?.subtle;
 
   if (subtle) {
@@ -466,7 +579,7 @@ export function areProjectCommitSnapshotsEqual(
   left: ProjectCommitSnapshot,
   right: ProjectCommitSnapshot,
 ): boolean {
-  return stringifyProjectCommitSnapshot(left) === stringifyProjectCommitSnapshot(right);
+  return stringifyProjectContentSnapshot(left) === stringifyProjectContentSnapshot(right);
 }
 
 export function buildProjectCommitStats(snapshot: ProjectCommitSnapshot): ProjectCommitStats {

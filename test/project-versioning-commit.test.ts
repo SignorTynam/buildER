@@ -4,6 +4,7 @@ import test from "node:test";
 import { createProjectCommitSnapshot } from "../src/features/versioning/projectCommitSnapshot.ts";
 import {
   createProjectCommitInState,
+  deleteProjectCommitInState,
   hasProjectUncommittedChanges,
 } from "../src/features/versioning/useProjectVersioning.ts";
 import { createEmptyDiagram } from "../src/utils/diagram.ts";
@@ -271,4 +272,80 @@ test("vecchio progetto senza versioning continua a caricarsi", () => {
   const parsed = parseProjectFile(JSON.stringify(document));
 
   assert.deepEqual(parsed.state.versioning, createEmptyProjectVersioningState());
+});
+
+test("deleteProjectCommitInState elimina commit centrale reparentando i figli", async () => {
+  const first = await createProjectCommitInState(createEmptyProjectVersioningState(), {
+    snapshot: createSnapshot("A").snapshot,
+    message: "A",
+  });
+  assert.equal(first.status, "created");
+  if (first.status !== "created") return;
+  const second = await createProjectCommitInState(first.versioning, {
+    snapshot: createSnapshot("B").snapshot,
+    message: "B",
+  });
+  assert.equal(second.status, "created");
+  if (second.status !== "created") return;
+  const third = await createProjectCommitInState(second.versioning, {
+    snapshot: createSnapshot("C").snapshot,
+    message: "C",
+  });
+  assert.equal(third.status, "created");
+  if (third.status !== "created") return;
+
+  const deleted = deleteProjectCommitInState(third.versioning, second.commit.id);
+
+  assert.equal(deleted.status, "deleted");
+  if (deleted.status !== "deleted") return;
+  assert.equal(deleted.versioning.commits.length, 2);
+  assert.equal(deleted.versioning.headCommitId, third.commit.id);
+  assert.equal(deleted.versioning.commits.find((commit) => commit.id === third.commit.id)?.parentId, first.commit.id);
+});
+
+test("deleteProjectCommitInState elimina HEAD senza distruggere la working copy", async () => {
+  const first = await createProjectCommitInState(createEmptyProjectVersioningState(), {
+    snapshot: createSnapshot("A").snapshot,
+    message: "A",
+  });
+  assert.equal(first.status, "created");
+  if (first.status !== "created") return;
+  const second = await createProjectCommitInState(first.versioning, {
+    snapshot: createSnapshot("B").snapshot,
+    message: "B",
+  });
+  assert.equal(second.status, "created");
+  if (second.status !== "created") return;
+
+  const deleted = deleteProjectCommitInState(second.versioning, second.commit.id);
+
+  assert.equal(deleted.status, "deleted");
+  if (deleted.status !== "deleted") return;
+  assert.equal(deleted.versioning.headCommitId, first.commit.id);
+  assert.equal(hasProjectUncommittedChanges(deleted.versioning, second.commit.snapshot), true);
+});
+
+test("maxCommits rimuove i commit piu vecchi non protetti mantenendo HEAD", async () => {
+  let versioning = {
+    ...createEmptyProjectVersioningState(),
+    settings: {
+      ...createEmptyProjectVersioningState().settings,
+      maxCommits: 3,
+      keepTaggedCommits: true,
+    },
+  };
+
+  for (let index = 0; index < 5; index += 1) {
+    const result = await createProjectCommitInState(versioning, {
+      snapshot: createSnapshot(String(index)).snapshot,
+      message: `Commit ${index}`,
+    });
+    assert.equal(result.status, "created");
+    if (result.status !== "created") throw new Error("commit failed");
+    versioning = result.versioning;
+  }
+
+  assert.equal(versioning.commits.length, 3);
+  assert.equal(versioning.headCommitId, versioning.commits.at(-1)?.id);
+  assert.equal(versioning.commits[0]?.parentId, null);
 });

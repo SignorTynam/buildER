@@ -1204,7 +1204,6 @@ export function serializeProjectFile(state: ProjectFileState): string {
     translationViewport: view.translationViewport,
     logicalViewport: view.logicalViewport,
     workspace,
-    versioning,
     savedAt: state.savedAt ?? new Date().toISOString(),
   });
   let projectState: ProjectExplorerState | undefined;
