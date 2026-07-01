@@ -41,9 +41,20 @@ export interface ProjectExplorerProject {
   fileTree: ProjectExplorerNode[];
 }
 
+export interface ProjectOpenTab {
+  id: string;
+  kind: "welcome" | "file";
+  fileId?: string;
+  title: string;
+  dirty?: boolean;
+  preview?: boolean;
+}
+
 export interface ProjectExplorerViewState {
   activeFileId: string | null;
   explorerOpen: boolean;
   explorerWidth: number;
   expandedFolderIds: string[];
+  openTabs: ProjectOpenTab[];
+  activeTabId: string | null;
 }

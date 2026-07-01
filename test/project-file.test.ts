@@ -730,9 +730,12 @@ test("serializeProjectFile versione 6 include root, fileTree, files e activeFile
   assert.equal(document.project.rootId, document.project.fileTree[0].id);
   assert.equal(typeof document.project.activeFileId, "string");
   assert.equal(document.files[document.project.activeFileId].kind, "schema");
+  assert.ok(document.view.openTabs.some((tab: { fileId?: string }) => tab.fileId === document.project.activeFileId));
+  assert.equal(document.view.activeTabId, `file:${document.project.activeFileId}`);
   assert.ok(document.project.fileTree.some((node: { fileId?: string }) => node.fileId === document.project.activeFileId));
   assert.equal(parsed.state.project?.activeFileId, document.project.activeFileId);
   assert.equal(parsed.state.files?.[document.project.activeFileId].kind, "schema");
+  assert.ok(parsed.state.explorerView?.openTabs.some((tab) => tab.fileId === document.project.activeFileId));
 });
 
 test("parseProjectFile versione 6 con activeFileId null mantiene Welcome Page senza aprire il primo schema", () => {
@@ -753,6 +756,8 @@ test("parseProjectFile versione 6 con activeFileId null mantiene Welcome Page se
     view: {
       ...withSchema.state.view,
       activeFileId: null,
+      openTabs: [],
+      activeTabId: null,
     },
   };
   const serialized = serializeProjectFile({
@@ -766,6 +771,7 @@ test("parseProjectFile versione 6 con activeFileId null mantiene Welcome Page se
   assert.equal(JSON.parse(serialized).project.activeFileId, null);
   assert.equal(parsed.state.project?.activeFileId, null);
   assert.equal(parsed.state.explorerView?.activeFileId, null);
+  assert.equal(parsed.state.explorerView?.activeTabId, "welcome");
   assert.equal(Object.values(parsed.state.files ?? {}).filter((file) => file.kind === "schema").length, 1);
 });
 
@@ -781,7 +787,7 @@ test("serializeProjectFile preserva contenuto note txt nel progetto", () => {
   const projectState = {
     ...withNote.state,
     project: { ...withNote.state.project, activeFileId: note.id },
-    view: { ...withNote.state.view, activeFileId: note.id },
+    view: { ...withNote.state.view, activeFileId: note.id, openTabs: [{ id: `file:${note.id}`, kind: "file", fileId: note.id, title: note.name }], activeTabId: `file:${note.id}` },
   };
   const parsed = parseProjectFile(serializeProjectFile({
     ...serializable,
@@ -792,6 +798,7 @@ test("serializeProjectFile preserva contenuto note txt nel progetto", () => {
   const parsedNote = parsed.state.files?.[note.id];
 
   assert.equal(parsed.state.project?.activeFileId, note.id);
+  assert.equal(parsed.state.explorerView?.activeTabId, `file:${note.id}`);
   assert.equal(parsedNote?.kind, "text");
   assert.equal(parsedNote?.kind === "text" ? parsedNote.content : "", "Project note");
 });

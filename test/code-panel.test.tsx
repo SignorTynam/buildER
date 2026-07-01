@@ -25,6 +25,7 @@ test("CodePanel embedded non mostra caption CODE ne bottone close", () => {
   );
 
   assert.match(markup, /diagram-code-panel embedded/);
+  assert.match(markup, /--line-number-digits:1/);
   assert.match(markup, /textarea/);
   assert.doesNotMatch(markup, />CODE</);
   assert.doesNotMatch(markup, /designer-panel-close/);
@@ -38,4 +39,6 @@ test("CodePanel embedded CSS rimuove padding e occupa altezza completa", () => {
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*height:\s*100%/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*padding:\s*0/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-scroll-layer\s*\{[\s\S]*height:\s*100%/);
+  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*max-width:\s*40px/);
+  assert.match(css, /--line-number-digits/);
 });

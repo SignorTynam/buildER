@@ -42,6 +42,7 @@ import {
   parseSchemaFile,
   type SchemaFileDocument,
 } from "./projectSchemaFile";
+import { normalizeProjectTabs } from "./projectTabs";
 
 export const PROJECT_FILE_KIND = "er-studio-project";
 export const PROJECT_FILE_EXTENSION = ".ersp";
@@ -760,6 +761,9 @@ function createProjectFileDocument(
     expandedFolderIds: Array.isArray(resolvedProjectState.view.expandedFolderIds)
       ? resolvedProjectState.view.expandedFolderIds
       : [resolvedProjectState.project.rootId],
+    openTabs: Array.isArray(resolvedProjectState.view.openTabs) ? resolvedProjectState.view.openTabs : [],
+    activeTabId:
+      typeof resolvedProjectState.view.activeTabId === "string" ? resolvedProjectState.view.activeTabId : null,
   };
 
   return {
@@ -790,7 +794,7 @@ function createProjectFileDocument(
 }
 
 function projectStateFromDocument(document: ProjectFileDocument): ProjectExplorerState {
-  return {
+  return normalizeProjectTabs({
     project: document.project,
     files: document.files,
     view: {
@@ -803,8 +807,10 @@ function projectStateFromDocument(document: ProjectFileDocument): ProjectExplore
       expandedFolderIds: Array.isArray(document.view.expandedFolderIds)
         ? document.view.expandedFolderIds
         : [document.project.rootId],
+      openTabs: Array.isArray(document.view.openTabs) ? document.view.openTabs : [],
+      activeTabId: typeof document.view.activeTabId === "string" ? document.view.activeTabId : null,
     },
-  };
+  });
 }
 
 function parseLegacyProjectFile(
@@ -956,6 +962,13 @@ function sanitizeProjectExplorerView(value: unknown, project: ProjectExplorerPro
     expandedFolderIds: Array.isArray(candidate.expandedFolderIds)
       ? candidate.expandedFolderIds.filter((id): id is string => typeof id === "string")
       : [project.rootId],
+    openTabs: Array.isArray(candidate.openTabs)
+      ? candidate.openTabs.filter((tab): tab is ProjectExplorerViewState["openTabs"][number] => isRecord(tab))
+      : [],
+    activeTabId:
+      typeof candidate.activeTabId === "string" && candidate.activeTabId.trim().length > 0
+        ? candidate.activeTabId
+        : null,
   };
 }
 
@@ -1020,7 +1033,7 @@ function parseMultiFileProjectFile(
     diagramView,
     view,
   });
-  const projectState: ProjectExplorerState = {
+  const projectState: ProjectExplorerState = normalizeProjectTabs({
     project: {
       ...project,
       activeFileId,
@@ -1030,7 +1043,7 @@ function parseMultiFileProjectFile(
       ...explorerView,
       activeFileId,
     },
-  };
+  });
   const document = createProjectFileDocument(
     diagram,
     translationWorkspace,

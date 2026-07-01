@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
 import { applyAutoPairEdit, applyTabEdit, buildLineNumbers } from "../utils/codeEditor";
@@ -79,6 +79,7 @@ export function CodePanel(props: CodePanelProps) {
   const lineNumberRef = useRef<HTMLDivElement | null>(null);
   const isReadOnly = !props.editable || !props.onCodeChange;
   const lineNumbers = buildLineNumbers(props.code);
+  const lineNumberDigits = String(lineNumbers.length).length;
   const placeholder = props.placeholder ?? t("codePanel.placeholder");
   const showHeader = props.showHeader ?? !props.embedded;
   const showCloseButton = props.showCloseButton ?? (!props.embedded && Boolean(props.onClose));
@@ -143,7 +144,11 @@ export function CodePanel(props: CodePanelProps) {
   }, [props.code]);
 
   return (
-    <aside className={props.embedded ? "designer-code-dock diagram-code-panel embedded" : "designer-code-dock diagram-code-panel"} aria-label={t("codePanel.shellAria")}>
+    <aside
+      className={props.embedded ? "designer-code-dock diagram-code-panel embedded" : "designer-code-dock diagram-code-panel"}
+      style={props.embedded ? ({ "--line-number-digits": lineNumberDigits } as CSSProperties) : undefined}
+      aria-label={t("codePanel.shellAria")}
+    >
       {showHeader ? (
         <div className="designer-panel-caption">
           <span>{t("codePanel.title")}</span>

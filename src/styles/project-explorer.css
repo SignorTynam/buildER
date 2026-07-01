@@ -119,9 +119,136 @@
   grid-row: 1;
 }
 
+.app-workspace-region > .project-main-area {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .workspace-overlay-region {
   grid-column: 2;
   grid-row: 1;
+}
+
+.project-main-area {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: var(--editor-canvas-fill, var(--diagram-canvas-fill));
+}
+
+.project-main-content {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+
+.project-main-content > .workspace-shell,
+.project-main-content > .sql-reverse-preview-frame,
+.project-main-content > .workspace-welcome-page {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.project-file-tabs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 34px;
+  border-bottom: 1px solid var(--editor-border);
+  background: var(--editor-panel-strong);
+}
+
+.project-file-tabs__scroller {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.project-file-tab {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-width: 112px;
+  max-width: 240px;
+  border-right: 1px solid var(--editor-border);
+  background: var(--editor-panel);
+  color: var(--editor-text-muted);
+}
+
+.project-file-tab.active {
+  background: var(--editor-canvas-fill, var(--editor-panel));
+  color: var(--editor-text-strong);
+}
+
+.project-file-tab > button {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.project-file-tab > button[role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-file-tab__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.project-file-tab__dirty {
+  width: 7px;
+  height: 7px;
+  background: var(--editor-accent);
+}
+
+.project-file-tab__close,
+.project-file-tabs__new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-width: 30px;
+  cursor: pointer;
+}
+
+.project-file-tab__close {
+  opacity: 0;
+}
+
+.project-file-tab:hover .project-file-tab__close,
+.project-file-tab:focus-within .project-file-tab__close,
+.project-file-tab.dirty .project-file-tab__close {
+  opacity: 1;
+}
+
+.project-file-tabs__new {
+  border: 0;
+  border-left: 1px solid var(--editor-border);
+  background: transparent;
+  color: var(--editor-text-muted);
+}
+
+.project-file-tab > button:hover,
+.project-file-tabs__new:hover {
+  background: var(--editor-panel-muted);
+  color: var(--editor-text-strong);
+}
+
+.project-file-tab > button:focus-visible,
+.project-file-tabs__new:focus-visible {
+  outline: 2px solid var(--studio-focus-ring);
+  outline-offset: -2px;
 }
 
 .project-explorer--collapsed {
@@ -187,6 +314,15 @@
   min-height: 0;
   height: 100%;
   color: var(--editor-text);
+}
+
+.project-activity-section.code-activity-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.code-activity-panel__body {
+  min-width: 0;
+  min-height: 0;
 }
 
 .project-activity-section__header {
@@ -357,6 +493,23 @@
 .project-activity-content .diagram-code-panel.embedded .designer-code-highlight {
   padding-top: 0;
   padding-bottom: 0;
+}
+
+.project-activity-content .diagram-code-panel.embedded .designer-code-line-numbers {
+  width: clamp(32px, calc(var(--line-number-digits, 2) * 8px + 18px), 40px);
+  min-width: 32px;
+  max-width: 40px;
+  padding-right: 6px;
+  text-align: right;
+}
+
+.project-activity-content .diagram-code-panel.embedded .designer-code-line-numbers span {
+  min-width: 0;
+}
+
+.project-activity-content .diagram-code-panel.embedded .designer-code-input,
+.project-activity-content .diagram-code-panel.embedded .designer-code-highlight {
+  padding-left: 8px;
 }
 
 .project-activity-content .diagram-code-panel.embedded .designer-code-error {
@@ -739,7 +892,7 @@
 }
 
 .workspace-welcome-page {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
   display: grid;
   align-items: center;

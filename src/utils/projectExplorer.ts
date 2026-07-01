@@ -17,6 +17,14 @@ import {
   type SchemaFileDocument,
 } from "./projectSchemaFile";
 import type { ProjectFileWorkspaceState } from "./projectFile";
+import {
+  WELCOME_TAB_ID,
+  closeTabsForDeletedFile,
+  createWelcomeTab,
+  ensureFileTabOpen,
+  markProjectTabDirty,
+  normalizeProjectTabs,
+} from "./projectTabs";
 
 export const DEFAULT_PROJECT_EXPLORER_WIDTH = 260;
 export const MIN_PROJECT_EXPLORER_WIDTH = 200;
@@ -249,6 +257,8 @@ export function createEmptyProjectExplorerState(name = "buildER Project"): Proje
       explorerOpen: true,
       explorerWidth: DEFAULT_PROJECT_EXPLORER_WIDTH,
       expandedFolderIds: [rootId],
+      openTabs: [createWelcomeTab()],
+      activeTabId: "welcome",
     },
   };
 }
@@ -278,7 +288,7 @@ export function createProjectFromSchema(name: string, schema: SchemaFileDocument
     updatedAt: schemaFile.updatedAt,
   };
 
-  return {
+  return ensureFileTabOpen({
     project: {
       id: projectId,
       name: rootNode.name,
@@ -294,8 +304,10 @@ export function createProjectFromSchema(name: string, schema: SchemaFileDocument
       explorerOpen: true,
       explorerWidth: DEFAULT_PROJECT_EXPLORER_WIDTH,
       expandedFolderIds: [rootId],
+      openTabs: [],
+      activeTabId: null,
     },
-  };
+  }, schemaFile.id);
 }
 
 function updateNode(project: ProjectExplorerProject, nodeId: string, updater: (node: ProjectExplorerNode) => ProjectExplorerNode) {
@@ -454,13 +466,15 @@ export function renameProjectNode(
         : { ...file, name, updatedAt: now };
   }
 
+  const nextState = normalizeProjectTabs({
+    ...state,
+    project: updateNode(state.project, nodeId, (current) => ({ ...current, name, updatedAt: now })),
+    files,
+  });
+
   return {
     ok: true,
-    state: {
-      ...state,
-      project: updateNode(state.project, nodeId, (current) => ({ ...current, name, updatedAt: now })),
-      files,
-    },
+    state: node.fileId ? markProjectTabDirty(nextState, node.fileId, true) : nextState,
   };
 }
 
@@ -474,15 +488,6 @@ function collectDescendantNodeIds(project: ProjectExplorerProject, nodeId: strin
     nodeId,
     ...(node.children ?? []).flatMap((childId) => collectDescendantNodeIds(project, childId)),
   ];
-}
-
-function getFirstSchemaFileId(project: ProjectExplorerProject, files: Record<string, ProjectWorkspaceFile>): string | null {
-  for (const node of project.fileTree) {
-    if (node.fileId && files[node.fileId]?.kind === "schema") {
-      return node.fileId;
-    }
-  }
-  return null;
 }
 
 export function deleteProjectNode(state: ProjectExplorerState, nodeId: string): ProjectExplorerOperationResult {
@@ -525,7 +530,7 @@ export function deleteProjectNode(state: ProjectExplorerState, nodeId: string): 
   };
 
   const nextActiveFileId = deletedFileIds.has(state.project.activeFileId ?? "")
-    ? getFirstSchemaFileId(project, files)
+    ? null
     : state.project.activeFileId;
 
   project = {
@@ -537,26 +542,34 @@ export function deleteProjectNode(state: ProjectExplorerState, nodeId: string): 
     activeFileId: nextActiveFileId,
   };
 
+  let nextState = normalizeProjectTabs({ project, files, view });
+  for (const fileId of deletedFileIds) {
+    nextState = closeTabsForDeletedFile(nextState, fileId);
+  }
+
   return {
     ok: true,
-    state: {
-      project,
-      files,
-      view,
-    },
+    state: nextState,
   };
 }
 
 export function setProjectActiveFile(state: ProjectExplorerState, fileId: string | null): ProjectExplorerState {
+  const normalized = normalizeProjectTabs(state);
+  const nextActiveTabId =
+    fileId === null
+      ? WELCOME_TAB_ID
+      : normalized.view.openTabs.find((tab) => tab.fileId === fileId)?.id ?? normalized.view.activeTabId;
+
   return {
-    ...state,
+    ...normalized,
     project: {
-      ...state.project,
+      ...normalized.project,
       activeFileId: fileId,
     },
     view: {
-      ...state.view,
+      ...normalized.view,
       activeFileId: fileId,
+      activeTabId: nextActiveTabId,
     },
   };
 }

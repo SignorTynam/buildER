@@ -12,6 +12,7 @@ import {
   type ProjectActivityItem,
 } from "./components/project/ProjectActivityPanel";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
+import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
 import { ProjectTextFileModal } from "./components/project/ProjectTextFileModal";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
@@ -79,7 +80,7 @@ import type {
   ErTranslationWorkspaceDocument,
   WorkspaceView,
 } from "./types/translation";
-import type { ProjectExplorerProject, ProjectExplorerViewState, ProjectWorkspaceFile } from "./types/projectExplorer";
+import type { ProjectWorkspaceFile } from "./types/projectExplorer";
 import {
   DEFAULT_VIEWPORT,
   WORKSPACE_SESSION_SAVE_DEBOUNCE_MS,
@@ -207,11 +208,18 @@ import {
   getUniqueProjectNodeName,
   normalizeProjectNodeName,
   renameProjectNode,
-  setProjectActiveFile,
   setProjectExplorerExpandedFolders,
   stripKnownProjectExtension,
   type ProjectExplorerState,
 } from "./utils/projectExplorer";
+import {
+  closeProjectTab,
+  ensureFileTabOpen,
+  markProjectTabDirty,
+  normalizeProjectTabs,
+  setActiveProjectTab,
+} from "./utils/projectTabs";
+import { createCenteredViewportForDiagram } from "./utils/viewport";
 import {
   SCHEMA_FILE_ACCEPT,
   SCHEMA_FILE_EXTENSION,
@@ -1119,11 +1127,13 @@ export default function App() {
   );
   const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
   const projectVersioning = useProjectVersioning(sessionBootstrap.versioning);
-  const [projectExplorer, setProjectExplorer] = useState<ProjectExplorerState>(() => ({
-    project: sessionBootstrap.project,
-    files: sessionBootstrap.files,
-    view: sessionBootstrap.explorerView,
-  }));
+  const [projectExplorer, setProjectExplorer] = useState<ProjectExplorerState>(() =>
+    normalizeProjectTabs({
+      project: sessionBootstrap.project,
+      files: sessionBootstrap.files,
+      view: sessionBootstrap.explorerView,
+    }),
+  );
   const [activeActivityPanel, setActiveActivityPanel] = useState<ProjectActivityId>(
     sessionBootstrap.codePanelOpen ? "code" : "file",
   );
@@ -1155,11 +1165,15 @@ export default function App() {
   const lastSavedWorkspaceRef = useRef(
     JSON.stringify(createProjectFileWorkspaceStateFromBootstrap(sessionBootstrap)),
   );
-  const lastSavedProjectExplorerRef = useRef(JSON.stringify({
-    project: sessionBootstrap.project,
-    files: sessionBootstrap.files,
-    view: sessionBootstrap.explorerView,
-  }));
+  const lastSavedProjectExplorerRef = useRef(
+    JSON.stringify(
+      normalizeProjectTabs({
+        project: sessionBootstrap.project,
+        files: sessionBootstrap.files,
+        view: sessionBootstrap.explorerView,
+      }),
+    ),
+  );
   const hasUnsavedChangesRef = useRef(false);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
@@ -2108,6 +2122,11 @@ export default function App() {
       errorMessage: "",
       isPreviewReady: false,
     }));
+    setProjectExplorer((current) => {
+      const activeSqlFileId = getActiveSqlFileId(current);
+      return activeSqlFileId ? updateSqlFileContent(activeSqlFileId, value, current) : current;
+    });
+    hasUnsavedChangesRef.current = true;
   }
 
   function handleOpenSqlReverseWorkflow() {
@@ -2133,6 +2152,12 @@ export default function App() {
 
   function handleAnalyzeSqlReverseWorkflow() {
     const validation = validateSqlReverseBetaSource(sqlReverseWorkflow.sourceSql);
+    if (validation.normalizedSql && validation.normalizedSql !== sqlReverseWorkflow.sourceSql) {
+      setProjectExplorer((current) => {
+        const activeSqlFileId = getActiveSqlFileId(current);
+        return activeSqlFileId ? updateSqlFileContent(activeSqlFileId, validation.normalizedSql, current) : current;
+      });
+    }
     if (!validation.ok) {
       setSqlReverseWorkflow((current) => ({
         ...current,
@@ -2269,16 +2294,57 @@ export default function App() {
     }
 
     const warningCount = preview.issues.filter((issue) => issue.level === "warning").length;
+    const translationWorkspace = createEmptyErTranslationWorkspace(preview.diagram);
+    const logicalWorkspace = updateLogicalWorkspaceModel(
+      translationWorkspace.translatedDiagram,
+      createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
+      preview.logicalModel,
+    );
+    const synced = syncActiveSchemaToProject();
+    const activeSqlFileId = getActiveSqlFileId(synced);
+    const activeSqlFile = activeSqlFileId ? synced.files[activeSqlFileId] : undefined;
+    const generatedName = getUniqueProjectNodeName(
+      synced.project,
+      synced.project.rootId,
+      ensureProjectFileExtension(
+        activeSqlFile?.name ? stripKnownProjectExtension(activeSqlFile.name) : t("sqlReverse.generatedSchemaName"),
+        "schema",
+      ),
+    );
+    const schema = createSchemaDocumentFromProjectState({
+      diagram: preview.diagram,
+      translationWorkspace,
+      logicalWorkspace,
+      logicalGenerated: true,
+      logicalStage: "schema",
+      diagramView: "er",
+      viewport: createCenteredViewportForDiagram(preview.diagram),
+      translationViewport: createCenteredViewportForDiagram(translationWorkspace.translatedDiagram),
+      logicalViewport: DEFAULT_VIEWPORT,
+      workspace: {
+        ...currentProjectWorkspaceState,
+        tool: "select",
+        selection: { nodeIds: [], edgeIds: [] },
+        translationSelection: { nodeIds: [], edgeIds: [] },
+        logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+        codeDraft: serializeDiagramToErs(preview.diagram),
+        codeDirty: false,
+      },
+      versioning: projectVersioning.versioning,
+    });
+    const schemaFile = createSchemaWorkspaceFile(generatedName, schema);
+    const result = addProjectFile(synced, synced.project.rootId, schemaFile);
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+
     setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
-    applyWorkspaceDocument(
-      preview.diagram,
+    openSchemaWorkspaceFile(schemaFile.id, markProjectTabDirty(ensureFileTabOpen(result.state, schemaFile.id), schemaFile.id, true), { center: true });
+    setStatus(
       warningCount > 0
         ? t("sqlReverse.app.importedWithWarnings", { count: warningCount })
-        : t("sqlReverse.app.importedTables", { count: preview.sqlModel.tables.length }),
-      {
-        diagramView: "er",
-        viewport: DEFAULT_VIEWPORT,
-      },
+        : t("sqlReverse.schemaCreatedFromSql", { name: schemaFile.name }),
     );
   }
 
@@ -2287,6 +2353,33 @@ export default function App() {
     const extensionOk = fileName.toLowerCase().endsWith(".sql");
     try {
       const text = await file.text();
+      const synced = syncActiveSchemaToProject();
+      const activeSqlFileId = getActiveSqlFileId(synced);
+      let nextProjectExplorer = synced;
+      let openedSqlFileId = activeSqlFileId;
+      if (activeSqlFileId) {
+        nextProjectExplorer = updateSqlFileContent(activeSqlFileId, text, synced);
+      } else {
+        const uniqueName = getUniqueProjectNodeName(
+          synced.project,
+          synced.project.rootId,
+          ensureProjectFileExtension(fileName, "sql"),
+        );
+        const sqlFile = createTextWorkspaceFile(uniqueName, "sql", text);
+        const result = addProjectFile(synced, synced.project.rootId, sqlFile);
+        if (!result.ok) {
+          setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+          return;
+        }
+        openedSqlFileId = sqlFile.id;
+        nextProjectExplorer = markProjectTabDirty(ensureFileTabOpen(result.state, sqlFile.id), sqlFile.id, true);
+      }
+      if (openedSqlFileId) {
+        nextProjectExplorer = markProjectTabDirty(ensureFileTabOpen(nextProjectExplorer, openedSqlFileId), openedSqlFileId, true);
+      }
+      applyProjectExplorerState(nextProjectExplorer);
+      setActiveActivityPanel("reverse");
+      setWorkspaceActivityOpen(true);
       setSqlReverseWorkflow((current) => ({
         ...createInitialSqlReverseWorkflowState(text),
         step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
@@ -2302,13 +2395,22 @@ export default function App() {
         return;
       }
 
-      setStatusSuccess(t("sqlReverse.app.fileLoaded", { fileName }));
+      setStatusSuccess(
+        activeSqlFileId
+          ? t("sqlReverse.sqlImportUpdatedFile", { name: nextProjectExplorer.files[activeSqlFileId]?.name ?? fileName })
+          : t("sqlReverse.sqlImportCreatedFile", { name: openedSqlFileId ? nextProjectExplorer.files[openedSqlFileId]?.name ?? fileName : fileName }),
+      );
     } catch (error) {
       setStatusError(error instanceof Error ? error.message : t("sqlReverse.app.fileReadError"));
     }
   }
 
   function handleClearSqlReverse() {
+    const activeSqlFileId = getActiveSqlFileId();
+    if (activeSqlFileId) {
+      setProjectExplorer((current) => updateSqlFileContent(activeSqlFileId, "", current));
+      hasUnsavedChangesRef.current = true;
+    }
     setSqlReverseWorkflow((current) => ({
       ...createInitialSqlReverseWorkflowState(""),
       step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
@@ -2586,31 +2688,62 @@ export default function App() {
   }
 
   function applyProjectExplorerState(nextState: ProjectExplorerState) {
-    setProjectExplorer(nextState);
+    setProjectExplorer(normalizeProjectTabs(nextState));
     hasUnsavedChangesRef.current = true;
   }
 
-  function openSchemaWorkspaceFile(fileId: string, state: ProjectExplorerState) {
+  function getActiveSqlFileId(state: ProjectExplorerState = projectExplorer): string | null {
+    const activeFileId = state.project.activeFileId ?? state.view.activeFileId;
+    return activeFileId && state.files[activeFileId]?.kind === "sql" ? activeFileId : null;
+  }
+
+  function updateSqlFileContent(fileId: string, content: string, state: ProjectExplorerState): ProjectExplorerState {
+    const currentFile = state.files[fileId];
+    if (!currentFile || currentFile.kind !== "sql") {
+      return state;
+    }
+
+    const updatedAt = new Date().toISOString();
+    return markProjectTabDirty({
+      ...state,
+      files: {
+        ...state.files,
+        [fileId]: {
+          ...currentFile,
+          content,
+          updatedAt,
+        },
+      },
+    }, fileId, true);
+  }
+
+  function openSchemaWorkspaceFile(fileId: string, state: ProjectExplorerState, options: { center?: boolean } = {}) {
     const file = state.files[fileId];
     if (!file || file.kind !== "schema") {
       return;
     }
 
-    setProjectExplorer(setProjectActiveFile(state, fileId));
+    const nextState = ensureFileTabOpen(state, fileId);
+    setProjectExplorer(nextState);
+    const centeredViewport = options.center ? createCenteredViewportForDiagram(file.schema.diagram) : file.schema.view.erViewport;
+    const shouldFitLogical = options.center && file.schema.logicalGenerated;
     applyWorkspaceDocument(file.schema.diagram, t("projectExplorer.status.schemaOpened", { name: file.name }), {
       translationWorkspace: file.schema.translationWorkspace,
       logicalWorkspace: file.schema.logicalWorkspace,
       logicalGenerated: file.schema.logicalGenerated,
       logicalStage: file.schema.logicalStage,
       diagramView: file.schema.view.current,
-      viewport: file.schema.view.erViewport,
-      translationViewport: file.schema.view.translationViewport,
-      logicalViewport: file.schema.view.logicalViewport,
+      viewport: centeredViewport,
+      translationViewport: options.center ? createCenteredViewportForDiagram(file.schema.translationWorkspace.translatedDiagram) : file.schema.view.translationViewport,
+      logicalViewport: options.center ? DEFAULT_VIEWPORT : file.schema.view.logicalViewport,
       versioning: file.schema.versioning ?? projectVersioning.versioning,
       workspace: file.schema.workspace,
       resetHistory: true,
       markBaseline: false,
     });
+    if (shouldFitLogical) {
+      setLogicalFitRequestToken((current) => current + 1);
+    }
   }
 
   function handleProjectExplorerOpenFile(fileId: string) {
@@ -2621,20 +2754,84 @@ export default function App() {
 
     const synced = syncActiveSchemaToProject();
     if (file.kind === "schema") {
-      openSchemaWorkspaceFile(fileId, synced);
+      openSchemaWorkspaceFile(fileId, synced, { center: true });
       return;
     }
 
-    setProjectExplorer(setProjectActiveFile(synced, fileId));
+    const nextState = ensureFileTabOpen(synced, fileId);
+    setProjectExplorer(nextState);
     setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
     if (file.kind === "sql") {
       setActiveActivityPanel("reverse");
       setWorkspaceActivityOpen(true);
-      handleSqlReverseSourceChange(file.content);
+      setSqlReverseWorkflow((current) => ({
+        ...createInitialSqlReverseWorkflowState(file.content),
+        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
+      }));
     } else {
       setTextFileModalFileId(fileId);
-      setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
+    }
+  }
+
+  function handleProjectFileTabSelect(tabId: string) {
+    const nextState = setActiveProjectTab(syncActiveSchemaToProject(), tabId);
+    const activeFileId = nextState.project.activeFileId ?? nextState.view.activeFileId;
+    const file = activeFileId ? nextState.files[activeFileId] : undefined;
+    if (!file) {
+      setProjectExplorer(nextState);
+      setTextFileModalFileId(null);
+      setStatus(t("projectTabs.welcome"));
+      return;
+    }
+
+    if (file.kind === "schema") {
+      openSchemaWorkspaceFile(file.id, nextState, { center: true });
+      return;
+    }
+
+    setProjectExplorer(nextState);
+    if (file.kind === "sql") {
+      setActiveActivityPanel("reverse");
+      setWorkspaceActivityOpen(true);
+      setSqlReverseWorkflow((current) => ({
+        ...createInitialSqlReverseWorkflowState(file.content),
+        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
+      }));
+      setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
+      return;
+    }
+
+    if (file.kind === "text") {
+      setTextFileModalFileId(file.id);
+      setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
+    }
+  }
+
+  function handleProjectFileTabClose(tabId: string) {
+    const nextState = closeProjectTab(syncActiveSchemaToProject(), tabId);
+    const activeFileId = nextState.project.activeFileId ?? nextState.view.activeFileId;
+    const file = activeFileId ? nextState.files[activeFileId] : undefined;
+    if (!file) {
+      setProjectExplorer(nextState);
+      setTextFileModalFileId(null);
+      return;
+    }
+    if (file.kind === "schema") {
+      openSchemaWorkspaceFile(file.id, nextState, { center: true });
+      return;
+    }
+    setProjectExplorer(nextState);
+    if (file.kind === "sql") {
+      setActiveActivityPanel("reverse");
+      setWorkspaceActivityOpen(true);
+      setSqlReverseWorkflow((current) => ({
+        ...createInitialSqlReverseWorkflowState(file.content),
+        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
+      }));
+    }
+    if (file.kind === "text") {
+      setTextFileModalFileId(file.id);
     }
   }
 
@@ -2656,7 +2853,7 @@ export default function App() {
         return current;
       }
 
-      return {
+      return markProjectTabDirty({
         ...current,
         files: {
           ...current.files,
@@ -2666,7 +2863,7 @@ export default function App() {
             updatedAt,
           },
         },
-      };
+      }, activeFileId, true);
     });
     hasUnsavedChangesRef.current = true;
   }
@@ -2691,7 +2888,7 @@ export default function App() {
       return;
     }
 
-    openSchemaWorkspaceFile(file.id, result.state);
+    openSchemaWorkspaceFile(file.id, markProjectTabDirty(ensureFileTabOpen(result.state, file.id), file.id, true), { center: true });
     setStatus(t("projectExplorer.status.schemaCreated", { name: file.name }));
   }
 
@@ -2716,16 +2913,18 @@ export default function App() {
       return;
     }
 
-    const nextState = setProjectActiveFile(result.state, file.id);
+    const nextState = markProjectTabDirty(ensureFileTabOpen(result.state, file.id), file.id, true);
     applyProjectExplorerState(nextState);
     if (file.kind === "text") {
       setTextFileModalFileId(file.id);
-      setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
     } else if (file.kind === "sql") {
       setActiveActivityPanel("reverse");
       setWorkspaceActivityOpen(true);
-      handleSqlReverseSourceChange(file.content);
+      setSqlReverseWorkflow((current) => ({
+        ...createInitialSqlReverseWorkflowState(file.content),
+        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
+      }));
     }
     setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
   }
@@ -2753,11 +2952,14 @@ export default function App() {
       return;
     }
 
-    applyProjectExplorerState(setProjectActiveFile(result.state, file.id));
+    applyProjectExplorerState(markProjectTabDirty(ensureFileTabOpen(result.state, file.id), file.id, true));
     setActiveActivityPanel("reverse");
     setWorkspaceActivityOpen(true);
-    handleSqlReverseSourceChange(file.content);
-    setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
+    setSqlReverseWorkflow((current) => ({
+      ...createInitialSqlReverseWorkflowState(file.content),
+      step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
+    }));
+    setStatus(t("sqlReverse.sqlFileCreated", { name: uniqueName }));
   }
 
   async function handleProjectExplorerCreateFolder(parentId: string) {
@@ -2858,7 +3060,7 @@ export default function App() {
       setTextFileModalFileId(null);
     }
     if (nextActiveFile?.kind === "schema") {
-      openSchemaWorkspaceFile(nextActiveFile.id, result.state);
+      openSchemaWorkspaceFile(nextActiveFile.id, result.state, { center: true });
     }
     setStatus(t("projectExplorer.status.deleted", { name: node.name }));
   }
@@ -3517,6 +3719,7 @@ export default function App() {
         setLogicalViewport({ ...translationViewport });
       }
       setDiagramView("logical");
+      setLogicalFitRequestToken((current) => current + 1);
       setTranslationSelection({ nodeIds: [], edgeIds: [] });
       setTool("select");
       return;
@@ -5984,7 +6187,7 @@ export default function App() {
 
       const restoreSnapshot = result.restoreCommit.snapshot;
       if (restoreSnapshot.project && restoreSnapshot.files && restoreSnapshot.explorerView) {
-        const restoredProjectExplorer: ProjectExplorerState = {
+        const restoredProjectExplorer: ProjectExplorerState = normalizeProjectTabs({
           project: {
             ...restoreSnapshot.project,
             activeFileId: restoreSnapshot.activeFileId ?? restoreSnapshot.project.activeFileId,
@@ -5994,7 +6197,7 @@ export default function App() {
             ...restoreSnapshot.explorerView,
             activeFileId: restoreSnapshot.activeFileId ?? restoreSnapshot.explorerView.activeFileId,
           },
-        };
+        });
         const activeFileId =
           restoredProjectExplorer.project.activeFileId ??
           restoredProjectExplorer.view.activeFileId ??
@@ -6003,20 +6206,24 @@ export default function App() {
         const activeFile = activeFileId ? restoredProjectExplorer.files[activeFileId] : undefined;
         setProjectExplorer(restoredProjectExplorer);
         if (activeFile?.kind === "schema") {
+          const centeredViewport = createCenteredViewportForDiagram(activeFile.schema.diagram);
           applyWorkspaceDocument(activeFile.schema.diagram, t("versioning.restore.restored"), {
             translationWorkspace: activeFile.schema.translationWorkspace,
             logicalWorkspace: activeFile.schema.logicalWorkspace,
             logicalGenerated: activeFile.schema.logicalGenerated,
             logicalStage: activeFile.schema.logicalStage,
             diagramView: activeFile.schema.view.current,
-            viewport: activeFile.schema.view.erViewport,
-            translationViewport: activeFile.schema.view.translationViewport,
-            logicalViewport: activeFile.schema.view.logicalViewport,
+            viewport: centeredViewport,
+            translationViewport: createCenteredViewportForDiagram(activeFile.schema.translationWorkspace.translatedDiagram),
+            logicalViewport: DEFAULT_VIEWPORT,
             versioning: result.versioning,
             workspace: activeFile.schema.workspace,
             resetHistory: true,
             markBaseline: false,
           });
+          if (activeFile.schema.logicalGenerated) {
+            setLogicalFitRequestToken((current) => current + 1);
+          }
         } else {
           projectVersioning.setVersioning(result.versioning);
         }
@@ -6093,11 +6300,11 @@ export default function App() {
               ? t("projectExplorer.status.schemaImported")
           : t("workspace.projectLoaded");
       if (parsedProject.state.project && parsedProject.state.files && parsedProject.state.explorerView) {
-        const nextProjectExplorer = {
+        const nextProjectExplorer = normalizeProjectTabs({
           project: parsedProject.state.project,
           files: parsedProject.state.files,
           view: parsedProject.state.explorerView,
-        };
+        });
         setProjectExplorer(nextProjectExplorer);
         markProjectExplorerSaved(nextProjectExplorer);
       }
@@ -6107,12 +6314,15 @@ export default function App() {
         logicalGenerated: parsedProject.state.logicalGenerated,
         logicalStage: parsedProject.state.logicalStage,
         diagramView: parsedProject.state.diagramView,
-        viewport: parsedProject.state.viewport,
-        translationViewport: parsedProject.state.translationViewport,
-        logicalViewport: parsedProject.state.logicalViewport,
+        viewport: createCenteredViewportForDiagram(parsedProject.state.diagram),
+        translationViewport: createCenteredViewportForDiagram(parsedProject.state.translationWorkspace.translatedDiagram),
+        logicalViewport: DEFAULT_VIEWPORT,
         versioning: parsedProject.state.versioning,
         workspace: parsedProject.state.workspace,
       });
+      if (parsedProject.state.logicalGenerated) {
+        setLogicalFitRequestToken((current) => current + 1);
+      }
     } catch (error) {
       console.error(error);
       setStatusError(formatProjectFileErrorMessage(error));
@@ -6143,7 +6353,7 @@ export default function App() {
         return;
       }
 
-      openSchemaWorkspaceFile(schemaFile.id, result.state);
+      openSchemaWorkspaceFile(schemaFile.id, result.state, { center: true });
       setStatus(t("projectExplorer.status.schemaImported"));
       showSuccessNotice(t("projectExplorer.status.schemaImported"), { title: t("workspace.noticeTitles.downloadCompleted") });
     } catch (error) {
@@ -6194,7 +6404,7 @@ export default function App() {
         setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
         return;
       }
-      openSchemaWorkspaceFile(schemaFile.id, result.state);
+      openSchemaWorkspaceFile(schemaFile.id, result.state, { center: true });
       setStatus(t("workspace.ersLoaded"));
     } catch (error) {
       console.error(error);
@@ -6466,6 +6676,11 @@ export default function App() {
     { id: "version", label: t("appHeader.menus.version"), icon: "history", badge: hasVersioningUncommittedChanges ? 1 : undefined },
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
+  const visibleProjectTabs = projectExplorer.view.openTabs.map((tab) =>
+    tab.kind === "file" && tab.fileId
+      ? { ...tab, dirty: tab.dirty === true || hasVersioningUncommittedChanges }
+      : tab,
+  );
   const visibleActivityIssues = issues.filter(issueTargetExists);
   async function handleCreateSourceControlCommit() {
     const created = await handleCreateProjectCommit(sourceControlCommitMessage);
@@ -6496,20 +6711,30 @@ export default function App() {
       </div>
     ) : activeActivityPanel === "code" ? (
       hasOpenSchema ? (
-        <CodePanel
-          embedded
-          showHeader={false}
-          showCloseButton={false}
-          code={codeDraft}
-          editable={mode === "edit"}
-          parseError={codeError}
-          onCodeChange={updateCodeDraft}
-          onFocus={handleCodeEditorFocus}
-          onBlur={handleCodeEditorBlur}
-          onClose={handleToggleCodePanel}
-        />
+        <section className="project-activity-section code-activity-panel" aria-label={t("appHeader.menus.code")}>
+          <header className="project-activity-section__header">
+            <h2>{t("codePanel.title")}</h2>
+          </header>
+          <div className="code-activity-panel__body">
+            <CodePanel
+              embedded
+              showHeader={false}
+              showCloseButton={false}
+              code={codeDraft}
+              editable={mode === "edit"}
+              parseError={codeError}
+              onCodeChange={updateCodeDraft}
+              onFocus={handleCodeEditorFocus}
+              onBlur={handleCodeEditorBlur}
+              onClose={handleToggleCodePanel}
+            />
+          </div>
+        </section>
       ) : (
         <section className="project-activity-section" aria-label={t("appHeader.menus.code")}>
+          <header className="project-activity-section__header">
+            <h2>{t("codePanel.title")}</h2>
+          </header>
           <p className="project-activity-empty">{t("workspace.noSchemaCodeWarning")}</p>
         </section>
       )
@@ -6737,34 +6962,44 @@ export default function App() {
           {activityPanelContent}
         </ProjectActivityPanel>
 
-        {sqlReversePreviewContent ? (
-          sqlReversePreviewContent
-        ) : !hasOpenSchema ? (
-          <WorkspaceWelcomePage
-            projectName={projectExplorer.project.name}
-            onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
-            onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
-            onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
-            onOpenProject={handleLoadProjectRequest}
-            onImportSchema={handleImportSchemaRequest}
+        <div className="project-main-area">
+          <ProjectFileTabs
+            tabs={visibleProjectTabs}
+            activeTabId={projectExplorer.view.activeTabId}
+            files={projectExplorer.files}
+            onSelectTab={handleProjectFileTabSelect}
+            onCloseTab={handleProjectFileTabClose}
+            onNewFile={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
           />
-        ) : (
-          <div
-            className={
-              diagramView === "er"
-                ? erWorkspaceShellClassName
-                : diagramView === "translation"
-                  ? translationWorkspaceShellClassName
-                  : structuredWorkspaceShellClassName
-            }
-            style={
-              diagramView === "er"
-                ? erWorkspaceShellStyle
-                : diagramView === "translation"
-                  ? undefined
-                  : structuredWorkspaceShellStyle
-            }
-          >
+          <div className="project-main-content">
+            {sqlReversePreviewContent ? (
+              sqlReversePreviewContent
+            ) : !hasOpenSchema ? (
+              <WorkspaceWelcomePage
+                projectName={projectExplorer.project.name}
+                onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+                onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
+                onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
+                onOpenProject={handleLoadProjectRequest}
+                onImportSchema={handleImportSchemaRequest}
+              />
+            ) : (
+              <div
+                className={
+                  diagramView === "er"
+                    ? erWorkspaceShellClassName
+                    : diagramView === "translation"
+                      ? translationWorkspaceShellClassName
+                      : structuredWorkspaceShellClassName
+                }
+                style={
+                  diagramView === "er"
+                    ? erWorkspaceShellStyle
+                    : diagramView === "translation"
+                      ? undefined
+                      : structuredWorkspaceShellStyle
+                }
+              >
           {diagramView === "er" ? (
             <div className="designer-workspace">
               <div className="designer-canvas-region">
@@ -6926,8 +7161,10 @@ export default function App() {
               onMoveColumn={handleLogicalColumnMove}
             />
           )}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <input

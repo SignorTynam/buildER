@@ -24,6 +24,8 @@ test("ER code panel renders inside the unified workspace activity panel", () => 
   assert.doesNotMatch(appSource, /designer-workspace code-open/);
   assert.match(appSource, /<div className="designer-workspace">/);
   assert.match(appSource, /<ProjectActivityPanel/);
+  assert.match(appSource, /<ProjectFileTabs/);
+  assert.match(appSource, /className="project-main-area"/);
 
   const activityContentStart = appSource.indexOf("const activityPanelContent");
   const codePanelStart = appSource.indexOf("<CodePanel", activityContentStart);
@@ -66,6 +68,8 @@ test("ER code activity panel CSS keeps the workspace at one canvas column", () =
   assert.doesNotMatch(allCssSource, /designer-workspace\.code-open[\s\S]*grid-template-columns:\s*minmax\(320px,\s*25vw\)\s+minmax\(0,\s*1fr\)/);
   assert.match(projectExplorerCssSource, /\.project-activity-panel\s*\{/);
   assert.match(projectExplorerCssSource, /\.project-activity-content \.designer-code-dock\s*\{/);
+  assert.match(projectExplorerCssSource, /\.project-file-tabs\s*\{/);
+  assert.match(projectExplorerCssSource, /\.code-activity-panel__body\s*\{/);
 
   const workspaceBlock = cssBlock(".designer-workspace");
   assert.match(workspaceBlock, /display:\s*grid/);
