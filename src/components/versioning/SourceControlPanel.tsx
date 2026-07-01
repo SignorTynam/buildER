@@ -275,15 +275,13 @@ export function SourceControlPanel({
         )}
       </div>
 
-      {!historyCollapsed ? (
-        <div
-          className="source-control-history-splitter"
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label={t("sourceControl.resizeHistory")}
-          onPointerDown={handleHistoryResizeStart}
-        />
-      ) : null}
+      <div
+        className="source-control-history-splitter"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label={t("sourceControl.resizeHistory")}
+        onPointerDown={handleHistoryResizeStart}
+      />
 
       <div ref={historyRef} className="source-control-section source-control-history">
         <div className="source-control-section-title source-control-history-header">
