@@ -207,6 +207,7 @@ export const en: DeepPartialMessages = {
     changes: "Changes",
     graph: "Graph / History",
     resizeHistory: "Resize history",
+    closeDetails: "Close commit details",
     commitPlaceholder: "Message (Ctrl+Enter to commit on \"{{project}}\")",
     commit: "Commit",
     refresh: "Refresh source control",

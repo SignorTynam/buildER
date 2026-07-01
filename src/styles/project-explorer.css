@@ -883,12 +883,23 @@
   font-size: 0.76rem;
 }
 
+.source-control-commit-details__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .source-control-commit-details strong {
-  display: block;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   color: var(--editor-text-strong);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.source-control-commit-details__close {
+  flex: 0 0 auto;
 }
 
 .source-control-commit-details dl {

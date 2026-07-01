@@ -205,6 +205,7 @@ export const it = {
     changes: "Changes",
     graph: "Graph / History",
     resizeHistory: "Ridimensiona cronologia",
+    closeDetails: "Chiudi dettagli commit",
     commitPlaceholder: "Messaggio (Ctrl+Enter per commit su \"{{project}}\")",
     commit: "Commit",
     refresh: "Aggiorna source control",

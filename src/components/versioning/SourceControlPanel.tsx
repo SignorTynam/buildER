@@ -383,7 +383,20 @@ export function SourceControlPanel({
 
         {selectedCommit ? (
           <div className="source-control-commit-details" data-testid="source-control-commit-details">
-            <strong title={selectedCommit.message}>{selectedCommit.message}</strong>
+            <div className="source-control-commit-details__header">
+              <strong title={selectedCommit.message}>{selectedCommit.message}</strong>
+              <button
+                type="button"
+                className="project-activity-header-close source-control-commit-details__close"
+                onClick={() => {
+                  setPendingAction(null);
+                  onSelectCommit(null);
+                }}
+                aria-label={t("sourceControl.closeDetails")}
+              >
+                <StudioIcon name="close" aria-hidden="true" />
+              </button>
+            </div>
             <dl>
               <div><dt>ID</dt><dd>{shortCommitId(selectedCommit.id)}</dd></div>
               <div><dt>Parent</dt><dd>{shortCommitId(selectedCommit.parentId)}</dd></div>
