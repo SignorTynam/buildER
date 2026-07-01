@@ -9,7 +9,7 @@ import {
   extendOpenRouteEndpoints,
   getStableLocalIdentifierMarkerPoint,
 } from "../src/canvas/DiagramCanvas.tsx";
-import type { AttributeNode, Bounds, DiagramDocument, EntityNode, Point } from "../src/types/diagram.ts";
+import type { AttributeNode, Bounds, DiagramDocument, EntityNode, ExternalIdentifierImportPart, Point } from "../src/types/diagram.ts";
 import {
   getEligibleLocalExternalIdentifierAttributes,
   getEligibleImportedIdentifierParts,
@@ -230,6 +230,86 @@ function buildSharedLocalExternalIdentifierDiagram(): DiagramDocument {
         lineStyle: "solid",
         participationId: "p-entita3-relazione2",
       },
+    ],
+  };
+}
+
+function buildNestedCourseEditionDiagram(options: { courseExternalParts?: ExternalIdentifierImportPart[] } = {}): DiagramDocument {
+  const courseExternalParts = options.courseExternalParts ?? [{
+    id: "CORSO-part-dip",
+    relationshipId: "CONTIENE",
+    sourceEntityId: "DIPARTIMENTO",
+    importedIdentifierId: "DIP-id",
+  }];
+
+  return {
+    meta: { name: "Nested external ids", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "DIPARTIMENTO",
+        type: "entity",
+        label: "DIPARTIMENTO",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        internalIdentifiers: [{ id: "DIP-id", attributeIds: ["idDipartimento"] }],
+        relationshipParticipations: [{ id: "p-dip-contiene", relationshipId: "CONTIENE", cardinality: "(1,N)" }],
+      },
+      {
+        id: "CORSO",
+        type: "entity",
+        label: "CORSO",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        externalIdentifiers: [{
+          id: "CORSO-ext",
+          importedParts: courseExternalParts,
+          localAttributeIds: ["idCorso"],
+        }],
+        relationshipParticipations: [
+          { id: "p-corso-contiene", relationshipId: "CONTIENE", cardinality: "(1,1)" },
+          { id: "p-corso-svolgimento", relationshipId: "SVOLGIMENTO", cardinality: "(0,N)" },
+        ],
+      },
+      {
+        id: "EDIZIONE_CORSO",
+        type: "entity",
+        label: "EDIZIONE_CORSO",
+        x: 0,
+        y: 0,
+        width: 180,
+        height: 80,
+        externalIdentifiers: [{
+          id: "EDIZIONE-ext",
+          importedParts: [{
+            id: "EDIZIONE-part-corso",
+            relationshipId: "SVOLGIMENTO",
+            sourceEntityId: "CORSO",
+            importedIdentifierId: "CORSO-ext",
+            importedIdentifierKind: "external",
+          }],
+          localAttributeIds: ["Anno"],
+        }],
+        relationshipParticipations: [{ id: "p-edizione-svolgimento", relationshipId: "SVOLGIMENTO", cardinality: "(1,1)" }],
+      },
+      { id: "CONTIENE", type: "relationship", label: "CONTIENE", x: 0, y: 0, width: 120, height: 70 },
+      { id: "SVOLGIMENTO", type: "relationship", label: "SVOLGIMENTO", x: 0, y: 0, width: 140, height: 70 },
+      { id: "idDipartimento", type: "attribute", label: "idDipartimento", x: 0, y: 0, width: 120, height: 36, isIdentifier: true },
+      { id: "idCorso", type: "attribute", label: "idCorso", x: 0, y: 0, width: 100, height: 36 },
+      { id: "Anno", type: "attribute", label: "Anno", x: 0, y: 0, width: 100, height: 36 },
+    ],
+    edges: [
+      { id: "e-dip-contiene", type: "connector", sourceId: "DIPARTIMENTO", targetId: "CONTIENE", label: "", lineStyle: "solid", participationId: "p-dip-contiene" },
+      { id: "e-corso-contiene", type: "connector", sourceId: "CORSO", targetId: "CONTIENE", label: "", lineStyle: "solid", participationId: "p-corso-contiene" },
+      { id: "e-corso-svolgimento", type: "connector", sourceId: "CORSO", targetId: "SVOLGIMENTO", label: "", lineStyle: "solid", participationId: "p-corso-svolgimento" },
+      { id: "e-edizione-svolgimento", type: "connector", sourceId: "EDIZIONE_CORSO", targetId: "SVOLGIMENTO", label: "", lineStyle: "solid", participationId: "p-edizione-svolgimento" },
+      { id: "e-dip-id", type: "attribute", sourceId: "DIPARTIMENTO", targetId: "idDipartimento", label: "", lineStyle: "solid" },
+      { id: "e-corso-id", type: "attribute", sourceId: "CORSO", targetId: "idCorso", label: "", lineStyle: "solid" },
+      { id: "e-edizione-anno", type: "attribute", sourceId: "EDIZIONE_CORSO", targetId: "Anno", label: "", lineStyle: "solid" },
     ],
   };
 }
@@ -613,7 +693,45 @@ test("mixed external identifier options include multiple mandatory unique source
     (option) => `${option.sourceEntityLabel} via ${option.relationshipLabel}: ${option.importedIdentifierLabel}`,
   );
 
-  assert.deepEqual(labels, ["BANCA via PRODUCE: IdBanca", "PERSONA via POSSIEDE: CF"]);
+  assert.deepEqual(labels, [
+    "BANCA via PRODUCE: identificatore interno IdBanca",
+    "PERSONA via POSSIEDE: identificatore interno CF",
+  ]);
+});
+
+test("eligible imported identifiers include nested external or mixed identifiers and reject cycles", () => {
+  const diagram = buildNestedCourseEditionDiagram();
+
+  const options = getEligibleImportedIdentifierParts(diagram, "EDIZIONE_CORSO");
+  const nested = options.find((option) => option.sourceEntityId === "CORSO" && option.importedIdentifierId === "CORSO-ext");
+  assert.ok(nested);
+  assert.equal(nested.importedIdentifierKind, "external");
+  assert.match(nested.importedIdentifierLabel, /identificatore esterno\/misto/);
+  assert.match(nested.importedIdentifierLabel, /idDipartimento/);
+  assert.match(nested.importedIdentifierLabel, /idCorso/);
+
+  const cyclic = buildNestedCourseEditionDiagram({
+    courseExternalParts: [{
+      id: "CORSO-cycle-part",
+      relationshipId: "SVOLGIMENTO",
+      sourceEntityId: "EDIZIONE_CORSO",
+      importedIdentifierId: "EDIZIONE-ext",
+      importedIdentifierKind: "external",
+    }],
+  });
+  assert.equal(getEligibleImportedIdentifierParts(cyclic, "EDIZIONE_CORSO").some((option) => option.sourceEntityId === "CORSO"), false);
+});
+
+test("synchronizeExternalIdentifiers preserves nested external imported parts", () => {
+  const synchronized = synchronizeExternalIdentifiers(buildNestedCourseEditionDiagram());
+  const edition = synchronized.nodes.find((node): node is EntityNode => node.id === "EDIZIONE_CORSO" && node.type === "entity");
+  assert.ok(edition);
+  const identifier = edition.externalIdentifiers?.[0];
+
+  assert.ok(identifier);
+  assert.equal(identifier.importedParts[0]?.sourceEntityId, "CORSO");
+  assert.equal(identifier.importedParts[0]?.importedIdentifierId, "CORSO-ext");
+  assert.equal(identifier.importedParts[0]?.importedIdentifierKind, "external");
 });
 
 test("removeExternalIdentifierFromEntity removes only the selected external identifier", () => {

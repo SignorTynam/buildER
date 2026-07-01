@@ -4,6 +4,7 @@ import type {
   DiagramNode,
   EdgeKind,
   ExternalIdentifier,
+  ExternalIdentifierImportedIdentifierKind,
   ExternalIdentifierImportPart,
   GeneralizationGroup,
   EntityRelationshipParticipation,
@@ -78,6 +79,18 @@ export interface ExternalIdentifierImportPartOption extends ExternalIdentifierIm
   relationshipLabel: string;
   sourceEntityLabel: string;
   importedIdentifierLabel: string;
+}
+
+export interface ResolvedEntityIdentifierPart {
+  entityId: string;
+  attribute: AttributeNode;
+  source: "local" | "imported";
+}
+
+export interface ResolvedEntityIdentifierParts {
+  valid: boolean;
+  parts: ResolvedEntityIdentifierPart[];
+  reason?: "missing-entity" | "missing-identifier" | "empty-identifier" | "invalid-attribute" | "cycle";
 }
 
 export interface NodeNameIdentitySyncResult {
@@ -160,6 +173,7 @@ function sanitizeExternalIdentifierImportParts(rawIdentifier: {
   relationshipId?: unknown;
   sourceEntityId?: unknown;
   importedIdentifierId?: unknown;
+  importedIdentifierKind?: unknown;
 }): ExternalIdentifierImportPart[] {
   const parsedParts: ExternalIdentifierImportPart[] = [];
   const seenPartKeys = new Set<string>();
@@ -168,6 +182,7 @@ function sanitizeExternalIdentifierImportParts(rawIdentifier: {
     relationshipId?: unknown;
     sourceEntityId?: unknown;
     importedIdentifierId?: unknown;
+    importedIdentifierKind?: unknown;
   }) => {
     if (
       typeof part.relationshipId !== "string" ||
@@ -180,7 +195,9 @@ function sanitizeExternalIdentifierImportParts(rawIdentifier: {
       return;
     }
 
-    const key = [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join("|");
+    const importedIdentifierKind =
+      part.importedIdentifierKind === "external" ? "external" : "internal";
+    const key = [part.relationshipId, part.sourceEntityId, importedIdentifierKind, part.importedIdentifierId].join("|");
     if (seenPartKeys.has(key)) {
       return;
     }
@@ -194,6 +211,7 @@ function sanitizeExternalIdentifierImportParts(rawIdentifier: {
       relationshipId: part.relationshipId,
       sourceEntityId: part.sourceEntityId,
       importedIdentifierId: part.importedIdentifierId,
+      ...(importedIdentifierKind === "external" ? { importedIdentifierKind } : {}),
     });
   };
 
@@ -208,6 +226,7 @@ function sanitizeExternalIdentifierImportParts(rawIdentifier: {
         relationshipId?: unknown;
         sourceEntityId?: unknown;
         importedIdentifierId?: unknown;
+        importedIdentifierKind?: unknown;
       });
     });
   }
@@ -217,6 +236,7 @@ function sanitizeExternalIdentifierImportParts(rawIdentifier: {
       relationshipId: rawIdentifier.relationshipId,
       sourceEntityId: rawIdentifier.sourceEntityId,
       importedIdentifierId: rawIdentifier.importedIdentifierId,
+      importedIdentifierKind: rawIdentifier.importedIdentifierKind,
     });
   }
 
@@ -236,6 +256,7 @@ function sanitizeExternalIdentifiers(rawIdentifiers: unknown): ExternalIdentifie
         relationshipId?: unknown;
         sourceEntityId?: unknown;
         importedIdentifierId?: unknown;
+        importedIdentifierKind?: unknown;
         localAttributeIds?: unknown;
         offset?: unknown;
         markerOffsetX?: unknown;
@@ -334,7 +355,8 @@ function areExternalIdentifierListsEqual(
           part.id === leftPart.id &&
           part.relationshipId === leftPart.relationshipId &&
           part.sourceEntityId === leftPart.sourceEntityId &&
-          part.importedIdentifierId === leftPart.importedIdentifierId
+          part.importedIdentifierId === leftPart.importedIdentifierId &&
+          (part.importedIdentifierKind ?? "internal") === (leftPart.importedIdentifierKind ?? "internal")
         );
       }) &&
       other.localAttributeIds.every((attributeId, attributeIndex) =>
@@ -1564,6 +1586,149 @@ export function getEntityDirectAttributes(
     .filter((candidate): candidate is AttributeNode => candidate?.type === "attribute");
 }
 
+export function getExternalIdentifierImportedIdentifierKind(
+  part: ExternalIdentifierImportPart,
+): ExternalIdentifierImportedIdentifierKind {
+  return part.importedIdentifierKind === "external" ? "external" : "internal";
+}
+
+function findEntityNode(diagram: DiagramDocument, entityId: string): EntityNode | undefined {
+  return diagram.nodes.find((node): node is EntityNode => node.id === entityId && node.type === "entity");
+}
+
+function findIdentifierOnEntity(
+  entity: EntityNode,
+  kind: ExternalIdentifierImportedIdentifierKind,
+  identifierId: string,
+): InternalIdentifier | ExternalIdentifier | undefined {
+  return kind === "external"
+    ? entity.externalIdentifiers?.find((identifier) => identifier.id === identifierId)
+    : entity.internalIdentifiers?.find((identifier) => identifier.id === identifierId);
+}
+
+function resolveEntityIdentifierPartsInternal(
+  diagram: DiagramDocument,
+  entityId: string,
+  identifierKind: ExternalIdentifierImportedIdentifierKind,
+  identifierId: string,
+  visited: Set<string>,
+): ResolvedEntityIdentifierParts {
+  const entity = findEntityNode(diagram, entityId);
+  if (!entity) {
+    return { valid: false, parts: [], reason: "missing-entity" };
+  }
+
+  const visitKey = `${entityId}:${identifierKind}:${identifierId}`;
+  if (visited.has(visitKey)) {
+    return { valid: false, parts: [], reason: "cycle" };
+  }
+
+  const identifier = findIdentifierOnEntity(entity, identifierKind, identifierId);
+  if (!identifier) {
+    return { valid: false, parts: [], reason: "missing-identifier" };
+  }
+
+  const nextVisited = new Set(visited);
+  nextVisited.add(visitKey);
+
+  if ("attributeIds" in identifier) {
+    const directAttributesById = new Map(getEntityDirectAttributes(diagram, entity.id).map((attribute) => [attribute.id, attribute]));
+    const parts = identifier.attributeIds.map((attributeId) => directAttributesById.get(attributeId));
+    if (parts.length === 0) {
+      return { valid: false, parts: [], reason: "empty-identifier" };
+    }
+    if (parts.some((attribute) => attribute === undefined)) {
+      return { valid: false, parts: [], reason: "invalid-attribute" };
+    }
+    return {
+      valid: true,
+      parts: parts.map((attribute) => ({
+        entityId: entity.id,
+        attribute: attribute as AttributeNode,
+        source: "local" as const,
+      })),
+    };
+  }
+
+  const parts: ResolvedEntityIdentifierPart[] = [];
+  for (const importedPart of identifier.importedParts) {
+    const importedKind = getExternalIdentifierImportedIdentifierKind(importedPart);
+    const resolved = resolveEntityIdentifierPartsInternal(
+      diagram,
+      importedPart.sourceEntityId,
+      importedKind,
+      importedPart.importedIdentifierId,
+      nextVisited,
+    );
+    if (!resolved.valid) {
+      return resolved;
+    }
+    parts.push(...resolved.parts.map((part) => ({ ...part, source: "imported" as const })));
+  }
+
+  const directAttributesById = new Map(getEntityDirectAttributes(diagram, entity.id).map((attribute) => [attribute.id, attribute]));
+  for (const attributeId of identifier.localAttributeIds) {
+    const attribute = directAttributesById.get(attributeId);
+    if (!attribute) {
+      return { valid: false, parts: [], reason: "invalid-attribute" };
+    }
+    parts.push({ entityId: entity.id, attribute, source: "local" });
+  }
+
+  return parts.length > 0
+    ? { valid: true, parts }
+    : { valid: false, parts: [], reason: "empty-identifier" };
+}
+
+export function resolveEntityIdentifierParts(
+  diagram: DiagramDocument,
+  entityId: string,
+  identifierKind: ExternalIdentifierImportedIdentifierKind,
+  identifierId: string,
+): ResolvedEntityIdentifierParts {
+  return resolveEntityIdentifierPartsInternal(diagram, entityId, identifierKind, identifierId, new Set());
+}
+
+function identifierDependsOnEntity(
+  diagram: DiagramDocument,
+  entityId: string,
+  identifierKind: ExternalIdentifierImportedIdentifierKind,
+  identifierId: string,
+  targetEntityId: string,
+  visited = new Set<string>(),
+): boolean {
+  if (entityId === targetEntityId) {
+    return true;
+  }
+
+  const entity = findEntityNode(diagram, entityId);
+  if (!entity) {
+    return false;
+  }
+
+  const visitKey = `${entityId}:${identifierKind}:${identifierId}`;
+  if (visited.has(visitKey)) {
+    return true;
+  }
+  visited.add(visitKey);
+
+  const identifier = findIdentifierOnEntity(entity, identifierKind, identifierId);
+  if (!identifier || "attributeIds" in identifier) {
+    return false;
+  }
+
+  return identifier.importedParts.some((part) =>
+    identifierDependsOnEntity(
+      diagram,
+      part.sourceEntityId,
+      getExternalIdentifierImportedIdentifierKind(part),
+      part.importedIdentifierId,
+      targetEntityId,
+      new Set(visited),
+    ),
+  );
+}
+
 export function findInternalIdentifierByAttribute(
   entity: EntityNode,
   attributeId: string,
@@ -1582,11 +1747,12 @@ export function getExternalIdentifierSourceEntity(
 export function getExternalIdentifierImportedIdentifier(
   diagram: DiagramDocument,
   identifier: ExternalIdentifier,
-): InternalIdentifier | undefined {
+): InternalIdentifier | ExternalIdentifier | undefined {
   const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
-  return sourceEntity?.internalIdentifiers?.find(
-    (candidate) => candidate.id === identifier.importedParts[0]?.importedIdentifierId,
-  );
+  const part = identifier.importedParts[0];
+  return sourceEntity && part
+    ? findIdentifierOnEntity(sourceEntity, getExternalIdentifierImportedIdentifierKind(part), part.importedIdentifierId)
+    : undefined;
 }
 
 export function getExternalIdentifierImportedAttributes(
@@ -1600,20 +1766,13 @@ export function getExternalIdentifierImportedPartAttributes(
   diagram: DiagramDocument,
   part: ExternalIdentifierImportPart,
 ): AttributeNode[] {
-  const sourceEntity = diagram.nodes.find((node): node is EntityNode => node.id === part.sourceEntityId && node.type === "entity");
-  const importedIdentifier = sourceEntity?.internalIdentifiers?.find(
-    (candidate) => candidate.id === part.importedIdentifierId,
+  const resolved = resolveEntityIdentifierParts(
+    diagram,
+    part.sourceEntityId,
+    getExternalIdentifierImportedIdentifierKind(part),
+    part.importedIdentifierId,
   );
-  if (!sourceEntity || !importedIdentifier) {
-    return [];
-  }
-
-  const sourceAttributeMap = new Map(
-    getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => [attribute.id, attribute]),
-  );
-  return importedIdentifier.attributeIds
-    .map((attributeId) => sourceAttributeMap.get(attributeId))
-    .filter((attribute): attribute is AttributeNode => attribute !== undefined);
+  return resolved.valid ? resolved.parts.map((resolvedPart) => resolvedPart.attribute) : [];
 }
 
 function isEligibleLocalExternalIdentifierAttribute(
@@ -1687,15 +1846,19 @@ function normalizeExternalIdentifierSet(
           return false;
         }
 
-        const importedIdentifier = sourceEntity.internalIdentifiers?.find(
-          (candidate) => candidate.id === part.importedIdentifierId,
-        );
-        if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
+        const importedIdentifierKind = getExternalIdentifierImportedIdentifierKind(part);
+        const importedIdentifier = findIdentifierOnEntity(sourceEntity, importedIdentifierKind, part.importedIdentifierId);
+        if (!importedIdentifier) {
           return false;
         }
 
-        const sourceDirectAttributeIds = directAttributeIdsByEntityId.get(sourceEntity.id) ?? new Set<string>();
-        if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
+        const resolvedIdentifier = resolveEntityIdentifierParts(
+          diagram,
+          sourceEntity.id,
+          importedIdentifierKind,
+          part.importedIdentifierId,
+        );
+        if (!resolvedIdentifier.valid || identifierDependsOnEntity(diagram, sourceEntity.id, importedIdentifierKind, part.importedIdentifierId, entity.id)) {
           return false;
         }
 
@@ -1723,7 +1886,7 @@ function normalizeExternalIdentifierSet(
           return false;
         }
 
-        const key = [relationshipNode.id, sourceEntity.id, importedIdentifier.id].join("|");
+        const key = [relationshipNode.id, sourceEntity.id, importedIdentifierKind, part.importedIdentifierId].join("|");
         if (seenImportedPartKeys.has(key)) {
           return false;
         }
@@ -1739,6 +1902,7 @@ function normalizeExternalIdentifierSet(
         relationshipId: part.relationshipId,
         sourceEntityId: part.sourceEntityId,
         importedIdentifierId: part.importedIdentifierId,
+        ...(getExternalIdentifierImportedIdentifierKind(part) === "external" ? { importedIdentifierKind: "external" as const } : {}),
       }));
 
     if (normalizedImportedParts.length === 0) {
@@ -1768,7 +1932,7 @@ function normalizeExternalIdentifierSet(
       });
 
     const importedSignature = normalizedImportedParts
-      .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join(":"))
+      .map((part) => [part.relationshipId, part.sourceEntityId, part.importedIdentifierKind ?? "internal", part.importedIdentifierId].join(":"))
       .sort()
       .join(",");
     const signature = [importedSignature, [...normalizedLocalAttributeIds].sort().join(",")].join("|");
@@ -2847,19 +3011,24 @@ export function getEligibleImportedIdentifierParts(
     const sourceAttributesById = new Map(
       getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => [attribute.id, attribute]),
     );
-    (sourceEntity.internalIdentifiers ?? []).forEach((identifier) => {
-      if (
-        identifier.attributeIds.length === 0 ||
-        identifier.attributeIds.some((attributeId) => !sourceAttributesById.has(attributeId))
-      ) {
+    const addOption = (
+      identifier: InternalIdentifier | ExternalIdentifier,
+      importedIdentifierKind: ExternalIdentifierImportedIdentifierKind,
+    ) => {
+      const resolved = resolveEntityIdentifierParts(diagram, sourceEntity.id, importedIdentifierKind, identifier.id);
+      if (!resolved.valid || identifierDependsOnEntity(diagram, sourceEntity.id, importedIdentifierKind, identifier.id, hostEntity.id)) {
         return;
       }
 
-      const key = [node.id, sourceEntity.id, identifier.id].join("|");
+      const key = [node.id, sourceEntity.id, importedIdentifierKind, identifier.id].join("|");
       if (options.has(key)) {
         return;
       }
 
+      const identifierLabel =
+        importedIdentifierKind === "external"
+          ? `identificatore esterno/misto ${resolved.parts.map((part) => part.attribute.label).join(" + ")}`
+          : `identificatore interno ${describeInternalIdentifier(identifier as InternalIdentifier, sourceAttributesById)}`;
       options.set(key, {
         id: createId("externalIdentifierPart"),
         relationshipId: node.id,
@@ -2867,9 +3036,12 @@ export function getEligibleImportedIdentifierParts(
         sourceEntityId: sourceEntity.id,
         sourceEntityLabel: sourceEntity.label,
         importedIdentifierId: identifier.id,
-        importedIdentifierLabel: describeInternalIdentifier(identifier, sourceAttributesById),
+        ...(importedIdentifierKind === "external" ? { importedIdentifierKind } : {}),
+        importedIdentifierLabel: identifierLabel,
       });
-    });
+    };
+    (sourceEntity.internalIdentifiers ?? []).forEach((identifier) => addOption(identifier, "internal"));
+    (sourceEntity.externalIdentifiers ?? []).forEach((identifier) => addOption(identifier, "external"));
   });
 
   return Array.from(options.values()).sort((left, right) => {
@@ -2976,10 +3148,9 @@ export function validateExternalIdentifier(
       });
     }
 
-    const importedIdentifier = sourceEntity.internalIdentifiers?.find(
-      (candidate) => candidate.id === part.importedIdentifierId,
-    );
-    if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
+    const importedIdentifierKind = getExternalIdentifierImportedIdentifierKind(part);
+    const importedIdentifier = findIdentifierOnEntity(sourceEntity, importedIdentifierKind, part.importedIdentifierId);
+    if (!importedIdentifier) {
       return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu disponibile`, {
         ...partContext,
         sourceEntityId: sourceEntity.id,
@@ -2987,8 +3158,13 @@ export function validateExternalIdentifier(
       });
     }
 
-    const sourceDirectAttributeIds = new Set(getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => attribute.id));
-    if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
+    const resolvedIdentifier = resolveEntityIdentifierParts(
+      diagram,
+      sourceEntity.id,
+      importedIdentifierKind,
+      part.importedIdentifierId,
+    );
+    if (!resolvedIdentifier.valid) {
       return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu composto da attributi validi`, {
         ...partContext,
         sourceEntityId: sourceEntity.id,
@@ -2996,7 +3172,15 @@ export function validateExternalIdentifier(
       });
     }
 
-    const partKey = [relationshipNode.id, sourceEntity.id, importedIdentifier.id].join("|");
+    if (identifierDependsOnEntity(diagram, sourceEntity.id, importedIdentifierKind, part.importedIdentifierId, hostEntity.id)) {
+      return fail(`l'identificatore importato da "${sourceEntity.label}" crea una dipendenza ciclica`, {
+        ...partContext,
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+      });
+    }
+
+    const partKey = [relationshipNode.id, sourceEntity.id, importedIdentifierKind, part.importedIdentifierId].join("|");
     if (seenImportedPartKeys.has(partKey)) {
       return fail("contiene piu volte la stessa parte importata", {
         ...partContext,

@@ -327,6 +327,7 @@ interface MixedIdentifierDialogState {
     relationshipId: string;
     sourceEntityId: string;
     importedIdentifierId: string;
+    importedIdentifierKind?: "internal" | "external";
     label: string;
   }>;
   attributes: Array<{ id: string; label: string }>;
@@ -737,8 +738,9 @@ function buildExternalImportPartKey(part: {
   relationshipId: string;
   sourceEntityId: string;
   importedIdentifierId: string;
+  importedIdentifierKind?: "internal" | "external";
 }): string {
-  return [part.relationshipId, part.sourceEntityId, part.importedIdentifierId].join("::");
+  return [part.relationshipId, part.sourceEntityId, part.importedIdentifierKind ?? "internal", part.importedIdentifierId].join("::");
 }
 
 function getNodeKindLabel(node: DiagramNode, t: AppTranslator = translate): string {
@@ -4795,6 +4797,7 @@ export default function App() {
         relationshipId: part.relationshipId,
         sourceEntityId: part.sourceEntityId,
         importedIdentifierId: part.importedIdentifierId,
+        ...(part.importedIdentifierKind === "external" ? { importedIdentifierKind: "external" as const } : {}),
       })),
       localAttributeIds,
     };
@@ -4877,6 +4880,7 @@ export default function App() {
         relationshipId: option.relationshipId,
         sourceEntityId: option.sourceEntityId,
         importedIdentifierId: option.importedIdentifierId,
+        ...(option.importedIdentifierKind === "external" ? { importedIdentifierKind: "external" as const } : {}),
         label: `${option.sourceEntityLabel} via ${option.relationshipLabel}: ${option.importedIdentifierLabel}`,
       })),
       attributes,

@@ -74,11 +74,14 @@ export interface InternalIdentifier {
   attributeIds: string[];
 }
 
+export type ExternalIdentifierImportedIdentifierKind = "internal" | "external";
+
 export interface ExternalIdentifierImportPart {
   id: string;
   relationshipId: string;
   sourceEntityId: string;
   importedIdentifierId: string;
+  importedIdentifierKind?: ExternalIdentifierImportedIdentifierKind;
 }
 
 export interface ExternalIdentifier {

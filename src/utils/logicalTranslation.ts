@@ -35,7 +35,11 @@ import type {
   LogicalWorkspaceDocument,
 } from "../types/logical";
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "./cardinality";
-import { normalizeGeneralizationGroups } from "./diagram";
+import {
+  getExternalIdentifierImportedIdentifierKind,
+  normalizeGeneralizationGroups,
+  resolveEntityIdentifierParts,
+} from "./diagram";
 import { canEdgeUseManualRouting } from "./edgeRouting";
 import { normalizeLogicalModelGeometry } from "./logicalLayout";
 import { normalizeLogicalModelSqlMetadata } from "./logicalSqlMetadata";
@@ -842,13 +846,11 @@ function describePrimaryKeyFromIdentifier(
       const sourceEntity = diagram.nodes.find(
         (node): node is EntityNode => node.id === part.sourceEntityId && node.type === "entity",
       );
-      const importedIdentifier = sourceEntity?.internalIdentifiers?.find(
-        (candidate) => candidate.id === part.importedIdentifierId,
-      );
-      return importedIdentifier
-        ? expandAttributeIdsToLeafAttributes(importedIdentifier.attributeIds, ownership)
-            .map((attribute) => attribute.label)
-            .join(", ")
+      const resolved = sourceEntity
+        ? resolveEntityIdentifierParts(diagram, sourceEntity.id, getExternalIdentifierImportedIdentifierKind(part), part.importedIdentifierId)
+        : undefined;
+      return resolved?.valid
+        ? resolved.parts.map((part) => part.attribute.label).join(", ")
         : "identificatore importato";
     })
     .join(" + ");
@@ -2252,6 +2254,58 @@ function sortGeneralizationDecisionsForExecution(
   return ordered;
 }
 
+function getDecisionExternalIdentifier(
+  decision: LogicalTranslationDecision,
+  entity: EntityNode | undefined,
+): ExternalIdentifier | undefined {
+  if (!entity || (decision.rule !== "entity-table-external" && decision.rule !== "weak-entity-table")) {
+    return undefined;
+  }
+  const externalIdentifierId =
+    decision.rule === "entity-table-external"
+      ? getStrongEntityMode(decision.configuration).keySourceId
+      : getWeakEntityMode(decision.configuration).externalIdentifierId;
+  return findExternalIdentifierById(entity, externalIdentifierId) ?? entity.externalIdentifiers?.[0];
+}
+
+function sortExternalIdentifierDecisionsForExecution(
+  decisions: LogicalTranslationDecision[],
+  entityById: Map<string, EntityNode>,
+): LogicalTranslationDecision[] {
+  const pendingByEntityId = new Map(decisions.map((decision) => [decision.targetId, decision]));
+  const ordered: LogicalTranslationDecision[] = [];
+  const compareDecisions = (left: LogicalTranslationDecision, right: LogicalTranslationDecision): number => {
+    const leftLabel = entityById.get(left.targetId)?.label ?? left.targetId;
+    const rightLabel = entityById.get(right.targetId)?.label ?? right.targetId;
+    const byLabel = leftLabel.localeCompare(rightLabel, "it", { sensitivity: "base" });
+    return byLabel !== 0 ? byLabel : left.targetId.localeCompare(right.targetId);
+  };
+
+  while (pendingByEntityId.size > 0) {
+    const ready = [...pendingByEntityId.values()]
+      .filter((decision) => {
+        const entity = entityById.get(decision.targetId);
+        const externalIdentifier = getDecisionExternalIdentifier(decision, entity);
+        const dependencyEntityIds = new Set(
+          (externalIdentifier?.importedParts ?? []).map((part) => part.sourceEntityId),
+        );
+        return [...dependencyEntityIds].every((entityId) => !pendingByEntityId.has(entityId));
+      })
+      .sort(compareDecisions);
+
+    if (ready.length === 0) {
+      return [...ordered, ...[...pendingByEntityId.values()].sort(compareDecisions)];
+    }
+
+    ready.forEach((decision) => {
+      ordered.push(decision);
+      pendingByEntityId.delete(decision.targetId);
+    });
+  }
+
+  return ordered;
+}
+
 function buildLogicalSourceSignatureInternal(diagram: DiagramDocument): string {
   const nodes = [...diagram.nodes].sort((left, right) => left.id.localeCompare(right.id));
   const edges = [...diagram.edges].sort((left, right) => left.id.localeCompare(right.id));
@@ -2430,8 +2484,10 @@ function buildModelFromDecisions(
       }
     }
 
-  validDecisions
-    .filter((decision) => decision.rule === "entity-table-external" || decision.rule === "weak-entity-table")
+  sortExternalIdentifierDecisionsForExecution(
+    validDecisions.filter((decision) => decision.rule === "entity-table-external" || decision.rule === "weak-entity-table"),
+    entityById,
+  )
     .forEach((decision) => {
       const entity = entityById.get(decision.targetId);
       const tableId = entity ? entityTableByEntityId.get(entity.id) : undefined;
@@ -2439,12 +2495,7 @@ function buildModelFromDecisions(
         return;
       }
 
-      const externalIdentifierId =
-        decision.rule === "entity-table-external"
-          ? getStrongEntityMode(decision.configuration).keySourceId
-          : getWeakEntityMode(decision.configuration).externalIdentifierId;
-      const externalIdentifier =
-        findExternalIdentifierById(entity, externalIdentifierId) ?? entity.externalIdentifiers?.[0];
+      const externalIdentifier = getDecisionExternalIdentifier(decision, entity);
       if (!externalIdentifier) {
         pushIssue(
           context,

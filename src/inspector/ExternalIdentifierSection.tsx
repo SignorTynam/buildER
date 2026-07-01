@@ -43,8 +43,8 @@ function createExternalIdentifierId(): string {
   return `externalIdentifier-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function buildOptionKey(option: Pick<ExternalIdentifierImportPart, "relationshipId" | "sourceEntityId" | "importedIdentifierId">): string {
-  return [option.relationshipId, option.sourceEntityId, option.importedIdentifierId].join("::");
+function buildOptionKey(option: Pick<ExternalIdentifierImportPart, "relationshipId" | "sourceEntityId" | "importedIdentifierId" | "importedIdentifierKind">): string {
+  return [option.relationshipId, option.sourceEntityId, option.importedIdentifierKind ?? "internal", option.importedIdentifierId].join("::");
 }
 
 function ExternalIdentifierModal({
@@ -257,6 +257,7 @@ export function ExternalIdentifierSection({
           relationshipId: option.relationshipId,
           sourceEntityId: option.sourceEntityId,
           importedIdentifierId: option.importedIdentifierId,
+          ...(option.importedIdentifierKind === "external" ? { importedIdentifierKind: "external" as const } : {}),
         };
       });
     const selectableAttributeIds = new Set(selectableLocalAttributes.map((attribute) => attribute.id));

@@ -8,6 +8,10 @@ import type {
 } from "../types/diagram";
 import type { LogicalTranslationChoice } from "../types/logical";
 import type { LogicalEntityKeySelectionRequest } from "./logicalTranslation";
+import {
+  getExternalIdentifierImportedIdentifierKind,
+  resolveEntityIdentifierParts,
+} from "./diagram";
 
 export type EntityKeyPreviewKind = "internal" | "external" | "none";
 
@@ -132,12 +136,11 @@ function describeInternalIdentifier(diagram: DiagramDocument, identifier: Intern
 function describeExternalIdentifier(diagram: DiagramDocument, identifier: ExternalIdentifier): string[] {
   const importedLabels = identifier.importedParts.flatMap((part) => {
     const sourceEntity = findEntity(diagram, part.sourceEntityId);
-    const importedIdentifier = sourceEntity?.internalIdentifiers?.find((candidate) => candidate.id === part.importedIdentifierId);
-    return importedIdentifier && sourceEntity
-      ? importedIdentifier.attributeIds.map((attributeId) => {
-          const attribute = findAttribute(diagram, attributeId);
-          return `${sourceEntity.label}_${attribute?.label ?? attributeId}`;
-        })
+    const resolved = sourceEntity
+      ? resolveEntityIdentifierParts(diagram, sourceEntity.id, getExternalIdentifierImportedIdentifierKind(part), part.importedIdentifierId)
+      : undefined;
+    return resolved?.valid && sourceEntity
+      ? resolved.parts.map((resolvedPart) => `${sourceEntity.label}_${resolvedPart.attribute.label}`)
       : ["identificatore importato"];
   });
   return [...importedLabels, ...attributeLabels(diagram, identifier.localAttributeIds)];
@@ -318,7 +321,9 @@ function buildExternalPreview(
   identifier.importedParts.forEach((part) => {
     const sourceEntity = findEntity(diagram, part.sourceEntityId);
     const relationship = findRelationship(diagram, part.relationshipId);
-    const importedIdentifier = sourceEntity?.internalIdentifiers?.find((candidate) => candidate.id === part.importedIdentifierId);
+    const resolvedIdentifier = sourceEntity
+      ? resolveEntityIdentifierParts(diagram, sourceEntity.id, getExternalIdentifierImportedIdentifierKind(part), part.importedIdentifierId)
+      : undefined;
     const importedColumnNames: string[] = [];
     const referencedColumnNames: string[] = [];
 
@@ -331,7 +336,7 @@ function buildExternalPreview(
       });
     }
 
-    if (!sourceEntity || !importedIdentifier) {
+    if (!sourceEntity || !resolvedIdentifier?.valid) {
       return;
     }
 
@@ -342,8 +347,8 @@ function buildExternalPreview(
       attributes: [],
     };
 
-    importedIdentifier.attributeIds.forEach((attributeId) => {
-      const attribute = attributePreview(diagram, attributeId, "selected-imported");
+    resolvedIdentifier.parts.forEach((resolvedPart) => {
+      const attribute = attributePreview(diagram, resolvedPart.attribute.id, "selected-imported");
       const importedColumnName = `${sourceEntity.label}_${attribute.label}`;
       importedColumnNames.push(importedColumnName);
       referencedColumnNames.push(attribute.label);
@@ -380,7 +385,7 @@ function buildExternalPreview(
         name: sourceEntity.label,
         role: "referenced",
         columns: referencedColumnNames.map((name, index) => ({
-          id: `${sourceEntity.id}-${importedIdentifier.attributeIds[index] ?? name}`,
+          id: `${sourceEntity.id}-${resolvedIdentifier.parts[index]?.attribute.id ?? name}`,
           name,
           label: name,
           isPrimaryKey: true,

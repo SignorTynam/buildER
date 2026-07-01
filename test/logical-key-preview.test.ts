@@ -139,6 +139,20 @@ test("logical key preview: chiave esterna mista", () => {
     targetId: "rel-1",
     label: "",
     lineStyle: "solid",
+  }, {
+    id: "edge-attr-7",
+    type: "attribute",
+    sourceId: "entity-1",
+    targetId: "attr-7",
+    label: "",
+    lineStyle: "solid",
+  }, {
+    id: "edge-attr-3",
+    type: "attribute",
+    sourceId: "entity-2",
+    targetId: "attr-3",
+    label: "",
+    lineStyle: "solid",
   }];
   const diagram: DiagramDocument = {
     meta: { name: "Preview", version: 3 },
@@ -188,6 +202,88 @@ test("logical key preview: chiave esterna mista", () => {
   );
   assert.match(markup, /logical-column-name-underline/);
   assert.doesNotMatch(markup, /logical-column-qualifier-pk[^"]*underlined/);
+});
+
+test("logical key preview: chiave esterna annidata importa la chiave completa della sorgente", () => {
+  const diagram: DiagramDocument = {
+    meta: { name: "Nested preview", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "DIPARTIMENTO",
+        type: "entity",
+        label: "DIPARTIMENTO",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        internalIdentifiers: [{ id: "DIP-id", attributeIds: ["idDipartimento"] }],
+      },
+      {
+        id: "CORSO",
+        type: "entity",
+        label: "CORSO",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        externalIdentifiers: [{
+          id: "CORSO-ext",
+          importedParts: [{
+            id: "CORSO-part-dip",
+            relationshipId: "CONTIENE",
+            sourceEntityId: "DIPARTIMENTO",
+            importedIdentifierId: "DIP-id",
+          }],
+          localAttributeIds: ["idCorso"],
+        }],
+      },
+      {
+        id: "EDIZIONE_CORSO",
+        type: "entity",
+        label: "EDIZIONE_CORSO",
+        x: 0,
+        y: 0,
+        width: 180,
+        height: 80,
+        externalIdentifiers: [{
+          id: "EDIZIONE-ext",
+          importedParts: [{
+            id: "EDIZIONE-part-corso",
+            relationshipId: "SVOLGIMENTO",
+            sourceEntityId: "CORSO",
+            importedIdentifierId: "CORSO-ext",
+            importedIdentifierKind: "external",
+          }],
+          localAttributeIds: ["Anno"],
+        }],
+      },
+      { id: "CONTIENE", type: "relationship", label: "CONTIENE", x: 0, y: 0, width: 120, height: 70 },
+      { id: "SVOLGIMENTO", type: "relationship", label: "SVOLGIMENTO", x: 0, y: 0, width: 140, height: 70 },
+      { id: "idDipartimento", type: "attribute", label: "idDipartimento", x: 0, y: 0, width: 120, height: 36 },
+      { id: "idCorso", type: "attribute", label: "idCorso", x: 0, y: 0, width: 100, height: 36 },
+      { id: "Anno", type: "attribute", label: "Anno", x: 0, y: 0, width: 100, height: 36 },
+    ],
+    edges: [
+      { id: "e-dip-id", type: "attribute", sourceId: "DIPARTIMENTO", targetId: "idDipartimento", label: "", lineStyle: "solid" },
+      { id: "e-corso-id", type: "attribute", sourceId: "CORSO", targetId: "idCorso", label: "", lineStyle: "solid" },
+      { id: "e-edizione-anno", type: "attribute", sourceId: "EDIZIONE_CORSO", targetId: "Anno", label: "", lineStyle: "solid" },
+    ],
+  };
+  const choice = externalChoice("EDIZIONE-ext");
+  const preview = buildEntityKeyChoicePreviewData({
+    diagram,
+    request: baseRequest("EDIZIONE_CORSO", [choice]),
+    choice,
+  });
+
+  assert.equal(preview.kind, "external");
+  assert.equal(preview.kindLabel, "Chiave esterna/mista");
+  assert.deepEqual(preview.foreignKeys[0]?.toColumnNames, ["idDipartimento", "idCorso"]);
+  assert.deepEqual(preview.foreignKeys[0]?.fromColumnNames, ["CORSO_idDipartimento", "CORSO_idCorso"]);
+  assert.match(preview.title, /CORSO_idDipartimento/);
+  assert.match(preview.title, /CORSO_idCorso/);
+  assert.match(preview.title, /Anno/);
 });
 
 test("logical key preview: chiave interna composta", () => {

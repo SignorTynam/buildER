@@ -229,6 +229,7 @@ function remapEntityMetadata(
   node: Extract<DiagramNode, { type: "entity" }>,
   nodeIdMap: Map<string, string>,
   internalIdentifierIdMap: Map<string, string>,
+  externalIdentifierIdMap: Map<string, string>,
 ): Extract<DiagramNode, { type: "entity" }> {
   const relationshipParticipations = (node.relationshipParticipations ?? [])
     .map((participation) => {
@@ -268,7 +269,10 @@ function remapEntityMetadata(
         .map((part) => {
           const relationshipId = nodeIdMap.get(part.relationshipId);
           const sourceEntityId = nodeIdMap.get(part.sourceEntityId);
-          const importedIdentifierId = internalIdentifierIdMap.get(part.importedIdentifierId);
+          const importedIdentifierId =
+            part.importedIdentifierKind === "external"
+              ? externalIdentifierIdMap.get(part.importedIdentifierId)
+              : internalIdentifierIdMap.get(part.importedIdentifierId);
 
           if (!relationshipId || !sourceEntityId || !importedIdentifierId) {
             return null;
@@ -294,7 +298,7 @@ function remapEntityMetadata(
 
       return {
         ...identifier,
-        id: createId("externalIdentifier"),
+        id: externalIdentifierIdMap.get(identifier.id) ?? createId("externalIdentifier"),
         importedParts,
         localAttributeIds,
       };
@@ -352,6 +356,7 @@ export function pasteDiagramClipboardPayload(
   const usedLabelKeys = new Set(diagram.nodes.map((node) => normalizeNameKey(node.label)));
   const nodeIdMap = new Map<string, string>();
   const internalIdentifierIdMap = new Map<string, string>();
+  const externalIdentifierIdMap = new Map<string, string>();
 
   const pastedNodes = payload.nodes.map((node) => {
     const label = createCopiedLabel(node.label, node.type, usedLabelKeys);
@@ -370,13 +375,16 @@ export function pasteDiagramClipboardPayload(
       (nextNode.internalIdentifiers ?? []).forEach((identifier) => {
         internalIdentifierIdMap.set(identifier.id, createId("internalIdentifier"));
       });
+      (nextNode.externalIdentifiers ?? []).forEach((identifier) => {
+        externalIdentifierIdMap.set(identifier.id, createId("externalIdentifier"));
+      });
     }
 
     return nextNode;
   });
 
   const pastedNodesWithMetadata = pastedNodes.map((node) =>
-    node.type === "entity" ? remapEntityMetadata(node, nodeIdMap, internalIdentifierIdMap) : node,
+    node.type === "entity" ? remapEntityMetadata(node, nodeIdMap, internalIdentifierIdMap, externalIdentifierIdMap) : node,
   );
 
   const copiedGroupIds = new Set((payload.generalizationGroups ?? []).map((group) => group.id));
