@@ -233,6 +233,7 @@ import {
   getProjectUncommittedChangeState,
   useProjectVersioning,
 } from "./features/versioning/useProjectVersioning";
+import { updateProjectSchemaFileIfContentChanged } from "./features/versioning/projectCommitSnapshot";
 import type { VersionCompareRef } from "./features/versioning/projectVersionVisualDiff";
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
@@ -2553,6 +2554,7 @@ export default function App() {
       workspace?: ProjectFileWorkspaceState;
       resetHistory?: boolean;
       markBaseline?: boolean;
+      markDirty?: boolean;
     },
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
@@ -2636,7 +2638,7 @@ export default function App() {
         JSON.stringify(baselineWorkspace),
         baselineWorkspace.codeDirty ? baselineWorkspace.codeDraft : serializeDiagramToErs(normalizedIncoming.diagram),
       );
-    } else {
+    } else if (options?.markDirty !== false) {
       hasUnsavedChangesRef.current = true;
     }
     setSelection(nextWorkspace?.selection ?? { nodeIds: [], edgeIds: [] });
@@ -2668,19 +2670,7 @@ export default function App() {
       return state;
     }
 
-    const schema = createCurrentSchemaDocument();
-    const activeFile = state.files[activeFileId] as Extract<ProjectWorkspaceFile, { kind: "schema" }>;
-    return {
-      ...state,
-      files: {
-        ...state.files,
-        [activeFileId]: {
-          ...activeFile,
-          updatedAt: schema.savedAt,
-          schema,
-        },
-      },
-    };
+    return updateProjectSchemaFileIfContentChanged(state, activeFileId, createCurrentSchemaDocument());
   }
 
   function applyProjectExplorerState(nextState: ProjectExplorerState) {
@@ -2754,6 +2744,7 @@ export default function App() {
       workspace: file.schema.workspace,
       resetHistory: true,
       markBaseline: false,
+      markDirty: false,
     });
     if (shouldFitLogical) {
       setLogicalFitRequestToken((current) => current + 1);

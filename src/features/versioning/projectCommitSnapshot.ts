@@ -5,6 +5,8 @@ import type {
   ProjectExplorerViewState,
   ProjectWorkspaceFile,
 } from "../../types/projectExplorer";
+import type { ProjectExplorerState } from "../../utils/projectExplorer";
+import type { SchemaFileDocument } from "../../utils/projectSchemaFile";
 import type {
   LogicalSelection,
   LogicalStage,
@@ -475,15 +477,77 @@ function normalizeProjectTreeForContent(project: ProjectExplorerProject | undefi
   };
 }
 
+function normalizeVersionedTranslationState(value: ErTranslationWorkspaceDocument["translation"]): StableJsonValue {
+  return toStableJsonValue({
+    decisions: value.decisions.map((decision) => {
+      const { appliedAt, ...versionedDecision } = decision;
+      return versionedDecision;
+    }),
+    mappings: value.mappings,
+    conflicts: value.conflicts,
+  });
+}
+
+function normalizeVersionedTranslationWorkspace(workspace: ErTranslationWorkspaceDocument): StableJsonValue {
+  return toStableJsonValue({
+    sourceDiagram: workspace.sourceDiagram,
+    translatedDiagram: workspace.translatedDiagram,
+    translation: normalizeVersionedTranslationState(workspace.translation),
+  });
+}
+
+function normalizeVersionedLogicalTranslation(value: LogicalWorkspaceDocument["translation"]): StableJsonValue {
+  return toStableJsonValue({
+    decisions: value.decisions.map((decision) => {
+      const { appliedAt, ...versionedDecision } = decision;
+      return versionedDecision;
+    }),
+    mappings: value.mappings,
+    conflicts: value.conflicts,
+  });
+}
+
+function normalizeVersionedLogicalModel(model: LogicalWorkspaceDocument["model"]): StableJsonValue {
+  return toStableJsonValue({
+    meta: {
+      name: model.meta.name,
+      sourceDiagramVersion: model.meta.sourceDiagramVersion,
+    },
+    tables: model.tables,
+    foreignKeys: model.foreignKeys,
+    uniqueConstraints: model.uniqueConstraints,
+    edges: model.edges,
+    issues: model.issues,
+  });
+}
+
+function normalizeVersionedLogicalTransformation(
+  transformation: LogicalWorkspaceDocument["transformation"],
+): StableJsonValue {
+  return toStableJsonValue({
+    nodes: transformation.nodes,
+    edges: transformation.edges,
+  });
+}
+
+function normalizeVersionedLogicalWorkspace(workspace: LogicalWorkspaceDocument): StableJsonValue {
+  return toStableJsonValue({
+    model: normalizeVersionedLogicalModel(workspace.model),
+    translation: normalizeVersionedLogicalTranslation(workspace.translation),
+    transformation: normalizeVersionedLogicalTransformation(workspace.transformation),
+  });
+}
+
 function normalizeSchemaForContent(file: Extract<ProjectWorkspaceFile, { kind: "schema" }>): StableJsonValue {
   return toStableJsonValue({
     version: file.schema.version,
     kind: file.schema.kind,
     diagram: file.schema.diagram,
-    translationWorkspace: file.schema.translationWorkspace,
-    logicalWorkspace: file.schema.logicalWorkspace,
+    translationWorkspace: normalizeVersionedTranslationWorkspace(file.schema.translationWorkspace),
+    logicalWorkspace: normalizeVersionedLogicalWorkspace(file.schema.logicalWorkspace),
     logicalGenerated: file.schema.logicalGenerated,
     logicalStage: file.schema.logicalStage,
+    codeDraft: file.schema.workspace.codeDirty ? file.schema.workspace.codeDraft : "",
   });
 }
 
@@ -507,6 +571,35 @@ export function getProjectFileContentSnapshot(file: ProjectWorkspaceFile): Proje
 
 export function stringifyProjectFileContent(file: ProjectWorkspaceFile): string {
   return JSON.stringify(getProjectFileContentSnapshot(file));
+}
+
+export function updateProjectSchemaFileIfContentChanged(
+  state: ProjectExplorerState,
+  fileId: string,
+  schema: SchemaFileDocument,
+): ProjectExplorerState {
+  const activeFile = state.files[fileId];
+  if (!activeFile || activeFile.kind !== "schema") {
+    return state;
+  }
+
+  const nextFile: Extract<ProjectWorkspaceFile, { kind: "schema" }> = {
+    ...activeFile,
+    updatedAt: schema.savedAt,
+    schema,
+  };
+
+  if (stringifyProjectFileContent(activeFile) === stringifyProjectFileContent(nextFile)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    files: {
+      ...state.files,
+      [fileId]: nextFile,
+    },
+  };
 }
 
 function normalizeProjectFilesForContent(files: Record<string, ProjectWorkspaceFile> | undefined): StableJsonValue {
