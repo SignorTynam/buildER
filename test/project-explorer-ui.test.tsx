@@ -27,6 +27,7 @@ function renderExplorer() {
           onCreateFolder={() => undefined}
           onRename={() => undefined}
           onDelete={() => undefined}
+          onSelectNode={() => undefined}
           onToggleFolder={() => undefined}
           onCollapseAll={() => undefined}
           onToggleOpen={() => undefined}
@@ -52,9 +53,11 @@ test("ProjectExplorer espone handler per apertura file e nuovo schema", () => {
 
   assert.match(source, /props\.onOpenFile\(props\.node\.fileId\)/);
   assert.match(source, /props\.onCreateSchema\(props\.node\.id\)/);
+  assert.match(source, /event\.stopPropagation\(\)/);
   assert.match(source, /onCreateSqlFile/);
   assert.match(source, /fileText/);
-  assert.match(shellSource, /onClick=\{\(\) => props\.onCreateSchema\(props\.project\.rootId\)\}/);
+  assert.match(shellSource, /selectedTargetFolderId/);
+  assert.match(shellSource, /ProjectExplorerContextMenu/);
 });
 
 test("file txt apre il modal note senza sostituire Explorer o aprire CodePanel", () => {

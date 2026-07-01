@@ -11,10 +11,12 @@ import {
   type ProjectActivityId,
   type ProjectActivityItem,
 } from "./components/project/ProjectActivityPanel";
+import { ProjectActivityPanelHeader } from "./components/project/ProjectActivityPanelHeader";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
 import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
 import { ProjectTextFileModal } from "./components/project/ProjectTextFileModal";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
+import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
 import { CommitDialog } from "./components/versioning/CommitDialog";
 import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
@@ -215,9 +217,11 @@ import {
 import {
   closeProjectTab,
   ensureFileTabOpen,
+  openWelcomeTab,
   markProjectTabDirty,
   normalizeProjectTabs,
   setActiveProjectTab,
+  WELCOME_TAB_ID,
 } from "./utils/projectTabs";
 import { createCenteredViewportForDiagram } from "./utils/viewport";
 import {
@@ -1184,6 +1188,13 @@ export default function App() {
   const activeProjectFile = activeProjectFileId ? projectExplorer.files[activeProjectFileId] : undefined;
   const activeSchemaFile = activeProjectFile?.kind === "schema" ? activeProjectFile : null;
   const hasOpenSchema = Boolean(activeSchemaFile);
+  const activeProjectTab = projectExplorer.view.activeTabId
+    ? projectExplorer.view.openTabs.find((tab) => tab.id === projectExplorer.view.activeTabId)
+    : undefined;
+  const welcomeTabActive = activeProjectTab?.kind === "welcome";
+  const hasProjectTabsOpen = projectExplorer.view.openTabs.length > 0;
+  const projectFileCount = Object.keys(projectExplorer.files).length;
+  const projectFolderCount = projectExplorer.project.fileTree.filter((node) => node.kind === "folder").length;
   const activeTextModalFile =
     textFileModalFileId && projectExplorer.files[textFileModalFileId]?.kind === "text"
       ? projectExplorer.files[textFileModalFileId]
@@ -2692,6 +2703,24 @@ export default function App() {
     hasUnsavedChangesRef.current = true;
   }
 
+  function findProjectNodeIdByFileId(state: ProjectExplorerState, fileId: string): string | null {
+    return state.project.fileTree.find((node) => node.fileId === fileId)?.id ?? null;
+  }
+
+  function selectProjectExplorerNode(state: ProjectExplorerState, nodeId: string | null): ProjectExplorerState {
+    return normalizeProjectTabs({
+      ...state,
+      view: {
+        ...state.view,
+        selectedNodeId: nodeId ?? state.project.rootId,
+      },
+    });
+  }
+
+  function handleShowWelcomeTab() {
+    setProjectExplorer(openWelcomeTab(syncActiveSchemaToProject()));
+  }
+
   function getActiveSqlFileId(state: ProjectExplorerState = projectExplorer): string | null {
     const activeFileId = state.project.activeFileId ?? state.view.activeFileId;
     return activeFileId && state.files[activeFileId]?.kind === "sql" ? activeFileId : null;
@@ -2758,6 +2787,15 @@ export default function App() {
       return;
     }
 
+    if (file.kind === "text") {
+      const nodeId = findProjectNodeIdByFileId(synced, fileId);
+      setProjectExplorer(selectProjectExplorerNode(synced, nodeId));
+      setTextFileModalFileId(fileId);
+      setWorkspaceActivityOpen(true);
+      setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
+      return;
+    }
+
     const nextState = ensureFileTabOpen(synced, fileId);
     setProjectExplorer(nextState);
     setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
@@ -2768,9 +2806,6 @@ export default function App() {
         ...createInitialSqlReverseWorkflowState(file.content),
         step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
       }));
-    } else {
-      setTextFileModalFileId(fileId);
-      setWorkspaceActivityOpen(true);
     }
   }
 
@@ -2802,10 +2837,6 @@ export default function App() {
       return;
     }
 
-    if (file.kind === "text") {
-      setTextFileModalFileId(file.id);
-      setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
-    }
   }
 
   function handleProjectFileTabClose(tabId: string) {
@@ -2829,9 +2860,6 @@ export default function App() {
         ...createInitialSqlReverseWorkflowState(file.content),
         step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
       }));
-    }
-    if (file.kind === "text") {
-      setTextFileModalFileId(file.id);
     }
   }
 
@@ -3073,6 +3101,18 @@ export default function App() {
       expanded.add(folderId);
     }
     applyProjectExplorerState(setProjectExplorerExpandedFolders(projectExplorer, Array.from(expanded)));
+  }
+
+  function handleProjectExplorerSelectNode(nodeId: string) {
+    setProjectExplorer((current) =>
+      normalizeProjectTabs({
+        ...current,
+        view: {
+          ...current.view,
+          selectedNodeId: nodeId,
+        },
+      }),
+    );
   }
 
   function handleProjectExplorerCollapseAll() {
@@ -3445,6 +3485,12 @@ export default function App() {
           return;
         }
 
+        if (textFileModalFileId) {
+          event.preventDefault();
+          setTextFileModalFileId(null);
+          return;
+        }
+
         if (versionAnnouncement) {
           event.preventDefault();
           closeVersionAnnouncement();
@@ -3512,6 +3558,7 @@ export default function App() {
     selection,
     technicalPanelOpen,
     technicalPanelTab,
+    textFileModalFileId,
     tool,
     versionAnnouncement,
     versionCompareSession,
@@ -6707,14 +6754,13 @@ export default function App() {
           onCollapseAll={handleProjectExplorerCollapseAll}
           onToggleOpen={handleToggleActivityPanelOpen}
           onResizeStart={handleProjectExplorerResizeStart}
+          onSelectNode={handleProjectExplorerSelectNode}
         />
       </div>
     ) : activeActivityPanel === "code" ? (
       hasOpenSchema ? (
         <section className="project-activity-section code-activity-panel" aria-label={t("appHeader.menus.code")}>
-          <header className="project-activity-section__header">
-            <h2>{t("codePanel.title")}</h2>
-          </header>
+          <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
           <div className="code-activity-panel__body">
             <CodePanel
               embedded
@@ -6732,9 +6778,7 @@ export default function App() {
         </section>
       ) : (
         <section className="project-activity-section" aria-label={t("appHeader.menus.code")}>
-          <header className="project-activity-section__header">
-            <h2>{t("codePanel.title")}</h2>
-          </header>
+          <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
           <p className="project-activity-empty">{t("workspace.noSchemaCodeWarning")}</p>
         </section>
       )
@@ -6751,13 +6795,17 @@ export default function App() {
         onAnalyze={handleAnalyzeSqlReverseWorkflow}
         onLoadFile={handleLoadSqlReverseFile}
         onClear={handleClearSqlReverse}
+        onClose={handleToggleActivityPanelOpen}
+        closeLabel={t("workspaceActivity.closePanel")}
       />
     ) : activeActivityPanel === "errors" ? (
       <section className="project-activity-section" aria-label={t("workspaceActivity.errors.title")}>
-        <header className="project-activity-section__header">
-          <h2>{t("workspaceActivity.errors.title")}</h2>
-          <p>{t("errors.issueCount", { count: visibleActivityIssues.length })}</p>
-        </header>
+        <ProjectActivityPanelHeader
+          title={t("workspaceActivity.errors.title")}
+          subtitle={t("errors.issueCount", { count: visibleActivityIssues.length })}
+          closeLabel={t("workspaceActivity.closePanel")}
+          onClose={handleToggleActivityPanelOpen}
+        />
         <div className="project-activity-actions">
           <button
             type="button"
@@ -6801,13 +6849,17 @@ export default function App() {
         onCommit={handleCreateSourceControlCommit}
         onOpenHistory={() => setVersioningPanelOpen(true)}
         onRefresh={() => setStatus(commitDialogHint || t("workspaceActivity.version.clean"))}
+        onClose={handleToggleActivityPanelOpen}
+        closeLabel={t("workspaceActivity.closePanel")}
       />
     ) : (
       <section className="project-activity-section" aria-label={t("workspaceActivity.export.title")}>
-        <header className="project-activity-section__header">
-          <h2>{t("workspaceActivity.export.title")}</h2>
-          <p>{t("workspaceActivity.export.description")}</p>
-        </header>
+        <ProjectActivityPanelHeader
+          title={t("workspaceActivity.export.title")}
+          subtitle={t("workspaceActivity.export.description")}
+          closeLabel={t("workspaceActivity.closePanel")}
+          onClose={handleToggleActivityPanelOpen}
+        />
         <div className="project-activity-actions">
           <button type="button" className="project-activity-action" onClick={handleExportPng}>
             <StudioIcon name="fileImage" aria-hidden="true" />
@@ -6894,6 +6946,7 @@ export default function App() {
         activeActivityPanel={activeActivityPanel}
         onNewProject={handleNewProject}
         onCloseProject={handleNewProject}
+        onShowWelcome={handleShowWelcomeTab}
         onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
         onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
         onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
@@ -6955,8 +7008,12 @@ export default function App() {
           title={t("workspaceActivity.title")}
           openLabel={t("workspaceActivity.openPanel")}
           closeLabel={t("workspaceActivity.closePanel")}
+          commandMenuLabel={t("workspaceActivity.commandMenu")}
+          keyboardShortcutsLabel={t("workspaceActivity.keyboardShortcuts")}
           onSelect={handleSelectActivityPanel}
           onToggleOpen={handleToggleActivityPanelOpen}
+          onOpenCommandMenu={openCommandMenu}
+          onOpenShortcuts={openKeyboardShortcuts}
           onResizeStart={handleProjectExplorerResizeStart}
         >
           {activityPanelContent}
@@ -6974,14 +7031,28 @@ export default function App() {
           <div className="project-main-content">
             {sqlReversePreviewContent ? (
               sqlReversePreviewContent
-            ) : !hasOpenSchema ? (
+            ) : welcomeTabActive ? (
               <WorkspaceWelcomePage
                 projectName={projectExplorer.project.name}
+                fileCount={projectFileCount}
+                folderCount={projectFolderCount}
                 onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
                 onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
                 onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
                 onOpenProject={handleLoadProjectRequest}
                 onImportSchema={handleImportSchemaRequest}
+              />
+            ) : !hasProjectTabsOpen ? (
+              <WorkspaceEmptyEditor
+                onOpenWelcome={handleShowWelcomeTab}
+                onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+                onOpenProject={handleLoadProjectRequest}
+              />
+            ) : !hasOpenSchema ? (
+              <WorkspaceEmptyEditor
+                onOpenWelcome={handleShowWelcomeTab}
+                onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+                onOpenProject={handleLoadProjectRequest}
               />
             ) : (
               <div

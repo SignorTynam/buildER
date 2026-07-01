@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type { ProjectExplorerNode, ProjectWorkspaceFile } from "../../types/projectExplorer";
 import { StudioIcon } from "../icons/StudioIcon";
 
@@ -6,6 +6,7 @@ interface ProjectExplorerTreeItemProps {
   node: ProjectExplorerNode;
   depth: number;
   activeFileId: string | null;
+  selectedNodeId: string | null;
   expanded: boolean;
   file?: ProjectWorkspaceFile;
   childrenNodes: ProjectExplorerNode[];
@@ -21,6 +22,8 @@ interface ProjectExplorerTreeItemProps {
     newFolder: string;
   };
   onOpenFile: (fileId: string) => void;
+  onSelectNode: (nodeId: string) => void;
+  onContextMenu: (node: ProjectExplorerNode, event: ReactMouseEvent) => void;
   onToggleFolder: (folderId: string) => void;
   onRename: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
@@ -49,11 +52,19 @@ function getIconName(node: ProjectExplorerNode) {
 export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
   const isFolder = props.node.kind === "folder";
   const isActive = props.node.fileId != null && props.node.fileId === props.activeFileId;
+  const isSelected = props.node.id === props.selectedNodeId;
   const rowClassName = [
     "project-explorer-item",
     isFolder ? "folder" : "file",
     isActive ? "active" : "",
+    isSelected ? "selected" : "",
   ].filter(Boolean).join(" ");
+
+  function stopAndRun(event: ReactMouseEvent, action: () => void) {
+    event.preventDefault();
+    event.stopPropagation();
+    action();
+  }
 
   return (
     <li className="project-explorer-node">
@@ -61,11 +72,13 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
         className={rowClassName}
         style={{ "--project-explorer-depth": props.depth } as CSSProperties}
         aria-current={isActive ? "page" : undefined}
+        onContextMenu={(event) => props.onContextMenu(props.node, event)}
       >
         <button
           type="button"
           className="project-explorer-item__main"
           onClick={() => {
+            props.onSelectNode(props.node.id);
             if (isFolder) {
               props.onToggleFolder(props.node.id);
             } else if (props.node.fileId) {
@@ -84,24 +97,24 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
         <span className="project-explorer-item__actions">
           {isFolder ? (
             <>
-              <button type="button" title={props.labels.newSchema} onClick={() => props.onCreateSchema(props.node.id)}>
+              <button type="button" title={props.labels.newSchema} onClick={(event) => stopAndRun(event, () => props.onCreateSchema(props.node.id))}>
                 <StudioIcon name="newProject" />
               </button>
-              <button type="button" title={props.labels.newTextFile} onClick={() => props.onCreateTextFile(props.node.id)}>
+              <button type="button" title={props.labels.newTextFile} onClick={(event) => stopAndRun(event, () => props.onCreateTextFile(props.node.id))}>
                 <StudioIcon name="fileText" />
               </button>
-              <button type="button" title={props.labels.newSqlFile} onClick={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(props.node.id)}>
+              <button type="button" title={props.labels.newSqlFile} onClick={(event) => stopAndRun(event, () => (props.onCreateSqlFile ?? props.onCreateTextFile)(props.node.id))}>
                 <StudioIcon name="database" />
               </button>
-              <button type="button" title={props.labels.newFolder} onClick={() => props.onCreateFolder(props.node.id)}>
+              <button type="button" title={props.labels.newFolder} onClick={(event) => stopAndRun(event, () => props.onCreateFolder(props.node.id))}>
                 <StudioIcon name="openProject" />
               </button>
             </>
           ) : null}
-          <button type="button" title={props.labels.rename} onClick={() => props.onRename(props.node.id)}>
+          <button type="button" title={props.labels.rename} onClick={(event) => stopAndRun(event, () => props.onRename(props.node.id))}>
             <StudioIcon name="rename" />
           </button>
-          <button type="button" title={props.labels.delete} onClick={() => props.onDelete(props.node.id)}>
+          <button type="button" title={props.labels.delete} onClick={(event) => stopAndRun(event, () => props.onDelete(props.node.id))}>
             <StudioIcon name="delete" />
           </button>
         </span>

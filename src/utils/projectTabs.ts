@@ -11,6 +11,10 @@ export function createWelcomeTab(): ProjectOpenTab {
   };
 }
 
+function canOpenFileTab(file: ProjectWorkspaceFile): boolean {
+  return file.kind !== "text";
+}
+
 function createFileTab(file: ProjectWorkspaceFile, preview = false): ProjectOpenTab {
   return {
     id: `file:${file.id}`,
@@ -27,10 +31,6 @@ function getActiveFileIdFromTab(tabs: ProjectOpenTab[], activeTabId: string | nu
   return activeTab?.kind === "file" ? activeTab.fileId ?? null : null;
 }
 
-function ensureAtLeastWelcome(tabs: ProjectOpenTab[]): ProjectOpenTab[] {
-  return tabs.length > 0 ? tabs : [createWelcomeTab()];
-}
-
 export function normalizeProjectTabs(state: ProjectExplorerState): ProjectExplorerState {
   const rawTabs = Array.isArray(state.view.openTabs) ? state.view.openTabs : [];
   const normalizedTabs = rawTabs
@@ -40,6 +40,9 @@ export function normalizeProjectTabs(state: ProjectExplorerState): ProjectExplor
       }
       if (tab?.kind === "file" && tab.fileId && state.files[tab.fileId]) {
         const file = state.files[tab.fileId];
+        if (!canOpenFileTab(file)) {
+          return null;
+        }
         return {
           ...createFileTab(file, tab.preview === true),
           dirty: tab.dirty === true,
@@ -51,18 +54,22 @@ export function normalizeProjectTabs(state: ProjectExplorerState): ProjectExplor
 
   const activeFileId = state.project.activeFileId ?? state.view.activeFileId;
   const tabsWithActive =
-    activeFileId && state.files[activeFileId] && !normalizedTabs.some((tab) => tab.fileId === activeFileId)
+    activeFileId && state.files[activeFileId] && canOpenFileTab(state.files[activeFileId]) && !normalizedTabs.some((tab) => tab.fileId === activeFileId)
       ? [...normalizedTabs, createFileTab(state.files[activeFileId])]
       : normalizedTabs;
-  const tabs = ensureAtLeastWelcome(tabsWithActive);
+  const tabs = tabsWithActive;
   const requestedActiveTabId =
     typeof state.view.activeTabId === "string" && tabs.some((tab) => tab.id === state.view.activeTabId)
       ? state.view.activeTabId
       : activeFileId
         ? tabs.find((tab) => tab.fileId === activeFileId)?.id ?? null
         : null;
-  const activeTabId = requestedActiveTabId ?? tabs[0]?.id ?? WELCOME_TAB_ID;
+  const activeTabId = requestedActiveTabId ?? tabs[0]?.id ?? null;
   const nextActiveFileId = getActiveFileIdFromTab(tabs, activeTabId);
+  const selectedNodeId =
+    state.view.selectedNodeId && state.project.fileTree.some((node) => node.id === state.view.selectedNodeId)
+      ? state.view.selectedNodeId
+      : state.project.rootId;
 
   return {
     ...state,
@@ -75,8 +82,33 @@ export function normalizeProjectTabs(state: ProjectExplorerState): ProjectExplor
       activeFileId: nextActiveFileId,
       openTabs: tabs,
       activeTabId,
+      selectedNodeId,
     },
   };
+}
+
+export function openWelcomeTab(state: ProjectExplorerState): ProjectExplorerState {
+  const normalized = normalizeProjectTabs(state);
+  const tabs = normalized.view.openTabs.some((tab) => tab.kind === "welcome")
+    ? normalized.view.openTabs
+    : [createWelcomeTab(), ...normalized.view.openTabs];
+  return {
+    ...normalized,
+    project: {
+      ...normalized.project,
+      activeFileId: null,
+    },
+    view: {
+      ...normalized.view,
+      activeFileId: null,
+      openTabs: tabs,
+      activeTabId: WELCOME_TAB_ID,
+    },
+  };
+}
+
+export function hasOpenTabs(state: ProjectExplorerState): boolean {
+  return normalizeProjectTabs(state).view.openTabs.length > 0;
 }
 
 export function ensureFileTabOpen(
@@ -89,15 +121,21 @@ export function ensureFileTabOpen(
   if (!file) {
     return normalized;
   }
+  if (!canOpenFileTab(file)) {
+    return normalized;
+  }
 
   const existingTab = normalized.view.openTabs.find((tab) => tab.fileId === fileId);
+  const sourceTabs = options.activate === false
+    ? normalized.view.openTabs
+    : normalized.view.openTabs.filter((tab) => tab.kind !== "welcome");
   const tabs = existingTab
-    ? normalized.view.openTabs.map((tab) =>
+    ? sourceTabs.map((tab) =>
         tab.fileId === fileId
           ? { ...tab, title: file.name, preview: options.preview ?? tab.preview }
           : tab,
       )
-    : [...normalized.view.openTabs.filter((tab) => tab.kind !== "welcome" || normalized.view.openTabs.length === 1), createFileTab(file, options.preview === true)];
+    : [...sourceTabs, createFileTab(file, options.preview === true)];
   const activeTabId = options.activate === false ? normalized.view.activeTabId : existingTab?.id ?? `file:${fileId}`;
   const activeFileId = options.activate === false ? normalized.project.activeFileId : fileId;
 
@@ -145,7 +183,7 @@ export function closeProjectTab(state: ProjectExplorerState, tabId: string): Pro
     return normalized;
   }
 
-  const remainingTabs = ensureAtLeastWelcome(normalized.view.openTabs.filter((tab) => tab.id !== tabId));
+  const remainingTabs = normalized.view.openTabs.filter((tab) => tab.id !== tabId);
   const nextActiveTab =
     normalized.view.activeTabId === tabId
       ? remainingTabs[Math.min(tabIndex, remainingTabs.length - 1)] ?? remainingTabs[0]
@@ -161,7 +199,7 @@ export function closeProjectTab(state: ProjectExplorerState, tabId: string): Pro
     view: {
       ...normalized.view,
       openTabs: remainingTabs,
-      activeTabId: nextActiveTab?.id ?? WELCOME_TAB_ID,
+      activeTabId: nextActiveTab?.id ?? null,
       activeFileId,
     },
   };

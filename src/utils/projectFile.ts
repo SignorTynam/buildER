@@ -764,6 +764,10 @@ function createProjectFileDocument(
     openTabs: Array.isArray(resolvedProjectState.view.openTabs) ? resolvedProjectState.view.openTabs : [],
     activeTabId:
       typeof resolvedProjectState.view.activeTabId === "string" ? resolvedProjectState.view.activeTabId : null,
+    selectedNodeId:
+      typeof resolvedProjectState.view.selectedNodeId === "string"
+        ? resolvedProjectState.view.selectedNodeId
+        : resolvedProjectState.project.rootId,
   };
 
   return {
@@ -809,6 +813,8 @@ function projectStateFromDocument(document: ProjectFileDocument): ProjectExplore
         : [document.project.rootId],
       openTabs: Array.isArray(document.view.openTabs) ? document.view.openTabs : [],
       activeTabId: typeof document.view.activeTabId === "string" ? document.view.activeTabId : null,
+      selectedNodeId:
+        typeof document.view.selectedNodeId === "string" ? document.view.selectedNodeId : document.project.rootId,
     },
   });
 }
@@ -969,6 +975,10 @@ function sanitizeProjectExplorerView(value: unknown, project: ProjectExplorerPro
       typeof candidate.activeTabId === "string" && candidate.activeTabId.trim().length > 0
         ? candidate.activeTabId
         : null,
+    selectedNodeId:
+      typeof candidate.selectedNodeId === "string" && candidate.selectedNodeId.trim().length > 0
+        ? candidate.selectedNodeId
+        : project.rootId,
   };
 }
 

@@ -2,12 +2,20 @@
 .designer-topbar.app-header-view-er,
 .designer-topbar.app-header-view-translation,
 .designer-topbar.app-header-view-logical {
-  grid-template-columns: auto auto minmax(220px, 360px) minmax(120px, 1fr) auto;
-  grid-template-areas: "brand file project spacer actions";
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "left brand actions";
   overflow: visible;
   position: relative;
   z-index: 1000;
   isolation: isolate;
+}
+
+.app-command-topbar__left {
+  grid-area: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .app-command-topbar .designer-brand,
@@ -15,12 +23,18 @@
 .designer-topbar.app-header-view-translation .designer-brand,
 .designer-topbar.app-header-view-logical .designer-brand {
   grid-area: brand;
+  justify-self: center;
+  min-width: max-content;
+}
+
+.app-command-topbar__brand {
+  pointer-events: none;
 }
 
 .app-file-menu {
-  grid-area: file;
   position: relative;
   z-index: 1001;
+  flex: 0 0 auto;
 }
 
 .app-file-menu__trigger {
@@ -97,9 +111,10 @@
 .designer-topbar.app-header-view-er .designer-project-name,
 .designer-topbar.app-header-view-translation .designer-project-name,
 .designer-topbar.app-header-view-logical .designer-project-name {
-  grid-area: project;
-  justify-self: center;
-  width: 100%;
+  justify-self: auto;
+  width: min(320px, 36vw);
+  min-width: 150px;
+  max-width: 100%;
 }
 
 .app-command-bar {
@@ -204,8 +219,15 @@
   .designer-topbar.app-header-view-er,
   .designer-topbar.app-header-view-translation,
   .designer-topbar.app-header-view-logical {
-    grid-template-columns: minmax(78px, max-content) auto minmax(0, 1fr) auto;
-    grid-template-areas: "brand file project actions";
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand actions"
+      "left left";
+    row-gap: 4px;
+  }
+
+  .app-command-topbar__left {
+    width: 100%;
   }
 
   .app-command-bar {

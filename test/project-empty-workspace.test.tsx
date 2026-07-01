@@ -47,14 +47,16 @@ test("New Project usa progetto vuoto senza erschema automatico", () => {
   assert.doesNotMatch(newProjectSource, /createSchemaWorkspaceFile/);
 });
 
-test("workspace senza schema aperto mostra welcome e non renderizza Toolbar o DiagramCanvas", () => {
+test("workspace senza schema aperto e senza tab mostra EmptyEditor e non renderizza Toolbar o DiagramCanvas", () => {
   const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const welcomeStart = appSource.indexOf("!hasOpenSchema ? (");
   const schemaBranchStart = appSource.indexOf("<div", welcomeStart);
   const welcomeBranch = appSource.slice(welcomeStart, schemaBranchStart);
 
   assert.match(appSource, /const hasOpenSchema = Boolean\(activeSchemaFile\)/);
-  assert.match(welcomeBranch, /<WorkspaceWelcomePage/);
+  assert.match(appSource, /welcomeTabActive/);
+  assert.match(appSource, /<WorkspaceWelcomePage/);
+  assert.match(welcomeBranch, /<WorkspaceEmptyEditor/);
   assert.doesNotMatch(welcomeBranch, /<Toolbar/);
   assert.doesNotMatch(welcomeBranch, /<DiagramCanvas/);
 });

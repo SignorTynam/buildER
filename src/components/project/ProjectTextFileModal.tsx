@@ -1,4 +1,5 @@
 import { useI18n } from "../../i18n/useI18n";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { StudioIcon } from "../icons/StudioIcon";
 
 interface ProjectTextFileModalProps {
@@ -20,6 +21,7 @@ export function ProjectTextFileModal({
   onClose,
 }: ProjectTextFileModalProps) {
   const { t } = useI18n();
+  useEscapeKey(open, onClose);
 
   if (!open) {
     return null;

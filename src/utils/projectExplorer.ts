@@ -259,6 +259,7 @@ export function createEmptyProjectExplorerState(name = "buildER Project"): Proje
       expandedFolderIds: [rootId],
       openTabs: [createWelcomeTab()],
       activeTabId: "welcome",
+      selectedNodeId: rootId,
     },
   };
 }
@@ -306,6 +307,7 @@ export function createProjectFromSchema(name: string, schema: SchemaFileDocument
       expandedFolderIds: [rootId],
       openTabs: [],
       activeTabId: null,
+      selectedNodeId: schemaNodeId,
     },
   }, schemaFile.id);
 }
@@ -417,6 +419,7 @@ export function addProjectFile(
         ...state.view,
         activeFileId: file.kind === "schema" ? file.id : state.view.activeFileId,
         expandedFolderIds: Array.from(new Set([...state.view.expandedFolderIds, parentId])),
+        selectedNodeId: nodeId,
       },
     },
   };
@@ -527,6 +530,7 @@ export function deleteProjectNode(state: ProjectExplorerState, nodeId: string): 
   let view = {
     ...state.view,
     expandedFolderIds: state.view.expandedFolderIds.filter((id) => !deletedNodeIds.has(id)),
+    selectedNodeId: deletedNodeIds.has(state.view.selectedNodeId ?? "") ? node.parentId ?? state.project.rootId : state.view.selectedNodeId,
   };
 
   const nextActiveFileId = deletedFileIds.has(state.project.activeFileId ?? "")
@@ -557,7 +561,7 @@ export function setProjectActiveFile(state: ProjectExplorerState, fileId: string
   const normalized = normalizeProjectTabs(state);
   const nextActiveTabId =
     fileId === null
-      ? WELCOME_TAB_ID
+      ? normalized.view.openTabs.some((tab) => tab.id === WELCOME_TAB_ID) ? WELCOME_TAB_ID : null
       : normalized.view.openTabs.find((tab) => tab.fileId === fileId)?.id ?? normalized.view.activeTabId;
 
   return {

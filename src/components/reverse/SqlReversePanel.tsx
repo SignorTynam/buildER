@@ -16,6 +16,8 @@ interface SqlReversePanelProps {
   onAnalyze: () => void;
   onLoadFile: (file: File) => void;
   onClear: () => void;
+  onClose?: () => void;
+  closeLabel?: string;
 }
 
 function formatIssue(issue: SqlReverseIssue | LogicalIssue): string {
@@ -34,6 +36,8 @@ export function SqlReversePanel({
   onAnalyze,
   onLoadFile,
   onClear,
+  onClose,
+  closeLabel,
 }: SqlReversePanelProps) {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -43,10 +47,17 @@ export function SqlReversePanel({
     <section className="sql-reverse-panel" aria-label={t("sqlReversePanel.title")}>
       <header className="sql-reverse-panel__header">
         <h2>{t("sqlReversePanel.title")}</h2>
-        <button type="button" className="project-activity-action compact" onClick={() => fileInputRef.current?.click()}>
-          <StudioIcon name="upload" aria-hidden="true" />
-          <span>{t("sqlReversePanel.importFile")}</span>
-        </button>
+        <div className="project-activity-section__header-actions">
+          <button type="button" className="project-activity-action compact" onClick={() => fileInputRef.current?.click()}>
+            <StudioIcon name="upload" aria-hidden="true" />
+            <span>{t("sqlReversePanel.importFile")}</span>
+          </button>
+          {onClose ? (
+            <button type="button" className="project-activity-header-close" onClick={onClose} aria-label={closeLabel ?? t("workspaceActivity.closePanel")}>
+              <StudioIcon name="close" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
         <input
           ref={fileInputRef}
           className="hidden-input"

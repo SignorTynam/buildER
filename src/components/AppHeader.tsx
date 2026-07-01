@@ -23,6 +23,7 @@ interface AppHeaderProps {
   activeActivityPanel: ProjectActivityId;
   onNewProject: () => void;
   onCloseProject: () => void;
+  onShowWelcome: () => void;
   onNewSchema: () => void;
   onNewNote: () => void;
   onNewSql: () => void;
@@ -115,28 +116,25 @@ export function AppHeader(props: AppHeaderProps) {
 
   return (
     <header className={`designer-topbar app-command-topbar app-header-view-${props.diagramView}`}>
-      <div className="designer-brand" aria-label={t("appHeader.brandAria")}>
-        <strong>{props.appTitle}</strong>
-        <span>v{props.appVersion}</span>
-      </div>
-
-      <div className="app-file-menu" ref={fileMenuRef}>
-        <button
-          type="button"
-          className="app-file-menu__trigger"
-          aria-haspopup="menu"
-          aria-expanded={fileMenuOpen}
-          onClick={() => setFileMenuOpen((open) => !open)}
-          data-testid="app-header-file-menu"
-        >
-          {t("fileMenu.file")}
-        </button>
-        {fileMenuOpen ? (
-          <div className="app-file-menu__panel" role="menu" aria-label={t("fileMenu.file")}>
+      <div className="app-command-topbar__left">
+        <div className="app-file-menu" ref={fileMenuRef}>
+          <button
+            type="button"
+            className="app-file-menu__trigger"
+            aria-haspopup="menu"
+            aria-expanded={fileMenuOpen}
+            onClick={() => setFileMenuOpen((open) => !open)}
+            data-testid="app-header-file-menu"
+          >
+            {t("fileMenu.file")}
+          </button>
+          {fileMenuOpen ? (
+            <div className="app-file-menu__panel" role="menu" aria-label={t("fileMenu.file")}>
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onNewProject)}>{t("fileMenu.newProject")}</button>
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onCloseProject)}>{t("fileMenu.closeProject")}</button>
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onLoadProject)}>{t("fileMenu.openProject")}</button>
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onSaveProject)}>{t("fileMenu.saveProject")}</button>
+            <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onShowWelcome)}>{t("fileMenu.showWelcome")}</button>
             <div className="app-file-menu__separator" role="separator" />
             <span className="app-file-menu__section">{t("fileMenu.newFile")}</span>
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onNewSchema)}>{t("fileMenu.newSchema")}</button>
@@ -162,23 +160,29 @@ export function AppHeader(props: AppHeaderProps) {
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(() => props.onActivityPanelSelect("version"))}>{t("fileMenu.sourceControl")}</button>
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onCreateCommit)}>{t("fileMenu.createCommit")}</button>
             <button type="button" role="menuitem" onClick={() => runFileMenuAction(props.onOpenVersioningPanel)}>{t("fileMenu.history")}</button>
-          </div>
-        ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <input
+          data-project-name-input="true"
+          className="designer-project-name"
+          value={draftName}
+          onChange={(event) => setDraftName(event.target.value)}
+          onBlur={commitProjectName}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
+          aria-label={t("appHeader.projectNameAria")}
+        />
       </div>
 
-      <input
-        data-project-name-input="true"
-        className="designer-project-name"
-        value={draftName}
-        onChange={(event) => setDraftName(event.target.value)}
-        onBlur={commitProjectName}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.currentTarget.blur();
-          }
-        }}
-        aria-label={t("appHeader.projectNameAria")}
-      />
+      <div className="designer-brand app-command-topbar__brand" aria-label={t("appHeader.brandAria")}>
+        <strong>{props.appTitle}</strong>
+        <span>v{props.appVersion}</span>
+      </div>
 
       <div className="designer-topbar-actions">
         <button

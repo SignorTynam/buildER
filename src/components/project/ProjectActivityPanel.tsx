@@ -18,8 +18,12 @@ interface ProjectActivityPanelProps {
   title: string;
   closeLabel: string;
   openLabel: string;
+  commandMenuLabel: string;
+  keyboardShortcutsLabel: string;
   onSelect: (id: ProjectActivityId) => void;
   onToggleOpen: () => void;
+  onOpenCommandMenu: () => void;
+  onOpenShortcuts: () => void;
   onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
   children: ReactNode;
 }
@@ -48,16 +52,26 @@ export function ProjectActivityPanel(props: ProjectActivityPanelProps) {
             ) : null}
           </button>
         ))}
-        <button
-          type="button"
-          className="project-activity-button project-activity-collapse"
-          onClick={props.onToggleOpen}
-          aria-label={props.open ? props.closeLabel : props.openLabel}
-          aria-expanded={props.open}
-          title={props.open ? props.closeLabel : props.openLabel}
-        >
-          <StudioIcon name={props.open ? "viewOff" : "panelLeft"} aria-hidden="true" />
-        </button>
+        <div className="project-activity-rail__bottom">
+          <button
+            type="button"
+            className="project-activity-button"
+            onClick={props.onOpenCommandMenu}
+            aria-label={props.commandMenuLabel}
+            title={props.commandMenuLabel}
+          >
+            <StudioIcon name="menu" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="project-activity-button"
+            onClick={props.onOpenShortcuts}
+            aria-label={props.keyboardShortcutsLabel}
+            title={props.keyboardShortcutsLabel}
+          >
+            <StudioIcon name="keyboard" aria-hidden="true" />
+          </button>
+        </div>
       </nav>
 
       {props.open ? <div className="project-activity-content">{props.children}</div> : null}

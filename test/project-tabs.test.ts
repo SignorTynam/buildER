@@ -11,6 +11,7 @@ import {
 import {
   closeProjectTab,
   ensureFileTabOpen,
+  openWelcomeTab,
   normalizeProjectTabs,
   setActiveProjectTab,
 } from "../src/utils/projectTabs.ts";
@@ -23,7 +24,7 @@ test("empty project normalizes to active Welcome tab", () => {
   assert.equal(state.view.openTabs[0].kind, "welcome");
 });
 
-test("opening schema, sql and text files creates file tabs", () => {
+test("opening schema and sql creates tabs, opening text keeps modal-only behavior", () => {
   let state = createEmptyProjectExplorerState("Tabs");
   const schema = createSchemaWorkspaceFile("Main.erschema");
   const sql = createTextWorkspaceFile("query.sql", "sql");
@@ -46,11 +47,11 @@ test("opening schema, sql and text files creates file tabs", () => {
 
   assert.ok(state.view.openTabs.some((tab) => tab.fileId === schema.id));
   assert.ok(state.view.openTabs.some((tab) => tab.fileId === sql.id));
-  assert.ok(state.view.openTabs.some((tab) => tab.fileId === note.id));
-  assert.equal(state.project.activeFileId, note.id);
+  assert.equal(state.view.openTabs.some((tab) => tab.fileId === note.id), false);
+  assert.equal(state.project.activeFileId, sql.id);
 });
 
-test("closing active tab selects a neighbor and closing all returns Welcome", () => {
+test("closing active tab selects a neighbor and closing all leaves empty editor state", () => {
   let state = createEmptyProjectExplorerState("Tabs");
   const first = createSchemaWorkspaceFile("First.erschema");
   const second = createSchemaWorkspaceFile("Second.erschema");
@@ -68,12 +69,13 @@ test("closing active tab selects a neighbor and closing all returns Welcome", ()
 
   state = closeProjectTab(state, `file:${first.id}`);
   assert.equal(state.project.activeFileId, null);
-  assert.equal(state.view.activeTabId, "welcome");
+  assert.equal(state.view.activeTabId, null);
+  assert.equal(state.view.openTabs.length, 0);
 });
 
 test("deleteProjectNode removes deleted file tab", () => {
   let state = createEmptyProjectExplorerState("Tabs");
-  const file = createTextWorkspaceFile("notes.txt", "text");
+  const file = createSchemaWorkspaceFile("Main.erschema");
   const added = addProjectFile(state, state.project.rootId, file);
   assert.equal(added.ok, true);
   if (!added.ok) return;
@@ -85,6 +87,16 @@ test("deleteProjectNode removes deleted file tab", () => {
   assert.equal(deleted.ok, true);
   if (!deleted.ok) return;
   assert.equal(deleted.state.view.openTabs.some((tab) => tab.fileId === file.id), false);
+});
+
+test("openWelcomeTab explicitly restores Welcome after every tab is closed", () => {
+  let state = createEmptyProjectExplorerState("Tabs");
+  state = closeProjectTab(state, "welcome");
+  assert.equal(state.view.openTabs.length, 0);
+
+  state = openWelcomeTab(state);
+  assert.equal(state.view.activeTabId, "welcome");
+  assert.equal(state.view.openTabs[0].kind, "welcome");
 });
 
 test("setActiveProjectTab updates active file for file tabs", () => {

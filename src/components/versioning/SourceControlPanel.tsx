@@ -15,6 +15,8 @@ interface SourceControlPanelProps {
   onCommit: () => void;
   onOpenHistory: () => void;
   onRefresh: () => void;
+  onClose?: () => void;
+  closeLabel?: string;
 }
 
 function getFileExtensionLabel(file: ProjectWorkspaceFile): string {
@@ -40,6 +42,8 @@ export function SourceControlPanel({
   onCommit,
   onOpenHistory,
   onRefresh,
+  onClose,
+  closeLabel,
 }: SourceControlPanelProps) {
   const { t } = useI18n();
   const canCommit = changeState.summary.canCommit && commitMessage.trim().length > 0;
@@ -57,9 +61,16 @@ export function SourceControlPanel({
     <section className="source-control-panel" aria-label={t("sourceControl.title")}>
       <header className="source-control-header">
         <h2>{t("sourceControl.title")}</h2>
-        <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.refresh")}>
-          <StudioIcon name="refresh" />
-        </button>
+        <div className="project-activity-section__header-actions">
+          <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.refresh")}>
+            <StudioIcon name="refresh" />
+          </button>
+          {onClose ? (
+            <button type="button" className="project-activity-header-close" onClick={onClose} aria-label={closeLabel ?? t("workspaceActivity.closePanel")}>
+              <StudioIcon name="close" />
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <div className="source-control-section">

@@ -57,4 +57,5 @@ export interface ProjectExplorerViewState {
   expandedFolderIds: string[];
   openTabs: ProjectOpenTab[];
   activeTabId: string | null;
+  selectedNodeId: string | null;
 }

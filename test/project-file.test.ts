@@ -738,7 +738,7 @@ test("serializeProjectFile versione 6 include root, fileTree, files e activeFile
   assert.ok(parsed.state.explorerView?.openTabs.some((tab) => tab.fileId === document.project.activeFileId));
 });
 
-test("parseProjectFile versione 6 con activeFileId null mantiene Welcome Page senza aprire il primo schema", () => {
+test("parseProjectFile versione 6 con activeFileId null mantiene workspace vuoto senza aprire il primo schema", () => {
   const serializable = createSerializableProject("Workspace vuoto");
   const emptyProject = createEmptyProjectExplorerState("Workspace vuoto");
   const schema = createSchemaWorkspaceFile("Schema nascosto.erschema");
@@ -771,7 +771,7 @@ test("parseProjectFile versione 6 con activeFileId null mantiene Welcome Page se
   assert.equal(JSON.parse(serialized).project.activeFileId, null);
   assert.equal(parsed.state.project?.activeFileId, null);
   assert.equal(parsed.state.explorerView?.activeFileId, null);
-  assert.equal(parsed.state.explorerView?.activeTabId, "welcome");
+  assert.equal(parsed.state.explorerView?.activeTabId, null);
   assert.equal(Object.values(parsed.state.files ?? {}).filter((file) => file.kind === "schema").length, 1);
 });
 
@@ -784,11 +784,7 @@ test("serializeProjectFile preserva contenuto note txt nel progetto", () => {
   if (!withNote.ok) {
     return;
   }
-  const projectState = {
-    ...withNote.state,
-    project: { ...withNote.state.project, activeFileId: note.id },
-    view: { ...withNote.state.view, activeFileId: note.id, openTabs: [{ id: `file:${note.id}`, kind: "file", fileId: note.id, title: note.name }], activeTabId: `file:${note.id}` },
-  };
+  const projectState = withNote.state;
   const parsed = parseProjectFile(serializeProjectFile({
     ...serializable,
     project: projectState.project,
@@ -797,8 +793,9 @@ test("serializeProjectFile preserva contenuto note txt nel progetto", () => {
   }));
   const parsedNote = parsed.state.files?.[note.id];
 
-  assert.equal(parsed.state.project?.activeFileId, note.id);
-  assert.equal(parsed.state.explorerView?.activeTabId, `file:${note.id}`);
+  assert.equal(parsed.state.project?.activeFileId, null);
+  assert.equal(parsed.state.explorerView?.activeTabId, "welcome");
+  assert.equal(parsed.state.explorerView?.openTabs.some((tab) => tab.fileId === note.id), false);
   assert.equal(parsedNote?.kind, "text");
   assert.equal(parsedNote?.kind === "text" ? parsedNote.content : "", "Project note");
 });

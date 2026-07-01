@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CSSProperties, PointerEvent } from "react";
 import type {
   ProjectExplorerNode,
@@ -8,6 +8,7 @@ import type {
 } from "../../types/projectExplorer";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { ProjectExplorerContextMenu } from "./ProjectExplorerContextMenu";
 import { ProjectExplorerTreeItem } from "./ProjectExplorerTreeItem";
 
 interface ProjectExplorerProps {
@@ -26,10 +27,12 @@ interface ProjectExplorerProps {
   onCollapseAll: () => void;
   onToggleOpen: () => void;
   onResizeStart: (event: PointerEvent<HTMLDivElement>) => void;
+  onSelectNode: (nodeId: string) => void;
 }
 
 export function ProjectExplorer(props: ProjectExplorerProps) {
   const { t } = useI18n();
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
   const nodesById = useMemo(
     () => new Map(props.project.fileTree.map((node) => [node.id, node])),
     [props.project.fileTree],
@@ -39,6 +42,16 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     .map((childId) => nodesById.get(childId))
     .filter((node): node is ProjectExplorerNode => Boolean(node));
   const expandedFolderIds = useMemo(() => new Set(props.view.expandedFolderIds), [props.view.expandedFolderIds]);
+  const selectedNode = props.view.selectedNodeId ? nodesById.get(props.view.selectedNodeId) : undefined;
+  const selectedTargetFolderId =
+    selectedNode?.kind === "folder"
+      ? selectedNode.id
+      : selectedNode?.parentId ?? props.project.rootId;
+  const contextNode = contextMenu?.nodeId ? nodesById.get(contextMenu.nodeId) ?? null : null;
+  const contextTargetFolderId =
+    contextNode?.kind === "folder"
+      ? contextNode.id
+      : contextNode?.parentId ?? props.project.rootId;
   const labels = {
     rename: t("projectExplorer.actions.rename"),
     delete: t("projectExplorer.actions.delete"),
@@ -76,34 +89,43 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
           <span>{props.project.name}</span>
         </div>
         <div className="project-explorer-header__actions" aria-label={t("projectExplorer.actions.aria")}>
-          <button type="button" title={labels.newSchema} onClick={() => props.onCreateSchema(props.project.rootId)}>
+          <button type="button" title={labels.newSchema} onClick={() => props.onCreateSchema(selectedTargetFolderId)}>
             <StudioIcon name="newProject" />
           </button>
-          <button type="button" title={labels.newTextFile} onClick={() => props.onCreateTextFile(props.project.rootId)}>
+          <button type="button" title={labels.newTextFile} onClick={() => props.onCreateTextFile(selectedTargetFolderId)}>
             <StudioIcon name="fileText" />
           </button>
-          <button type="button" title={labels.newSqlFile} onClick={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(props.project.rootId)}>
+          <button type="button" title={labels.newSqlFile} onClick={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(selectedTargetFolderId)}>
             <StudioIcon name="database" />
           </button>
-          <button type="button" title={labels.newFolder} onClick={() => props.onCreateFolder(props.project.rootId)}>
+          <button type="button" title={labels.newFolder} onClick={() => props.onCreateFolder(selectedTargetFolderId)}>
             <StudioIcon name="openProject" />
           </button>
           <button type="button" title={t("projectExplorer.actions.collapseAll")} onClick={props.onCollapseAll}>
             <StudioIcon name="moveToTop" />
           </button>
           <button type="button" title={t("projectExplorer.actions.close")} onClick={props.onToggleOpen}>
-            <StudioIcon name="panelLeft" />
+            <StudioIcon name="close" />
           </button>
         </div>
       </div>
 
-      <div className="project-explorer-tree" role="tree" aria-label={t("projectExplorer.treeAria")}>
+      <div
+        className="project-explorer-tree"
+        role="tree"
+        aria-label={t("projectExplorer.treeAria")}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null });
+        }}
+      >
         {root ? (
           <ul className="project-explorer-list">
             <ProjectExplorerTreeItem
               node={root}
               depth={0}
               activeFileId={props.view.activeFileId}
+              selectedNodeId={props.view.selectedNodeId}
               expanded={expandedFolderIds.has(root.id)}
               childrenNodes={rootChildren}
               nodesById={nodesById}
@@ -111,6 +133,13 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
               expandedFolderIds={expandedFolderIds}
               labels={labels}
               onOpenFile={props.onOpenFile}
+              onSelectNode={props.onSelectNode}
+              onContextMenu={(node, event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                props.onSelectNode(node.id);
+                setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+              }}
               onToggleFolder={props.onToggleFolder}
               onRename={props.onRename}
               onDelete={props.onDelete}
@@ -140,6 +169,34 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
           onPointerDown={props.onResizeStart}
         />
       ) : null}
+      <ProjectExplorerContextMenu
+        open={Boolean(contextMenu)}
+        x={contextMenu?.x ?? 0}
+        y={contextMenu?.y ?? 0}
+        node={contextNode}
+        rootId={props.project.rootId}
+        canCreateChildren={!contextNode || contextNode.kind === "folder"}
+        onOpen={() => {
+          if (contextNode?.fileId) {
+            props.onOpenFile(contextNode.fileId);
+          }
+        }}
+        onNewSchema={() => props.onCreateSchema(contextTargetFolderId)}
+        onNewTextFile={() => props.onCreateTextFile(contextTargetFolderId)}
+        onNewSqlFile={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(contextTargetFolderId)}
+        onNewFolder={() => props.onCreateFolder(contextTargetFolderId)}
+        onRename={() => {
+          if (contextNode) {
+            props.onRename(contextNode.id);
+          }
+        }}
+        onDelete={() => {
+          if (contextNode) {
+            props.onDelete(contextNode.id);
+          }
+        }}
+        onClose={() => setContextMenu(null)}
+      />
     </aside>
   );
 }

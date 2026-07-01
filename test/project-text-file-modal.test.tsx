@@ -10,6 +10,7 @@ import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 test("ProjectTextFileModal renderizza editor note per file txt", () => {
+  const source = readFileSync(new URL("../src/components/project/ProjectTextFileModal.tsx", import.meta.url), "utf8");
   const markup = renderToStaticMarkup(
     <I18nProvider>
       <ProjectTextFileModal
@@ -27,6 +28,7 @@ test("ProjectTextFileModal renderizza editor note per file txt", () => {
   assert.match(markup, /textarea/);
   assert.match(markup, /Project note/);
   assert.match(markup, /project-text-file-modal/);
+  assert.match(source, /useEscapeKey\(open, onClose\)/);
 });
 
 test("App apre txt in modal e non usa ProjectTextFilePanel nel pannello activity", () => {
