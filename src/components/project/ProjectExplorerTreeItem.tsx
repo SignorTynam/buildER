@@ -1,6 +1,6 @@
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { ProjectExplorerNode, ProjectWorkspaceFile } from "../../types/projectExplorer";
-import { StudioIcon } from "../icons/StudioIcon";
+import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
 
 interface ProjectExplorerTreeItemProps {
   node: ProjectExplorerNode;
@@ -33,7 +33,7 @@ interface ProjectExplorerTreeItemProps {
   onCreateFolder: (parentId: string) => void;
 }
 
-function getIconName(node: ProjectExplorerNode) {
+function getProjectNodeIcon(node: ProjectExplorerNode): StudioIconName {
   if (node.kind === "folder") {
     return "openProject";
   }
@@ -49,10 +49,40 @@ function getIconName(node: ProjectExplorerNode) {
   return "type";
 }
 
+function getProjectFileExtensionLabel(node: ProjectExplorerNode, file?: ProjectWorkspaceFile): string {
+  if (node.kind === "folder") {
+    return "folder";
+  }
+
+  const name = file?.name ?? node.name;
+  if (node.kind === "schema") {
+    return ".erschema";
+  }
+  if (node.kind === "sql") {
+    return ".sql";
+  }
+  if (node.kind === "text") {
+    return ".txt";
+  }
+
+  const extension = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
+  return extension || "file";
+}
+
+function getProjectFileKindLabel(node: ProjectExplorerNode): string {
+  if (node.kind === "schema") return "Schema";
+  if (node.kind === "sql") return "SQL";
+  if (node.kind === "text") return "Text";
+  if (node.kind === "folder") return "Folder";
+  return "File";
+}
+
 export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
   const isFolder = props.node.kind === "folder";
   const isActive = props.node.fileId != null && props.node.fileId === props.activeFileId;
   const isSelected = props.node.id === props.selectedNodeId;
+  const extensionLabel = getProjectFileExtensionLabel(props.node, props.file);
+  const childCount = props.childrenNodes.length;
   const rowClassName = [
     "project-explorer-item",
     isFolder ? "folder" : "file",
@@ -66,45 +96,64 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
     action();
   }
 
+  function activateNode() {
+    props.onSelectNode(props.node.id);
+    if (isFolder) {
+      props.onToggleFolder(props.node.id);
+    } else if (props.node.fileId) {
+      props.onOpenFile(props.node.fileId);
+    }
+  }
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    activateNode();
+  }
+
   return (
     <li className="project-explorer-node">
       <div
         className={rowClassName}
         style={{ "--project-explorer-depth": props.depth } as CSSProperties}
+        role="treeitem"
+        tabIndex={0}
+        aria-expanded={isFolder ? props.expanded : undefined}
+        aria-selected={isSelected}
         aria-current={isActive ? "page" : undefined}
+        aria-label={`${props.node.name}, ${getProjectFileKindLabel(props.node)}`}
         onContextMenu={(event) => props.onContextMenu(props.node, event)}
+        onKeyDown={handleKeyDown}
+        onClick={activateNode}
       >
-        <button
-          type="button"
-          className="project-explorer-item__main"
-          onClick={() => {
-            props.onSelectNode(props.node.id);
-            if (isFolder) {
-              props.onToggleFolder(props.node.id);
-            } else if (props.node.fileId) {
-              props.onOpenFile(props.node.fileId);
-            }
-          }}
-        >
-          <span className="project-explorer-item__chevron" aria-hidden="true">
-            {isFolder ? <StudioIcon name={props.expanded ? "arrowDown" : "arrowRight"} /> : null}
-          </span>
+        <div className="project-explorer-item__main">
+          {isFolder ? (
+            <button
+              type="button"
+              className="project-explorer-item__chevron"
+              aria-label={props.expanded ? "Collapse folder" : "Expand folder"}
+              onClick={(event) => stopAndRun(event, () => props.onToggleFolder(props.node.id))}
+            >
+              <StudioIcon name={props.expanded ? "arrowDown" : "arrowRight"} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="project-explorer-item__chevron" aria-hidden="true" />
+          )}
           <span className="project-explorer-item__icon" aria-hidden="true">
-            <StudioIcon name={getIconName(props.node)} />
+            <StudioIcon name={getProjectNodeIcon(props.node)} />
           </span>
-          <span className="project-explorer-item__name">{props.node.name}</span>
-        </button>
+          <span className="project-explorer-item__name" title={props.node.name}>{props.node.name}</span>
+          <span className="project-explorer-item__extension">{extensionLabel}</span>
+          {isFolder && childCount === 0 ? <span className="project-explorer-item__empty">empty</span> : null}
+        </div>
         <span className="project-explorer-item__actions">
           {isFolder ? (
             <>
               <button type="button" title={props.labels.newSchema} onClick={(event) => stopAndRun(event, () => props.onCreateSchema(props.node.id))}>
                 <StudioIcon name="newProject" />
-              </button>
-              <button type="button" title={props.labels.newTextFile} onClick={(event) => stopAndRun(event, () => props.onCreateTextFile(props.node.id))}>
-                <StudioIcon name="fileText" />
-              </button>
-              <button type="button" title={props.labels.newSqlFile} onClick={(event) => stopAndRun(event, () => (props.onCreateSqlFile ?? props.onCreateTextFile)(props.node.id))}>
-                <StudioIcon name="database" />
               </button>
               <button type="button" title={props.labels.newFolder} onClick={(event) => stopAndRun(event, () => props.onCreateFolder(props.node.id))}>
                 <StudioIcon name="openProject" />

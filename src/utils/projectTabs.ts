@@ -227,3 +227,14 @@ export function markProjectTabDirty(
     },
   };
 }
+
+export function applyProjectTabDirtyFileIds(
+  tabs: ProjectOpenTab[],
+  dirtyFileIds: ReadonlySet<string>,
+): ProjectOpenTab[] {
+  return tabs.map((tab) =>
+    tab.kind === "file" && tab.fileId
+      ? { ...tab, dirty: tab.dirty === true || dirtyFileIds.has(tab.fileId) }
+      : tab,
+  );
+}

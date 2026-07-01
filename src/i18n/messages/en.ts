@@ -328,6 +328,7 @@ export const en: DeepPartialMessages = {
   },
   projectExplorer: {
     title: "Explorer",
+    meta: "{{files}} files, {{folders}} folders",
     treeAria: "Project file tree",
     resizeAria: "Resize Explorer",
     actions: {
@@ -339,6 +340,7 @@ export const en: DeepPartialMessages = {
       newSqlFile: "New SQL file",
       newFolder: "New folder",
       collapseAll: "Collapse all",
+      more: "More actions",
       rename: "Rename",
       delete: "Delete",
     },

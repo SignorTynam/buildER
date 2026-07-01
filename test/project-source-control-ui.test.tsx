@@ -75,6 +75,17 @@ test("App non monta piu la modal Versioni progetto dal Source Control", () => {
   assert.doesNotMatch(source, /studio-modal versioning-panel/);
 });
 
+test("App marca dirty i tab usando i file modificati e non il dirty globale", () => {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const visibleTabsStart = source.indexOf("const visibleProjectTabs");
+  const visibleTabsEnd = source.indexOf("const visibleActivityIssues", visibleTabsStart);
+  const visibleTabsSource = source.slice(visibleTabsStart, visibleTabsEnd);
+
+  assert.match(source, /applyProjectTabDirtyFileIds/);
+  assert.match(source, /versioningChangeState\.files\.map\(\(file\) => file\.fileId\)/);
+  assert.doesNotMatch(visibleTabsSource, /hasVersioningUncommittedChanges/);
+});
+
 test("Source Control panel renderizza graph scrollabile e dettagli commit selezionato", async () => {
   let versioning = createEmptyProjectVersioningState();
   const snapshot = createProjectWideSnapshotForTest();

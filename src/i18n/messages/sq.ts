@@ -328,6 +328,7 @@ export const sq: DeepPartialMessages = {
   },
   projectExplorer: {
     title: "Explorer",
+    meta: "{{files}} file, {{folders}} dosje",
     treeAria: "Pema e file-ve te projektit",
     resizeAria: "Ridimensiono Explorer",
     actions: {
@@ -339,6 +340,7 @@ export const sq: DeepPartialMessages = {
       newSqlFile: "File SQL i ri",
       newFolder: "Dosje e re",
       collapseAll: "Mbyll te gjitha",
+      more: "Me shume veprime",
       rename: "Riemerto",
       delete: "Fshi",
     },

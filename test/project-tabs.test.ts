@@ -10,6 +10,7 @@ import {
 } from "../src/utils/projectExplorer.ts";
 import {
   closeProjectTab,
+  applyProjectTabDirtyFileIds,
   ensureFileTabOpen,
   openWelcomeTab,
   normalizeProjectTabs,
@@ -110,4 +111,18 @@ test("setActiveProjectTab updates active file for file tabs", () => {
   const next = setActiveProjectTab(state, `file:${file.id}`);
   assert.equal(next.project.activeFileId, file.id);
   assert.equal(next.view.activeTabId, `file:${file.id}`);
+});
+
+test("applyProjectTabDirtyFileIds marks only changed file tabs dirty", () => {
+  const first = createSchemaWorkspaceFile("First.erschema");
+  const second = createSchemaWorkspaceFile("Second.erschema");
+  const tabs = [
+    { id: `file:${first.id}`, kind: "file" as const, fileId: first.id, title: first.name, dirty: false },
+    { id: `file:${second.id}`, kind: "file" as const, fileId: second.id, title: second.name, dirty: false },
+  ];
+
+  const next = applyProjectTabDirtyFileIds(tabs, new Set([first.id]));
+
+  assert.equal(next[0].dirty, true);
+  assert.equal(next[1].dirty, false);
 });

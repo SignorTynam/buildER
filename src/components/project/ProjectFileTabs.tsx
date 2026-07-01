@@ -55,8 +55,22 @@ export function ProjectFileTabs({
             <div
               key={tab.id}
               className={["project-file-tab", active ? "active" : "", tab.dirty ? "dirty" : ""].filter(Boolean).join(" ")}
+              onMouseDown={(event) => {
+                if (event.button === 1) {
+                  event.preventDefault();
+                  onCloseTab(tab.id);
+                }
+              }}
             >
-              <button type="button" role="tab" aria-selected={active} onClick={() => onSelectTab(tab.id)} title={title}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-current={active ? "page" : undefined}
+                aria-label={tab.dirty ? `${title}, ${t("projectTabs.unsaved")}` : title}
+                onClick={() => onSelectTab(tab.id)}
+                title={title}
+              >
                 <StudioIcon name={tab.kind === "welcome" ? "info" : getFileIcon(file)} aria-hidden="true" />
                 <span className="project-file-tab__title">{title}</span>
                 {tab.dirty ? <span className="project-file-tab__dirty" aria-label={t("projectTabs.unsaved")} /> : null}
@@ -65,7 +79,10 @@ export function ProjectFileTabs({
                 type="button"
                 className="project-file-tab__close"
                 aria-label={t("projectTabs.closeAria", { name: title })}
-                onClick={() => onCloseTab(tab.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCloseTab(tab.id);
+                }}
               >
                 <StudioIcon name="close" aria-hidden="true" />
               </button>

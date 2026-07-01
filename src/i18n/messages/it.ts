@@ -326,6 +326,7 @@ export const it = {
   },
   projectExplorer: {
     title: "Explorer",
+    meta: "{{files}} file, {{folders}} cartelle",
     treeAria: "Albero file progetto",
     resizeAria: "Ridimensiona Explorer",
     actions: {
@@ -337,6 +338,7 @@ export const it = {
       newSqlFile: "Nuovo file SQL",
       newFolder: "Nuova cartella",
       collapseAll: "Comprimi tutto",
+      more: "Altre azioni",
       rename: "Rinomina",
       delete: "Elimina",
     },

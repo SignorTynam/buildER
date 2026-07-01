@@ -33,6 +33,7 @@ interface ProjectExplorerProps {
 export function ProjectExplorer(props: ProjectExplorerProps) {
   const { t } = useI18n();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const nodesById = useMemo(
     () => new Map(props.project.fileTree.map((node) => [node.id, node])),
     [props.project.fileTree],
@@ -52,6 +53,8 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     contextNode?.kind === "folder"
       ? contextNode.id
       : contextNode?.parentId ?? props.project.rootId;
+  const fileCount = Object.keys(props.files).length;
+  const folderCount = props.project.fileTree.filter((node) => node.kind === "folder").length;
   const labels = {
     rename: t("projectExplorer.actions.rename"),
     delete: t("projectExplorer.actions.delete"),
@@ -84,29 +87,73 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
       aria-label={t("projectExplorer.title")}
     >
       <div className="project-explorer-header">
-        <div>
+        <div className="project-explorer-title-block">
           <h2>{t("projectExplorer.title")}</h2>
-          <span>{props.project.name}</span>
+          <span className="project-explorer-subtitle">{props.project.name}</span>
+          <span className="project-explorer-meta">
+            {t("projectExplorer.meta", { files: fileCount, folders: folderCount })}
+          </span>
         </div>
-        <div className="project-explorer-header__actions" aria-label={t("projectExplorer.actions.aria")}>
-          <button type="button" title={labels.newSchema} onClick={() => props.onCreateSchema(selectedTargetFolderId)}>
+        <div className="project-explorer-toolbar" aria-label={t("projectExplorer.actions.aria")}>
+          <div className="project-explorer-toolbar-group">
+          <button
+            type="button"
+            className="project-explorer-icon-button"
+            aria-label={labels.newSchema}
+            title={labels.newSchema}
+            onClick={() => props.onCreateSchema(selectedTargetFolderId)}
+          >
             <StudioIcon name="newProject" />
           </button>
-          <button type="button" title={labels.newTextFile} onClick={() => props.onCreateTextFile(selectedTargetFolderId)}>
-            <StudioIcon name="fileText" />
-          </button>
-          <button type="button" title={labels.newSqlFile} onClick={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(selectedTargetFolderId)}>
-            <StudioIcon name="database" />
-          </button>
-          <button type="button" title={labels.newFolder} onClick={() => props.onCreateFolder(selectedTargetFolderId)}>
+          <button
+            type="button"
+            className="project-explorer-icon-button"
+            aria-label={labels.newFolder}
+            title={labels.newFolder}
+            onClick={() => props.onCreateFolder(selectedTargetFolderId)}
+          >
             <StudioIcon name="openProject" />
           </button>
-          <button type="button" title={t("projectExplorer.actions.collapseAll")} onClick={props.onCollapseAll}>
+          </div>
+          <div className="project-explorer-toolbar-group">
+          <button
+            type="button"
+            className="project-explorer-icon-button"
+            aria-label={t("projectExplorer.actions.collapseAll")}
+            title={t("projectExplorer.actions.collapseAll")}
+            onClick={props.onCollapseAll}
+          >
             <StudioIcon name="moveToTop" />
           </button>
-          <button type="button" title={t("projectExplorer.actions.close")} onClick={props.onToggleOpen}>
-            <StudioIcon name="close" />
+          <button
+            type="button"
+            className="project-explorer-icon-button"
+            aria-label={t("projectExplorer.actions.more")}
+            title={t("projectExplorer.actions.more")}
+            aria-haspopup="menu"
+            aria-expanded={moreMenuOpen}
+            onClick={() => setMoreMenuOpen((current) => !current)}
+          >
+            <StudioIcon name="menu" />
           </button>
+          </div>
+          {moreMenuOpen ? (
+            <div className="project-explorer-more-menu" role="menu">
+              <button type="button" role="menuitem" onClick={() => { props.onCreateTextFile(selectedTargetFolderId); setMoreMenuOpen(false); }}>
+                <StudioIcon name="fileText" aria-hidden="true" />
+                <span>{labels.newTextFile}</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => { (props.onCreateSqlFile ?? props.onCreateTextFile)(selectedTargetFolderId); setMoreMenuOpen(false); }}>
+                <StudioIcon name="database" aria-hidden="true" />
+                <span>{labels.newSqlFile}</span>
+              </button>
+              <div className="project-explorer-more-menu__separator" role="separator" />
+              <button type="button" role="menuitem" onClick={() => { props.onToggleOpen(); setMoreMenuOpen(false); }}>
+                <StudioIcon name="close" aria-hidden="true" />
+                <span>{t("projectExplorer.actions.close")}</span>
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -119,7 +166,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
           setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null });
         }}
       >
-        {root ? (
+        {root && rootChildren.length > 0 ? (
           <ul className="project-explorer-list">
             <ProjectExplorerTreeItem
               node={root}

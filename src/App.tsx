@@ -212,6 +212,7 @@ import {
   type ProjectExplorerState,
 } from "./utils/projectExplorer";
 import {
+  applyProjectTabDirtyFileIds,
   closeProjectTab,
   ensureFileTabOpen,
   openWelcomeTab,
@@ -6720,11 +6721,8 @@ export default function App() {
     { id: "version", label: t("appHeader.menus.version"), icon: "history", badge: hasVersioningUncommittedChanges ? 1 : undefined },
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
-  const visibleProjectTabs = projectExplorer.view.openTabs.map((tab) =>
-    tab.kind === "file" && tab.fileId
-      ? { ...tab, dirty: tab.dirty === true || hasVersioningUncommittedChanges }
-      : tab,
-  );
+  const dirtyProjectFileIds = new Set(versioningChangeState.files.map((file) => file.fileId));
+  const visibleProjectTabs = applyProjectTabDirtyFileIds(projectExplorer.view.openTabs, dirtyProjectFileIds);
   const visibleActivityIssues = issues.filter(issueTargetExists);
   async function handleCreateSourceControlCommit() {
     const created = await handleCreateProjectCommit(sourceControlCommitMessage);
