@@ -17,6 +17,13 @@ import { createEmptyDiagram } from "../src/utils/diagram.ts";
 import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts";
 import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
 import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
+import {
+  addProjectFile,
+  createEmptySchemaDocument,
+  createProjectFromSchema,
+  createSchemaWorkspaceFile,
+  createTextWorkspaceFile,
+} from "../src/utils/projectExplorer.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -77,6 +84,111 @@ function createSnapshot(name: string, variant: "base" | "changed" = "base"): Pro
   });
 }
 
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function createScopedSnapshot(label: "base" | "changed"): ProjectCommitSnapshot {
+  const state = createProjectFromSchema("Scoped", createEmptySchemaDocument("schema1.erschema"));
+  const firstSchemaId = state.project.activeFileId;
+  assert.ok(firstSchemaId);
+  const secondSchema = createSchemaWorkspaceFile("schema2.erschema", createEmptySchemaDocument("schema2.erschema"));
+  const notes = createTextWorkspaceFile("notes.txt", "text", label === "base" ? "prima\nseconda" : "prima\nterza");
+  const sql = createTextWorkspaceFile("query.sql", "sql", label === "base" ? "select 1;" : "select 2;");
+  const withSecond = addProjectFile(state, state.project.rootId, secondSchema);
+  assert.equal(withSecond.ok, true);
+  if (!withSecond.ok) throw new Error("schema2 not added");
+  const withNotes = addProjectFile(withSecond.state, withSecond.state.project.rootId, notes);
+  assert.equal(withNotes.ok, true);
+  if (!withNotes.ok) throw new Error("notes not added");
+  const withSql = addProjectFile(withNotes.state, withNotes.state.project.rootId, sql);
+  assert.equal(withSql.ok, true);
+  if (!withSql.ok) throw new Error("sql not added");
+
+  const files = cloneJson(withSql.state.files);
+  const schema1 = files[firstSchemaId];
+  const schema2 = files[secondSchema.id];
+  assert.equal(schema1?.kind, "schema");
+  assert.equal(schema2?.kind, "schema");
+  if (schema1?.kind !== "schema" || schema2?.kind !== "schema") throw new Error("schema missing");
+  schema1.schema.diagram.nodes = [
+    { id: "schema1-node", type: "entity", label: "Cliente", x: 10, y: 20, width: 140, height: 64 },
+  ];
+  schema2.schema.diagram.nodes = [
+    { id: "schema2-node", type: "entity", label: label === "base" ? "Ordine" : "Ordine riga", x: 30, y: 40, width: 140, height: 64 },
+  ];
+  const activeDiagram = schema1.schema.diagram;
+
+  return createProjectCommitSnapshot({
+    project: { ...withSql.state.project, activeFileId: firstSchemaId },
+    files,
+    explorerView: { ...withSql.state.view, activeFileId: firstSchemaId },
+    activeFileId: firstSchemaId,
+    activeWorkspace: {
+      diagramView: "er",
+      viewport: VIEWPORT,
+      translationViewport: VIEWPORT,
+      logicalViewport: VIEWPORT,
+      selection: { nodeIds: [], edgeIds: [] },
+      translationSelection: { nodeIds: [], edgeIds: [] },
+      logicalSelection: { nodeId: null, columnId: null, edgeId: null },
+      codeDraft: "",
+      codeDirty: false,
+      showDiagnostics: true,
+    },
+    diagram: activeDiagram,
+    translationWorkspace: createEmptyErTranslationWorkspace(activeDiagram),
+    logicalWorkspace: createEmptyLogicalWorkspace(activeDiagram),
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "er",
+    tool: "select",
+    mode: "edit",
+    viewport: VIEWPORT,
+    selection: { nodeIds: [], edgeIds: [] },
+    translationViewport: VIEWPORT,
+    translationSelection: { nodeIds: [], edgeIds: [] },
+    logicalViewport: VIEWPORT,
+    logicalSelection: { nodeId: null, columnId: null, edgeId: null },
+    codeDraft: "",
+    codeDirty: false,
+    technicalPanelOpen: false,
+    technicalPanelTab: "review",
+    codePanelOpen: false,
+    codePanelWidth: 320,
+    notesPanelOpen: false,
+    notesPanelWidth: 320,
+    toolbarCollapsed: false,
+    focusMode: false,
+    toolbarWidth: 208,
+    showDiagnostics: true,
+  });
+}
+
+function createScopedSnapshotPair(): { base: ProjectCommitSnapshot; changed: ProjectCommitSnapshot } {
+  const base = createScopedSnapshot("base");
+  const changed = cloneJson(base);
+  const schema2 = Object.values(changed.files ?? {}).find((file) => file.name === "schema2.erschema");
+  const notes = Object.values(changed.files ?? {}).find((file) => file.name === "notes.txt");
+  const sql = Object.values(changed.files ?? {}).find((file) => file.name === "query.sql");
+  assert.ok(schema2?.kind === "schema");
+  assert.ok(notes?.kind === "text");
+  assert.ok(sql?.kind === "sql");
+  if (schema2.kind === "schema") {
+    schema2.schema.diagram.nodes[0] = {
+      ...schema2.schema.diagram.nodes[0],
+      label: "Ordine riga",
+    };
+  }
+  if (notes.kind === "text") {
+    notes.content = "prima\nterza";
+  }
+  if (sql.kind === "sql") {
+    sql.content = "select 2;";
+  }
+  return { base, changed };
+}
+
 function createVersioning() {
   const snapshot = createSnapshot("Visual base");
   return {
@@ -104,7 +216,7 @@ function createVersioning() {
   };
 }
 
-test("VersionCompareMode sostituisce la modal con due workspace full-screen", () => {
+test("VersionCompareMode apre il picker di scope prima del canvas", () => {
   setCurrentLocale("it");
   const versioning = createVersioning();
   const markup = renderWithI18n(
@@ -120,8 +232,10 @@ test("VersionCompareMode sostituisce la modal con due workspace full-screen", ()
   );
 
   assert.match(markup, /data-testid="version-compare-mode"/);
-  assert.match(markup, /data-testid="version-compare-instance-left"/);
-  assert.match(markup, /data-testid="version-compare-instance-right"/);
+  assert.match(markup, /data-testid="version-compare-scope-picker"/);
+  assert.match(markup, /Cosa vuoi confrontare\?/);
+  assert.doesNotMatch(markup, /data-testid="version-compare-instance-left"/);
+  assert.doesNotMatch(markup, /data-testid="version-compare-instance-right"/);
   assert.match(markup, /Esci dal confronto/);
   assert.match(markup, /v6\.2/);
   assert.doesNotMatch(markup, /data-testid="visual-compare-toolbar"/);
@@ -139,6 +253,144 @@ test("VersionCompareMode sostituisce la modal con due workspace full-screen", ()
   assert.doesNotMatch(markup, /studio-modal-backdrop/);
   assert.doesNotMatch(markup, /Nuovo progetto/);
   assert.doesNotMatch(markup, /Apri progetto/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("VersionCompareMode mostra overview progetto e file cliccabili con initialScope project", () => {
+  setCurrentLocale("it");
+  const { base, changed } = createScopedSnapshotPair();
+  const versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: "commit-base",
+    commits: [
+      {
+        id: "commit-base",
+        parentId: null,
+        message: "Base",
+        createdAt: "2026-06-28T10:00:00.000Z",
+        snapshot: base,
+        checksum: "base",
+        stats: { entityCount: 2, relationshipCount: 0, attributeCount: 0, edgeCount: 0 },
+      },
+    ],
+  };
+
+  const markup = renderWithI18n(
+    <VersionCompareMode
+      appTitle="buildER"
+      appVersion="6.2"
+      versioning={versioning}
+      currentSnapshot={changed}
+      initialLeft={{ kind: "commit", commitId: "commit-base" }}
+      initialRight={{ kind: "working-copy" }}
+      initialScope={{ kind: "project" }}
+      onExitCompareMode={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /data-testid="version-compare-project-overview"/);
+  assert.match(markup, /schema2\.erschema/);
+  assert.match(markup, /notes\.txt/);
+  assert.match(markup, /query\.sql/);
+  assert.match(markup, /Cambia elemento confrontato/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("VersionCompareMode renderizza diff testuale per file txt e sql", () => {
+  setCurrentLocale("it");
+  const { base, changed } = createScopedSnapshotPair();
+  const notesId = Object.values(changed.files ?? {}).find((file) => file.name === "notes.txt")?.id;
+  const sqlId = Object.values(changed.files ?? {}).find((file) => file.name === "query.sql")?.id;
+  assert.ok(notesId);
+  assert.ok(sqlId);
+  const versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: "commit-base",
+    commits: [
+      {
+        id: "commit-base",
+        parentId: null,
+        message: "Base",
+        createdAt: "2026-06-28T10:00:00.000Z",
+        snapshot: base,
+        checksum: "base",
+        stats: { entityCount: 2, relationshipCount: 0, attributeCount: 0, edgeCount: 0 },
+      },
+    ],
+  };
+
+  const notesMarkup = renderWithI18n(
+    <VersionCompareMode
+      appTitle="buildER"
+      appVersion="6.2"
+      versioning={versioning}
+      currentSnapshot={changed}
+      initialLeft={{ kind: "commit", commitId: "commit-base" }}
+      initialRight={{ kind: "working-copy" }}
+      initialScope={{ kind: "file", fileId: notesId, preferredView: "text" }}
+      onExitCompareMode={() => undefined}
+    />,
+  );
+  const sqlMarkup = renderWithI18n(
+    <VersionCompareMode
+      appTitle="buildER"
+      appVersion="6.2"
+      versioning={versioning}
+      currentSnapshot={changed}
+      initialLeft={{ kind: "commit", commitId: "commit-base" }}
+      initialRight={{ kind: "working-copy" }}
+      initialScope={{ kind: "file", fileId: sqlId, preferredView: "sql" }}
+      onExitCompareMode={() => undefined}
+    />,
+  );
+
+  assert.match(notesMarkup, /data-testid="version-compare-text-diff"/);
+  assert.match(notesMarkup, /seconda/);
+  assert.match(notesMarkup, /terza/);
+  assert.match(sqlMarkup, /query\.sql/);
+  assert.match(sqlMarkup, /select 1;/);
+  assert.match(sqlMarkup, /select 2;/);
+  setCurrentLocale(DEFAULT_LOCALE);
+});
+
+test("VersionCompareMode renderizza schema scoped dal file selezionato", () => {
+  setCurrentLocale("it");
+  const { base, changed } = createScopedSnapshotPair();
+  const schema2Id = Object.values(changed.files ?? {}).find((file) => file.name === "schema2.erschema")?.id;
+  assert.ok(schema2Id);
+  const versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: "commit-base",
+    commits: [
+      {
+        id: "commit-base",
+        parentId: null,
+        message: "Base",
+        createdAt: "2026-06-28T10:00:00.000Z",
+        snapshot: base,
+        checksum: "base",
+        stats: { entityCount: 2, relationshipCount: 0, attributeCount: 0, edgeCount: 0 },
+      },
+    ],
+  };
+
+  const markup = renderWithI18n(
+    <VersionCompareMode
+      appTitle="buildER"
+      appVersion="6.2"
+      versioning={versioning}
+      currentSnapshot={changed}
+      initialLeft={{ kind: "commit", commitId: "commit-base" }}
+      initialRight={{ kind: "working-copy" }}
+      initialScope={{ kind: "file", fileId: schema2Id, preferredView: "er" }}
+      onExitCompareMode={() => undefined}
+    />,
+  );
+
+  assert.match(markup, /data-testid="version-compare-instance-left"/);
+  assert.match(markup, /data-testid="version-compare-instance-right"/);
+  assert.match(markup, /ORDINE_RIGA/);
+  assert.doesNotMatch(markup, /Cliente finale/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 

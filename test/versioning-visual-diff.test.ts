@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   buildDiagramVersionHighlights,
   buildLogicalVersionHighlights,
+  buildVersionCompareScopeOptions,
   buildVersionCompareVisualModel,
+  createSnapshotForSchemaFile,
   getSnapshotViewPayload,
   hasSnapshotLogicalWork,
   hasSnapshotTranslationWork,
@@ -15,6 +17,13 @@ import { createEmptyDiagram } from "../src/utils/diagram.ts";
 import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts";
 import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
 import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
+import {
+  addProjectFile,
+  createEmptySchemaDocument,
+  createProjectFromSchema,
+  createSchemaWorkspaceFile,
+  createTextWorkspaceFile,
+} from "../src/utils/projectExplorer.ts";
 import type { LogicalWorkspaceDocument } from "../src/types/logical.ts";
 
 const VIEWPORT = { x: 0, y: 0, zoom: 1 };
@@ -203,6 +212,120 @@ function createSnapshot(label: "left" | "right"): ProjectCommitSnapshot {
   });
 }
 
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function createProjectSnapshot(label: "left" | "right"): ProjectCommitSnapshot {
+  const state = createProjectFromSchema("Scoped project", createEmptySchemaDocument("schema1.erschema"));
+  const firstSchemaId = state.project.activeFileId;
+  assert.ok(firstSchemaId);
+  const secondSchema = createSchemaWorkspaceFile("schema2.erschema", createEmptySchemaDocument("schema2.erschema"));
+  const notes = createTextWorkspaceFile("notes.txt", "text", label === "left" ? "alpha\nbeta" : "alpha\ngamma");
+  const sql = createTextWorkspaceFile("query.sql", "sql", label === "left" ? "select 1;" : "select 2;");
+  const withSecond = addProjectFile(state, state.project.rootId, secondSchema);
+  assert.equal(withSecond.ok, true);
+  if (!withSecond.ok) throw new Error("schema2 not added");
+  const withNotes = addProjectFile(withSecond.state, withSecond.state.project.rootId, notes);
+  assert.equal(withNotes.ok, true);
+  if (!withNotes.ok) throw new Error("notes not added");
+  const withSql = addProjectFile(withNotes.state, withNotes.state.project.rootId, sql);
+  assert.equal(withSql.ok, true);
+  if (!withSql.ok) throw new Error("sql not added");
+
+  const files = cloneJson(withSql.state.files);
+  const schema1 = files[firstSchemaId];
+  const schema2 = files[secondSchema.id];
+  assert.equal(schema1?.kind, "schema");
+  assert.equal(schema2?.kind, "schema");
+  if (schema1?.kind !== "schema" || schema2?.kind !== "schema") throw new Error("schemas missing");
+  schema1.schema.diagram.nodes = [
+    { id: "schema1-node", type: "entity", label: "Schema one", x: 10, y: 20, width: 140, height: 64 },
+  ];
+  schema2.schema.diagram.nodes = [
+    {
+      id: "schema2-node",
+      type: "entity",
+      label: label === "left" ? "Invoice" : "Invoice row",
+      x: label === "left" ? 20 : 120,
+      y: 30,
+      width: 140,
+      height: 64,
+    },
+  ];
+  const activeDiagram = schema1.schema.diagram;
+
+  return createProjectCommitSnapshot({
+    project: { ...withSql.state.project, activeFileId: firstSchemaId },
+    files,
+    explorerView: { ...withSql.state.view, activeFileId: firstSchemaId },
+    activeFileId: firstSchemaId,
+    activeWorkspace: {
+      diagramView: "er",
+      viewport: VIEWPORT,
+      translationViewport: VIEWPORT,
+      logicalViewport: VIEWPORT,
+      selection: { nodeIds: [], edgeIds: [] },
+      translationSelection: { nodeIds: [], edgeIds: [] },
+      logicalSelection: { nodeId: null, columnId: null, edgeId: null },
+      codeDraft: "",
+      codeDirty: false,
+      showDiagnostics: true,
+    },
+    diagram: activeDiagram,
+    translationWorkspace: createEmptyErTranslationWorkspace(activeDiagram),
+    logicalWorkspace: createEmptyLogicalWorkspace(activeDiagram),
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "er",
+    tool: "select",
+    mode: "edit",
+    viewport: VIEWPORT,
+    selection: { nodeIds: [], edgeIds: [] },
+    translationViewport: VIEWPORT,
+    translationSelection: { nodeIds: [], edgeIds: [] },
+    logicalViewport: VIEWPORT,
+    logicalSelection: { nodeId: null, columnId: null, edgeId: null },
+    codeDraft: "",
+    codeDirty: false,
+    technicalPanelOpen: false,
+    technicalPanelTab: "review",
+    codePanelOpen: false,
+    codePanelWidth: 320,
+    notesPanelOpen: false,
+    notesPanelWidth: 320,
+    toolbarCollapsed: false,
+    focusMode: false,
+    toolbarWidth: 208,
+    showDiagnostics: true,
+  });
+}
+
+function createProjectSnapshotPair(): { left: ProjectCommitSnapshot; right: ProjectCommitSnapshot } {
+  const left = createProjectSnapshot("left");
+  const right = cloneJson(left);
+  const schema2 = Object.values(right.files ?? {}).find((file) => file.name === "schema2.erschema");
+  const notes = Object.values(right.files ?? {}).find((file) => file.name === "notes.txt");
+  const sql = Object.values(right.files ?? {}).find((file) => file.name === "query.sql");
+  assert.ok(schema2?.kind === "schema");
+  assert.ok(notes?.kind === "text");
+  assert.ok(sql?.kind === "sql");
+  if (schema2.kind === "schema") {
+    schema2.schema.diagram.nodes[0] = {
+      ...schema2.schema.diagram.nodes[0],
+      label: "Invoice row",
+      x: 120,
+    };
+  }
+  if (notes.kind === "text") {
+    notes.content = "alpha\ngamma";
+  }
+  if (sql.kind === "sql") {
+    sql.content = "select 2;";
+  }
+  return { left, right };
+}
+
 test("visual diff produce highlight ER per aggiunti, rimossi, modificati e layout", () => {
   const left = createSnapshot("left");
   const right = createSnapshot("right");
@@ -341,4 +464,94 @@ test("visual compare distingue viste traduzione e logico realmente salvate da fa
   const logicalPayload = getSnapshotViewPayload(withLogical, "logical");
   assert.equal(translationPayload.mode, "translation");
   assert.equal(logicalPayload.mode, "logical");
+});
+
+test("scope options elencano piu file modificati con stato e tipo", () => {
+  const { left, right } = createProjectSnapshotPair();
+
+  const options = buildVersionCompareScopeOptions(left, right);
+  const fileOptions = options.filter((option) => option.kind === "file");
+
+  assert.ok(options.some((option) => option.kind === "project"));
+  assert.equal(fileOptions.length, 3);
+  assert.ok(fileOptions.some((option) => option.kind === "file" && option.file.name === "schema2.erschema" && option.file.status === "modified"));
+  assert.ok(fileOptions.some((option) => option.kind === "file" && option.file.name === "notes.txt" && option.file.kind === "text"));
+  assert.ok(fileOptions.some((option) => option.kind === "file" && option.file.name === "query.sql" && option.file.kind === "sql"));
+});
+
+test("compare schema scoped usa il diagramma del file scelto e non snapshot.diagram globale", () => {
+  const { left, right } = createProjectSnapshotPair();
+  const schema2 = Object.values(right.files ?? {}).find((file) => file.name === "schema2.erschema");
+  assert.ok(schema2?.kind === "schema");
+  const versioning = {
+    ...createEmptyProjectVersioningState(),
+    headCommitId: "commit-left",
+    commits: [
+      {
+        id: "commit-left",
+        parentId: null,
+        message: "Left",
+        createdAt: "2026-06-28T10:00:00.000Z",
+        snapshot: left,
+        checksum: "left",
+        stats: { entityCount: 1, relationshipCount: 0, attributeCount: 0, edgeCount: 0 },
+      },
+    ],
+  };
+
+  const result = buildVersionCompareVisualModel(
+    versioning,
+    right,
+    { kind: "commit", commitId: "commit-left" },
+    { kind: "working-copy" },
+    { kind: "file", fileId: schema2.id, preferredView: "er" },
+  );
+
+  assert.equal(result.status, "ok");
+  if (result.status !== "ok") return;
+  assert.equal(result.model.right.snapshot.diagram.nodes[0]?.label, "INVOICE_ROW");
+  assert.notEqual(result.model.right.snapshot.diagram.nodes[0]?.id, right.diagram.nodes[0]?.id);
+  assert.ok(result.model.highlights.right.diagram.modifiedNodeIds.includes(result.model.right.snapshot.diagram.nodes[0]?.id ?? ""));
+});
+
+test("scope options gestiscono file aggiunti cancellati e rinominati", () => {
+  const left = createProjectSnapshot("left");
+  const right = cloneJson(left);
+  const notesId = Object.values(right.files ?? {}).find((file) => file.name === "notes.txt")?.id;
+  const sqlId = Object.values(left.files ?? {}).find((file) => file.name === "query.sql")?.id;
+  const schema2 = Object.values(right.files ?? {}).find((file) => file.name === "schema2.erschema");
+  assert.ok(notesId);
+  assert.ok(sqlId);
+  assert.ok(schema2);
+  delete (left.files ?? {})[notesId];
+  delete (right.files ?? {})[sqlId];
+  const schemaNode = right.project?.fileTree.find((node) => node.fileId === schema2.id);
+  assert.ok(schemaNode);
+  if (schemaNode) schemaNode.name = "schema2-renamed.erschema";
+  if (right.files?.[schema2.id]) right.files[schema2.id].name = "schema2-renamed.erschema";
+
+  const fileOptions = buildVersionCompareScopeOptions(left, right, { includeUnchanged: true }).filter((option) => option.kind === "file");
+
+  assert.ok(fileOptions.some((option) => option.kind === "file" && option.file.fileId === notesId && option.file.status === "added"));
+  assert.ok(fileOptions.some((option) => option.kind === "file" && option.file.fileId === sqlId && option.file.status === "deleted"));
+  assert.ok(fileOptions.some((option) => option.kind === "file" && option.file.fileId === schema2.id && option.file.status === "renamed"));
+});
+
+test("legacy snapshot senza project/files espone fallback diagramma", () => {
+  const options = buildVersionCompareScopeOptions(createSnapshot("left"), createSnapshot("right"));
+
+  assert.deepEqual(options, [{ kind: "legacy-diagram", changed: true }]);
+});
+
+test("createSnapshotForSchemaFile copia viste e workspace dal file schema", () => {
+  const { right: snapshot } = createProjectSnapshotPair();
+  const schema2 = Object.values(snapshot.files ?? {}).find((file) => file.name === "schema2.erschema");
+  assert.ok(schema2?.kind === "schema");
+  if (schema2.kind !== "schema") return;
+
+  const scoped = createSnapshotForSchemaFile(snapshot, schema2);
+
+  assert.equal(scoped.diagram.nodes[0]?.label, "INVOICE_ROW");
+  assert.equal(scoped.project, undefined);
+  assert.equal(scoped.files, undefined);
 });

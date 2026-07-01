@@ -405,33 +405,33 @@ export function SourceControlPanel({
             </dl>
             <div className="source-control-commit-actions">
               <button type="button" className="source-control-action-button" onClick={() => onCompareWithCurrent(selectedCommit.id)}>
-                Compare current
+                {t("sourceControl.compareCurrent")}
               </button>
               <button type="button" className="source-control-action-button" onClick={() => onCompareWithHead(selectedCommit.id)} disabled={!headCommitId || selectedCommit.id === headCommitId}>
-                Compare HEAD
+                {t("sourceControl.compareHead")}
               </button>
               <button type="button" className="source-control-action-button" onClick={() => onCompareWithParent(selectedCommit.id)} disabled={!selectedCommit.parentId}>
-                Compare previous
+                {t("sourceControl.comparePrevious")}
               </button>
               <button type="button" className="source-control-action-button" onClick={() => setPendingAction({ kind: "restore", commitId: selectedCommit.id })}>
-                Restore
+                {t("sourceControl.restore")}
               </button>
               <button type="button" className="source-control-action-button is-danger" onClick={() => setPendingAction({ kind: "delete", commitId: selectedCommit.id })}>
-                Delete commit
+                {t("sourceControl.deleteCommit")}
               </button>
             </div>
             {pendingAction?.commitId === selectedCommit.id ? (
               <div className="source-control-inline-confirm" role="alert">
                 <span>
                   {pendingAction.kind === "restore"
-                    ? "Restore the working tree to this commit?"
-                    : "Delete this commit from history?"}
+                    ? t("sourceControl.confirmRestore")
+                    : t("sourceControl.confirmDelete")}
                 </span>
                 <button type="button" className="source-control-action-button" onClick={() => setPendingAction(null)}>
-                  Cancel
+                  {t("sourceControl.cancel")}
                 </button>
                 <button type="button" className="source-control-action-button is-danger" onClick={handleConfirmPendingAction}>
-                  {pendingAction.kind === "restore" ? "Restore" : "Delete commit"}
+                  {pendingAction.kind === "restore" ? t("sourceControl.restore") : t("sourceControl.deleteCommit")}
                 </button>
               </div>
             ) : null}
