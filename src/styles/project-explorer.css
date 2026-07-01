@@ -625,6 +625,19 @@
   overflow: auto;
 }
 
+.source-control-history-splitter {
+  flex: 0 0 auto;
+  height: 8px;
+  margin: 0 8px;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid var(--editor-border);
+  cursor: row-resize;
+}
+
+.source-control-history-splitter:hover {
+  background: var(--editor-accent-soft);
+}
+
 .source-control-section-title {
   display: flex;
   align-items: center;
@@ -720,9 +733,9 @@
 
 .source-control-history {
   display: flex;
-  flex: 0 1 35%;
+  flex: 0 0 auto;
   flex-direction: column;
-  max-height: min(240px, 35%);
+  height: var(--source-control-history-height, min(240px, 35%));
   min-height: 116px;
   overflow: hidden;
 }
@@ -779,8 +792,8 @@
 }
 
 .source-control-graph-row.is-selected {
-  border-color: color-mix(in srgb, var(--editor-accent) 48%, transparent);
-  background: color-mix(in srgb, var(--editor-accent) 14%, transparent);
+  border-color: var(--editor-accent);
+  background: var(--editor-accent-soft);
 }
 
 .source-control-graph-row.is-head .source-control-graph-node {
@@ -844,7 +857,7 @@
   align-items: center;
   min-height: 16px;
   padding: 0 5px;
-  border: 1px solid color-mix(in srgb, var(--editor-accent) 42%, transparent);
+  border: 1px solid var(--editor-accent);
   color: var(--editor-accent);
   font-size: 0.66rem;
   font-weight: 700;
@@ -900,8 +913,8 @@
 .source-control-inline-confirm {
   margin-top: 8px;
   padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--editor-danger, #dc2626) 35%, var(--editor-border));
-  background: color-mix(in srgb, var(--editor-danger, #dc2626) 8%, transparent);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
 }
 
 .source-control-inline-confirm span {
@@ -928,8 +941,15 @@
   opacity: 0.5;
 }
 
+body.source-control-resizing,
+body.source-control-resizing * {
+  cursor: row-resize !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
 .source-control-action-button.is-danger {
-  border-color: color-mix(in srgb, var(--editor-danger, #dc2626) 44%, var(--editor-border));
+  border-color: rgba(220, 38, 38, 0.44);
   color: var(--editor-danger, #dc2626);
 }
 

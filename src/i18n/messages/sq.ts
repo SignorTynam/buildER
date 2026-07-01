@@ -206,6 +206,7 @@ export const sq: DeepPartialMessages = {
     repositories: "Repositories",
     changes: "Changes",
     graph: "Graph / History",
+    resizeHistory: "Ndrysho madhesine e historikut",
     commitPlaceholder: "Mesazh (Ctrl+Enter per commit ne \"{{project}}\")",
     commit: "Commit",
     refresh: "Rifresko source control",

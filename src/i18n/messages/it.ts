@@ -204,6 +204,7 @@ export const it = {
     repositories: "Repositories",
     changes: "Changes",
     graph: "Graph / History",
+    resizeHistory: "Ridimensiona cronologia",
     commitPlaceholder: "Messaggio (Ctrl+Enter per commit su \"{{project}}\")",
     commit: "Commit",
     refresh: "Aggiorna source control",

@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useI18n } from "../../i18n/useI18n";
 import type {
   ProjectFileChange,
@@ -28,6 +28,19 @@ interface SourceControlPanelProps {
 }
 
 type PendingAction = { kind: "restore" | "delete"; commitId: string } | null;
+
+type HistoryResizeState = {
+  startY: number;
+  startHeight: number;
+};
+
+const HISTORY_MIN_HEIGHT = 116;
+const HISTORY_MIN_TOP_HEIGHT = 140;
+const HISTORY_SPLITTER_HEIGHT = 8;
+
+function clampHeight(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
 
 function formatCommitDate(value: string) {
   const date = new Date(value);
@@ -84,8 +97,12 @@ export function SourceControlPanel({
   const { t } = useI18n();
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [historyHeight, setHistoryHeight] = useState<number | null>(null);
   const canCommit = changeState.summary.canCommit && commitMessage.trim().length > 0;
   const selectedCommit = commits.find((commit) => commit.id === selectedCommitId) ?? null;
+  const panelRef = useRef<HTMLElement | null>(null);
+  const historyRef = useRef<HTMLDivElement | null>(null);
+  const historyResizeRef = useRef<HistoryResizeState | null>(null);
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && canCommit) {
@@ -107,8 +124,87 @@ export function SourceControlPanel({
     setPendingAction(null);
   }
 
+  function handleHistoryResizeStart(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!historyRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    const currentHeight = historyHeight ?? historyRef.current.getBoundingClientRect().height;
+    historyResizeRef.current = {
+      startY: event.clientY,
+      startHeight: currentHeight,
+    };
+    document.body.classList.add("source-control-resizing");
+  }
+
+  useLayoutEffect(() => {
+    if (historyHeight !== null || !historyRef.current) {
+      return;
+    }
+
+    setHistoryHeight(historyRef.current.getBoundingClientRect().height);
+  }, [historyHeight]);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+
+    if (!panel) {
+      return;
+    }
+
+    if (historyHeight === null) {
+      panel.style.removeProperty("--source-control-history-height");
+      return;
+    }
+
+    panel.style.setProperty("--source-control-history-height", `${historyHeight}px`);
+
+    return () => {
+      panel.style.removeProperty("--source-control-history-height");
+    };
+  }, [historyHeight]);
+
+  useEffect(() => {
+    function handlePointerMove(event: PointerEvent) {
+      const resizeState = historyResizeRef.current;
+      const panel = panelRef.current;
+
+      if (!resizeState || !panel) {
+        return;
+      }
+
+      const panelHeight = panel.getBoundingClientRect().height;
+      const maxHeight = Math.max(HISTORY_MIN_HEIGHT, panelHeight - HISTORY_MIN_TOP_HEIGHT - HISTORY_SPLITTER_HEIGHT);
+      const nextHeight = clampHeight(resizeState.startHeight + (resizeState.startY - event.clientY), HISTORY_MIN_HEIGHT, maxHeight);
+      setHistoryHeight(nextHeight);
+    }
+
+    function stopResize() {
+      if (!historyResizeRef.current) {
+        return;
+      }
+
+      historyResizeRef.current = null;
+      document.body.classList.remove("source-control-resizing");
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      document.body.classList.remove("source-control-resizing");
+    };
+  }, []);
+
   return (
-    <section className="source-control-panel" aria-label={t("sourceControl.title")}>
+    <section
+      ref={panelRef}
+      className="source-control-panel"
+      aria-label={t("sourceControl.title")}
+    >
       <header className="source-control-header">
         <h2>{t("sourceControl.title")}</h2>
         <div className="project-activity-section__header-actions">
@@ -179,17 +275,39 @@ export function SourceControlPanel({
         )}
       </div>
 
-      <div className="source-control-section source-control-history">
+      {!historyCollapsed ? (
+        <div
+          className="source-control-history-splitter"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t("sourceControl.resizeHistory")}
+          onPointerDown={handleHistoryResizeStart}
+        />
+      ) : null}
+
+      <div ref={historyRef} className="source-control-section source-control-history">
         <div className="source-control-section-title source-control-history-header">
-          <button
-            type="button"
-            className="source-control-disclosure"
-            onClick={() => setHistoryCollapsed((current) => !current)}
-            aria-expanded={!historyCollapsed}
-            aria-label={historyCollapsed ? "Expand history" : "Collapse history"}
-          >
-            <StudioIcon name={historyCollapsed ? "arrowRight" : "arrowDown"} aria-hidden="true" />
-          </button>
+          {historyCollapsed ? (
+            <button
+              type="button"
+              className="source-control-disclosure"
+              onClick={() => setHistoryCollapsed((current) => !current)}
+              aria-expanded="false"
+              aria-label="Expand history"
+            >
+              <StudioIcon name="arrowRight" aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="source-control-disclosure"
+              onClick={() => setHistoryCollapsed((current) => !current)}
+              aria-expanded="true"
+              aria-label="Collapse history"
+            >
+              <StudioIcon name="arrowDown" aria-hidden="true" />
+            </button>
+          )}
           <span>{t("sourceControl.graph")}</span>
           <span className="source-control-count">{t("versioning.commitCount", { count: commits.length })}</span>
           <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.refresh")}>
@@ -208,29 +326,55 @@ export function SourceControlPanel({
                   const selected = commit.id === selectedCommitId;
                   return (
                     <li key={commit.id}>
-                      <button
-                        type="button"
-                        className={`source-control-graph-row${isHead ? " is-head" : ""}${selected ? " is-selected" : ""}`}
-                        onClick={() => {
-                          setPendingAction(null);
-                          onSelectCommit(commit.id);
-                        }}
-                        aria-pressed={selected}
-                        aria-label={`Select commit ${shortCommitId(commit.id)} ${commit.message}`}
-                      >
-                        <span className="source-control-graph-rail" aria-hidden="true">
-                          <span className="source-control-graph-line" />
-                          <span className="source-control-graph-node" />
-                        </span>
-                        <span className="source-control-graph-main">
-                          <span className="source-control-graph-title" title={commit.message}>{commit.message}</span>
-                          <span className="source-control-graph-meta">
-                            {shortCommitId(commit.id)}
-                            {isHead ? <span className="source-control-branch-pill">HEAD</span> : null}
-                            {isHead ? <span className="source-control-branch-pill">main</span> : null}
+                      {selected ? (
+                        <button
+                          type="button"
+                          className={`source-control-graph-row${isHead ? " is-head" : ""} is-selected`}
+                          onClick={() => {
+                            setPendingAction(null);
+                            onSelectCommit(commit.id);
+                          }}
+                          aria-pressed="true"
+                          aria-label={`Select commit ${shortCommitId(commit.id)} ${commit.message}`}
+                        >
+                          <span className="source-control-graph-rail" aria-hidden="true">
+                            <span className="source-control-graph-line" />
+                            <span className="source-control-graph-node" />
                           </span>
-                        </span>
-                      </button>
+                          <span className="source-control-graph-main">
+                            <span className="source-control-graph-title" title={commit.message}>{commit.message}</span>
+                            <span className="source-control-graph-meta">
+                              {shortCommitId(commit.id)}
+                              {isHead ? <span className="source-control-branch-pill">HEAD</span> : null}
+                              {isHead ? <span className="source-control-branch-pill">main</span> : null}
+                            </span>
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`source-control-graph-row${isHead ? " is-head" : ""}`}
+                          onClick={() => {
+                            setPendingAction(null);
+                            onSelectCommit(commit.id);
+                          }}
+                          aria-pressed="false"
+                          aria-label={`Select commit ${shortCommitId(commit.id)} ${commit.message}`}
+                        >
+                          <span className="source-control-graph-rail" aria-hidden="true">
+                            <span className="source-control-graph-line" />
+                            <span className="source-control-graph-node" />
+                          </span>
+                          <span className="source-control-graph-main">
+                            <span className="source-control-graph-title" title={commit.message}>{commit.message}</span>
+                            <span className="source-control-graph-meta">
+                              {shortCommitId(commit.id)}
+                              {isHead ? <span className="source-control-branch-pill">HEAD</span> : null}
+                              {isHead ? <span className="source-control-branch-pill">main</span> : null}
+                            </span>
+                          </span>
+                        </button>
+                      )}
                     </li>
                   );
                 })}
