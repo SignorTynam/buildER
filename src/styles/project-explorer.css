@@ -341,6 +341,9 @@
 }
 
 .project-activity-section__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   padding: 12px 12px 10px;
   border-bottom: 1px solid var(--editor-border);
   background: var(--editor-panel-strong);
@@ -350,6 +353,15 @@
 .source-control-header,
 .sql-reverse-panel__header {
   justify-content: space-between;
+}
+
+.project-activity-section__header > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.project-activity-section__header-actions {
+  flex: 0 0 auto;
 }
 
 .project-activity-section__header-actions {
