@@ -228,6 +228,11 @@ export const it = {
   },
   fileMenu: {
     file: "File",
+    importExport: "Importa/Esporta",
+    help: "Aiuto",
+    shortcuts: "Scorciatoie",
+    whatsNew: "Novità",
+    about: "Informazioni",
     newFile: "Nuovo file",
     import: "Importa",
     export: "Esporta",

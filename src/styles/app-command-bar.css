@@ -31,13 +31,15 @@
   pointer-events: none;
 }
 
-.app-file-menu {
+.app-file-menu,
+.app-topbar-menu {
   position: relative;
   z-index: 1001;
   flex: 0 0 auto;
 }
 
-.app-file-menu__trigger {
+.app-file-menu__trigger,
+.app-topbar-menu__trigger {
   min-height: 30px;
   padding: 4px 10px;
   border: 1px solid transparent;
@@ -48,12 +50,16 @@
 }
 
 .app-file-menu__trigger:hover,
-.app-file-menu__trigger[aria-expanded="true"] {
+.app-file-menu__trigger[aria-expanded="true"],
+.app-topbar-menu__trigger:hover,
+.app-topbar-menu__trigger[aria-expanded="true"],
+.app-topbar-menu__icon-trigger[aria-expanded="true"] {
   background: color-mix(in srgb, currentColor 12%, transparent);
   border-color: color-mix(in srgb, currentColor 24%, transparent);
 }
 
-.app-file-menu__panel {
+.app-file-menu__panel,
+.app-topbar-menu__panel {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
@@ -68,7 +74,17 @@
   box-shadow: var(--studio-shadow-floating);
 }
 
-.app-file-menu__panel button {
+.app-topbar-menu__panel--right {
+  right: 0;
+  left: auto;
+}
+
+.app-topbar-menu__panel--compact {
+  min-width: 210px;
+}
+
+.app-file-menu__panel button,
+.app-topbar-menu__panel button {
   width: 100%;
   display: flex;
   align-items: center;
@@ -81,24 +97,30 @@
   cursor: pointer;
 }
 
-.app-file-menu__panel button:hover {
+.app-file-menu__panel button:hover,
+.app-topbar-menu__panel button:hover {
   background: var(--editor-panel-muted);
   color: var(--editor-text-strong);
 }
 
 .app-file-menu__trigger:focus-visible,
-.app-file-menu__panel button:focus-visible {
+.app-file-menu__panel button:focus-visible,
+.app-topbar-menu__trigger:focus-visible,
+.app-topbar-menu__icon-trigger:focus-visible,
+.app-topbar-menu__panel button:focus-visible {
   outline: 2px solid var(--studio-focus-ring);
   outline-offset: 2px;
 }
 
-.app-file-menu__separator {
+.app-file-menu__separator,
+.app-topbar-menu__separator {
   height: 1px;
   margin: 6px 0;
   background: var(--editor-border);
 }
 
-.app-file-menu__section {
+.app-file-menu__section,
+.app-topbar-menu__section {
   display: block;
   padding: 5px 9px 3px;
   color: var(--editor-text-muted);

@@ -6970,6 +6970,8 @@ export default function App() {
         onExportSql={handleSaveLogicalSql}
         onOpenCommandMenu={openCommandMenu}
         onOpenShortcuts={openKeyboardShortcuts}
+        onOpenAbout={() => setAboutOpen(true)}
+        onOpenWhatsNew={() => setWhatsNewOpen(true)}
         onActivityPanelSelect={handleSelectActivityPanel}
         onCreateCommit={() => {
           setActiveActivityPanel("version");

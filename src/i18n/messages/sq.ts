@@ -230,6 +230,11 @@ export const sq: DeepPartialMessages = {
   },
   fileMenu: {
     file: "File",
+    importExport: "Import/Eksport",
+    help: "Ndihmë",
+    shortcuts: "Shkurtesat",
+    whatsNew: "Çfarë ka të re",
+    about: "Informacione",
     newFile: "File i ri",
     import: "Importo",
     export: "Eksporto",

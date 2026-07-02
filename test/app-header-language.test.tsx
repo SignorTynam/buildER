@@ -61,6 +61,8 @@ function renderHeader(): string {
         onExportSql={() => undefined}
         onOpenCommandMenu={() => undefined}
         onOpenShortcuts={() => undefined}
+        onOpenAbout={() => undefined}
+        onOpenWhatsNew={() => undefined}
         onActivityPanelSelect={() => undefined}
         onCreateCommit={() => undefined}
       />
@@ -72,7 +74,7 @@ test("AppHeader renders the language button between help and command menu", () =
   setCurrentLocale("en");
   const markup = renderHeader();
 
-  const helpIndex = markup.indexOf('data-testid="app-header-help"');
+  const helpIndex = markup.indexOf('data-testid="app-header-help-menu"');
   const languageIndex = markup.indexOf('data-testid="app-header-language"');
   const menuIndex = markup.indexOf('data-testid="app-header-menu"');
 
@@ -111,8 +113,8 @@ test("AppHeader language menu keeps the expected interactive wiring", () => {
   assert.match(source, /aria-checked=\{locale === language\}/);
   assert.match(source, /StudioIcon name="globe"/);
   assert.match(source, /StudioIcon name="done"/);
-  assert.match(source, /setLocale\(language\);/);
-  assert.match(source, /setLanguageMenuOpen\(false\);/);
+  assert.match(source, /runTopbarMenuAction\(\(\) => setLocale\(language\)\)/);
+  assert.match(source, /setActiveTopbarMenu\(null\);/);
   assert.match(source, /event\.key === "Escape"/);
   assert.match(source, /document\.addEventListener\("pointerdown"/);
 });

@@ -230,6 +230,11 @@ export const en: DeepPartialMessages = {
   },
   fileMenu: {
     file: "File",
+    importExport: "Import / Export",
+    help: "Help",
+    shortcuts: "Shortcuts",
+    whatsNew: "What's New",
+    about: "About",
     newFile: "New File",
     import: "Import",
     export: "Export",
