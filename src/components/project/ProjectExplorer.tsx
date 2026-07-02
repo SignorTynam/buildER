@@ -33,7 +33,6 @@ interface ProjectExplorerProps {
 export function ProjectExplorer(props: ProjectExplorerProps) {
   const { t } = useI18n();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const nodesById = useMemo(
     () => new Map(props.project.fileTree.map((node) => [node.id, node])),
     [props.project.fileTree],
@@ -128,32 +127,13 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
           <button
             type="button"
             className="project-explorer-icon-button"
-            aria-label={t("projectExplorer.actions.more")}
-            title={t("projectExplorer.actions.more")}
-            aria-haspopup="menu"
-            aria-expanded={moreMenuOpen}
-            onClick={() => setMoreMenuOpen((current) => !current)}
+            aria-label={t("projectExplorer.actions.close")}
+            title={t("projectExplorer.actions.close")}
+            onClick={props.onToggleOpen}
           >
-            <StudioIcon name="menu" />
+            <StudioIcon name="close" />
           </button>
           </div>
-          {moreMenuOpen ? (
-            <div className="project-explorer-more-menu" role="menu">
-              <button type="button" role="menuitem" onClick={() => { props.onCreateTextFile(selectedTargetFolderId); setMoreMenuOpen(false); }}>
-                <StudioIcon name="fileText" aria-hidden="true" />
-                <span>{labels.newTextFile}</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => { (props.onCreateSqlFile ?? props.onCreateTextFile)(selectedTargetFolderId); setMoreMenuOpen(false); }}>
-                <StudioIcon name="database" aria-hidden="true" />
-                <span>{labels.newSqlFile}</span>
-              </button>
-              <div className="project-explorer-more-menu__separator" role="separator" />
-              <button type="button" role="menuitem" onClick={() => { props.onToggleOpen(); setMoreMenuOpen(false); }}>
-                <StudioIcon name="close" aria-hidden="true" />
-                <span>{t("projectExplorer.actions.close")}</span>
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
 

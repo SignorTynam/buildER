@@ -101,7 +101,9 @@ test("ProjectExplorer espone handler per apertura file e nuovo schema", () => {
   assert.match(source, /fileText/);
   assert.match(shellSource, /selectedTargetFolderId/);
   assert.match(shellSource, /ProjectExplorerContextMenu/);
-  assert.match(shellSource, /project-explorer-more-menu/);
+  assert.match(shellSource, /projectExplorer\.actions\.close/);
+  assert.doesNotMatch(shellSource, /project-explorer-more-menu/);
+  assert.doesNotMatch(shellSource, /projectExplorer\.actions\.more/);
 });
 
 test("ProjectExplorer context menu usa sezioni e azione danger", () => {
