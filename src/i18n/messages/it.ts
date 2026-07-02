@@ -233,6 +233,8 @@ export const it = {
     shortcuts: "Scorciatoie",
     whatsNew: "Novità",
     about: "Informazioni",
+    menu: "Menu",
+    versionAnnouncement: "Nuova versione",
     newFile: "Nuovo file",
     import: "Importa",
     export: "Esporta",

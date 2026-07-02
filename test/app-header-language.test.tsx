@@ -63,6 +63,7 @@ function renderHeader(): string {
         onOpenShortcuts={() => undefined}
         onOpenAbout={() => undefined}
         onOpenWhatsNew={() => undefined}
+        onOpenVersionAnnouncement={() => undefined}
         onActivityPanelSelect={() => undefined}
         onCreateCommit={() => undefined}
       />

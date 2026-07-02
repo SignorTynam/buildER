@@ -235,6 +235,8 @@ export const sq: DeepPartialMessages = {
     shortcuts: "Shkurtesat",
     whatsNew: "Çfarë ka të re",
     about: "Informacione",
+    menu: "Menu",
+    versionAnnouncement: "Version i ri",
     newFile: "File i ri",
     import: "Importo",
     export: "Eksporto",

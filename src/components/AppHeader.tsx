@@ -5,7 +5,7 @@ import type { WorkspaceView } from "../types/translation";
 import { StudioIcon } from "./icons/StudioIcon";
 import type { ProjectActivityId } from "./project/ProjectActivityPanel";
 
-type TopbarMenuId = "file" | "importExport" | "help" | "language";
+type TopbarMenuId = "file" | "importExport" | "info" | "help" | "language";
 
 interface AppHeaderProps {
   appTitle: string;
@@ -53,6 +53,7 @@ interface AppHeaderProps {
   onOpenShortcuts: () => void;
   onOpenAbout: () => void;
   onOpenWhatsNew: () => void;
+  onOpenVersionAnnouncement: () => void;
   onActivityPanelSelect: (panel: ProjectActivityId) => void;
   onCreateCommit: () => void;
   onDiagramNameChange?: (name: string) => void;
@@ -64,6 +65,7 @@ export function AppHeader(props: AppHeaderProps) {
   const [activeTopbarMenu, setActiveTopbarMenu] = useState<TopbarMenuId | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
   const importExportMenuRef = useRef<HTMLDivElement | null>(null);
+  const infoMenuRef = useRef<HTMLDivElement | null>(null);
   const helpMenuRef = useRef<HTMLDivElement | null>(null);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -84,6 +86,7 @@ export function AppHeader(props: AppHeaderProps) {
       const topbarMenuRefs = [
         fileMenuRef,
         importExportMenuRef,
+        infoMenuRef,
         helpMenuRef,
         languageMenuRef,
       ];
@@ -193,6 +196,32 @@ export function AppHeader(props: AppHeaderProps) {
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportPng)}>{t("fileMenu.exportPng")}</button>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportJpeg)}>{t("fileMenu.exportJpeg")}</button>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportSvg)}>{t("fileMenu.exportSvg")}</button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="app-topbar-menu" ref={infoMenuRef}>
+          <button
+            type="button"
+            className="app-topbar-menu__trigger"
+            aria-haspopup="menu"
+            aria-expanded={activeTopbarMenu === "info"}
+            onClick={() => toggleTopbarMenu("info")}
+            data-testid="app-header-info-menu"
+          >
+            {t("fileMenu.about")}
+          </button>
+
+          {activeTopbarMenu === "info" ? (
+            <div
+              className="app-topbar-menu__panel app-topbar-menu__panel--compact"
+              role="menu"
+              aria-label={t("fileMenu.about")}
+              data-menu-block="info"
+            >
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenCommandMenu)}>{t("fileMenu.menu")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenWhatsNew)}>{t("fileMenu.whatsNew")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenVersionAnnouncement)}>{t("fileMenu.versionAnnouncement")}</button>
             </div>
           ) : null}
         </div>

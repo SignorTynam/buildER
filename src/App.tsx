@@ -1881,6 +1881,27 @@ export default function App() {
     setWhatsNewOpen(true);
   }
 
+  function openVersionAnnouncementManually() {
+    const changelogEntry =
+      appChangelog.find((entry) => entry.version === APP_VERSION) ??
+      createFallbackChangelogEntry(APP_VERSION, "minor", t);
+    const updateKind: VisibleVersionUpdateKind =
+      changelogEntry.impact === "major" || changelogEntry.impact === "minor"
+        ? changelogEntry.impact
+        : "minor";
+
+    setAboutOpen(false);
+    setCommandMenuOpen(false);
+    setKeyboardShortcutsOpen(false);
+    setIntroOpen(false);
+    setWhatsNewOpen(false);
+    setVersionAnnouncement({
+      previousVersion: getLastSeenAppVersion() === APP_VERSION ? null : getLastSeenAppVersion(),
+      updateKind,
+      changelogEntry,
+    });
+  }
+
   function reportExternalIdentifierInvalidations(
     invalidations: ExternalIdentifierInvalidation[],
     mode: "status" | "notice",
@@ -6972,6 +6993,7 @@ export default function App() {
         onOpenShortcuts={openKeyboardShortcuts}
         onOpenAbout={() => setAboutOpen(true)}
         onOpenWhatsNew={() => setWhatsNewOpen(true)}
+        onOpenVersionAnnouncement={openVersionAnnouncementManually}
         onActivityPanelSelect={handleSelectActivityPanel}
         onCreateCommit={() => {
           setActiveActivityPanel("version");

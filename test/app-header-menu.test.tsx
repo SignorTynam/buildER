@@ -57,6 +57,7 @@ function renderHeader() {
         onOpenShortcuts={() => undefined}
         onOpenAbout={() => undefined}
         onOpenWhatsNew={() => undefined}
+        onOpenVersionAnnouncement={() => undefined}
         onActivityPanelSelect={() => undefined}
         onCreateCommit={() => undefined}
       />
@@ -69,6 +70,7 @@ test("AppHeader mostra File e Importa/Esporta ma non le tab activity nella topba
 
   assert.match(markup, /data-testid="app-header-file-menu"/);
   assert.match(markup, /data-testid="app-header-import-export-menu"/);
+  assert.match(markup, /data-testid="app-header-info-menu"/);
   assert.match(markup, /data-testid="app-header-help-menu"/);
   assert.doesNotMatch(markup, /app-command-tab/);
   assert.doesNotMatch(markup, />Code</);
@@ -102,7 +104,7 @@ test("Importa/Esporta contiene tutte le azioni di import ed export", () => {
   const source = readFileSync(new URL("../src/components/AppHeader.tsx", import.meta.url), "utf8");
   const importExportBlock = source.slice(
     source.indexOf('data-menu-block="import-export"'),
-    source.indexOf('data-menu-block="help"'),
+    source.indexOf('data-menu-block="info"'),
   );
 
   assert.match(importExportBlock, /onImportSchema/);
@@ -117,6 +119,20 @@ test("Importa/Esporta contiene tutte le azioni di import ed export", () => {
   assert.match(importExportBlock, /onSaveErs/);
   assert.doesNotMatch(importExportBlock, /onOpenVersioningPanel/);
   assert.doesNotMatch(importExportBlock, /onCreateCommit/);
+});
+
+test("Informazioni contiene Menu, Novita e Nuova versione", () => {
+  const source = readFileSync(new URL("../src/components/AppHeader.tsx", import.meta.url), "utf8");
+  const infoBlock = source.slice(
+    source.indexOf('data-menu-block="info"'),
+    source.indexOf('data-menu-block="help"'),
+  );
+
+  assert.match(infoBlock, /onOpenCommandMenu/);
+  assert.match(infoBlock, /onOpenWhatsNew/);
+  assert.match(infoBlock, /onOpenVersionAnnouncement/);
+  assert.doesNotMatch(infoBlock, /onImportSchema/);
+  assert.doesNotMatch(infoBlock, /onExportPng/);
 });
 
 test("Help menu espone shortcut, novita e informazioni", () => {

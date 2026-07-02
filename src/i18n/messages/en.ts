@@ -235,6 +235,8 @@ export const en: DeepPartialMessages = {
     shortcuts: "Shortcuts",
     whatsNew: "What's New",
     about: "About",
+    menu: "Menu",
+    versionAnnouncement: "New Version",
     newFile: "New File",
     import: "Import",
     export: "Export",
