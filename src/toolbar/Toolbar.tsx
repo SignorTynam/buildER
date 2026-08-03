@@ -556,10 +556,10 @@ export function Toolbar(props: ToolbarProps) {
   const renderCommands = (groupKey: string, commands: ToolbarCommand[]) =>
     commands.map((command) => <CommandButton key={`${groupKey}-${command.key}`} command={command} />);
 
-  /* La toolbar scorre in verticale sul desktop e in orizzontale sotto i 900px,
-     e con una selezione attiva i comandi contestuali la fanno quasi sempre
-     eccedere. Senza una sfumatura ai bordi i comandi oltre il margine sembrano
-     semplicemente non esistere. */
+  /* La toolbar e una barra orizzontale a ogni larghezza e con una selezione
+     attiva i comandi contestuali possono eccederne la larghezza. Senza una
+     sfumatura ai bordi i comandi oltre il margine sembrano semplicemente non
+     esistere. */
   const [toolbarRef, toolbarOverflow] = useScrollOverflow<HTMLElement>();
 
   return (
@@ -570,8 +570,6 @@ export function Toolbar(props: ToolbarProps) {
         aria-label={t("toolbar.commands.aria")}
         data-scroll-start={toolbarOverflow.atStart ? "" : undefined}
         data-scroll-end={toolbarOverflow.atEnd ? "" : undefined}
-        data-scroll-top={toolbarOverflow.atTop ? "" : undefined}
-        data-scroll-bottom={toolbarOverflow.atBottom ? "" : undefined}
       >
         {renderCommands("navigate", visibleNavigateCommands)}
         {visibleCreateCommands.length > 0 ? (
