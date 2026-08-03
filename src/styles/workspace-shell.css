@@ -298,6 +298,15 @@
   box-shadow: var(--elevation-flat);
 }
 
+/*
+ * L'icona serve solo alla modalita compatta, dove l'etichetta si nasconde
+ * (vedi responsive.css). Qui c'e spazio per il testo, che resta piu chiaro di
+ * tre simboli affiancati.
+ */
+.editor-view-switcher button > .studio-icon {
+  display: none;
+}
+
 .workspace-text-editor {
   display: grid;
   width: 100%;
