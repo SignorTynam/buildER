@@ -293,16 +293,38 @@
   line-height: var(--line-height-snug);
   text-align: center;
   pointer-events: none;
+  /*
+   * `display: none` e non `visibility: hidden`: da nascosto il tooltip
+   * conservava comunque la sua scatola, larga fino a 260px e posizionata fuori
+   * dall'ancora. Dentro un contenitore scrollabile quella scatola entrava nel
+   * calcolo dell'overflow — il pannello Errori aveva una scrollbar orizzontale
+   * permanente da 15px causata solo dai tooltip dormienti delle sue righe.
+   *
+   * Il nodo resta nel DOM, quindi `aria-describedby` continua a risolversi:
+   * il testo referenziato da aria-describedby viene esposto anche quando
+   * l'elemento e display:none.
+   *
+   * `allow-discrete` piu `@starting-style` tengono la dissolvenza nonostante
+   * il display commutato; dove non sono supportati il tooltip appare e sparisce
+   * di colpo, che e esattamente il comportamento gia previsto sotto
+   * prefers-reduced-motion.
+   */
+  display: none;
   opacity: 0;
-  visibility: hidden;
   transition:
     opacity var(--motion-fast) ease,
-    visibility var(--motion-fast) ease;
+    display var(--motion-fast) allow-discrete;
 }
 
 .ui-tooltip[data-visible="true"] {
+  display: block;
   opacity: 1;
-  visibility: visible;
+}
+
+@starting-style {
+  .ui-tooltip[data-visible="true"] {
+    opacity: 0;
+  }
 }
 
 .ui-tooltip--bottom {
