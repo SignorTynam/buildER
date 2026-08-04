@@ -7943,6 +7943,7 @@ export default function App() {
                 <>
                   <label className="code-activity-panel__dialect">
                     <select
+                      className="ui-select"
                       value={logicalSqlDialect}
                       onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}
                     >

@@ -130,7 +130,7 @@ export function SettingsModal({
                 <select
                   id={languageSelectId}
                   aria-describedby={languageDescId}
-                  className="settings-select"
+                  className="ui-select"
                   value={locale}
                   onChange={(event) => setLocale(event.target.value as Locale)}
                 >

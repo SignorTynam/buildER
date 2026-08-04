@@ -144,7 +144,7 @@ export function SqlReversePanel({
           {({ "aria-describedby": describedBy }) => (
             <select
               id={dialectSelectId}
-              className="settings-select sql-reverse-panel__dialect-select"
+              className="ui-select sql-reverse-panel__dialect-select"
               value={dialect}
               aria-describedby={describedBy}
               onChange={(event) => onDialectChange(event.target.value as SqlReverseDialect)}
