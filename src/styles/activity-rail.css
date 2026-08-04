@@ -69,7 +69,7 @@
   border: 2px solid var(--color-bg-header);
   background: var(--color-danger);
   color: var(--color-text-on-accent);
-  font-size: 0.6rem;
+  font-size: var(--font-size-2xs);
   line-height: 12px;
 }
 

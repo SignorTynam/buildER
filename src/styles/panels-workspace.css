@@ -405,7 +405,7 @@
 .project-explorer-header__topline h2 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 750;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -491,7 +491,7 @@
   padding: var(--space-2) 0 var(--space-1);
   border-top: 1px solid var(--color-border-subtle);
   color: var(--color-text-muted);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
 }
 
 .project-explorer-tree {
@@ -583,7 +583,7 @@
 }
 
 .project-explorer-item__name {
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
 }
 
 .project-explorer-item__extension,
@@ -592,7 +592,7 @@
   border: 0;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 0.62rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -733,7 +733,7 @@ button.project-explorer-empty__cta:focus-visible {
 .project-explorer-empty__secondary-row button {
   min-height: 26px;
   padding: var(--space-0-5) var(--space-2);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-explorer-empty > svg {
@@ -743,13 +743,13 @@ button.project-explorer-empty__cta:focus-visible {
 
 .project-explorer-empty strong {
   color: var(--color-text-primary);
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
 }
 
 .project-explorer-empty p {
   max-width: 220px;
   margin: 0;
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-explorer-empty button {

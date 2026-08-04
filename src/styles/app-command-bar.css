@@ -45,7 +45,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: currentColor;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -119,7 +119,7 @@
   background: transparent;
   color: inherit;
   text-align: left;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -184,7 +184,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: currentColor;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -224,7 +224,7 @@
   background: transparent;
   color: var(--editor-text);
   text-align: left;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 

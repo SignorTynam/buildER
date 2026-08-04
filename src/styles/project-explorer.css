@@ -82,7 +82,7 @@
   justify-content: center;
   background: var(--studio-danger);
   color: var(--studio-surface-strong);
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
   line-height: 1;
   box-shadow: 0 0 0 1px var(--editor-panel-muted, var(--editor-panel));
@@ -228,7 +228,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-file-tab__dirty {
@@ -398,7 +398,7 @@
 .project-activity-summary {
   border-bottom: 1px solid var(--editor-border);
   color: var(--editor-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-activity-action {
@@ -416,7 +416,7 @@
 
 .project-activity-action.compact {
   min-height: 30px;
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
 }
 
 .project-activity-action.primary {
@@ -500,7 +500,7 @@
   gap: 6px;
   min-width: 0;
   color: var(--editor-text-muted);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 /* Skin da `.ui-select`; qui resta solo il vincolo di larghezza della toolbar. */
@@ -676,7 +676,7 @@
 }
 
 .project-explorer-meta {
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   color: var(--editor-text-muted);
 }
 
@@ -835,7 +835,7 @@
 .project-explorer-item__extension,
 .project-explorer-item__empty {
   color: var(--editor-text-muted);
-  font-size: 0.64rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -1026,7 +1026,7 @@
 
 .workspace-welcome-page__eyebrow {
   margin: 0 0 8px;
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   font-weight: 700;
 }
@@ -1224,7 +1224,7 @@
   margin: 0;
   padding: 8px 12px;
   color: var(--editor-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-text-file-modal__footer {
@@ -1289,7 +1289,7 @@
   }
 
   .project-file-tab__title {
-    font-size: 0.74rem;
+    font-size: var(--font-size-sm);
   }
 
   .workspace-welcome-page {
@@ -1652,7 +1652,7 @@
 }
 
 .project-explorer-item__name {
-  font-size: 0.83rem;
+  font-size: var(--font-size-md);
   font-weight: 620;
 }
 
@@ -1661,7 +1661,7 @@
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-strong);
   padding: 1px 5px;
-  font-size: 0.6rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0;
 }
 
@@ -1689,7 +1689,7 @@
   max-width: 210px;
   margin: -2px 0 2px;
   color: var(--editor-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   line-height: 1.42;
 }
 
@@ -1939,7 +1939,7 @@
 .workspace-welcome-action-card strong,
 .workspace-welcome-action-row strong {
   color: var(--editor-text-strong);
-  font-size: 0.92rem;
+  font-size: var(--font-size-lg);
 }
 
 .workspace-welcome-action-card small,
@@ -2044,14 +2044,14 @@
 .workspace-welcome-workflow strong,
 .workspace-welcome-capability strong {
   color: var(--editor-text-strong);
-  font-size: 0.86rem;
+  font-size: var(--font-size-lg);
 }
 
 .workspace-welcome-workflow p,
 .workspace-welcome-capability p {
   margin: 3px 0 0;
   color: var(--editor-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   line-height: 1.42;
 }
 
@@ -2159,7 +2159,7 @@
 
 .workspace-empty-editor__action strong {
   color: var(--editor-text-strong);
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
 }
 
 .workspace-empty-editor__action small {
