@@ -3304,8 +3304,8 @@ summary:focus-visible,
 }
 
 .canvas-viewport-hud {
-  right: 22px !important;
-  bottom: 22px !important;
+  right: var(--space-6) !important;
+  bottom: var(--space-6) !important;
 }
 
 .canvas-hud-cluster.canvas-hud-cluster-viewport {

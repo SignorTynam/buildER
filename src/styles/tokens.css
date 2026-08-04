@@ -63,6 +63,10 @@
   --size-button: 32px;
   --size-button-sm: 28px;
   --size-icon-button: 30px;
+  /* Larghezza del dock di onboarding: sorgente unica per il dock stesso e per
+     lo spazio che la Welcome gli riserva a destra. Erano indipendenti, e il
+     dock copriva 245px dei 256 della colonna dei suggerimenti. */
+  --size-onboarding-dock: 360px;
   --size-canvas-minimap-width: 220px;
   --size-canvas-minimap-height: 160px;
   --size-canvas-minimap-width-compact: 168px;

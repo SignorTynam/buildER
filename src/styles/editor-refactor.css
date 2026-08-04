@@ -378,8 +378,8 @@ body {
 
 .app-shell-view-translation .canvas-viewport-hud {
   top: auto !important;
-  right: 28px !important;
-  bottom: 28px !important;
+  right: var(--space-6) !important;
+  bottom: var(--space-6) !important;
   left: auto !important;
 }
 
@@ -1167,9 +1167,12 @@ body > .code-editor-diagnostic-popover {
   cursor: not-allowed;
 }
 
+/* Stesso ancoraggio della minimap, che si impila qui sopra: erano 28px qui e
+   var(--space-6) la, quindi i bordi destri delle due card flottanti restavano
+   disallineati di 4px. */
 .canvas-viewport-hud {
-  right: 28px;
-  bottom: 28px;
+  right: var(--space-6);
+  bottom: var(--space-6);
   left: auto;
   top: auto;
 }
@@ -6208,8 +6211,8 @@ textarea:disabled {
 
 .app-shell-view-er .canvas-viewport-hud {
   top: auto !important;
-  right: 28px !important;
-  bottom: 28px !important;
+  right: var(--space-6) !important;
+  bottom: var(--space-6) !important;
   left: auto !important;
 }
 
@@ -7676,11 +7679,4 @@ button.warning-card:hover {
 .designer-translation-view {
   --diagram-translation-pending: #ff3b30;
   --diagram-translation-blocked: #ff3b30;
-}
-
-.app-shell-view-er .canvas-viewport-hud {
-  top: auto !important;
-  right: 28px !important;
-  bottom: 28px !important;
-  left: auto !important;
 }

@@ -7678,8 +7678,29 @@ textarea:focus-visible,
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  width: min(360px, calc(100% - 24px));
+  width: min(var(--size-onboarding-dock), calc(100% - 24px));
   pointer-events: none;
+}
+
+/* Il dock e volutamente non modale e non intercetta i click, ma resta opaco:
+   sopra la Welcome si posava sulla colonna dei suggerimenti e ne copriva 245px
+   su 256. Finche il tour e aperto il contenuto si restringe e gli lascia il
+   posto, invece di finirci sotto. Sotto i 900px il dock e a tutta larghezza e
+   la riserva non avrebbe senso. */
+@media (min-width: 900px) {
+  /* Lo spazio si toglie dal padding della pagina, non dalla larghezza del
+     contenuto: il contenuto e centrato, quindi restringerlo lo spostava verso
+     destra — sotto il dock — invece di liberare la colonna che il dock occupa. */
+  .workspace-region-has-onboarding .workspace-welcome-page {
+    padding-right: calc(var(--size-onboarding-dock) + var(--space-6));
+  }
+
+  /* Tre colonne non entrano piu nello spazio rimasto: il minimo della griglia
+     e 752px e il dock se ne prende 384. Con due, la terza va a capo e resta
+     leggibile invece di sfondare il contenitore. */
+  .workspace-region-has-onboarding .workspace-welcome-grid {
+    grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+  }
 }
 
 .workspace-onboarding-dock > * {
@@ -10002,30 +10023,11 @@ summary:focus-visible,
   box-shadow: var(--studio-focus-ring);
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(95, 109, 101, 0.34) transparent;
-}
-
-*::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: rgba(95, 109, 101, 0.28);
-  border: 2px solid transparent;
-  border-radius: 0;
-  background-clip: content-box;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(37, 79, 72, 0.42);
-}
+/* Le scrollbar sono gia vestite in `foundations.css`, che viene importato dopo
+   questo file e vince a parita di specificita: il blocco che stava qui — con i
+   suoi tre colori hardcoded — non arrivava mai a renderizzare. Verificato a
+   runtime: `scrollbar-color` calcolato e --color-border-strong, non il valore
+   che dichiarava. */
 
 .app-shell {
   grid-template-rows: 54px 44px minmax(0, 1fr) 30px;
