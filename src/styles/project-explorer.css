@@ -441,7 +441,7 @@
   margin: 0;
   padding: 14px 12px;
   color: var(--editor-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .project-activity-content .designer-code-dock {
@@ -489,7 +489,7 @@
   padding: 0 8px;
   border: 1px solid var(--editor-border);
   color: var(--editor-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -511,7 +511,7 @@
 .code-activity-panel__toolbar .project-activity-action {
   min-height: 28px;
   padding: 4px 8px;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .code-activity-panel__mode-tabs {
@@ -530,7 +530,7 @@
   background: transparent;
   color: var(--editor-text-muted);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
@@ -652,7 +652,7 @@
 
 .project-explorer-header h2 {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -670,7 +670,7 @@
 }
 
 .project-explorer-subtitle {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 650;
   color: var(--editor-text-strong);
 }
@@ -829,7 +829,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .project-explorer-item__extension,
@@ -887,7 +887,7 @@
 }
 
 .project-explorer-empty strong {
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   color: var(--editor-text-strong);
 }
 
@@ -1040,7 +1040,7 @@
 
 .workspace-welcome-page__subtitle {
   margin: 10px 0 28px;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
 }
 
 .workspace-welcome-grid {
@@ -1066,7 +1066,7 @@
 .workspace-welcome-tips h2 {
   margin: 0 0 8px;
   color: var(--editor-text-strong);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   text-transform: uppercase;
 }
 
@@ -1104,14 +1104,14 @@
 
 .workspace-welcome-project dt {
   color: var(--editor-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
 }
 
 .workspace-welcome-project dd {
   margin: 3px 0 0;
   color: var(--editor-text-strong);
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
 }
 
 .workspace-welcome-tips ul {
@@ -1123,7 +1123,7 @@
 .workspace-welcome-tips li,
 .workspace-empty-editor p {
   color: var(--editor-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .workspace-empty-editor {
@@ -1550,12 +1550,12 @@
 }
 
 .project-explorer-header h2 {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0;
 }
 
 .project-explorer-subtitle {
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   font-weight: 760;
 }
 
@@ -1565,7 +1565,7 @@
   border: 1px solid var(--workspace-card-border);
   background: var(--editor-panel-strong);
   padding: 2px 6px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 750;
 }
 
@@ -1945,7 +1945,7 @@
 .workspace-welcome-action-card small,
 .workspace-welcome-action-row small {
   color: var(--editor-text-muted);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.38;
 }
 
@@ -1998,7 +1998,7 @@
 
 .workspace-welcome-project dd {
   overflow: hidden;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   font-weight: 720;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2010,7 +2010,7 @@
   gap: 7px;
   margin: 12px 0 0;
   color: var(--studio-accent-strong);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 750;
 }
 
@@ -2037,7 +2037,7 @@
   border: 1px solid var(--workspace-card-border);
   background: var(--studio-accent-soft);
   color: var(--studio-accent-strong);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 800;
 }
 
@@ -2164,7 +2164,7 @@
 
 .workspace-empty-editor__action small {
   color: var(--editor-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .workspace-empty-editor__action--primary {

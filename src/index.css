@@ -103,7 +103,7 @@
   border-radius: 0;
   background: var(--accent-soft, #e0f2fe);
   color: var(--accent-strong, #0369a1);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
 }
 
@@ -162,7 +162,7 @@
 .version-diff-summary-grid span,
 .version-diff-item-head span {
   color: var(--studio-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .version-diff-empty {
@@ -222,7 +222,7 @@
   flex-wrap: wrap;
   gap: 8px;
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .versioning-count-badge {
@@ -234,7 +234,7 @@
   border-radius: 0;
   background: var(--studio-accent-soft);
   color: var(--studio-accent-strong);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 750;
 }
 
@@ -293,7 +293,7 @@
   border: 1px solid var(--studio-border);
   background: var(--studio-surface-muted);
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 750;
 }
 
@@ -322,7 +322,7 @@
 .action-modal-subtitle {
   margin: 4px 0 0;
   color: var(--studio-muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
 }
 
 .versioning-commit-form {
@@ -453,7 +453,7 @@
   place-items: center;
   border-radius: 0;
   background: rgba(0, 0, 0, 0.06);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .version-diff-section-head {
@@ -615,7 +615,7 @@
 .versioning-restore-meta dt {
   margin: 0 0 3px;
   color: var(--studio-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 750;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -684,7 +684,7 @@
   background: var(--studio-surface);
   text-align: center;
   color: var(--studio-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .versioning-restore-flow .studio-icon {
@@ -856,7 +856,7 @@ body {
   min-width: 0;
   margin: 0;
   color: var(--studio-muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -963,7 +963,7 @@ button:disabled {
 
 .app-eyebrow,
 .app-subtitle {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: #595953;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -1470,7 +1470,7 @@ button:disabled {
 }
 
 .inspector-compact-card strong {
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
 }
 
 .inspector-compact-card span {
@@ -1661,7 +1661,7 @@ button:disabled {
   color: #f4efdf;
   overflow: auto;
   font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.58;
 }
 
@@ -1760,7 +1760,7 @@ button:disabled {
   border-radius: 0;
   background: rgba(255, 255, 255, 0.72);
   padding: 0.52rem 0.58rem;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #55554f;
@@ -1888,7 +1888,7 @@ button:disabled {
   border: 1px solid currentColor;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .validation-item.warning .validation-icon,
@@ -1973,13 +1973,13 @@ button:disabled {
 
 .intro-grid h3 {
   margin: 0 0 6px;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
 .intro-grid p {
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
 }
 
 .intro-actions {
@@ -2093,7 +2093,7 @@ button:disabled {
 }
 
 .about-meta span {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   color: #55554f;
 }
 
@@ -2135,7 +2135,7 @@ button:disabled {
   cursor: pointer;
   user-select: none;
   padding: 0.52rem 0.7rem;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2151,7 +2151,7 @@ button:disabled {
 
 .help-section > summary::after {
   content: "+";
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   line-height: 1;
 }
 
@@ -2530,7 +2530,7 @@ summary:focus-visible {
 }
 
 .app-eyebrow {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.14em;
 }
@@ -2560,7 +2560,7 @@ summary:focus-visible {
 }
 
 .header-status-card span {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--studio-muted);
@@ -2794,7 +2794,7 @@ summary:focus-visible {
 }
 
 .field span {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--studio-muted);
@@ -2817,7 +2817,7 @@ summary:focus-visible {
 }
 
 .checkbox-field span {
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   text-transform: none;
   letter-spacing: 0;
   color: var(--studio-ink);
@@ -2867,7 +2867,7 @@ summary:focus-visible {
 
 .identifier-attrs {
   min-width: 0;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   line-height: 1.4;
   color: var(--studio-ink);
   word-break: normal;
@@ -2881,7 +2881,7 @@ summary:focus-visible {
   padding: 0.12rem 0.44rem;
   border: 1px solid var(--studio-line);
   border-radius: 0;
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--studio-muted);
@@ -3199,7 +3199,7 @@ summary:focus-visible {
   border-radius: 0;
   background: rgba(255, 255, 255, 0.48);
   color: inherit;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3256,7 +3256,7 @@ summary:focus-visible {
 }
 
 .toolbar-section-label {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -3721,7 +3721,7 @@ summary:focus-visible {
 }
 
 .studio-topbar-brand-copy strong {
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--studio-ink);
   letter-spacing: -0.01em;
@@ -4084,7 +4084,7 @@ summary:focus-visible {
 }
 
 .app-subtitle {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   letter-spacing: 0.04em;
   text-transform: none;
   color: rgba(42, 39, 31, 0.72);
@@ -4249,7 +4249,7 @@ summary:focus-visible {
 }
 
 .nav-menu-label {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(42, 39, 31, 0.52);
@@ -4538,7 +4538,7 @@ body.workspace-resizing {
 }
 
 .toolbar-context-summary strong {
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--studio-ink);
 }
@@ -4913,13 +4913,13 @@ body.workspace-resizing {
 
 .context-card-title {
   margin-bottom: 8px;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
 }
 
 .context-card-subtitle,
 .context-card-list,
 .action-hint {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.5;
 }
 
@@ -5043,7 +5043,7 @@ body.workspace-resizing {
 .canvas-status-bar span {
   min-height: 26px;
   padding: 0.18rem 0.56rem;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .diagram-code-panel {
@@ -5210,7 +5210,7 @@ textarea.diagram-code-panel-content::placeholder {
   outline: none;
   resize: none;
   background: transparent;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   line-height: 1.52;
   font-family: "IBM Plex Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: rgba(28, 27, 23, 0.92);
@@ -5797,7 +5797,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .entity-key-modal-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   font-weight: 760;
   letter-spacing: 0;
 }
@@ -5806,7 +5806,7 @@ textarea.diagram-notes-editor::placeholder {
   max-width: none;
   margin: 5px 0 0;
   color: var(--muted-text, rgba(39, 48, 43, 0.72));
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -5815,7 +5815,7 @@ textarea.diagram-notes-editor::placeholder {
   display: inline-flex;
   margin-top: 10px;
   color: rgba(31, 75, 65, 0.92);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
 }
 
@@ -5855,7 +5855,7 @@ textarea.diagram-notes-editor::placeholder {
   padding: 4px 8px;
   background: rgba(248, 249, 246, 0.78);
   color: rgba(44, 52, 48, 0.72);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .entity-key-summary-chip.complete {
@@ -5976,7 +5976,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .entity-key-option-preview > span {
   color: rgba(42, 50, 46, 0.54);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
 }
 
@@ -6059,7 +6059,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .entity-key-current-entity-head h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   letter-spacing: 0;
 }
 
@@ -6275,7 +6275,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .entity-key-preview-table-head span {
   color: var(--muted-text, rgba(39, 48, 43, 0.68));
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .entity-key-preview-table-rows {
@@ -6289,7 +6289,7 @@ textarea.diagram-notes-editor::placeholder {
   gap: 8px;
   padding: 8px 11px;
   border-top: 1px solid rgba(35, 47, 42, 0.08);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .entity-key-preview-table-row:first-child {
@@ -6310,7 +6310,7 @@ textarea.diagram-notes-editor::placeholder {
   padding: 2px 5px;
   background: rgba(31, 92, 77, 0.14);
   color: rgba(18, 80, 62, 0.94);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
 }
 
@@ -6348,7 +6348,7 @@ textarea.diagram-notes-editor::placeholder {
   padding: 2px 7px;
   background: rgba(31, 92, 77, 0.08);
   color: rgba(22, 82, 65, 0.95);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
 }
 
@@ -6415,7 +6415,7 @@ textarea.diagram-notes-editor::placeholder {
   margin: 0;
   padding-left: 17px;
   color: rgba(39, 48, 43, 0.78);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
 }
 
@@ -6567,7 +6567,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .logical-type-editor-note {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   line-height: 1.35;
   color: rgba(84, 58, 39, 0.86);
 }
@@ -6584,7 +6584,7 @@ textarea.diagram-notes-editor::placeholder {
   border-radius: 0;
   background: rgba(248, 251, 249, 0.96);
   padding: 0.34rem 0.66rem;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .logical-type-editor-actions button[type="submit"] {
@@ -6640,7 +6640,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .logical-inspector-section p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.45;
   color: rgba(42, 39, 31, 0.72);
 }
@@ -6786,7 +6786,7 @@ textarea.diagram-notes-editor::placeholder {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .onboarding-guide-head strong {
@@ -6801,7 +6801,7 @@ textarea.diagram-notes-editor::placeholder {
 .onboarding-guide-subtitle {
   margin: 0;
   color: var(--studio-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.45;
 }
 
@@ -6843,7 +6843,7 @@ textarea.diagram-notes-editor::placeholder {
   height: 22px;
   border-radius: 0;
   border: 1px solid var(--studio-line);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   color: var(--studio-ink);
   background: rgba(255, 255, 255, 0.92);
@@ -6907,7 +6907,7 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .translation-step-rail-header span {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(42, 39, 31, 0.58);
@@ -6970,7 +6970,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .translation-step-button-label {
   display: block;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: rgba(29, 29, 25, 0.92);
 }
@@ -6978,7 +6978,7 @@ textarea.diagram-notes-editor::placeholder {
 .translation-step-button-meta {
   display: block;
   margin-top: 4px;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   color: rgba(42, 39, 31, 0.62);
 }
 
@@ -7021,7 +7021,7 @@ textarea.diagram-notes-editor::placeholder {
 .translation-panel-eyebrow {
   display: block;
   margin-bottom: 4px;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(42, 39, 31, 0.58);
@@ -7084,7 +7084,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .translation-panel-section p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.45;
   color: rgba(42, 39, 31, 0.72);
 }
@@ -7105,7 +7105,7 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .translation-sql-column-status span {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: rgba(39, 54, 49, 0.74);
 }
 
@@ -7160,7 +7160,7 @@ textarea.diagram-notes-editor::placeholder {
   min-height: 24px;
   padding: 0.18rem 0.52rem;
   border-radius: 0;
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -7250,7 +7250,7 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .translation-summary-card strong {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(37, 74, 68, 0.88);
@@ -7279,7 +7279,7 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .translation-artifact-chip strong {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(42, 39, 31, 0.56);
@@ -7319,7 +7319,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .translation-review-card strong,
 .translation-decision-card strong {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   color: rgba(29, 29, 25, 0.92);
 }
 
@@ -7507,7 +7507,7 @@ textarea:focus-visible,
 
 .app-subtitle {
   max-width: 100%;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   color: var(--ui-text-muted);
 }
 
@@ -7525,7 +7525,7 @@ textarea:focus-visible,
   border: 1px solid var(--ui-border-subtle);
   border-radius: 0;
   background: var(--ui-surface-panel-strong);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 650;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -7553,7 +7553,7 @@ textarea:focus-visible,
 
 .header-group-label {
   padding-inline: 4px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: none;
@@ -7594,7 +7594,7 @@ textarea:focus-visible,
   min-height: 34px;
   padding: 0.34rem 0.72rem;
   border-radius: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
 }
 
@@ -7756,7 +7756,7 @@ textarea:focus-visible,
   border: 1px solid var(--workspace-control-border);
   border-radius: 0;
   background: rgba(255, 255, 255, 0.8);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: none;
@@ -7808,7 +7808,7 @@ textarea:focus-visible,
   border: 1px solid rgba(42, 39, 31, 0.04);
   border-radius: 0;
   background: rgba(42, 39, 31, 0.06);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: none;
@@ -7829,7 +7829,7 @@ textarea:focus-visible,
 .toolbar-context-banner strong {
   display: block;
   margin-bottom: 4px;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   color: var(--ui-text-strong);
 }
 
@@ -8012,13 +8012,13 @@ textarea:focus-visible,
 .canvas-guidance-copy strong {
   display: block;
   margin-bottom: 4px;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   color: rgba(26, 25, 20, 0.94);
 }
 
 .canvas-guidance-copy p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.5;
   color: var(--ui-text-muted);
 }
@@ -8071,7 +8071,7 @@ textarea:focus-visible,
   border: 1px solid rgba(42, 39, 31, 0.1);
   border-radius: 0;
   background: rgba(255, 255, 255, 0.88);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: var(--ui-text-muted);
 }
 
@@ -8095,7 +8095,7 @@ textarea:focus-visible,
 .canvas-flow-prompt-eyebrow {
   display: inline-flex;
   margin-bottom: 4px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: none;
@@ -8155,7 +8155,7 @@ textarea:focus-visible,
 
 .canvas-persistent-message p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.45;
   color: var(--ui-text-strong);
 }
@@ -8217,7 +8217,7 @@ textarea:focus-visible,
 }
 
 .canvas-affordance-chip span {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
   color: var(--ui-text-subtle);
 }
@@ -8767,7 +8767,7 @@ body {
   min-height: 32px;
   padding: 0 12px;
   border-radius: 0;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--editor-text-muted);
 }
@@ -8823,7 +8823,7 @@ body {
 .workspace-canvas-eyebrow,
 .workspace-side-panel-status,
 .translation-panel-eyebrow {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -8913,7 +8913,7 @@ body {
 }
 
 .workspace-stage-status {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
   color: var(--editor-text-muted);
 }
@@ -8999,7 +8999,7 @@ body {
 
 .workspace-canvas-copy h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--editor-text-strong);
 }
@@ -9100,7 +9100,7 @@ body {
   border-radius: 0;
   background: rgba(243, 247, 252, 0.94);
   color: var(--editor-text-muted);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   transition:
     border-color 150ms ease,
@@ -9218,7 +9218,7 @@ body {
   min-height: 260px;
   border-color: rgba(27, 43, 65, 0.12);
   background: #f7f9fc;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .translation-sql-hint {
@@ -9375,11 +9375,11 @@ body {
 .app-version-pill {
   min-height: 20px;
   padding: 0 8px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
 }
 
 .app-subtitle {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--editor-text-muted);
 }
@@ -9492,7 +9492,7 @@ body {
 }
 
 .workspace-stage-meta strong {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   color: var(--editor-text-strong);
 }
 
@@ -9628,7 +9628,7 @@ body {
   min-height: 30px;
   padding: 0 10px;
   border-radius: 0;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   box-shadow: none;
 }
 
@@ -9670,7 +9670,7 @@ body {
 }
 
 .translation-panel-section h3 {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .translation-sql-preview {
@@ -9730,7 +9730,7 @@ body {
 
 /* UX refinement after review */
 .header-inline-label {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -9795,7 +9795,7 @@ body {
 
 .workspace-stage-progress-label,
 .workspace-stage-guidance-label {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -9837,7 +9837,7 @@ body {
 
 .workspace-stage-guidance p {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
   color: var(--editor-text-muted);
 }
@@ -10055,7 +10055,7 @@ summary:focus-visible,
 
 .studio-topbar-brand-copy strong {
   color: var(--studio-ink);
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   letter-spacing: 0.01em;
   text-transform: none;
 }
@@ -10063,7 +10063,7 @@ summary:focus-visible,
 .studio-topbar-version,
 .studio-topbar-project-meta {
   color: var(--studio-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.08em;
 }
 
@@ -10092,7 +10092,7 @@ summary:focus-visible,
   border-radius: 0;
   background: var(--studio-surface);
   color: var(--studio-ink);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
@@ -10180,7 +10180,7 @@ summary:focus-visible,
   height: 18px;
   background: var(--studio-accent-soft);
   color: var(--studio-accent);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
 }
 
 .workspace-stage-badge-warning {
@@ -10432,7 +10432,7 @@ summary:focus-visible,
 .field label,
 .logical-type-editor label {
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -10511,7 +10511,7 @@ summary:focus-visible,
   min-height: 28px;
   border-radius: 0;
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .technical-dock-tabs .panel-tab.active,
@@ -10569,7 +10569,7 @@ summary:focus-visible,
   border-radius: 0;
   background: var(--studio-warning-soft);
   color: var(--studio-warning);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -10637,7 +10637,7 @@ summary:focus-visible,
 
 .sql-reverse-modal__issue-copy strong {
   color: var(--studio-ink);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .sql-reverse-feedback-card {
@@ -10682,7 +10682,7 @@ summary:focus-visible,
 
 .sql-reverse-feedback-card__copy strong {
   color: var(--studio-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 850;
   letter-spacing: 0.06em;
   line-height: 1.1;
@@ -10691,7 +10691,7 @@ summary:focus-visible,
 
 .sql-reverse-feedback-card__copy span {
   color: var(--studio-ink);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 650;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -10777,7 +10777,7 @@ summary:focus-visible,
   border-radius: 0;
   background: var(--studio-accent-soft);
   color: var(--studio-accent-strong);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 900;
   letter-spacing: 0.08em;
 }
@@ -10795,7 +10795,7 @@ summary:focus-visible,
 .sql-reverse-preview-title {
   margin: 0;
   color: var(--studio-ink);
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   font-weight: 800;
 }
 
@@ -10900,7 +10900,7 @@ summary:focus-visible,
   border-radius: 0;
   background: var(--studio-accent);
   color: #fff;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   font-weight: 900;
   box-shadow: var(--studio-shadow-floating);
 }
@@ -10992,7 +10992,7 @@ summary:focus-visible,
 .diagram-notes-editor {
   background: #fbfcfb;
   color: var(--studio-ink);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.55;
 }
 
@@ -11036,7 +11036,7 @@ summary:focus-visible,
   border-top: 1px solid var(--studio-border);
   background: #f7f9f6;
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .bottom-status-left,
@@ -11269,7 +11269,7 @@ summary:focus-visible,
 
 .workspace-toast-viewport .workspace-toast-time {
   color: var(--panel-muted, var(--studio-muted));
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -11489,7 +11489,7 @@ summary:focus-visible,
 .versioning-compact-status p {
   margin: 0.15rem 0 0;
   color: var(--studio-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .versioning-inline-commit-form {
@@ -11506,7 +11506,7 @@ summary:focus-visible,
 
 .versioning-inline-commit-form label span {
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -11606,7 +11606,7 @@ summary:focus-visible,
 .versioning-list-item-main p {
   margin: 0.18rem 0 0;
   color: var(--studio-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .versioning-list-meta {
@@ -11621,7 +11621,7 @@ summary:focus-visible,
 .versioning-list-actions .mode-button {
   min-height: 30px;
   padding-inline: 0.55rem;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 @media (max-width: 720px) {
@@ -11658,7 +11658,7 @@ summary:focus-visible,
   background: var(--studio-surface-muted);
   color: var(--studio-muted);
   padding: 0.22rem 0.42rem;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .version-compare-instance-header span {
@@ -11819,7 +11819,7 @@ summary:focus-visible,
   color: var(--studio-muted);
   padding: 0.18rem 0.36rem;
   font-style: normal;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
 }
 
@@ -11886,7 +11886,7 @@ summary:focus-visible,
 
 .version-compare-overview-files h2 {
   margin: 0.25rem 0;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
 }
 
 .version-compare-text-grid {
@@ -11913,7 +11913,7 @@ summary:focus-visible,
 
 .version-compare-text-pane-header span {
   color: var(--studio-muted);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .version-compare-text-lines {

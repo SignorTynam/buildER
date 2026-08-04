@@ -58,7 +58,7 @@
 }
 
 .project-file-tab__title {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 520;
 }
 

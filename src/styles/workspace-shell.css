@@ -274,7 +274,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
@@ -555,7 +555,7 @@ svg.diagram-canvas {
 
 .workspace-welcome-page__subtitle {
   max-width: 680px;
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   line-height: 1.55;
 }
 

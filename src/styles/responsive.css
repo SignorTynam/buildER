@@ -131,7 +131,7 @@
   }
 
   .app-command-search span {
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
   }
 
   /*

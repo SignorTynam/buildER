@@ -9,7 +9,7 @@
 }
 
 .release-center-button__label {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -54,9 +54,9 @@
 
 .release-toast__content { display: grid; gap: 5px; min-width: 0; }
 .release-toast__content > span { color: var(--studio-muted); font-size: 0.75rem; }
-.release-toast__content ul { margin: 2px 0; padding-left: 17px; color: var(--studio-muted); font-size: 0.76rem; line-height: 1.35; }
+.release-toast__content ul { margin: 2px 0; padding-left: 17px; color: var(--studio-muted); font-size: var(--font-size-sm); line-height: 1.35; }
 .release-toast__content button,
-.critical-release-banner button { justify-self: start; padding: 0; border: 0; background: transparent; color: var(--studio-accent-strong); font: inherit; font-size: 0.76rem; font-weight: 800; text-decoration: underline; }
+.critical-release-banner button { justify-self: start; padding: 0; border: 0; background: transparent; color: var(--studio-accent-strong); font: inherit; font-size: var(--font-size-sm); font-weight: 800; text-decoration: underline; }
 .release-toast__close,
 .release-center__close { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid transparent; background: transparent; color: var(--studio-muted); }
 
@@ -100,8 +100,8 @@
 .release-announcement__version strong { font-size: clamp(1.7rem, 4vw, 3.3rem); }
 .release-announcement__highlights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .release-announcement__highlights article { min-width: 0; padding: 13px; border: 1px solid var(--studio-border); background: var(--studio-bg-elevated); }
-.release-announcement__highlights span { color: var(--studio-accent-strong); font-size: 0.68rem; font-weight: 800; }
-.release-announcement__highlights h3 { margin: 6px 0; font-size: 0.9rem; }
+.release-announcement__highlights span { color: var(--studio-accent-strong); font-size: var(--font-size-2xs); font-weight: 800; }
+.release-announcement__highlights h3 { margin: 6px 0; font-size: var(--font-size-lg); }
 .release-announcement__highlights p { margin: 0; color: var(--studio-muted); font-size: 0.78rem; line-height: 1.4; }
 .release-announcement__changes { padding: 12px 14px; border: 1px solid var(--studio-border); background: var(--studio-surface-muted); }
 .release-announcement__changes ul { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--studio-muted); font-size: 0.8rem; }
@@ -148,10 +148,10 @@
 .release-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .release-card__title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .release-card h3, .release-card p { margin: 0; }
-.release-card h3 { font-size: 1rem; }
-.release-card__headline { margin-top: 5px !important; color: var(--studio-ink); font-size: 0.82rem; font-weight: 650; }
+.release-card h3 { font-size: var(--font-size-xl); }
+.release-card__headline { margin-top: 5px !important; color: var(--studio-ink); font-size: var(--font-size-md); font-weight: 650; }
 .release-card__summary { color: var(--studio-muted); font-size: 0.8rem; line-height: 1.45; }
-.release-card__meta { display: grid; justify-items: end; gap: 6px; color: var(--studio-muted); font-size: 0.72rem; }
+.release-card__meta { display: grid; justify-items: end; gap: 6px; color: var(--studio-muted); font-size: var(--font-size-xs); }
 .release-impact,
 .release-card__current,
 .release-card__read-state { display: inline-flex; padding: 4px 7px; border: 1px solid var(--studio-border); background: var(--studio-surface-muted); font-size: 0.66rem; font-weight: 800; }
@@ -164,7 +164,7 @@
 .release-card__highlights span { display: inline-flex; gap: 5px; padding: 4px 7px; border: 1px solid var(--studio-border); background: var(--studio-accent-soft); color: var(--studio-accent-strong); font-size: 0.7rem; }
 .release-card__sections { display: grid; gap: 10px; }
 .release-section { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 10px; padding-top: 10px; border-top: 1px solid var(--studio-border); }
-.release-section h4 { margin: 0; font-size: 0.76rem; }
+.release-section h4 { margin: 0; font-size: var(--font-size-sm); }
 .release-section ul { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: var(--studio-muted); font-size: 0.78rem; line-height: 1.4; }
 
 @keyframes release-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
