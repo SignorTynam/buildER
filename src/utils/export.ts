@@ -462,13 +462,13 @@ export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOp
     normalizePrintExportElements(clone);
   } else if (format === "png" || format === "jpeg") {
     normalizeRasterShapeFills(clone, format === "jpeg" ? "#ffffff" : "none");
-    maskLinesUnderCardinality(clone, {
-      x: viewBoxX,
-      y: viewBoxY,
-      width: exportWidth,
-      height: exportHeight,
-    });
   }
+  maskLinesUnderCardinality(clone, {
+    x: viewBoxX,
+    y: viewBoxY,
+    width: exportWidth,
+    height: exportHeight,
+  });
   neutralizeWorldTransform(clone);
   appendStandaloneFontStyle(clone, fontFamily);
 

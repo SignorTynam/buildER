@@ -139,11 +139,12 @@ test("normal mode is shared by raster downloads while SVG print mode remains ava
   assert.match(exportSource, /querySelectorAll<SVGTextElement \| SVGTSpanElement>\("text, tspan"\)/);
 });
 
-test("raster masks interrupt every edge line beneath cardinality labels", () => {
+test("all image exports mask every edge line beneath cardinality labels", () => {
   assert.match(exportSource, /querySelector<SVGTextElement>\("\.cardinality-label"\)/);
   assert.match(exportSource, /label\?\.previousElementSibling/);
   assert.match(exportSource, /labelCutout\.setAttribute\("fill",\s*"black"\)/);
   assert.match(exportSource, /path\.setAttribute\("mask",\s*`url\(#\$\{maskId\}\)`\)/);
+  assert.match(exportSource, /normalizePrintExportElements\(clone\);[\s\S]*maskLinesUnderCardinality\(clone/);
   assert.match(exportSource, /maskLinesUnderCardinality\(clone/);
 });
 

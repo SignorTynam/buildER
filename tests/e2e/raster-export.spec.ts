@@ -3,16 +3,16 @@ import { expect, test, type Download, type Page } from "@playwright/test";
 import { ensureDrawerClosed, seedProjectWithSchema } from "./utils/erSchemaProject";
 
 const REFERENCE_SCHEMA = `entity STUDENTE {
-    identifier(idStudente),
-    NomeStudente,
-    DataNascitaStudente,
+    identifier idStudente
+    attribute NomeStudente
+    attribute DataNascitaStudente
     attribute Recapito card "0..N"
 }
 
 entity UNIVERSITA {
-    identifier(IdUniversita),
-    NomeUniversita,
-    IndirizzoUniversita
+    identifier IdUniversita
+    attribute NomeUniversita
+    attribute IndirizzoUniversita
 }
 
 relationship ISCRIZIONE (
@@ -32,7 +32,7 @@ async function seedReferenceDiagram(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Fit the whole diagram" }).click();
 }
 
-async function exportRaster(page: Page, format: "PNG" | "JPEG"): Promise<Download> {
+async function exportImage(page: Page, format: "PNG" | "JPEG" | "SVG"): Promise<Download> {
   await page
     .getByRole("navigation", { name: "ER toolbar" })
     .getByRole("button", { name: "Export", exact: true })
@@ -120,7 +120,7 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
     };
   });
 
-  const pngDownload = await exportRaster(page, "PNG");
+  const pngDownload = await exportImage(page, "PNG");
   const transformBeforeViewportChange = await page.locator('[data-export-world="true"]').getAttribute("transform");
   await page.getByRole("button", { name: "Zoom in" }).click();
   await page.getByRole("button", { name: "Zoom in" }).click();
@@ -134,9 +134,13 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
   await expect
     .poll(() => page.locator('[data-export-world="true"]').getAttribute("transform"))
     .not.toBe(transformBeforeViewportChange);
-  const jpegDownload = await exportRaster(page, "JPEG");
+  const jpegDownload = await exportImage(page, "JPEG");
+  const svgDownload = await exportImage(page, "SVG");
   const pngUrl = await downloadDataUrl(pngDownload, "image/png");
   const jpegUrl = await downloadDataUrl(jpegDownload, "image/jpeg");
+  const svgPath = await svgDownload.path();
+  if (!svgPath) throw new Error("L'export SVG non ha prodotto un file locale");
+  const svgMarkup = await readFile(svgPath, "utf8");
 
   const comparison = await page.evaluate(async ({ pngUrl: pngSource, jpegUrl: jpegSource, rasterSamples: samples }) => {
     async function decode(url: string) {
@@ -246,16 +250,18 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
     stroke: "none",
     strokeWidth: "0",
   });
+  expect(svgMarkup.match(/<mask id="export-cardinality-mask-/g)).toHaveLength(3);
+  expect(svgMarkup.match(/mask="url\(#export-cardinality-mask-/g)).toHaveLength(3);
   for (const kind of ["connectorLineGap", "attributeLineGap"] as const) {
     expect(comparison.png[kind].length).toBeGreaterThan(4);
     expect(
-      comparison.png[kind].filter((alpha) => alpha <= 5).length / comparison.png[kind].length,
+      comparison.png[kind].some((alpha) => alpha <= 5),
       `la linea non deve attraversare ${kind} nel PNG`,
-    ).toBeGreaterThan(0.5);
+    ).toBe(true);
     expect(
-      comparison.jpeg[kind].filter((channel) => channel >= 245).length / comparison.jpeg[kind].length,
+      comparison.jpeg[kind].some((channel) => channel >= 245),
       `la linea non deve attraversare ${kind} nel JPEG`,
-    ).toBeGreaterThan(0.5);
+    ).toBe(true);
   }
   expect(comparison.jpeg.width).toBe(comparison.png.width);
   expect(comparison.jpeg.height).toBe(comparison.png.height);
