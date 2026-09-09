@@ -1589,6 +1589,21 @@ export const it = {
       fix: "Fix",
     },
     entries: {
+      v7_4: {
+        headline: "Attributi multivalore espandibili, export fedeli e controlli sempre a portata",
+        summary: "buildER 7.4 aggiunge una terza strategia per gli attributi multivalore con cardinalità piccola e finita: li espande in attributi scalari sulla stessa entità, senza crearne di nuove. Migliora inoltre la fedeltà degli export raster e rende toolbar, overlay e controlli compatti più affidabili.",
+        hero: { eyebrow: "Traduzione ER e rifiniture", title: "buildER 7.4.0", subtitle: "Traduci i multivalore finiti senza entità aggiuntive ed esporta il diagramma esattamente come lo vedi." },
+        highlights: {
+          code: { title: "Espandi nell’entità", description: "Gli attributi semplici multivalore con massimo numerico fino a 10 diventano attributi scalari sulla stessa entità, conservando il minimo della cardinalità originale.", tag: "Traduzione" },
+          layout: { title: "Controlli sempre raggiungibili", description: "La toolbar si dispone su riga mantenendo ogni comando accessibile, gli overlay flottanti non coprono più il contenuto e il selettore di vista compatto recupera etichette e target touch.", tag: "Responsive" },
+          experience: { title: "Export e stili coerenti", description: "I PNG conservano la trasparenza, i JPEG ricevono il fondo e le linee sotto le etichette di cardinalità vengono mascherate; font e select seguono un sistema visivo unico.", tag: "Qualità" },
+        },
+        updates: {
+          "0": "Aggiunta la strategia di traduzione Espandi nell’entità per gli attributi semplici multivalore posseduti da un’entità: con massimo numerico finito fino a 10 genera un attributo scalare per ogni valore ammesso, è consigliata fino a 5, non crea nuove entità e preserva il minimo della cardinalità originale.",
+          "1": "Unificata l’interfaccia delle cardinalità, esposti i bound normalizzati come utility condivisa, allineate alla type scale le dimensioni dei font fuori scala e adottata una skin comune per tutti i select.",
+          "2": "Corretti gli export raster con trasparenza PNG, fondo JPEG e mascheramento delle linee sotto le etichette di cardinalità, gli overlay flottanti sopra il contenuto, i tooltip inattivi che occupavano spazio nel layout e le etichette con i target touch del selettore di vista compatto.",
+        },
+      },
       v7_3: {
         headline: "Un canvas più rapido, proprietà più chiare e controlli sempre raggiungibili",
         summary: "buildER 7.3 introduce il pannello Proprietà per la selezione corrente, migliora i controlli responsive del canvas e sostituisce i dialoghi nativi del browser con le superfici tradotte dell’app.",

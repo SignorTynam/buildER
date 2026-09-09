@@ -1591,6 +1591,21 @@ export const en: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_4: {
+        headline: "Expandable multivalued attributes, faithful exports and controls always within reach",
+        summary: "buildER 7.4 adds a third strategy for multivalued attributes with a small finite cardinality: it expands them into scalar attributes on the same entity, without creating new ones. It also improves raster export fidelity and makes toolbars, overlays and compact controls more reliable.",
+        hero: { eyebrow: "ER translation and refinements", title: "buildER 7.4.0", subtitle: "Translate finite multivalued attributes without extra entities and export the diagram exactly as you see it." },
+        highlights: {
+          code: { title: "Expand in entity", description: "Simple multivalued attributes with a numeric maximum up to 10 become scalar attributes on the same entity, preserving the original minimum cardinality.", tag: "Translation" },
+          layout: { title: "Controls always reachable", description: "The toolbar lays out as a row keeping every command accessible, floating overlays no longer cover the content and the compact view switcher regains its labels and touch targets.", tag: "Responsive" },
+          experience: { title: "Consistent exports and styles", description: "PNG files keep transparency, JPEG files get a background and edge lines beneath cardinality labels are masked; fonts and selects follow a single visual system.", tag: "Quality" },
+        },
+        updates: {
+          "0": "Added the Expand in entity translation strategy for simple multivalued attributes owned by an entity: with a finite numeric maximum up to 10 it generates one scalar attribute per allowed value, is recommended up to 5, creates no new entity and preserves the original minimum cardinality.",
+          "1": "Unified the cardinality interface, exposed normalized bounds as a shared utility, snapped off-scale font sizes onto the type scale and adopted one shared skin for every select.",
+          "2": "Fixed raster exports with PNG transparency, JPEG background and masking of edge lines beneath cardinality labels, floating overlays landing on the content, dormant tooltips taking space in the layout, and the labels and touch targets of the compact view switcher.",
+        },
+      },
       v7_3: {
         headline: "A faster canvas, clearer properties, and controls that stay within reach",
         summary: "buildER 7.3 introduces a Properties panel for the current selection, improves responsive canvas controls, and replaces native browser dialogs with the app’s translated surfaces.",

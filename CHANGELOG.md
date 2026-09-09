@@ -9,6 +9,17 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 Nessuna modifica non rilasciata.
 
 <!-- builder:generated-releases:start -->
+## [7.4.0] - 2026-09-09
+
+### Added
+- Aggiunta la strategia di traduzione Espandi nell’entità per gli attributi semplici multivalore posseduti da un’entità: con massimo numerico finito fino a 10 genera un attributo scalare per ogni valore ammesso, è consigliata fino a 5, non crea nuove entità e preserva il minimo della cardinalità originale.
+
+### Changed
+- Unificata l’interfaccia delle cardinalità, esposti i bound normalizzati come utility condivisa, allineate alla type scale le dimensioni dei font fuori scala e adottata una skin comune per tutti i select.
+
+### Fixed
+- Corretti gli export raster con trasparenza PNG, fondo JPEG e mascheramento delle linee sotto le etichette di cardinalità, gli overlay flottanti sopra il contenuto, i tooltip inattivi che occupavano spazio nel layout e le etichette con i target touch del selettore di vista compatto.
+
 ## [7.3.0] - 2026-07-30
 
 ### Added
