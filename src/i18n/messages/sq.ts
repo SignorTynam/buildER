@@ -1591,6 +1591,21 @@ export const sq: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_4: {
+        headline: "Atribute shumëvlerëshe të zgjerueshme, eksporte besnike dhe kontrolle gjithmonë të arritshme",
+        summary: "buildER 7.4 shton një strategji të tretë për atributet shumëvlerëshe me kardinalitet të vogël dhe të fundmë: i zgjeron në atribute skalarë tek i njëjti entitet, pa krijuar entitete të reja. Përmirëson gjithashtu besnikërinë e eksporteve raster dhe i bën më të besueshme shiritat e veglave, mbivendosjet dhe kontrollet kompakte.",
+        hero: { eyebrow: "Përkthimi ER dhe rregullime", title: "buildER 7.4.0", subtitle: "Përkthe atributet shumëvlerëshe të fundme pa entitete shtesë dhe eksporto diagramin saktësisht ashtu si e sheh." },
+        highlights: {
+          code: { title: "Zgjero në entitet", description: "Atributet e thjeshta shumëvlerëshe me maksimum numerik deri në 10 bëhen atribute skalarë tek i njëjti entitet, duke ruajtur minimumin e kardinalitetit fillestar.", tag: "Përkthim" },
+          layout: { title: "Kontrolle gjithmonë të arritshme", description: "Shiriti i veglave shtrihet në një rresht duke mbajtur çdo komandë të arritshme, mbivendosjet pezull nuk e mbulojnë më përmbajtjen dhe përzgjedhësi kompakt i pamjeve rifiton etiketat dhe objektivat e prekjes.", tag: "Responsive" },
+          experience: { title: "Eksporte dhe stile të njetrajtshme", description: "Skedarët PNG ruajnë transparencën, JPEG-të marrin sfondin dhe vijat nnën etiketat e kardinalitetit maskohen; fontet dhe select-et ndjekin një sistem të vetëm vizual.", tag: "Cilësi" },
+        },
+        updates: {
+          "0": "Shton strategjinë e përkthimit Zgjero në entitet për atributet e thjeshta shumëvlerëshe që i përkasin një entiteti: me maksimum numerik të fundmë deri në 10 gjeneron një atribut skalar për çdo vlerë të lejuar, rekomandohet deri në 5, nuk krijon entitete të reja dhe ruan minimumin e kardinalitetit fillestar.",
+          "1": "Uniformon ndërfaqen e kardinaliteteve, ekspozon kufijtë e normalizuar si utility të përbashkët, përshtat me type scale-in madhësitë e fonteve jashtë shkallës dhe përdor një skin të përbashkët për të gjitha select-et.",
+          "2": "Korrigjon eksportet raster me transparencë PNG, sfond JPEG dhe maskim të vijave nnën etiketat e kardinalitetit, mbivendosjet pezull mbi përmbajtje, tooltip-at joaktivë që zënin hapësirë në layout, si dhe etiketat e objektivat e prekjes të përzgjedhësit kompakt të pamjeve.",
+        },
+      },
       v7_3: {
         headline: "Një canvas më i shpejtë, veti më të qarta dhe kontrolle gjithmonë të arritshme",
         summary: "buildER 7.3 prezanton panelin Vetitë për përzgjedhjen aktuale, përmirëson kontrollet responsive të canvas-it dhe zëvendëson dialogët e shfletuesit me sipërfaqet e përkthyera të aplikacionit.",
