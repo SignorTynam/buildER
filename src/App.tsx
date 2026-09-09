@@ -7575,9 +7575,7 @@ export default function App() {
     }
 
     try {
-      await downloadPng(svgRef.current, "builder-diagram.png", {
-        background: diagramView === "er" || diagramView === "translation" ? "canvas" : "transparent",
-      });
+      await downloadPng(svgRef.current, "builder-diagram.png");
       setStatus(t("workspace.exports.pngExported"));
       showSuccessNotice(t("workspace.downloads.pngExported"), { title: t("workspace.noticeTitles.exportCompleted") });
     } catch (error) {

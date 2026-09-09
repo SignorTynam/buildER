@@ -141,7 +141,7 @@ test("cardinality flow: connector with cardinality renders saved value", () => {
   assert.equal(getEdgeCardinalityLabel(nextDiagram.edges[0], nextDiagram.nodes[0], nextDiagram.nodes[1]), "(0,N)");
 });
 
-test("cardinality flow: connector cardinality renders without canvas-fill background", () => {
+test("cardinality flow: connector cardinality uses a borderless canvas-fill chip", () => {
   const sourceNode = {
     ...entity("ENTITY1"),
     relationshipParticipations: [
@@ -157,9 +157,9 @@ test("cardinality flow: connector cardinality renders without canvas-fill backgr
 
   assert.match(markup, /class="edge-label cardinality-label connector-label"/);
   assert.match(markup, />\(1,1\)<\/text>/);
-  // Fase C3.2: le etichette poggiano su chip bg-elevated, non sul canvas-fill.
-  assert.match(markup, /<rect class="edge-label-chip"[^>]+fill="var\(--color-bg-elevated\)"/);
-  assert.doesNotMatch(markup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
+  assert.match(markup, /<rect class="edge-label-chip"[^>]+fill="var\(--diagram-canvas-fill\)"/);
+  assert.match(markup, /<rect class="edge-label-chip"[^>]+stroke="none"[^>]+stroke-width="0"/);
+  assert.doesNotMatch(markup, /<rect class="edge-label-chip"[^>]+stroke="var\(--color-border-subtle\)"/);
 });
 
 test("cardinality flow: attribute cardinality renders without canvas-fill background", () => {
@@ -233,6 +233,7 @@ test("cardinality flow: role labels keep their separate backgrounds", () => {
   const roleMarkup = renderEdge(connector("edge-1", "participation-edge-1"), sourceNode, targetNode);
 
   assert.match(roleMarkup, /class="edge-label connector-role-label"/);
+  assert.match(roleMarkup, /<rect class="edge-label-chip"[^>]+fill="var\(--diagram-canvas-fill\)"[^>]+stroke="none"/);
   assert.match(roleMarkup, /<rect class="edge-label-chip"[^>]+fill="var\(--color-bg-elevated\)"/);
 });
 

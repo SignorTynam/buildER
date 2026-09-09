@@ -4372,12 +4372,6 @@ textarea:disabled {
   letter-spacing: 0;
 }
 
-/* Notazione ER: gli attributi identificanti sono sottolineati oltre al pallino pieno. */
-.attribute-label--identifier {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .composite-attribute-capsule {
   vector-effect: non-scaling-stroke;
 }

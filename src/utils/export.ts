@@ -179,6 +179,21 @@ function withoutExportBackgrounds<T>(svgElement: SVGSVGElement, callback: () => 
   }
 }
 
+function withoutWorldTransform<T>(worldGroup: SVGGElement, callback: () => T): T {
+  const previousTransform = worldGroup.getAttribute("transform");
+  worldGroup.removeAttribute("transform");
+
+  try {
+    return callback();
+  } finally {
+    if (previousTransform === null) {
+      worldGroup.removeAttribute("transform");
+    } else {
+      worldGroup.setAttribute("transform", previousTransform);
+    }
+  }
+}
+
 function getSvgFallbackBounds(svgElement: SVGSVGElement): DOMRect {
   const viewBox = svgElement.viewBox.baseVal;
   if (viewBox.width > 0 && viewBox.height > 0) {
@@ -196,18 +211,20 @@ function getContentBounds(svgElement: SVGSVGElement): DOMRect {
     return getSvgFallbackBounds(svgElement);
   }
 
-  return withoutExportBackgrounds(svgElement, () => {
-    try {
-      const bounds = worldGroup.getBBox();
-      if (bounds.width > 0 && bounds.height > 0) {
-        return new DOMRect(bounds.x, bounds.y, bounds.width, bounds.height);
+  return withoutExportBackgrounds(svgElement, () =>
+    withoutWorldTransform(worldGroup, () => {
+      try {
+        const bounds = worldGroup.getBBox();
+        if (bounds.width > 0 && bounds.height > 0) {
+          return new DOMRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        }
+      } catch {
+        // Fall back below when the browser cannot calculate a group bbox.
       }
-    } catch {
-      // Fall back below when the browser cannot calculate a group bbox.
-    }
 
-    return getSvgFallbackBounds(svgElement);
-  });
+      return getSvgFallbackBounds(svgElement);
+    }),
+  );
 }
 
 function removeExportBackgrounds(clone: SVGSVGElement) {
@@ -318,6 +335,72 @@ function normalizePrintExportElements(clone: SVGSVGElement) {
   });
 }
 
+function normalizeRasterShapeFills(clone: SVGSVGElement, fill: "none" | "#ffffff") {
+  clone.querySelectorAll<SVGElement>("rect, polygon, ellipse, circle, path, line, polyline").forEach((element) => {
+    if (shouldPreservePrintFill(element)) {
+      return;
+    }
+
+    const currentFill = element.style.getPropertyValue("fill") || element.getAttribute("fill");
+    if (hasVisiblePaint(currentFill)) {
+      element.style.setProperty("fill", fill);
+      element.setAttribute("fill", fill);
+    }
+  });
+}
+
+function maskConnectorLinesUnderCardinality(
+  clone: SVGSVGElement,
+  bounds: { x: number; y: number; width: number; height: number },
+) {
+  const namespace = "http://www.w3.org/2000/svg";
+  let definitions = clone.querySelector<SVGDefsElement>("defs");
+  if (!definitions) {
+    definitions = document.createElementNS(namespace, "defs");
+    clone.prepend(definitions);
+  }
+
+  clone.querySelectorAll<SVGGElement>(".diagram-edge").forEach((edge, index) => {
+    const label = edge.querySelector<SVGTextElement>(".connector-label");
+    const chip = label?.previousElementSibling;
+    const path = edge.querySelector<SVGPathElement>("path");
+    if (!(chip instanceof SVGRectElement) || !path) {
+      return;
+    }
+
+    const maskId = `export-cardinality-mask-${index}`;
+    const mask = document.createElementNS(namespace, "mask");
+    mask.setAttribute("id", maskId);
+    mask.setAttribute("maskUnits", "userSpaceOnUse");
+    mask.setAttribute("x", bounds.x.toString());
+    mask.setAttribute("y", bounds.y.toString());
+    mask.setAttribute("width", bounds.width.toString());
+    mask.setAttribute("height", bounds.height.toString());
+
+    const visibleArea = document.createElementNS(namespace, "rect");
+    visibleArea.setAttribute("x", bounds.x.toString());
+    visibleArea.setAttribute("y", bounds.y.toString());
+    visibleArea.setAttribute("width", bounds.width.toString());
+    visibleArea.setAttribute("height", bounds.height.toString());
+    visibleArea.setAttribute("fill", "white");
+    mask.appendChild(visibleArea);
+
+    const labelCutout = document.createElementNS(namespace, "rect");
+    const chipX = Number(chip.getAttribute("x"));
+    const chipY = Number(chip.getAttribute("y"));
+    const chipWidth = Number(chip.getAttribute("width"));
+    const chipHeight = Number(chip.getAttribute("height"));
+    labelCutout.setAttribute("x", (chipX - 1).toString());
+    labelCutout.setAttribute("y", (chipY - 1).toString());
+    labelCutout.setAttribute("width", (chipWidth + 2).toString());
+    labelCutout.setAttribute("height", (chipHeight + 2).toString());
+    labelCutout.setAttribute("fill", "black");
+    mask.appendChild(labelCutout);
+    definitions.appendChild(mask);
+    path.setAttribute("mask", `url(#${maskId})`);
+  });
+}
+
 function neutralizeWorldTransform(clone: SVGSVGElement) {
   getExportWorldGroup(clone)?.removeAttribute("transform");
 }
@@ -360,7 +443,7 @@ export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOp
   const format = options.format ?? "svg";
   const background = options.background ?? (format === "jpeg" ? "white" : "transparent");
   const backgroundColor = resolveExportBackgroundColor(svgElement, background);
-  const styleMode = options.styleMode ?? (format === "jpeg" ? "print" : "normal");
+  const styleMode = options.styleMode ?? "normal";
   const padding = options.padding ?? DEFAULT_EXPORT_PADDING;
   const clone = svgElement.cloneNode(true) as SVGSVGElement;
   const fontFamily = resolveFontFamily(svgElement);
@@ -377,6 +460,14 @@ export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOp
   if (styleMode === "print") {
     applyPrintExportStyle(clone);
     normalizePrintExportElements(clone);
+  } else if (format === "png" || format === "jpeg") {
+    normalizeRasterShapeFills(clone, format === "jpeg" ? "#ffffff" : "none");
+    maskConnectorLinesUnderCardinality(clone, {
+      x: viewBoxX,
+      y: viewBoxY,
+      width: exportWidth,
+      height: exportHeight,
+    });
   }
   neutralizeWorldTransform(clone);
   appendStandaloneFontStyle(clone, fontFamily);
@@ -490,15 +581,14 @@ async function rasterizeSvg(
 export async function downloadPng(
   svgElement: SVGSVGElement,
   fileName: string,
-  options?: Pick<SvgExportOptions, "background">,
 ) {
   await rasterizeSvg(svgElement, fileName, {
     format: "png",
-    background: options?.background ?? "transparent",
-    styleMode: "print",
+    background: "transparent",
+    styleMode: "normal",
   });
 }
 
 export async function downloadJpeg(svgElement: SVGSVGElement, fileName: string) {
-  await rasterizeSvg(svgElement, fileName, { format: "jpeg", background: "white", styleMode: "print" });
+  await rasterizeSvg(svgElement, fileName, { format: "jpeg", background: "white", styleMode: "normal" });
 }

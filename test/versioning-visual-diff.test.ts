@@ -335,6 +335,8 @@ test("DiagramNodeView colora anche marker e attributi identificatori con il colo
   });
 
   assert.match(markup, /class="attribute-marker attribute-identifier-marker"/);
+  assert.match(markup, /<text[^>]+class="attribute-label"[^>]*>id<\/text>/);
+  assert.doesNotMatch(markup, /attribute-label--identifier/);
   assert.match(markup, /stroke="var\(--diagram-version-added, #2a8a5f\)"/);
   assert.match(markup, /fill="var\(--diagram-version-added, #2a8a5f\)"/);
 });

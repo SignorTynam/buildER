@@ -404,7 +404,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                   <text
                     x={labelLayout.x}
                     y={labelLayout.y}
-                    className={isIdentifier ? "attribute-label attribute-label--identifier" : "attribute-label"}
+                    className="attribute-label"
                     textAnchor={labelLayout.textAnchor}
                     dominantBaseline={labelLayout.dominantBaseline}
                     fill={selectedStrokeColor}

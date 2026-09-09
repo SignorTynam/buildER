@@ -11,13 +11,11 @@ import {
 import { getNodeCenter, getSimpleAttributeMarkerCenter } from "./geometry";
 
 const CONNECTOR_CARDINALITY_DISTANCE_FROM_ENTITY = 30;
-const CONNECTOR_CARDINALITY_NORMAL_OFFSET = 20;
-const CONNECTOR_CARDINALITY_MIN_PROGRESS = 0.02;
 const CONNECTOR_CARDINALITY_MAX_PROGRESS = 0.18;
 const ATTRIBUTE_CARDINALITY_DISTANCE_FROM_MARKER = 22;
 const ATTRIBUTE_CARDINALITY_NORMAL_OFFSET = 18;
 const MIN_CARDINALITY_LINE_CLEARANCE = 14;
-const MAX_CONNECTOR_CARDINALITY_DISTANCE_FROM_OWNER = 64;
+const MAX_CONNECTOR_CARDINALITY_DISTANCE_FROM_OWNER = 96;
 const MAX_ATTRIBUTE_CARDINALITY_DISTANCE_FROM_OWNER = 52;
 
 export interface CardinalityAnchor {
@@ -171,19 +169,23 @@ export function getConnectorCardinalityAnchorPoint(options: {
   const entityIsSource = options.sourceNode.id === context.entity.id;
   const totalLength = getPolylineLength(options.points);
   const endpoint = entityIsSource ? options.points[0] : options.points[options.points.length - 1];
-  const adjacentPoint = entityIsSource ? options.points[1] : options.points[options.points.length - 2];
-  const minDistance = Math.max(20, totalLength * CONNECTOR_CARDINALITY_MIN_PROGRESS);
-  const maxDistance = Math.max(minDistance, Math.min(38, totalLength * CONNECTOR_CARDINALITY_MAX_PROGRESS));
-  const distanceFromOwner = clamp(CONNECTOR_CARDINALITY_DISTANCE_FROM_ENTITY, minDistance, maxDistance);
+  const distanceFromOwner = clamp(
+    Math.min(CONNECTOR_CARDINALITY_DISTANCE_FROM_ENTITY, totalLength * CONNECTOR_CARDINALITY_MAX_PROGRESS),
+    Math.min(20, totalLength),
+    Math.min(38, totalLength),
+  );
+  const progressFromSource = totalLength <= 0.001 ? 0 : distanceFromOwner / totalLength;
+  const preferredProgress = entityIsSource ? progressFromSource : 1 - progressFromSource;
+  const point = getPointAlongPolyline(options.points, preferredProgress);
 
-  return createEndpointCardinalityAnchor({
-    points: options.points,
-    ownerPoint: endpoint,
-    oppositePoint: adjacentPoint,
-    distanceFromOwner,
-    normalOffset: CONNECTOR_CARDINALITY_NORMAL_OFFSET,
+  return {
+    point,
+    referencePoint: endpoint,
+    normal: getReadableNormal(endpoint, point),
+    preferredProgress,
+    lockNearEndpoint: true,
     kind: "connector-cardinality",
-  });
+  };
 }
 
 function getAttributeNodeForCardinality(
@@ -266,6 +268,22 @@ function buildCardinalityCandidates(options: {
   points: Point[];
   anchor: CardinalityAnchor;
 }): Point[] {
+  if (options.anchor.kind === "connector-cardinality") {
+    const totalLength = Math.max(getPolylineLength(options.points), 0.001);
+    const distanceDeltas = [0, 8, -8, 16, -16, 24, -24, 32, -32, 48, -48, 64, -64];
+    return distanceDeltas
+      .map((delta) =>
+        getPointAlongPolyline(
+          options.points,
+          clamp(options.anchor.preferredProgress + delta / totalLength, 0, 1),
+        ),
+      )
+      .filter(
+        (candidate, index, source) =>
+          source.findIndex((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) <= 1) === index,
+      );
+  }
+
   const candidates: Point[] = [options.anchor.point];
   const segmentInfo = getNearestSegmentInfo(options.points, options.anchor.point);
   const currentLineClearance = Math.max(segmentInfo.distance, MIN_CARDINALITY_LINE_CLEARANCE + 2);
@@ -281,9 +299,7 @@ function buildCardinalityCandidates(options: {
     candidates.push(offsetPoint(options.anchor.point, tangent, offset));
   });
 
-  const progressDeltas = options.anchor.kind === "connector-cardinality"
-    ? [0.025, -0.025, 0.05, -0.05]
-    : [0.03, -0.03, 0.06, -0.06];
+  const progressDeltas = [0.03, -0.03, 0.06, -0.06];
   progressDeltas.forEach((delta) => {
     const progress = Math.min(Math.max(options.anchor.preferredProgress + delta, 0), 1);
     const point = getPointAlongPolyline(options.points, progress);
@@ -337,7 +353,9 @@ export function chooseCollisionFreeCardinalityLabelPlacement(options: {
     score += ownerDistance * (anchor.kind === "attribute-cardinality" ? 8 : 6);
     score += Math.abs(segmentInfo.progress - anchor.preferredProgress) * (anchor.lockNearEndpoint ? 1600 : 120);
 
-    if (segmentInfo.distance < MIN_CARDINALITY_LINE_CLEARANCE) {
+    if (anchor.kind === "connector-cardinality") {
+      score += segmentInfo.distance * 1000000;
+    } else if (segmentInfo.distance < MIN_CARDINALITY_LINE_CLEARANCE) {
       score += 1000000 + (MIN_CARDINALITY_LINE_CLEARANCE - segmentInfo.distance) * 100000;
     } else {
       score += Math.abs(segmentInfo.distance - MIN_CARDINALITY_LINE_CLEARANCE - 6) * 0.8;

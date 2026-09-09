@@ -18,6 +18,7 @@ import {
 } from "../utils/erTranslation";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "../components/icons/StudioIcon";
+import { useScrollOverflow } from "../hooks/useScrollOverflow";
 
 interface TranslationWorkspaceProps {
   workspace: ErTranslationWorkspaceDocument;
@@ -181,6 +182,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   const [fixOpen, setFixOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const [toolbarRef, toolbarOverflow] = useScrollOverflow<HTMLDivElement>();
   const overview = useMemo(() => buildErTranslationOverview(props.workspace), [props.workspace]);
   const logicalAccess = useMemo(() => canOpenLogicalView(props.workspace), [props.workspace]);
   const selectedItem = useMemo(
@@ -215,7 +217,16 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
   return (
     <div className={["designer-workspace", "designer-translation-view", compareMode ? "designer-workspace-compare" : ""].filter(Boolean).join(" ")}>
       <div className="designer-canvas-region designer-translation-canvas">
-        <div className="designer-context-toolbar designer-translation-toolbar" role="toolbar" aria-label="Restructuring tools">
+        <div
+          ref={toolbarRef}
+          className="designer-context-toolbar designer-translation-toolbar"
+          role="toolbar"
+          aria-label="Restructuring tools"
+          data-scroll-start={toolbarOverflow.atStart ? "" : undefined}
+          data-scroll-end={toolbarOverflow.atEnd ? "" : undefined}
+          data-scroll-top={toolbarOverflow.atTop ? "" : undefined}
+          data-scroll-bottom={toolbarOverflow.atBottom ? "" : undefined}
+        >
           <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
           <ToolbarButton label={t("translation.restructuring.redo")} icon={<StudioIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
           <ToolbarButton label={t("translation.restructuring.reset")} icon={<StudioIcon name="reset" />} onClick={props.onResetTranslation} />

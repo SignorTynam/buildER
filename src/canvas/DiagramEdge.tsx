@@ -248,6 +248,8 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const roleLabelPoint = props.labelLayoutOverride?.roleLabelPoint ?? defaultRoleLabelPoint;
   const displayLabelY = props.labelLayoutOverride?.displayLabelY ?? defaultDisplayLabelY;
   const roleLabelY = props.labelLayoutOverride?.roleLabelY ?? defaultRoleLabelY;
+  const displayLabelChipY = isConnector ? displayLabelPoint.y - 9 : displayLabelY - 13;
+  const displayLabelTextY = isConnector ? displayLabelPoint.y + 4 : displayLabelY;
   const validationTitle = isGhost ? undefined : formatValidationTitle(props.validationMessages);
   const badgeBasePoint = roleLabel ? roleLabelPoint : usesSplitConnectorLabels ? roleLabelPoint : displayLabelPoint;
   const badgeLabelY = roleLabel ? roleLabelY : displayLabelY;
@@ -356,19 +358,19 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           <rect
             className="edge-label-chip"
             x={displayLabelPoint.x - displayLabelWidth / 2}
-            y={displayLabelY - 13}
+            y={displayLabelChipY}
             width={displayLabelWidth}
             height={18}
             rx={3}
-            fill="var(--color-bg-elevated)"
-            stroke="var(--color-border-subtle)"
-            strokeWidth={1}
+            fill={isConnector ? "var(--diagram-canvas-fill)" : "var(--color-bg-elevated)"}
+            stroke={isConnector ? "none" : "var(--color-border-subtle)"}
+            strokeWidth={isConnector ? 0 : 1}
             opacity={labelOpacity}
             pointerEvents="none"
           />
           <text
             x={displayLabelPoint.x}
-            y={displayLabelY}
+            y={displayLabelTextY}
             textAnchor="middle"
             className={
               props.edge.type === "connector"

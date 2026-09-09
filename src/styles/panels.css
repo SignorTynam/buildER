@@ -3047,42 +3047,8 @@ summary:focus-visible,
   white-space: nowrap;
 }
 
-/* Affordance di scorrimento orizzontale, a ogni larghezza: la toolbar e in riga
-   ovunque. Quando i comandi eccedono la larghezza disponibile la sfumatura
-   compare solo dal lato in cui resta contenuto (attributi impostati da
-   `useScrollOverflow`), quindi sparisce da sola quando tutto ci sta. Senza
-   segnale sul bordo la barra sembra troncata e gli ultimi strumenti risultano
-   invisibili. */
-.designer-context-toolbar[data-scroll-start],
-.designer-context-toolbar[data-scroll-end] {
-  --toolbar-fade: 28px;
-  --toolbar-fade-start: 0px;
-  --toolbar-fade-end: 0px;
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--toolbar-fade-start),
-    #000 calc(100% - var(--toolbar-fade-end)),
-    transparent 100%
-  );
-}
-
-.designer-context-toolbar[data-scroll-start] {
-  --toolbar-fade-start: var(--toolbar-fade);
-}
-
-.designer-context-toolbar[data-scroll-end] {
-  --toolbar-fade-end: var(--toolbar-fade);
-}
-
-/* La toolbar del canvas e una barra orizzontale a ogni larghezza.
-   In colonna non ci stava: con una selezione attiva i comandi contestuali
-   arrivano a 14 e un pulsante icona+etichetta occupa 56px, quindi servivano
-   784px di altezza contro i 470 disponibili a 1280x720 — dove non entrava
-   nemmeno la palette a riposo. In riga gli stessi comandi chiedono ~947px, che
-   il canvas ha a 1440 e a 1280 con l'Explorer chiuso; dove non bastano resta la
-   sfumatura di scorrimento. La variante compatta piu sotto cambia solo
-   l'ancoraggio, non l'orientamento. */
+/* La base resta orizzontale per la variante compact; sopra i 899px tutte le
+   toolbox dei canvas vengono specializzate come colonne. */
 .designer-context-toolbar {
   position: absolute;
   z-index: var(--z-canvas-toolbar);
@@ -3174,6 +3140,79 @@ summary:focus-visible,
   min-height: 42px;
   margin: var(--space-1) var(--space-0-5);
   background: var(--color-border-default);
+}
+
+@media (min-width: 900px) {
+  /* Sul desktop ogni toolbox e una colonna ancorata al margine sinistro. I
+     comandi contestuali eccedenti restano raggiungibili tramite scroll
+     verticale in tutte le viste del diagramma. */
+  .designer-context-toolbar.designer-er-toolbar,
+  .designer-context-toolbar.designer-translation-toolbar,
+  .designer-context-toolbar.designer-logical-toolbar {
+    top: 64px;
+    right: auto;
+    bottom: auto;
+    left: 14px;
+    width: 76px;
+    max-width: 76px;
+    max-height: calc(100% - 96px);
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .designer-er-toolbar .designer-toolbar-button,
+  .designer-translation-toolbar .designer-toolbar-button,
+  .designer-logical-toolbar .designer-toolbar-button {
+    width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+    padding: 5px 3px;
+  }
+
+  .designer-er-toolbar .designer-toolbar-label,
+  .designer-translation-toolbar .designer-toolbar-label,
+  .designer-logical-toolbar .designer-toolbar-label {
+    max-width: 64px;
+  }
+
+  .designer-er-toolbar .designer-toolbar-separator,
+  .designer-translation-toolbar .designer-toolbar-separator,
+  .designer-logical-toolbar .designer-toolbar-separator {
+    width: 100%;
+    height: 1px;
+    min-height: 1px;
+    flex: 0 0 1px;
+    margin: var(--space-1) 0;
+  }
+
+  .designer-context-toolbar[data-scroll-top],
+  .designer-context-toolbar[data-scroll-bottom] {
+    --toolbar-fade: 24px;
+    --toolbar-fade-top: 0px;
+    --toolbar-fade-bottom: 0px;
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--toolbar-fade-top),
+      #000 calc(100% - var(--toolbar-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  .designer-context-toolbar[data-scroll-top] {
+    --toolbar-fade-top: var(--toolbar-fade);
+  }
+
+  .designer-context-toolbar[data-scroll-bottom] {
+    --toolbar-fade-bottom: var(--toolbar-fade);
+  }
+
+  .designer-logical-view.sql-open .designer-context-toolbar.designer-logical-toolbar {
+    left: 14px;
+  }
 }
 
 .errors-modal {
@@ -3612,10 +3651,7 @@ textarea {
     box-shadow: var(--studio-shadow-sm);
   }
 
-  /* Sotto soglia cambia solo l'ancoraggio: la barra si stacca dall'alto del
-     canvas e si aggancia in basso a tutta larghezza, sopra la safe area.
-     Orientamento, metriche dei pulsanti e separatori arrivano dalle regole
-     canoniche, che sono orizzontali a ogni larghezza. */
+  /* Sotto soglia tutte le toolbox tornano alla barra orizzontale inferiore. */
   .designer-context-toolbar,
   .designer-translation-toolbar,
   .designer-logical-toolbar {
@@ -3625,6 +3661,28 @@ textarea {
     left: 8px;
     max-width: calc(100vw - 16px);
     scroll-padding-inline: 8px;
+  }
+
+  .designer-context-toolbar[data-scroll-start],
+  .designer-context-toolbar[data-scroll-end] {
+    --toolbar-fade: 28px;
+    --toolbar-fade-start: 0px;
+    --toolbar-fade-end: 0px;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--toolbar-fade-start),
+      #000 calc(100% - var(--toolbar-fade-end)),
+      transparent 100%
+    );
+  }
+
+  .designer-context-toolbar[data-scroll-start] {
+    --toolbar-fade-start: var(--toolbar-fade);
+  }
+
+  .designer-context-toolbar[data-scroll-end] {
+    --toolbar-fade-end: var(--toolbar-fade);
   }
 
   /* Icona piu grande: qui il bersaglio e il dito, non il puntatore. */
@@ -4305,8 +4363,8 @@ textarea {
     bottom: max(8px, env(safe-area-inset-bottom));
   }
 
-  /* L'affordance di scorrimento orizzontale e ora canonica e vale a ogni
-     larghezza: vedi `.designer-context-toolbar[data-scroll-start]` sopra. */
+  /* L'affordance di scorrimento orizzontale compact e definita nel primo
+     blocco responsive della toolbar. */
 
   .canvas-viewport-hud,
   .app-shell-view-er .canvas-viewport-hud,
@@ -4499,11 +4557,17 @@ textarea {
     max-width: min(500px, calc(100vw - 116px));
   }
 
-  .app-shell-view-er .designer-context-toolbar {
+  .app-shell-view-er .designer-context-toolbar,
+  .app-shell-view-translation .designer-context-toolbar,
+  .app-shell-view-logical .designer-context-toolbar {
     top: 74px;
     left: 18px;
     right: auto;
     bottom: auto;
+  }
+
+  .app-shell-view-logical .designer-logical-view.sql-open .designer-context-toolbar {
+    left: 18px;
   }
 
   .app-shell-view-er .canvas-viewport-hud,
