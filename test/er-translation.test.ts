@@ -15,7 +15,9 @@ import {
   getErTranslationChoicesForItem,
   refreshErTranslationWorkspace,
 } from "../src/utils/erTranslation.ts";
-import type { ErTranslationDecision } from "../src/types/translation.ts";
+import type { ErTranslationChoice, ErTranslationDecision } from "../src/types/translation.ts";
+import { SUPPORTED_LOCALES, translate } from "../src/i18n/index.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 function createEntity(
   id: string,
@@ -179,6 +181,46 @@ function assertSimpleMultivaluedFix(
   assert.deepEqual(attributeEntity.internalIdentifiers?.[0]?.attributeIds, [keyAttribute.id]);
   assert.equal(getConnectorCardinality(diagram, "ENTITY1", relationship.id), ownerCardinality);
   assert.equal(getConnectorCardinality(diagram, attributeEntity.id, relationship.id), attributeEntityCardinality);
+  assertNoDanglingReferences(diagram);
+}
+
+function getExpandedChoice(diagram: DiagramDocument, attributeId: string): ErTranslationChoice | undefined {
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const overview = buildErTranslationOverview(workspace);
+  const item = overview.itemsByStep["composite-attributes"].find((candidate) => candidate.id === attributeId);
+  if (!item) {
+    return undefined;
+  }
+
+  return getErTranslationChoicesForItem(workspace, item).find(
+    (choice) => choice.rule === "simple-multivalued-expanded",
+  );
+}
+
+function assertExpandedAttributes(
+  diagram: DiagramDocument,
+  expected: Array<{ label: string; cardinality: string }>,
+) {
+  const generated = getDirectEntityAttributes(diagram, "ENTITY1").filter((attribute) =>
+    expected.some((candidate) => candidate.label === attribute.label),
+  );
+
+  assert.deepEqual(
+    generated.map((attribute) => ({ label: attribute.label, cardinality: attribute.cardinality })),
+    expected,
+  );
+  generated.forEach((attribute) => {
+    assert.equal(attribute.isMultivalued, false, `${attribute.label} must not stay multivalued`);
+    assert.equal(attribute.isCompositeInternal, false, `${attribute.label} must stay simple`);
+    assert.equal(attribute.isIdentifier, false, `${attribute.label} must not become an identifier`);
+    assert.deepEqual(
+      { width: attribute.width, height: attribute.height },
+      getPreferredNodeSizeForLabel("attribute", attribute.label),
+    );
+  });
+  assert.equal(new Set(generated.map((attribute) => attribute.id)).size, expected.length);
+  assert.equal(diagram.nodes.some((node) => node.type === "entity" && node.label !== "ENTITY1"), false);
+  assert.equal(diagram.nodes.some((node) => node.type === "relationship"), false);
   assertNoDanglingReferences(diagram);
 }
 
@@ -421,7 +463,7 @@ function createCompositeDiagram(): DiagramDocument {
 function createSimpleMultivaluedAttributeDiagram(
   attributeLabel: string,
   cardinality: string,
-  options: { composite?: boolean; hierarchy?: boolean } = {},
+  options: { composite?: boolean; hierarchy?: boolean; extraAttributeLabels?: string[] } = {},
 ): DiagramDocument {
   const attributeId = `attr-${attributeLabel.toLowerCase()}`;
   const nodes: DiagramNode[] = [
@@ -440,6 +482,12 @@ function createSimpleMultivaluedAttributeDiagram(
     createAttributeEdge(`edge-${attributeLabel}`, attributeId, "ENTITY1"),
     createAttributeEdge("edge-Attribute5", "attr-Attribute5", "ENTITY1"),
   ];
+
+  (options.extraAttributeLabels ?? []).forEach((extraLabel) => {
+    const extraId = `attr-${extraLabel.toLowerCase()}`;
+    nodes.push(createAttribute(extraId, extraLabel));
+    edges.push(createAttributeEdge(`edge-${extraLabel}`, extraId, "ENTITY1"));
+  });
 
   if (options.composite) {
     nodes.push(createAttribute(`attr-${attributeLabel}-child`, `${attributeLabel}Child`));
@@ -1458,6 +1506,343 @@ test("Fix su attributo semplice multivalore e bloccato se esistono gerarchie non
   );
   assert.equal(diagram.nodes.some((node) => node.type === "entity" && node.label === "ATTRIBUTE3"), false);
   assert.equal(diagram.nodes.some((node) => node.type === "relationship" && node.label === "HAS_ATTRIBUTE3"), false);
+});
+
+test("Espandi nell'entita e disponibile e consigliata per (0,2)", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(0,2)");
+  const choice = getExpandedChoice(diagram, "attr-attributo2");
+
+  assert.ok(choice, "la strategia di espansione deve essere disponibile per (0,2)");
+  assert.equal(choice.recommended, true);
+  assert.match(choice.description, /\b2\b/);
+
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attributo2",
+    "simple-multivalued-expanded",
+  );
+
+  assertExpandedAttributes(translated, [
+    { label: "ATTRIBUTO2_1", cardinality: "(0,1)" },
+    { label: "ATTRIBUTO2_2", cardinality: "(0,1)" },
+  ]);
+});
+
+test("Espandi nell'entita resta consigliata sulla soglia (0,5)", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(0,5)");
+  const choice = getExpandedChoice(diagram, "attr-attributo2");
+
+  assert.ok(choice);
+  assert.equal(choice.recommended, true);
+
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attributo2",
+    "simple-multivalued-expanded",
+  );
+
+  assertExpandedAttributes(
+    translated,
+    Array.from({ length: 5 }, (_unused, index) => ({
+      label: `ATTRIBUTO2_${index + 1}`,
+      cardinality: "(0,1)",
+    })),
+  );
+});
+
+test("Espandi nell'entita e disponibile ma non consigliata da (0,6) a (0,10)", () => {
+  for (const max of [6, 10]) {
+    const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", `(0,${max})`);
+    const choice = getExpandedChoice(diagram, "attr-attributo2");
+
+    assert.ok(choice, `la strategia deve essere disponibile per (0,${max})`);
+    assert.notEqual(choice.recommended, true, `(0,${max}) non deve essere consigliata`);
+
+    const translated = applySimpleMultivaluedAttributeTranslation(
+      diagram,
+      "attr-attributo2",
+      "simple-multivalued-expanded",
+    );
+
+    assertExpandedAttributes(
+      translated,
+      Array.from({ length: max }, (_unused, index) => ({
+        label: `ATTRIBUTO2_${index + 1}`,
+        cardinality: "(0,1)",
+      })),
+    );
+  }
+});
+
+test("Espandi nell'entita non e applicabile oltre il limite (0,11) e con massimo N", () => {
+  for (const cardinality of ["(0,11)", "(0,N)", "(1,N)"]) {
+    const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", cardinality);
+    const workspace = createEmptyErTranslationWorkspace(diagram);
+    const overview = buildErTranslationOverview(workspace);
+    const item = overview.itemsByStep["composite-attributes"].find(
+      (candidate) => candidate.id === "attr-attributo2",
+    );
+    assert.ok(item, `${cardinality} deve restare un attributo multivalore da correggere`);
+
+    const choices = getErTranslationChoicesForItem(workspace, item);
+    assert.deepEqual(
+      choices.map((choice) => choice.rule).sort(),
+      ["simple-multivalued-shared", "simple-multivalued-unique"],
+      `${cardinality} non deve esporre la terza strategia`,
+    );
+
+    assert.throws(
+      () =>
+        applySimpleMultivaluedAttributeTranslation(
+          diagram,
+          "attr-attributo2",
+          "simple-multivalued-expanded",
+        ),
+      /non consente l'espansione nell'entita/,
+    );
+  }
+});
+
+test("Espandi nell'entita preserva il minimo (3,7) con attributi obbligatori e opzionali", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(3,7)");
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attributo2",
+    "simple-multivalued-expanded",
+  );
+
+  assertExpandedAttributes(
+    translated,
+    Array.from({ length: 7 }, (_unused, index) => ({
+      label: `ATTRIBUTO2_${index + 1}`,
+      cardinality: index < 3 ? "(1,1)" : "(0,1)",
+    })),
+  );
+});
+
+test("Espandi nell'entita rende tutti gli attributi obbligatori quando minimo e massimo coincidono (7,7)", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(7,7)");
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attributo2",
+    "simple-multivalued-expanded",
+  );
+
+  assertExpandedAttributes(
+    translated,
+    Array.from({ length: 7 }, (_unused, index) => ({
+      label: `ATTRIBUTO2_${index + 1}`,
+      cardinality: "(1,1)",
+    })),
+  );
+});
+
+test("Espandi nell'entita di (0,7) crea sette attributi opzionali senza nuove entita", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(0,7)");
+  const choice = getExpandedChoice(diagram, "attr-attributo2");
+
+  assert.ok(choice);
+  assert.notEqual(choice.recommended, true);
+  assert.match(choice.previewLines?.[0] ?? "", /\b7\b/);
+
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attributo2",
+    "simple-multivalued-expanded",
+  );
+
+  assertExpandedAttributes(
+    translated,
+    Array.from({ length: 7 }, (_unused, index) => ({
+      label: `ATTRIBUTO2_${index + 1}`,
+      cardinality: "(0,1)",
+    })),
+  );
+});
+
+test("Espandi nell'entita non sovrascrive attributi omonimi gia presenti", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(0,3)", {
+    extraAttributeLabels: ["ATTRIBUTO2_1"],
+  });
+  const expand = () =>
+    applySimpleMultivaluedAttributeTranslation(
+      diagram,
+      "attr-attributo2",
+      "simple-multivalued-expanded",
+    );
+  const translated = expand();
+  const ownerAttributes = getDirectEntityAttributes(translated, "ENTITY1");
+  const labels = ownerAttributes.map((attribute) => attribute.label).sort();
+
+  assert.equal(
+    ownerAttributes.some(
+      (attribute) => attribute.id === "attr-attributo2_1" && attribute.label === "ATTRIBUTO2_1",
+    ),
+    true,
+    "l'attributo preesistente non deve essere sovrascritto",
+  );
+  assert.deepEqual(labels, [
+    "ATTRIBUTO2_1",
+    "ATTRIBUTO2_1 (2)",
+    "ATTRIBUTO2_2",
+    "ATTRIBUTO2_3",
+    "Attribute2",
+    "Attribute5",
+  ]);
+  assert.equal(new Set(translated.nodes.map((node) => node.id)).size, translated.nodes.length);
+  assert.equal(new Set(translated.edges.map((edge) => edge.id)).size, translated.edges.length);
+  assert.deepEqual(expand(), translated, "la trasformazione deve essere deterministica");
+  assertNoDanglingReferences(translated);
+});
+
+test("Espandi nell'entita rimuove l'attributo multivalore originale e il suo edge", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(0,3)");
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-attributo2",
+    "simple-multivalued-expanded",
+  );
+
+  assert.equal(translated.nodes.some((node) => node.id === "attr-attributo2"), false);
+  assert.equal(translated.nodes.some((node) => node.label === "ATTRIBUTO2"), false);
+  assert.equal(translated.edges.some((edge) => edge.id === "edge-ATTRIBUTO2"), false);
+  assert.equal(
+    translated.edges.some(
+      (edge) => edge.sourceId === "attr-attributo2" || edge.targetId === "attr-attributo2",
+    ),
+    false,
+  );
+  getDirectEntityAttributes(translated, "ENTITY1")
+    .filter((attribute) => attribute.label.startsWith("ATTRIBUTO2_"))
+    .forEach((attribute) => {
+      assert.equal(
+        translated.edges.some(
+          (edge) =>
+            edge.type === "attribute" &&
+            ((edge.sourceId === attribute.id && edge.targetId === "ENTITY1") ||
+              (edge.targetId === attribute.id && edge.sourceId === "ENTITY1")),
+        ),
+        true,
+        `missing ownership edge for ${attribute.label}`,
+      );
+    });
+  assert.equal(getEntity(translated, "ENTITY1").relationshipParticipations?.length ?? 0, 0);
+  assertNoDanglingReferences(translated);
+});
+
+test("Espandi nell'entita non altera il comportamento di Unique e Shared su cardinalita finite", () => {
+  const shared = applySimpleMultivaluedAttributeTranslation(
+    createSimpleMultivaluedAttributeDiagram("Attribute3", "(0,7)"),
+    "attr-attribute3",
+    "simple-multivalued-shared",
+  );
+  const unique = applySimpleMultivaluedAttributeTranslation(
+    createSimpleMultivaluedAttributeDiagram("Attribute3", "(0,7)"),
+    "attr-attribute3",
+    "simple-multivalued-unique",
+  );
+
+  assertSimpleMultivaluedFix(shared, "Attribute3", "(0,7)", "(1,N)");
+  assertSimpleMultivaluedFix(unique, "Attribute3", "(0,7)", "(1,1)");
+});
+
+test("Espandi nell'entita applicata dal workspace chiude l'item e sopravvive al replay delle decisioni", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(0,7)");
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const item = buildErTranslationOverview(workspace).itemsByStep["composite-attributes"].find(
+    (candidate) => candidate.id === "attr-attributo2",
+  );
+  assert.ok(item);
+
+  const choice = getErTranslationChoicesForItem(workspace, item).find(
+    (candidate) => candidate.rule === "simple-multivalued-expanded",
+  );
+  assert.ok(choice);
+
+  const applied = applyErTranslationChoice(diagram, workspace, choice, "attribute", item.id);
+  assert.deepEqual(applied.translation.conflicts, []);
+  assert.equal(applied.translation.decisions.length, 1);
+  assert.equal(applied.translation.decisions[0].rule, "simple-multivalued-expanded");
+  assert.equal(buildErTranslationOverview(applied).itemsByStep["composite-attributes"].length, 0);
+  assert.equal(canOpenLogicalView(applied).allowed, true);
+  assertExpandedAttributes(
+    applied.translatedDiagram,
+    Array.from({ length: 7 }, (_unused, index) => ({
+      label: `ATTRIBUTO2_${index + 1}`,
+      cardinality: "(0,1)",
+    })),
+  );
+
+  const roundTripped = JSON.parse(JSON.stringify(applied)) as typeof applied;
+  const replayed = refreshErTranslationWorkspace(diagram, roundTripped);
+  assert.deepEqual(replayed.translation.conflicts, []);
+  assert.equal(replayed.translation.decisions[0].rule, "simple-multivalued-expanded");
+  assert.deepEqual(
+    getDirectEntityAttributes(replayed.translatedDiagram, "ENTITY1")
+      .map((attribute) => attribute.label)
+      .sort(),
+    getDirectEntityAttributes(applied.translatedDiagram, "ENTITY1")
+      .map((attribute) => attribute.label)
+      .sort(),
+  );
+});
+
+test("le decisioni Unique e Shared salvate prima della feature restano applicabili", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("Attribute3", "(1,N)");
+  const legacyDecision: ErTranslationDecision = {
+    id: "translation-attribute-attr-attribute3",
+    targetType: "attribute",
+    targetId: "attr-attribute3",
+    step: "composite-attributes",
+    rule: "simple-multivalued-shared",
+    summary: "legacy",
+    appliedAt: new Date(0).toISOString(),
+    status: "applied",
+  };
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const restored = refreshErTranslationWorkspace(diagram, {
+    ...workspace,
+    translation: { ...workspace.translation, decisions: [legacyDecision] },
+  });
+
+  assert.deepEqual(restored.translation.conflicts, []);
+  assertSimpleMultivaluedFix(restored.translatedDiagram, "Attribute3", "(1,N)", "(1,N)");
+});
+
+test("le etichette di Espandi nell'entita sono localizzate in ogni lingua supportata", () => {
+  const keys = [
+    "translation.simpleMultivalued.expanded.label",
+    "translation.simpleMultivalued.expanded.description",
+    "translation.simpleMultivalued.expanded.summary",
+    "translation.simpleMultivalued.expanded.preview",
+  ] as const;
+
+  for (const locale of SUPPORTED_LOCALES) {
+    for (const key of keys) {
+      const value = translate(key, { name: "ATTRIBUTO2", owner: "ENTITY1", count: 7 }, locale);
+      assert.notEqual(value, key, `${locale}.${key} non risolve`);
+      assert.notEqual(value.trim(), "", `${locale}.${key} e vuoto`);
+    }
+
+    withTestLocale(locale, () => {
+      const choice = getExpandedChoice(
+        createSimpleMultivaluedAttributeDiagram("ATTRIBUTO2", "(0,7)"),
+        "attr-attributo2",
+      );
+      assert.ok(choice);
+      assert.equal(
+        choice.label,
+        translate("translation.simpleMultivalued.expanded.label", undefined, locale),
+      );
+      assert.match(choice.description, /\b7\b/);
+      assert.match(choice.summary, /ATTRIBUTO2/);
+    });
+  }
+
+  assert.equal(
+    translate("translation.simpleMultivalued.expanded.label", undefined, "it"),
+    "Espandi nell'entità",
+  );
 });
 
 test("attributo semplice non multivalore non espone Fix Unique/Shared", () => {

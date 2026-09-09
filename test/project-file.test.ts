@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createEmptyDiagram, serializeDiagram } from "../src/utils/diagram.ts";
-import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts";
+import { createEmptyDiagram, parseDiagram, serializeDiagram } from "../src/utils/diagram.ts";
+import {
+  applyErTranslationChoice,
+  buildErTranslationOverview,
+  createEmptyErTranslationWorkspace,
+  getErTranslationChoicesForItem,
+} from "../src/utils/erTranslation.ts";
+import type { DiagramDocument } from "../src/types/diagram.ts";
 import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
 import {
   CURRENT_PROJECT_FILE_VERSION,
@@ -23,6 +29,71 @@ import {
 } from "../src/utils/projectExplorer.ts";
 
 const DEFAULT_VIEWPORT = { x: 180, y: 110, zoom: 1 };
+
+function createExpandedMultivaluedDiagram(): DiagramDocument {
+  const diagram = createEmptyDiagram("Progetto multivalore");
+
+  return parseDiagram(serializeDiagram({
+    ...diagram,
+    nodes: [
+      {
+        id: "PERSONA",
+        type: "entity",
+        label: "PERSONA",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        internalIdentifiers: [{ id: "entity-persona-pk", attributeIds: ["codice"] }],
+        externalIdentifiers: [],
+        relationshipParticipations: [],
+      },
+      {
+        id: "codice",
+        type: "attribute",
+        label: "codice",
+        x: 240,
+        y: 0,
+        width: 100,
+        height: 40,
+        isIdentifier: true,
+        isCompositeInternal: false,
+        isMultivalued: false,
+      },
+      {
+        id: "telefono",
+        type: "attribute",
+        label: "telefono",
+        x: 240,
+        y: 80,
+        width: 100,
+        height: 40,
+        isIdentifier: false,
+        isCompositeInternal: false,
+        isMultivalued: false,
+        cardinality: "(0,3)",
+      },
+    ],
+    edges: [
+      {
+        id: "edge-codice",
+        type: "attribute",
+        sourceId: "codice",
+        targetId: "PERSONA",
+        label: "",
+        lineStyle: "solid",
+      },
+      {
+        id: "edge-telefono",
+        type: "attribute",
+        sourceId: "telefono",
+        targetId: "PERSONA",
+        label: "",
+        lineStyle: "solid",
+      },
+    ],
+  }));
+}
 
 function createSerializableProject(name: string) {
   const diagram = createEmptyDiagram(name);
@@ -88,6 +159,109 @@ function createWorkspaceState(overrides: Partial<ProjectFileWorkspaceState> = {}
     ...overrides,
   };
 }
+
+test("il formato .ersp conserva la decisione Espandi nell'entita nel round-trip", () => {
+  const diagram = createExpandedMultivaluedDiagram();
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const item = buildErTranslationOverview(workspace).itemsByStep["composite-attributes"].find(
+    (candidate) => candidate.id === "telefono",
+  );
+  assert.ok(item);
+
+  const choice = getErTranslationChoicesForItem(workspace, item).find(
+    (candidate) => candidate.rule === "simple-multivalued-expanded",
+  );
+  assert.ok(choice);
+
+  const translationWorkspace = applyErTranslationChoice(diagram, workspace, choice, "attribute", item.id);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+  const serialized = serializeProjectFile({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "translation",
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+    savedAt: "2026-06-26T10:00:00.000Z",
+  });
+
+  const parsed = parseProjectFile(serialized, {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "er",
+  });
+  const restored = parsed.state.translationWorkspace;
+
+  assert.equal(parsed.document.version, CURRENT_PROJECT_FILE_VERSION);
+  assert.deepEqual(restored.translation.conflicts, []);
+  assert.deepEqual(
+    restored.translation.decisions.map((decision) => decision.rule),
+    ["simple-multivalued-expanded"],
+  );
+  assert.deepEqual(
+    restored.translatedDiagram.nodes
+      .filter((node) => node.type === "attribute")
+      .map((node) => node.label)
+      .sort(),
+    ["codice", "telefono_1", "telefono_2", "telefono_3"],
+  );
+  assert.equal(
+    restored.translatedDiagram.nodes.some((node) => node.label === "telefono"),
+    false,
+  );
+});
+
+test("un progetto .ersp salvato prima della terza strategia continua ad aprirsi", () => {
+  const diagram = createExpandedMultivaluedDiagram();
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const legacyWorkspace = {
+    ...workspace,
+    translation: {
+      ...workspace.translation,
+      decisions: [
+        {
+          id: "translation-attribute-telefono",
+          targetType: "attribute" as const,
+          targetId: "telefono",
+          step: "composite-attributes" as const,
+          rule: "simple-multivalued-unique" as const,
+          summary: "legacy",
+          appliedAt: "2026-01-01T00:00:00.000Z",
+          status: "applied" as const,
+        },
+      ],
+    },
+  };
+  const serialized = serializeProjectFile({
+    diagram,
+    translationWorkspace: legacyWorkspace,
+    logicalWorkspace: createEmptyLogicalWorkspace(diagram),
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "translation",
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+    savedAt: "2026-06-26T10:00:00.000Z",
+  });
+
+  const restored = parseProjectFile(serialized, {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "er",
+  }).state.translationWorkspace;
+
+  assert.deepEqual(restored.translation.conflicts, []);
+  assert.deepEqual(
+    restored.translation.decisions.map((decision) => decision.rule),
+    ["simple-multivalued-unique"],
+  );
+  assert.equal(
+    restored.translatedDiagram.nodes.some((node) => node.type === "entity" && node.label === "TELEFONO"),
+    true,
+  );
+});
 
 test("il formato .ersp salva e ripristina vista corrente e viewport del progetto", () => {
   const diagram = createEmptyDiagram("Progetto completo");

@@ -597,7 +597,7 @@ function createRelationshipRegressionDiagram(): DiagramDocument {
 }
 
 function createSimpleMultivaluedAttributeSource(options: {
-  cardinality: "(0,N)" | "(1,N)" | "(1,1)";
+  cardinality: string;
   ownerKey: "none" | "simple" | "composite";
   compositeAttribute?: boolean;
 }): DiagramDocument {
@@ -1395,6 +1395,55 @@ test("Fix Unique/Shared di attributo semplice multivalore blocca la relazione se
       `missing blocking issue for ${mode}`,
     );
   }
+});
+
+test("Espandi nell'entita di attributo semplice multivalore (0,3) genera colonne scalari senza tabella multivalore", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(0,3)", ownerKey: "simple" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(
+    source,
+    "attr-value",
+    "simple-multivalued-expanded",
+  );
+  const { workspace, overview } = applyAllRecommendedChoices(diagram);
+  const ownerTable = getTableByName(workspace.model, "ENTITA1");
+
+  assert.deepEqual(overview.itemsByStep["multivalued-attributes"], []);
+  assert.deepEqual(
+    workspace.model.tables.map((table) => table.name),
+    ["ENTITA1"],
+  );
+  assert.deepEqual(
+    ownerTable.columns.map((column) => column.name),
+    ["ID_ENTITA1", "ATTRIBUTO1", "ATTRIBUTO6_1", "ATTRIBUTO6_2", "ATTRIBUTO6_3"],
+  );
+  assert.equal(
+    ownerTable.columns.some((column) => column.name === "ATTRIBUTO6"),
+    false,
+  );
+  assert.equal(workspace.model.foreignKeys.length, 0);
+  assert.equal(workspace.model.issues.some((issue) => issue.level === "error"), false);
+});
+
+test("Espandi nell'entita con minimo maggiore di zero non altera la struttura della tabella owner", () => {
+  const source = createSimpleMultivaluedAttributeSource({ cardinality: "(2,3)", ownerKey: "simple" });
+  const diagram = applySimpleMultivaluedAttributeTranslation(
+    source,
+    "attr-value",
+    "simple-multivalued-expanded",
+  );
+  const { workspace } = applyAllRecommendedChoices(diagram);
+  const ownerTable = getTableByName(workspace.model, "ENTITA1");
+
+  assert.deepEqual(
+    ownerTable.columns.filter((column) => column.name.startsWith("ATTRIBUTO6_")).map((column) => column.name),
+    ["ATTRIBUTO6_1", "ATTRIBUTO6_2", "ATTRIBUTO6_3"],
+  );
+  assert.deepEqual(
+    ownerTable.columns.filter((column) => column.isPrimaryKey).map((column) => column.name),
+    ["ID_ENTITA1"],
+  );
+  assert.equal(workspace.model.tables.length, 1);
+  assert.equal(workspace.model.issues.some((issue) => issue.level === "error"), false);
 });
 
 test("attributo composto con cardinalita non viene trattato come semplice multivalore nel Fix ER", () => {
