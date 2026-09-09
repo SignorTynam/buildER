@@ -29,11 +29,22 @@ export const CONNECTOR_CARDINALITY_PRESETS = ["(0,1)", "(1,1)", "(0,N)", "(1,N)"
 
 export type ConnectorCardinality = string;
 
+export type CardinalityBound = number | "N";
+
+export interface CardinalityBounds {
+  min: CardinalityBound;
+  max: CardinalityBound;
+}
+
 export interface CardinalityParseResult {
   valid: boolean;
   value?: ConnectorCardinality;
   reason?: string;
 }
+
+type CardinalityBoundsParseResult =
+  | { valid: true; bounds: CardinalityBounds }
+  | { valid: false; reason: string };
 
 function parseCardinalityBound(value: string): number | "N" | null {
   const normalized = value.trim().toUpperCase();
@@ -49,7 +60,7 @@ function parseCardinalityBound(value: string): number | "N" | null {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export function normalizeCardinalityInput(value: string | undefined): CardinalityParseResult {
+function parseCardinalityBounds(value: string | undefined): CardinalityBoundsParseResult {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) {
     return { valid: false, reason: "Cardinalita mancante." };
@@ -72,7 +83,21 @@ export function normalizeCardinalityInput(value: string | undefined): Cardinalit
     return { valid: false, reason: "Il minimo non puo essere maggiore del massimo." };
   }
 
-  return { valid: true, value: `(${min},${max})` };
+  return { valid: true, bounds: { min, max } };
+}
+
+export function normalizeCardinalityInput(value: string | undefined): CardinalityParseResult {
+  const parsed = parseCardinalityBounds(value);
+  if (!parsed.valid) {
+    return { valid: false, reason: parsed.reason };
+  }
+
+  return { valid: true, value: `(${parsed.bounds.min},${parsed.bounds.max})` };
+}
+
+export function getCardinalityBounds(value: string | undefined): CardinalityBounds | undefined {
+  const parsed = parseCardinalityBounds(value);
+  return parsed.valid ? parsed.bounds : undefined;
 }
 
 export function isSupportedCardinality(value: string): value is ConnectorCardinality {

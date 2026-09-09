@@ -85,6 +85,7 @@ function getChoiceOrder(choice: ErTranslationChoice): number {
     "composite-merge": 2,
     "simple-multivalued-unique": 1,
     "simple-multivalued-shared": 2,
+    "simple-multivalued-expanded": 3,
   };
   return order[choice.rule] ?? 99;
 }
@@ -107,6 +108,9 @@ function getChoiceIcon(choice: ErTranslationChoice): StudioIconName {
   }
   if (choice.rule === "simple-multivalued-shared") {
     return "merge";
+  }
+  if (choice.rule === "simple-multivalued-expanded") {
+    return "split";
   }
   return "merge";
 }

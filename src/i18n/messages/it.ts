@@ -2858,6 +2858,12 @@ export const it = {
         summary: "Attributo multivalore semplice \"{name}\" trasformato in entita condivisa.",
         preview: "Output ER: lato nuova entita con cardinalita (1,N).",
       },
+      expanded: {
+        label: "Espandi nell'entità",
+        description: "Sostituisce \"{{name}}\" con {{count}} attributi scalari direttamente su {{owner}}.",
+        summary: "Attributo multivalore semplice \"{{name}}\" espanso in {{count}} attributi su {{owner}}.",
+        preview: "Output ER: crea {{count}} attributi sull'entità corrente, senza nuove entità.",
+      },
     },
   },
 } as const;

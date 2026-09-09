@@ -31,7 +31,7 @@ import {
   synchronizeInternalIdentifiers,
   validateDiagram,
 } from "./diagram";
-import { normalizeCardinalityInput } from "./cardinality";
+import { getCardinalityBounds, normalizeCardinalityInput } from "./cardinality";
 import { canEdgeUseManualRouting } from "./edgeRouting";
 import { buildLogicalSourceSignature } from "./logicalMapping";
 
@@ -98,6 +98,8 @@ const SUBSTITUTION_SUPERTYPE_CARDINALITY = "(0,1)";
 const SUBSTITUTION_SUBTYPE_CARDINALITY = "(1,1)";
 const SIMPLE_MULTIVALUED_ATTRIBUTE_HIERARCHY_BLOCK =
   "Prima di correggere gli attributi multivalore devi risolvere tutte le gerarchie presenti nel modello.";
+const SIMPLE_MULTIVALUED_EXPANSION_MAX_CARDINALITY = 10;
+const SIMPLE_MULTIVALUED_EXPANSION_RECOMMENDED_MAX_CARDINALITY = 5;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -467,23 +469,7 @@ function getCompositeRootAttributes(diagram: DiagramDocument): AttributeNode[] {
 function getCardinalityMaxValue(
   cardinality: string | undefined,
 ): number | "N" | null {
-  const normalized = normalizeCardinalityInput(cardinality);
-  if (!normalized.valid || !normalized.value) {
-    return null;
-  }
-
-  const match = normalized.value.match(/^\(\s*[^,]+\s*,\s*([^)]+)\s*\)$/);
-  if (!match) {
-    return null;
-  }
-
-  const rawMax = match[1].trim().toUpperCase();
-  if (rawMax === "N") {
-    return "N";
-  }
-
-  const parsed = Number(rawMax);
-  return Number.isSafeInteger(parsed) ? parsed : null;
+  return getCardinalityBounds(cardinality)?.max ?? null;
 }
 
 function deriveCollapseUpAttributeCardinality(cardinality: string | undefined): string {
@@ -507,6 +493,31 @@ function deriveCollapseUpAttributeCardinality(cardinality: string | undefined): 
 function isMultivaluedCardinality(cardinality: string | undefined): boolean {
   const max = getCardinalityMaxValue(cardinality);
   return max === "N" || (typeof max === "number" && max > 1);
+}
+
+interface SimpleMultivaluedExpansionPlan {
+  count: number;
+  mandatoryCount: number;
+  recommended: boolean;
+}
+
+function getSimpleMultivaluedExpansionPlan(
+  cardinality: string | undefined,
+): SimpleMultivaluedExpansionPlan | null {
+  const bounds = getCardinalityBounds(cardinality);
+  if (!bounds || typeof bounds.max !== "number" || typeof bounds.min !== "number") {
+    return null;
+  }
+
+  if (bounds.max <= 1 || bounds.max > SIMPLE_MULTIVALUED_EXPANSION_MAX_CARDINALITY) {
+    return null;
+  }
+
+  return {
+    count: bounds.max,
+    mandatoryCount: Math.min(Math.max(bounds.min, 0), bounds.max),
+    recommended: bounds.max <= SIMPLE_MULTIVALUED_EXPANSION_RECOMMENDED_MAX_CARDINALITY,
+  };
 }
 
 function isSimpleMultivaluedAttribute(
@@ -1265,6 +1276,96 @@ function findSimpleMultivaluedPlacement(
       y: entityRect.y + entityRect.height + 70,
       ...attributeSize,
     },
+  };
+}
+
+function applyExpandSimpleMultivaluedAttributeTranslationDetailed(
+  diagram: DiagramDocument,
+  attributeId: string,
+): TranslationApplyResult {
+  const working = cloneDiagram(diagram);
+  if (buildGeneralizationHierarchies(working).length > 0) {
+    throw new Error(SIMPLE_MULTIVALUED_ATTRIBUTE_HIERARCHY_BLOCK);
+  }
+
+  const ownership = buildAttributeOwnershipContext(working);
+  const attribute = ownership.nodeById.get(attributeId);
+  if (attribute?.type !== "attribute" || !isSimpleMultivaluedAttribute(attribute, ownership)) {
+    throw new Error(`L'attributo multivalore semplice "${attributeId}" non e disponibile nel diagramma tradotto corrente.`);
+  }
+
+  const ownerId = ownership.parentByAttributeId.get(attribute.id);
+  const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
+  if (owner?.type !== "entity") {
+    throw new Error(`L'attributo multivalore semplice "${attribute.label}" non e collegato direttamente a un'entita.`);
+  }
+
+  const plan = getSimpleMultivaluedExpansionPlan(attribute.cardinality);
+  if (!plan) {
+    throw new Error(
+      `La cardinalita dell'attributo "${attribute.label}" non consente l'espansione nell'entita: serve un massimo numerico finito minore o uguale a ${SIMPLE_MULTIVALUED_EXPANSION_MAX_CARDINALITY}.`,
+    );
+  }
+
+  const remainingOwnerAttributes = (ownership.directAttributeIdsByOwnerId.get(owner.id) ?? [])
+    .map((currentId) => ownership.nodeById.get(currentId))
+    .filter((node): node is AttributeNode => node?.type === "attribute" && node.id !== attribute.id);
+  const usedNames = new Set(remainingOwnerAttributes.map((candidate) => canonicalKey(candidate.label)));
+  const usedNodeIds = new Set(working.nodes.map((node) => node.id));
+  const usedEdgeIds = new Set(working.edges.map((edge) => edge.id));
+
+  const artifacts: ErTranslationArtifactRef[] = [];
+  const expandedNodes: AttributeNode[] = [];
+  const expandedEdges: DiagramEdge[] = [];
+
+  for (let index = 0; index < plan.count; index += 1) {
+    const position = index + 1;
+    const nextLabel = allocateUniqueLabel(usedNames, `${attribute.label}_${position}`);
+    const nextSize = getPreferredNodeSizeForLabel("attribute", nextLabel);
+    const nextId = allocateUniqueId(
+      usedNodeIds,
+      `translated-expanded-${owner.id}-${attribute.id}-${position}`,
+      "attribute",
+    );
+
+    expandedNodes.push({
+      ...attribute,
+      id: nextId,
+      label: nextLabel,
+      isIdentifier: false,
+      isCompositeInternal: false,
+      isMultivalued: false,
+      cardinality: position <= plan.mandatoryCount ? "(1,1)" : "(0,1)",
+      width: nextSize.width,
+      height: nextSize.height,
+      x: owner.x + owner.width + 120,
+      y: owner.y - 40 + index * 62,
+    });
+
+    expandedEdges.push({
+      id: allocateUniqueId(usedEdgeIds, `translated-edge-${owner.id}-${nextId}`, "attribute-edge"),
+      type: "attribute",
+      sourceId: nextId,
+      targetId: owner.id,
+      label: "",
+      lineStyle: "solid",
+    });
+
+    artifacts.push({ kind: "node", id: nextId, label: nextLabel });
+  }
+
+  const translatedDiagram = normalizeTranslatedDiagram({
+    ...working,
+    nodes: [...working.nodes.filter((node) => node.id !== attribute.id), ...expandedNodes],
+    edges: [
+      ...working.edges.filter((edge) => edge.sourceId !== attribute.id && edge.targetId !== attribute.id),
+      ...expandedEdges,
+    ],
+  });
+
+  return {
+    diagram: translatedDiagram,
+    artifacts,
   };
 }
 
@@ -2272,6 +2373,37 @@ function buildCompositeChoices(attribute: AttributeNode, ownerLabel: string): Tr
 }
 
 function buildSimpleMultivaluedAttributeChoices(attribute: AttributeNode, ownerLabel: string): TranslationChoiceRecord[] {
+  const expansionPlan = getSimpleMultivaluedExpansionPlan(attribute.cardinality);
+  const expandedChoices: TranslationChoiceRecord[] = expansionPlan
+    ? [
+        {
+          id: `simple-multivalued-expanded-${attribute.id}`,
+          targetType: "attribute",
+          targetId: attribute.id,
+          step: "composite-attributes",
+          rule: "simple-multivalued-expanded",
+          label: t("translation.simpleMultivalued.expanded.label"),
+          description: t("translation.simpleMultivalued.expanded.description", {
+            name: attribute.label,
+            owner: ownerLabel,
+            count: expansionPlan.count,
+          }),
+          summary: t("translation.simpleMultivalued.expanded.summary", {
+            name: attribute.label,
+            owner: ownerLabel,
+            count: expansionPlan.count,
+          }),
+          previewLines: [
+            t("translation.simpleMultivalued.expanded.preview", {
+              owner: ownerLabel,
+              count: expansionPlan.count,
+            }),
+          ],
+          ...(expansionPlan.recommended ? { recommended: true } : {}),
+        },
+      ]
+    : [];
+
   return [
     {
       id: `simple-multivalued-unique-${attribute.id}`,
@@ -2295,6 +2427,7 @@ function buildSimpleMultivaluedAttributeChoices(attribute: AttributeNode, ownerL
       summary: t("translation.simpleMultivalued.shared.summary", { name: attribute.label }),
       previewLines: [t("translation.simpleMultivalued.shared.preview")],
     },
+    ...expandedChoices,
   ];
 }
 
@@ -2462,6 +2595,10 @@ function applyDecisionToDiagram(
         "generalization-collapse-up" | "generalization-collapse-down" | "generalization-substitution"
       >,
     );
+  }
+
+  if (decision.rule === "simple-multivalued-expanded") {
+    return applyExpandSimpleMultivaluedAttributeTranslationDetailed(diagram, decision.targetId);
   }
 
   if (decision.rule === "simple-multivalued-unique" || decision.rule === "simple-multivalued-shared") {
@@ -2730,8 +2867,15 @@ export function applyCompositeAttributeTranslation(
 export function applySimpleMultivaluedAttributeTranslation(
   diagram: DiagramDocument,
   attributeId: string,
-  strategy: Extract<ErTranslationRuleKind, "simple-multivalued-unique" | "simple-multivalued-shared">,
+  strategy: Extract<
+    ErTranslationRuleKind,
+    "simple-multivalued-unique" | "simple-multivalued-shared" | "simple-multivalued-expanded"
+  >,
 ): DiagramDocument {
+  if (strategy === "simple-multivalued-expanded") {
+    return applyExpandSimpleMultivaluedAttributeTranslationDetailed(diagram, attributeId).diagram;
+  }
+
   return applySimpleMultivaluedAttributeTranslationDetailed(diagram, attributeId, strategy).diagram;
 }
 

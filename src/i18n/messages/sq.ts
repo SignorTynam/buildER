@@ -2796,6 +2796,12 @@ export const sq: DeepPartialMessages = {
         summary: "Atributi i thjeshte shumevleresh \"{name}\" u kthye ne entitet te perbashket.",
         preview: "Output ER: kardinaliteti ne anen e entitetit te ri eshte (1,N).",
       },
+      expanded: {
+        label: "Zgjero në entitet",
+        description: "Zvendëson \"{{name}}\" me {{count}} atribute skalarë direkt tek {{owner}}.",
+        summary: "Atributi i thjeshtë shumëvlerësh \"{{name}}\" u zgjerua në {{count}} atribute tek {{owner}}.",
+        preview: "Output ER: krijon {{count}} atribute tek entiteti aktual, pa entitete të reja.",
+      },
     },
   },
 } as const;

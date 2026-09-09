@@ -2860,6 +2860,12 @@ export const en: DeepPartialMessages = {
         summary: "Simple multivalued attribute \"{name}\" transformed into a shared entity.",
         preview: "Output ER: new entity side cardinality is (1,N).",
       },
+      expanded: {
+        label: "Expand in entity",
+        description: "Replaces \"{{name}}\" with {{count}} scalar attributes directly on {{owner}}.",
+        summary: "Simple multivalued attribute \"{{name}}\" expanded into {{count}} attributes on {{owner}}.",
+        preview: "Output ER: creates {{count}} attributes on the current entity, with no new entity.",
+      },
     },
   },
 } as const;
