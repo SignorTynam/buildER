@@ -349,7 +349,7 @@ function normalizeRasterShapeFills(clone: SVGSVGElement, fill: "none" | "#ffffff
   });
 }
 
-function maskConnectorLinesUnderCardinality(
+function maskLinesUnderCardinality(
   clone: SVGSVGElement,
   bounds: { x: number; y: number; width: number; height: number },
 ) {
@@ -361,7 +361,7 @@ function maskConnectorLinesUnderCardinality(
   }
 
   clone.querySelectorAll<SVGGElement>(".diagram-edge").forEach((edge, index) => {
-    const label = edge.querySelector<SVGTextElement>(".connector-label");
+    const label = edge.querySelector<SVGTextElement>(".cardinality-label");
     const chip = label?.previousElementSibling;
     const path = edge.querySelector<SVGPathElement>("path");
     if (!(chip instanceof SVGRectElement) || !path) {
@@ -462,7 +462,7 @@ export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOp
     normalizePrintExportElements(clone);
   } else if (format === "png" || format === "jpeg") {
     normalizeRasterShapeFills(clone, format === "jpeg" ? "#ffffff" : "none");
-    maskConnectorLinesUnderCardinality(clone, {
+    maskLinesUnderCardinality(clone, {
       x: viewBoxX,
       y: viewBoxY,
       width: exportWidth,

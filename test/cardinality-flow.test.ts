@@ -162,7 +162,7 @@ test("cardinality flow: connector cardinality uses a borderless canvas-fill chip
   assert.doesNotMatch(markup, /<rect class="edge-label-chip"[^>]+stroke="var\(--color-border-subtle\)"/);
 });
 
-test("cardinality flow: attribute cardinality renders without canvas-fill background", () => {
+test("cardinality flow: attribute cardinality uses the unified borderless canvas-fill chip", () => {
   const sourceNode = attribute("ATTR1", "(0,N)");
   const targetNode = entity("ENTITY1");
   const edge: DiagramEdge = {
@@ -177,8 +177,9 @@ test("cardinality flow: attribute cardinality renders without canvas-fill backgr
 
   assert.match(markup, /class="edge-label cardinality-label attribute-cardinality-label"/);
   assert.match(markup, />\(0,N\)<\/text>/);
-  assert.match(markup, /<rect class="edge-label-chip"[^>]+fill="var\(--color-bg-elevated\)"/);
-  assert.doesNotMatch(markup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
+  assert.match(markup, /<rect class="edge-label-chip"[^>]+fill="var\(--diagram-canvas-fill\)"/);
+  assert.match(markup, /<rect class="edge-label-chip"[^>]+stroke="none"[^>]+stroke-width="0"/);
+  assert.doesNotMatch(markup, /<rect class="edge-label-chip"[^>]+stroke="var\(--color-border-subtle\)"/);
 });
 
 test("cardinality flow: cardinality labels do not use the edge-label white stroke halo", () => {

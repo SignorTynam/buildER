@@ -139,12 +139,12 @@ test("normal mode is shared by raster downloads while SVG print mode remains ava
   assert.match(exportSource, /querySelectorAll<SVGTextElement \| SVGTSpanElement>\("text, tspan"\)/);
 });
 
-test("raster connector masks interrupt the line beneath cardinality labels", () => {
-  assert.match(exportSource, /querySelector<SVGTextElement>\("\.connector-label"\)/);
+test("raster masks interrupt every edge line beneath cardinality labels", () => {
+  assert.match(exportSource, /querySelector<SVGTextElement>\("\.cardinality-label"\)/);
   assert.match(exportSource, /label\?\.previousElementSibling/);
   assert.match(exportSource, /labelCutout\.setAttribute\("fill",\s*"black"\)/);
   assert.match(exportSource, /path\.setAttribute\("mask",\s*`url\(#\$\{maskId\}\)`\)/);
-  assert.match(exportSource, /maskConnectorLinesUnderCardinality\(clone/);
+  assert.match(exportSource, /maskLinesUnderCardinality\(clone/);
 });
 
 test("simple attribute identifiers expose a print-preservable marker class", () => {

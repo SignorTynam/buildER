@@ -5,7 +5,8 @@ import { ensureDrawerClosed, seedProjectWithSchema } from "./utils/erSchemaProje
 const REFERENCE_SCHEMA = `entity STUDENTE {
     identifier(idStudente),
     NomeStudente,
-    DataNascitaStudente
+    DataNascitaStudente,
+    attribute Recapito card "0..N"
 }
 
 entity UNIVERSITA {
@@ -26,7 +27,7 @@ async function seedReferenceDiagram(page: Page): Promise<void> {
   const codeButton = page.locator(".project-activity-rail").getByRole("button", { name: "Code", exact: true });
   await codeButton.click();
   await page.getByRole("textbox", { name: /Editor/i }).fill(REFERENCE_SCHEMA);
-  await expect(page.locator(".diagram-node")).toHaveCount(9);
+  await expect(page.locator(".diagram-node")).toHaveCount(10);
   await codeButton.click();
   await page.getByRole("button", { name: "Fit the whole diagram" }).click();
 }
@@ -63,32 +64,39 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
     if (background) background.style.display = "none";
     const worldBounds = world.getBBox();
     const shapeBounds = shape.getBBox();
-    const connector = world.querySelector<SVGGElement>(".diagram-edge:has(.connector-label)");
-    const connectorLabel = connector?.querySelector<SVGTextElement>(".connector-label");
-    const connectorChip = connectorLabel?.previousElementSibling;
-    const connectorPath = Array.from(connector?.querySelectorAll<SVGPathElement>("path") ?? []).find(
-      (candidate) => candidate.getAttribute("stroke") !== "transparent",
-    );
-    if (!(connectorChip instanceof SVGRectElement) || !connectorPath) {
-      throw new Error("Cardinalita export non disponibile");
-    }
-    const chip = {
-      x: Number(connectorChip.getAttribute("x")),
-      y: Number(connectorChip.getAttribute("y")),
-      width: Number(connectorChip.getAttribute("width")),
-      height: Number(connectorChip.getAttribute("height")),
+    const collectCardinalitySample = (selector: string) => {
+      const edge = world.querySelector<SVGGElement>(`.diagram-edge:has(${selector})`);
+      const label = edge?.querySelector<SVGTextElement>(selector);
+      const chipElement = label?.previousElementSibling;
+      const path = Array.from(edge?.querySelectorAll<SVGPathElement>("path") ?? []).find(
+        (candidate) => candidate.getAttribute("stroke") !== "transparent",
+      );
+      if (!(chipElement instanceof SVGRectElement) || !path) {
+        throw new Error(`Cardinalita export non disponibile: ${selector}`);
+      }
+
+      const chip = {
+        x: Number(chipElement.getAttribute("x")),
+        y: Number(chipElement.getAttribute("y")),
+        width: Number(chipElement.getAttribute("width")),
+        height: Number(chipElement.getAttribute("height")),
+      };
+      const lineGapPoints: Array<{ x: number; y: number }> = [];
+      const pathLength = path.getTotalLength();
+      for (let index = 0; index <= 2_000; index += 1) {
+        const point = path.getPointAtLength((pathLength * index) / 2_000);
+        const insideCutout =
+          point.x >= chip.x + 3 &&
+          point.x <= chip.x + chip.width - 3 &&
+          point.y >= chip.y + 3 &&
+          point.y <= chip.y + chip.height - 3;
+        if (insideCutout) lineGapPoints.push(point);
+      }
+
+      return { chipElement, lineGapPoints };
     };
-    const lineGapPoints: Array<{ x: number; y: number }> = [];
-    const pathLength = connectorPath.getTotalLength();
-    for (let index = 0; index <= 2_000; index += 1) {
-      const point = connectorPath.getPointAtLength((pathLength * index) / 2_000);
-      const insideCutout =
-        point.x >= chip.x + 3 &&
-        point.x <= chip.x + chip.width - 3 &&
-        point.y >= chip.y + 3 &&
-        point.y <= chip.y + chip.height - 3;
-      if (insideCutout) lineGapPoints.push(point);
-    }
+    const connectorSample = collectCardinalitySample(".connector-label");
+    const attributeSample = collectCardinalitySample(".attribute-cardinality-label");
     if (previousTransform === null) world.removeAttribute("transform");
     else world.setAttribute("transform", previousTransform);
     if (background) background.style.display = previousDisplay ?? "";
@@ -96,12 +104,19 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
       x: Math.round((point.x - (worldBounds.x - 20)) * 2),
       y: Math.round((point.y - (worldBounds.y - 20)) * 2),
     });
-    const cardinalityLineGap = lineGapPoints
-      .map(toRasterPoint)
-      .filter((point, index, points) => points.findIndex((other) => other.x === point.x && other.y === point.y) === index);
+    const toUniqueRasterPoints = (points: Array<{ x: number; y: number }>) =>
+      points
+        .map(toRasterPoint)
+        .filter((point, index, source) => source.findIndex((other) => other.x === point.x && other.y === point.y) === index);
     return {
       shapeInterior: toRasterPoint({ x: shapeBounds.x + 12, y: shapeBounds.y + 12 }),
-      cardinalityLineGap,
+      connectorLineGap: toUniqueRasterPoints(connectorSample.lineGapPoints),
+      attributeLineGap: toUniqueRasterPoints(attributeSample.lineGapPoints),
+      attributeChip: {
+        fill: attributeSample.chipElement.getAttribute("fill"),
+        stroke: attributeSample.chipElement.getAttribute("stroke"),
+        strokeWidth: attributeSample.chipElement.getAttribute("stroke-width"),
+      },
     };
   });
 
@@ -169,11 +184,11 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
     const shapeOffset = (samples.shapeInterior.y * png.width + samples.shapeInterior.x) * 4;
     const pngShapeInterior = Array.from(png.pixels.slice(shapeOffset, shapeOffset + 4));
     const jpegShapeInterior = Array.from(jpeg.pixels.slice(shapeOffset, shapeOffset + 4));
-    const pngCardinalityLineGap = samples.cardinalityLineGap.map((point) => {
+    const pngLineGap = (points: Array<{ x: number; y: number }>) => points.map((point) => {
       const offset = (point.y * png.width + point.x) * 4;
       return png.pixels[offset + 3];
     });
-    const jpegCardinalityLineGap = samples.cardinalityLineGap.map((point) => {
+    const jpegLineGap = (points: Array<{ x: number; y: number }>) => points.map((point) => {
       const offset = (point.y * jpeg.width + point.x) * 4;
       return Math.min(jpeg.pixels[offset], jpeg.pixels[offset + 1], jpeg.pixels[offset + 2]);
     });
@@ -202,7 +217,8 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
         height: png.height,
         corner: pngCorner,
         shapeInterior: pngShapeInterior,
-        cardinalityLineGap: pngCardinalityLineGap,
+        connectorLineGap: pngLineGap(samples.connectorLineGap),
+        attributeLineGap: pngLineGap(samples.attributeLineGap),
         bounds: pngBounds,
       },
       jpeg: {
@@ -210,7 +226,8 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
         height: jpeg.height,
         corner: jpegCorner,
         shapeInterior: jpegShapeInterior,
-        cardinalityLineGap: jpegCardinalityLineGap,
+        connectorLineGap: jpegLineGap(samples.connectorLineGap),
+        attributeLineGap: jpegLineGap(samples.attributeLineGap),
         bounds: jpegBounds,
       },
       meanAbsoluteDifference: absoluteDifference / Math.max(1, comparablePixels * 3),
@@ -224,16 +241,22 @@ test("PNG shape interiors are transparent and JPEG renders the same diagram on w
     comparison.jpeg.shapeInterior.slice(0, 3).every((channel) => channel >= 245),
     "l'interno di uno shape JPEG deve essere bianco",
   ).toBe(true);
-  expect(comparison.png.cardinalityLineGap.length).toBeGreaterThan(4);
-  expect(
-    comparison.png.cardinalityLineGap.filter((alpha) => alpha <= 5).length / comparison.png.cardinalityLineGap.length,
-    "la linea non deve attraversare la cardinalita PNG",
-  ).toBeGreaterThan(0.5);
-  expect(
-    comparison.jpeg.cardinalityLineGap.filter((channel) => channel >= 245).length /
-      comparison.jpeg.cardinalityLineGap.length,
-    "la linea non deve attraversare la cardinalita JPEG",
-  ).toBeGreaterThan(0.5);
+  expect(rasterSamples.attributeChip).toEqual({
+    fill: "var(--diagram-canvas-fill)",
+    stroke: "none",
+    strokeWidth: "0",
+  });
+  for (const kind of ["connectorLineGap", "attributeLineGap"] as const) {
+    expect(comparison.png[kind].length).toBeGreaterThan(4);
+    expect(
+      comparison.png[kind].filter((alpha) => alpha <= 5).length / comparison.png[kind].length,
+      `la linea non deve attraversare ${kind} nel PNG`,
+    ).toBeGreaterThan(0.5);
+    expect(
+      comparison.jpeg[kind].filter((channel) => channel >= 245).length / comparison.jpeg[kind].length,
+      `la linea non deve attraversare ${kind} nel JPEG`,
+    ).toBeGreaterThan(0.5);
+  }
   expect(comparison.jpeg.width).toBe(comparison.png.width);
   expect(comparison.jpeg.height).toBe(comparison.png.height);
   expect(comparison.png.width).toBeLessThan(4_000);

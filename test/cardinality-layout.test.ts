@@ -209,7 +209,7 @@ test("cardinality layout: attribute cardinality is anchored near the simple attr
 
   assert.ok(anchor);
   assert.ok(distance(anchor.point, marker) <= 44);
-  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
+  assert.ok(distanceFromPolyline(points, anchor.point) <= 1);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 55);
 });
 
@@ -339,6 +339,7 @@ test("cardinality layout: attribute placement stays attached to the attribute ow
     alreadyPlacedBoxes: [],
   });
 
-  assert.ok(distance(placement.point, marker) <= 52);
-  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
+  assert.equal(intersectsAny(placement.bounds, [edgeBox("anchor", anchor.point)]), false);
+  assert.ok(distance(placement.point, marker) <= 76);
+  assert.ok(distanceFromPolyline(points, placement.point) <= 1);
 });
