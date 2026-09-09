@@ -7575,9 +7575,7 @@ export default function App() {
     }
 
     try {
-      await downloadPng(svgRef.current, "builder-diagram.png", {
-        background: diagramView === "er" || diagramView === "translation" ? "canvas" : "transparent",
-      });
+      await downloadPng(svgRef.current, "builder-diagram.png");
       setStatus(t("workspace.exports.pngExported"));
       showSuccessNotice(t("workspace.downloads.pngExported"), { title: t("workspace.noticeTitles.exportCompleted") });
     } catch (error) {
@@ -7943,6 +7941,7 @@ export default function App() {
                 <>
                   <label className="code-activity-panel__dialect">
                     <select
+                      className="ui-select"
                       value={logicalSqlDialect}
                       onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}
                     >

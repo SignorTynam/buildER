@@ -116,9 +116,9 @@ test("cardinality layout: connector label stays near source entity endpoint inst
   const anchor = getConnectorCardinalityAnchorPoint({ edge, sourceNode: source, targetNode: target, points });
 
   assert.ok(anchor);
-  assert.ok(distance(anchor.point, endpoint) >= 36);
-  assert.ok(distance(anchor.point, endpoint) <= 58);
-  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
+  assert.ok(distance(anchor.point, endpoint) >= 20);
+  assert.ok(distance(anchor.point, endpoint) <= 38);
+  assert.ok(distanceFromPolyline(points, anchor.point) <= 1);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 90);
 });
 
@@ -147,9 +147,9 @@ test("cardinality layout: connector label stays near target entity endpoint for 
   const anchor = getConnectorCardinalityAnchorPoint({ edge, sourceNode: source, targetNode: target, points });
 
   assert.ok(anchor);
-  assert.ok(distance(anchor.point, endpoint) >= 36);
-  assert.ok(distance(anchor.point, endpoint) <= 58);
-  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
+  assert.ok(distance(anchor.point, endpoint) >= 20);
+  assert.ok(distance(anchor.point, endpoint) <= 38);
+  assert.ok(distanceFromPolyline(points, anchor.point) <= 1);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 90);
 });
 
@@ -162,10 +162,41 @@ test("cardinality layout: vertical connector label stays near the entity side", 
   const anchor = getConnectorCardinalityAnchorPoint({ edge, sourceNode: source, targetNode: target, points });
 
   assert.ok(anchor);
-  assert.ok(distance(anchor.point, endpoint) >= 36);
-  assert.ok(distance(anchor.point, endpoint) <= 58);
-  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
+  assert.ok(distance(anchor.point, endpoint) >= 20);
+  assert.ok(distance(anchor.point, endpoint) <= 38);
+  assert.ok(distanceFromPolyline(points, anchor.point) <= 1);
   assert.ok(anchor.point.y < getPointAlongPolyline(points, 0.5).y);
+});
+
+test("cardinality layout: diagonal and multi-segment connector anchors stay on the polyline", () => {
+  const source = entity("ENTITY1", 0, 0);
+  const target = relationship("RELATIONSHIP1", 420, 180);
+  const edge = connector("edge-1", source.id, target.id);
+  const endpoint = { x: source.x + source.width, y: source.y + source.height / 2 };
+  const cases = [
+    [endpoint, { x: target.x, y: target.y + target.height / 2 }],
+    [endpoint, { x: endpoint.x + 12, y: endpoint.y }, { x: endpoint.x + 12, y: 150 }, { x: target.x, y: 150 }],
+  ];
+
+  cases.forEach((points) => {
+    const anchor = getConnectorCardinalityAnchorPoint({ edge, sourceNode: source, targetNode: target, points });
+    assert.ok(anchor);
+    assert.ok(distance(anchor.point, endpoint) <= 38);
+    assert.ok(distanceFromPolyline(points, anchor.point) <= 1);
+  });
+});
+
+test("cardinality layout: bottom-to-top connector stays on the line near a target entity", () => {
+  const source = relationship("RELATIONSHIP1", 105, 300);
+  const target = entity("ENTITY1", 100, 0);
+  const edge = connector("edge-1", source.id, target.id);
+  const endpoint = { x: target.x + target.width / 2, y: target.y + target.height };
+  const points = [{ x: source.x + source.width / 2, y: source.y }, endpoint];
+  const anchor = getConnectorCardinalityAnchorPoint({ edge, sourceNode: source, targetNode: target, points });
+
+  assert.ok(anchor);
+  assert.ok(distance(anchor.point, endpoint) <= 38);
+  assert.ok(distanceFromPolyline(points, anchor.point) <= 1);
 });
 
 test("cardinality layout: attribute cardinality is anchored near the simple attribute marker", () => {
@@ -178,7 +209,7 @@ test("cardinality layout: attribute cardinality is anchored near the simple attr
 
   assert.ok(anchor);
   assert.ok(distance(anchor.point, marker) <= 44);
-  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
+  assert.ok(distanceFromPolyline(points, anchor.point) <= 1);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 55);
 });
 
@@ -226,9 +257,9 @@ test("cardinality layout: placement repairs collisions without moving to the edg
   });
 
   assert.equal(intersectsAny(placement.bounds, reserved), false);
-  assert.ok(distance(placement.point, endpoint) <= 64);
-  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
-  assert.ok(distance(placement.point, getPointAlongPolyline(points, 0.5)) > 70);
+  assert.ok(distance(placement.point, endpoint) <= 96);
+  assert.ok(distanceFromPolyline(points, placement.point) <= 1);
+  assert.ok(distance(placement.point, endpoint) < distance(getPointAlongPolyline(points, 0.5), endpoint));
 });
 
 test("cardinality layout: connector cardinality avoids role label near the same relationship", () => {
@@ -239,7 +270,7 @@ test("cardinality layout: connector cardinality avoids role label near the same 
     { x: source.x + source.width, y: source.y + source.height / 2 },
     { x: target.x, y: target.y + target.height / 2 },
   ];
-  const rolePoint = getPointAlongPolyline(points, 0.32);
+  const rolePoint = getPointAlongPolyline(points, 0.68);
   const roleBox = edgeBox("role", rolePoint, "owner_role");
 
   const placement = chooseCollisionFreeCardinalityLabelPlacement({
@@ -255,10 +286,10 @@ test("cardinality layout: connector cardinality avoids role label near the same 
 
   assert.equal(boundsIntersect(placement.bounds, roleBox), false);
   assert.ok(distance(placement.point, points[0]) < distance(getPointAlongPolyline(points, 0.5), points[0]));
-  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
+  assert.ok(distanceFromPolyline(points, placement.point) <= 1);
 });
 
-test("cardinality layout: line clearance wins over a candidate directly on the connector", () => {
+test("cardinality layout: collisions move connector cardinality tangentially without leaving the line", () => {
   const source = entity("ENTITY1", 0, 0);
   const target = relationship("RELATIONSHIP1", 520, 120);
   const edge = connector("edge-1", source.id, target.id);
@@ -283,8 +314,9 @@ test("cardinality layout: line clearance wins over a candidate directly on the c
     alreadyPlacedBoxes: [],
   });
 
-  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
-  assert.ok(distance(placement.point, endpoint) <= 64);
+  assert.equal(intersectsAny(placement.bounds, reserved), false);
+  assert.ok(distanceFromPolyline(points, placement.point) <= 1);
+  assert.ok(distance(placement.point, endpoint) <= 96);
 });
 
 test("cardinality layout: attribute placement stays attached to the attribute owner", () => {
@@ -307,6 +339,7 @@ test("cardinality layout: attribute placement stays attached to the attribute ow
     alreadyPlacedBoxes: [],
   });
 
-  assert.ok(distance(placement.point, marker) <= 52);
-  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
+  assert.equal(intersectsAny(placement.bounds, [edgeBox("anchor", anchor.point)]), false);
+  assert.ok(distance(placement.point, marker) <= 76);
+  assert.ok(distanceFromPolyline(points, placement.point) <= 1);
 });

@@ -556,10 +556,9 @@ export function Toolbar(props: ToolbarProps) {
   const renderCommands = (groupKey: string, commands: ToolbarCommand[]) =>
     commands.map((command) => <CommandButton key={`${groupKey}-${command.key}`} command={command} />);
 
-  /* La toolbar scorre in verticale sul desktop e in orizzontale sotto i 900px,
-     e con una selezione attiva i comandi contestuali la fanno quasi sempre
-     eccedere. Senza una sfumatura ai bordi i comandi oltre il margine sembrano
-     semplicemente non esistere. */
+  /* La toolbar scorre in verticale sul desktop e in orizzontale sotto i 900px.
+     Gli indicatori sui quattro bordi rendono raggiungibili anche i comandi
+     contestuali che eccedono lo spazio disponibile. */
   const [toolbarRef, toolbarOverflow] = useScrollOverflow<HTMLElement>();
 
   return (

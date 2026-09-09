@@ -333,14 +333,18 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
               aria-hidden="true"
             />
           ))}
-          <rect
-            className="canvas-minimap__viewport"
-            x={viewportBounds.x}
-            y={viewportBounds.y}
-            width={Math.max(viewportBounds.width, 1)}
-            height={Math.max(viewportBounds.height, 1)}
-            aria-hidden="true"
-          />
+          {/* Senza nodi il rettangolo di viewport non inquadra nulla: restava
+              disegnato sopra il testo dello stato vuoto, tagliandolo a meta. */}
+          {props.nodes.length > 0 ? (
+            <rect
+              className="canvas-minimap__viewport"
+              x={viewportBounds.x}
+              y={viewportBounds.y}
+              width={Math.max(viewportBounds.width, 1)}
+              height={Math.max(viewportBounds.height, 1)}
+              aria-hidden="true"
+            />
+          ) : null}
         </svg>
         {props.nodes.length === 0 ? <span className="canvas-minimap__empty">{t("canvas.minimap.empty")}</span> : null}
       </div>

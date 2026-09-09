@@ -43,12 +43,12 @@ body {
 }
 
 .designer-brand strong {
-  font-size: 0.92rem;
+  font-size: var(--font-size-lg);
 }
 
 .designer-brand span {
   color: color-mix(in srgb, var(--color-text-on-accent) 55%, transparent);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0;
 }
 
@@ -61,7 +61,7 @@ body {
   color: #b9bdc3;
   padding: 0 12px;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 0.88rem;
+  font-size: var(--font-size-lg);
 }
 
 .designer-topbar-actions {
@@ -75,7 +75,7 @@ body {
   border: 0;
   background: transparent;
   color: var(--color-text-on-accent);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   letter-spacing: 0.03em;
   padding: 4px 0;
@@ -89,7 +89,7 @@ body {
   border-radius: 999px;
   background: var(--color-bg-elevated);
   color: #111111;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   padding: 0;
 }
 
@@ -188,7 +188,7 @@ body {
   color: #111111;
   padding: 8px 12px;
   text-align: left;
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
 }
 
@@ -220,7 +220,7 @@ body {
 .designer-toolbar-label {
   max-width: 100%;
   overflow-wrap: anywhere;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   line-height: 1.1;
   font-weight: 760;
 }
@@ -271,7 +271,7 @@ body {
   display: block;
   margin-top: 4px;
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 650;
   line-height: 1.35;
 }
@@ -306,7 +306,7 @@ body {
 
 .errors-modal-item strong {
   text-transform: uppercase;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0;
 }
 
@@ -378,8 +378,8 @@ body {
 
 .app-shell-view-translation .canvas-viewport-hud {
   top: auto !important;
-  right: 28px !important;
-  bottom: 28px !important;
+  right: var(--space-6) !important;
+  bottom: var(--space-6) !important;
   left: auto !important;
 }
 
@@ -389,7 +389,7 @@ body {
   top: 24px;
   left: 20px;
   color: #9ca39f;
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -418,7 +418,7 @@ body {
   left: 86px;
   top: 24px;
   color: #777f7a;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.2;
 }
 
@@ -489,7 +489,7 @@ body {
 
 .designer-fix-option small {
   color: var(--studio-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   line-height: 1.25;
 }
 
@@ -508,7 +508,7 @@ body {
 .designer-fix-choice-icon {
   align-self: center;
   justify-self: center;
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
 }
 
@@ -519,7 +519,7 @@ body {
 }
 
 .designer-fix-choice-label {
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   line-height: 1.15;
 }
@@ -527,7 +527,7 @@ body {
 .designer-fix-badge,
 .designer-fix-warning,
 .designer-fix-disabled-reason {
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   line-height: 1.25;
 }
 
@@ -554,7 +554,7 @@ body {
   border: 0;
   background: transparent;
   color: #111111;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .designer-side-toggle span {
@@ -604,7 +604,7 @@ body {
   border-right: 1px solid rgba(47, 57, 51, 0.08);
   background: transparent;
   color: #17201b;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 750;
   letter-spacing: 0;
   transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
@@ -620,7 +620,7 @@ body {
 
 .designer-side-toggle-group .designer-side-toggle span,
 .designer-side-toggle-icon {
-  font-size: 0.95rem;
+  font-size: var(--font-size-xl);
   line-height: 1;
 }
 
@@ -655,7 +655,7 @@ body {
 .errors-modal-note {
   margin: 0;
   color: var(--studio-muted);
-  font-size: 0.86rem;
+  font-size: var(--font-size-lg);
 }
 
 .designer-code-dock {
@@ -673,7 +673,7 @@ body {
   height: 42px;
   padding: 18px 20px 0;
   color: #a2a9a5;
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0.06em;
 }
 
@@ -1037,7 +1037,7 @@ body > .code-editor-diagnostic-popover {
 
 .notes-modal-header h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   line-height: 1.2;
 }
 
@@ -1045,7 +1045,7 @@ body > .code-editor-diagnostic-popover {
   margin: 6px 0 0;
   max-width: 58ch;
   color: #5e6661;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
 }
 
 .notes-modal-close {
@@ -1076,7 +1076,7 @@ body > .code-editor-diagnostic-popover {
   background: var(--color-bg-elevated);
   color: #1d2220;
   padding: 6px 10px;
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
   font-weight: 700;
   cursor: pointer;
 }
@@ -1126,7 +1126,7 @@ body > .code-editor-diagnostic-popover {
   border-radius: 0;
   padding: 7px 14px;
   font: inherit;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   font-weight: 700;
   line-height: 1.1;
   cursor: pointer;
@@ -1167,9 +1167,12 @@ body > .code-editor-diagnostic-popover {
   cursor: not-allowed;
 }
 
+/* Stesso ancoraggio della minimap, che si impila qui sopra: erano 28px qui e
+   var(--space-6) la, quindi i bordi destri delle due card flottanti restavano
+   disallineati di 4px. */
 .canvas-viewport-hud {
-  right: 28px;
-  bottom: 28px;
+  right: var(--space-6);
+  bottom: var(--space-6);
   left: auto;
   top: auto;
 }
@@ -1252,7 +1255,7 @@ summary:focus-visible {
   border: 1px solid color-mix(in srgb, var(--color-bg-elevated) 12%, transparent);
   background: color-mix(in srgb, var(--color-bg-elevated) 3%, transparent);
   color: var(--editor-topbar-text);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1266,7 +1269,7 @@ summary:focus-visible {
 }
 
 .studio-topbar-brand-copy strong {
-  font-size: 0.88rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1275,7 +1278,7 @@ summary:focus-visible {
 .studio-topbar-brand-copy span,
 .studio-topbar-project-meta {
   color: var(--editor-topbar-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1291,7 +1294,7 @@ summary:focus-visible {
 
 .studio-topbar-project strong {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--editor-topbar-text);
@@ -1340,7 +1343,7 @@ summary:focus-visible {
   color: inherit;
   min-height: 28px;
   padding: 0.34rem 0.58rem;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.2;
   transition:
     background 120ms ease,
@@ -1403,7 +1406,7 @@ summary:focus-visible {
 }
 
 .nav-menu-label {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--editor-text-muted);
@@ -1420,7 +1423,7 @@ summary:focus-visible {
   background: transparent;
   color: var(--editor-text);
   text-align: left;
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .nav-menu button:hover:not(:disabled) {
@@ -1459,12 +1462,12 @@ summary:focus-visible {
 }
 
 .workspace-mode-button strong {
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0.08em;
 }
 
 .workspace-mode-button span {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: var(--editor-text-muted);
 }
 
@@ -1498,11 +1501,11 @@ summary:focus-visible {
 }
 
 .workspace-mode-status strong {
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .workspace-mode-status span {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   color: var(--editor-text-muted);
 }
 
@@ -1642,7 +1645,7 @@ summary:focus-visible {
 .code-panel-status,
 .toolbar-issue-level,
 .workspace-stage-bar-eyebrow {
-  font-size: 0.67rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1654,7 +1657,7 @@ summary:focus-visible {
 .technical-side-panel-copy h2,
 .panel-heading {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--editor-text-strong);
 }
@@ -1665,7 +1668,7 @@ summary:focus-visible {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   color: var(--editor-text-muted);
 }
 
@@ -1779,7 +1782,7 @@ summary:focus-visible {
   border-left: 1px solid var(--editor-border);
   background: transparent;
   color: var(--editor-text);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .canvas-hud-button:first-child {
@@ -1883,7 +1886,7 @@ summary:focus-visible {
   height: 26px;
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
 }
 
@@ -1898,7 +1901,7 @@ summary:focus-visible {
 
 .panel-subheading {
   margin: 2px 0 0;
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   color: var(--editor-text-muted);
 }
 
@@ -1918,7 +1921,7 @@ summary:focus-visible {
   padding: 0.14rem 0.42rem;
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1948,7 +1951,7 @@ summary:focus-visible {
 }
 
 .toolbar-section-label {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2093,7 +2096,7 @@ summary:focus-visible {
 }
 
 .tool-shortcut {
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   color: var(--editor-text-muted);
   letter-spacing: 0.08em;
 }
@@ -2107,7 +2110,7 @@ summary:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .translation-choice-description,
@@ -2119,7 +2122,7 @@ summary:focus-visible {
 .translation-panel-section p,
 .technical-side-panel-copy p,
 .workspace-side-panel-description {
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   line-height: 1.4;
   color: var(--editor-text-muted);
 }
@@ -2130,7 +2133,7 @@ summary:focus-visible {
 }
 
 .toolbar-empty-hint {
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   color: var(--editor-text-muted);
 }
 
@@ -2278,7 +2281,7 @@ summary:focus-visible {
 .technical-dock-title h2,
 .technical-dock-section h3 {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: var(--font-size-lg);
   color: var(--editor-text-strong);
 }
 
@@ -2286,7 +2289,7 @@ summary:focus-visible {
 .technical-dock-section p {
   margin: 0;
   color: var(--editor-text-muted);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
 }
 
@@ -2363,14 +2366,14 @@ summary:focus-visible {
 }
 
 .technical-dock-list-item span {
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--editor-text-muted);
 }
 
 .technical-dock-list-item strong {
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
 }
 
@@ -2436,7 +2439,7 @@ summary:focus-visible {
 .diagram-code-line-number {
   display: block;
   font-family: "IBM Plex Mono", "Cascadia Code", monospace;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   line-height: 1.7;
 }
 
@@ -2492,13 +2495,13 @@ summary:focus-visible {
 }
 
 .translation-step-button-label {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
 }
 
 .translation-step-button-meta,
 .translation-inline-counter {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   color: var(--editor-text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2605,7 +2608,7 @@ summary:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   color: var(--editor-text-muted);
 }
 
@@ -2626,7 +2629,7 @@ summary:focus-visible {
 
 .logical-type-editor-note {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: var(--editor-text-muted);
 }
 
@@ -2686,7 +2689,7 @@ summary:focus-visible {
 .command-modal-head p {
   margin-top: 3px;
   color: var(--editor-text-muted);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .command-modal-content {
@@ -2716,7 +2719,7 @@ summary:focus-visible {
   padding-bottom: 6px;
   border-bottom: 1px solid var(--editor-border);
   color: var(--editor-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2765,7 +2768,7 @@ summary:focus-visible {
 .command-menu-item-copy strong {
   overflow: hidden;
   color: var(--editor-text-strong);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2774,7 +2777,7 @@ summary:focus-visible {
 .command-menu-item-copy span {
   overflow: hidden;
   color: var(--editor-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2788,7 +2791,7 @@ summary:focus-visible {
   background: var(--color-bg-elevated);
   color: var(--editor-text-muted);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -2805,7 +2808,7 @@ summary:focus-visible {
 .action-modal-summary {
   margin: 0;
   color: var(--editor-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.4;
 }
 
@@ -2815,7 +2818,7 @@ summary:focus-visible {
 
 .action-modal-field span,
 .field span {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--editor-text-muted);
@@ -2837,7 +2840,7 @@ summary:focus-visible {
 .action-modal-error {
   margin: 0;
   color: var(--editor-error);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .action-modal-actions {
@@ -2880,7 +2883,7 @@ summary:focus-visible {
 }
 
 .bottom-status-block-mode strong {
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0.08em;
 }
 
@@ -2894,7 +2897,7 @@ summary:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .bottom-status-indicator {
@@ -2904,7 +2907,7 @@ summary:focus-visible {
   padding: 0.12rem 0.42rem;
   border: 1px solid var(--editor-border);
   background: var(--editor-panel);
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -2920,7 +2923,7 @@ summary:focus-visible {
 }
 
 .bottom-status-block-meta {
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: var(--editor-text-muted);
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -2940,7 +2943,7 @@ summary:focus-visible {
   padding: 6px 8px;
   border: 1px solid var(--editor-border);
   background: var(--editor-panel);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   white-space: nowrap;
 }
 
@@ -3032,13 +3035,13 @@ summary:focus-visible {
 }
 
 .contextual-toolbar .panel-heading {
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .contextual-toolbar .panel-subheading {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
 }
 
 .contextual-toolbar .toolbar-section {
@@ -3069,7 +3072,7 @@ summary:focus-visible {
 .contextual-toolbar .tool-label,
 .contextual-toolbar .translation-choice-title,
 .contextual-toolbar .toolbar-issue-message {
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
 }
 
 .contextual-toolbar .tool-shortcut {
@@ -3097,12 +3100,12 @@ summary:focus-visible {
 }
 
 .translation-step-button-label {
-  font-size: 0.74rem !important;
+  font-size: var(--font-size-sm) !important;
 }
 
 .translation-step-button-meta {
   margin-top: 2px !important;
-  font-size: 0.64rem !important;
+  font-size: var(--font-size-2xs) !important;
 }
 
 .translation-panel {
@@ -3144,12 +3147,12 @@ summary:focus-visible {
 }
 
 .workspace-mode-button strong {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
 }
 
 .workspace-mode-button span,
 .workspace-mode-status span {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
 }
 
 .workspace-mode-status {
@@ -3306,7 +3309,7 @@ summary:focus-visible {
 
 .toolbar-context-eyebrow {
   color: var(--editor-text-muted);
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3314,13 +3317,13 @@ summary:focus-visible {
 
 .toolbar-context-summary strong {
   color: var(--editor-text-strong);
-  font-size: 0.92rem;
+  font-size: var(--font-size-lg);
   font-weight: 650;
 }
 
 .toolbar-context-summary span:last-child {
   color: var(--editor-text-muted);
-  font-size: 0.73rem;
+  font-size: var(--font-size-xs);
   line-height: 1.35;
 }
 
@@ -3337,14 +3340,14 @@ summary:focus-visible {
 
 .contextual-toolbar .toolbar-section-label {
   color: var(--editor-text-strong);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0;
   text-transform: none;
 }
 
 .contextual-toolbar .toolbar-section-meta {
   color: var(--editor-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -3379,14 +3382,14 @@ summary:focus-visible {
 .contextual-toolbar .tool-label,
 .contextual-toolbar .translation-choice-title,
 .contextual-toolbar .toolbar-issue-message {
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .tool-description {
   display: -webkit-box;
   overflow: hidden;
   color: var(--editor-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -3403,7 +3406,7 @@ summary:focus-visible {
   border-radius: 0;
   background: var(--editor-panel-muted);
   color: var(--editor-text-muted);
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -3501,7 +3504,7 @@ summary:focus-visible {
 
 .technical-dock-section-head span {
   color: var(--editor-text-muted);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
 }
 
 .technical-dock-list {
@@ -3542,11 +3545,11 @@ summary:focus-visible {
 
 .technical-dock-empty strong {
   color: var(--editor-text-strong);
-  font-size: 0.86rem;
+  font-size: var(--font-size-lg);
 }
 
 .technical-dock-empty span {
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   line-height: 1.4;
 }
 
@@ -3607,7 +3610,7 @@ summary:focus-visible {
 .command-menu-section-title {
   border-bottom: 0;
   color: var(--editor-text-strong);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -3641,12 +3644,12 @@ summary:focus-visible {
 }
 
 .command-menu-item-copy strong {
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .command-menu-item-copy span {
   white-space: normal;
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   line-height: 1.3;
 }
 
@@ -3840,7 +3843,7 @@ textarea:disabled {
   border-radius: 0;
   background: var(--studio-surface-muted);
   color: var(--studio-muted);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -4019,13 +4022,13 @@ textarea:disabled {
 }
 
 .workspace-mode-button strong {
-  font-size: 0.86rem;
+  font-size: var(--font-size-lg);
   letter-spacing: 0;
 }
 
 .workspace-mode-button span {
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .workspace-mode-button.active {
@@ -4102,7 +4105,7 @@ textarea:disabled {
 .technical-side-panel-kicker,
 .command-menu-section-title {
   color: var(--studio-muted);
-  font-size: 0.71rem;
+  font-size: var(--font-size-xs);
   font-weight: 750;
   letter-spacing: 0;
   text-transform: none;
@@ -4164,7 +4167,7 @@ textarea:disabled {
 
 .tool-label {
   color: inherit;
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -4174,7 +4177,7 @@ textarea:disabled {
 .toolbar-context-summary span:not(.toolbar-context-eyebrow),
 .toolbar-issue-message {
   color: var(--studio-muted);
-  font-size: 0.71rem;
+  font-size: var(--font-size-xs);
   line-height: 1.32;
 }
 
@@ -4210,7 +4213,7 @@ textarea:disabled {
 }
 
 .toolbar-issue-level {
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 750;
 }
 
@@ -4250,7 +4253,7 @@ textarea:disabled {
 .field {
   gap: 5px;
   color: var(--studio-muted);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   font-weight: 650;
 }
 
@@ -4369,12 +4372,6 @@ textarea:disabled {
   letter-spacing: 0;
 }
 
-/* Notazione ER: gli attributi identificanti sono sottolineati oltre al pallino pieno. */
-.attribute-label--identifier {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .composite-attribute-capsule {
   vector-effect: non-scaling-stroke;
 }
@@ -4428,7 +4425,7 @@ textarea:disabled {
   border-left: 1px solid var(--studio-border);
   border-right: 1px solid var(--studio-border);
   color: var(--studio-ink);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 750;
 }
 
@@ -4495,7 +4492,7 @@ textarea:disabled {
 
 .technical-dock-section-head span {
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .technical-dock-list-item {
@@ -4596,7 +4593,7 @@ textarea:disabled {
 
 .translation-step-button-meta {
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .translation-reset-button {
@@ -4629,13 +4626,13 @@ textarea:disabled {
 .translation-section-head h3,
 .translation-panel-section h3 {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: var(--font-size-lg);
 }
 
 .translation-panel-section p {
   margin: 0;
   color: var(--studio-muted);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
 }
 
@@ -4688,7 +4685,7 @@ textarea:disabled {
 .translation-decision-card span,
 .translation-artifact-chip strong {
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   line-height: 1.35;
   letter-spacing: 0;
 }
@@ -5012,7 +5009,7 @@ textarea:disabled {
   top: 34px;
   left: 96px;
   color: #a6ada8;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -5026,7 +5023,7 @@ textarea:disabled {
   gap: 12px;
   align-items: center;
   color: #8c928d;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
 }
 
@@ -5051,7 +5048,7 @@ textarea:disabled {
   gap: 12px;
   padding: 14px 14px 10px;
   color: var(--editor-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
 }
 
@@ -5069,7 +5066,7 @@ textarea:disabled {
   background: transparent;
   color: var(--editor-text-muted);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0;
   padding: 5px 8px;
   cursor: pointer;
@@ -5092,7 +5089,7 @@ textarea:disabled {
   background: color-mix(in srgb, var(--editor-panel-strong) 88%, var(--studio-accent) 12%);
   color: var(--editor-text);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   padding: 4px 7px;
 }
 
@@ -5391,7 +5388,7 @@ textarea:disabled {
 
 .entity-key-modal-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   font-weight: 760;
   letter-spacing: 0;
 }
@@ -5400,7 +5397,7 @@ textarea:disabled {
   max-width: none;
   margin: 5px 0 0;
   color: var(--muted-text, rgba(39, 48, 43, 0.72));
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -5409,7 +5406,7 @@ textarea:disabled {
   display: inline-flex;
   margin-top: 10px;
   color: rgba(31, 75, 65, 0.92);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
 }
 
@@ -5423,7 +5420,7 @@ textarea:disabled {
   border-radius: 0;
   background: color-mix(in srgb, var(--color-bg-elevated) 78%, transparent);
   color: rgba(26, 34, 30, 0.82);
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
   font-weight: 800;
   cursor: pointer;
 }
@@ -5449,7 +5446,7 @@ textarea:disabled {
   padding: 4px 8px;
   background: rgba(248, 249, 246, 0.78);
   color: rgba(44, 52, 48, 0.72);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .entity-key-summary-chip.complete {
@@ -5476,7 +5473,7 @@ textarea:disabled {
 
 .entity-key-entity-title {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: var(--font-size-lg);
   font-weight: 760;
   letter-spacing: 0;
 }
@@ -5484,7 +5481,7 @@ textarea:disabled {
 .entity-key-entity-header p {
   margin: 2px 0 0;
   color: var(--muted-text, rgba(39, 48, 43, 0.68));
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .entity-key-entity-status {
@@ -5494,7 +5491,7 @@ textarea:disabled {
   padding: 3px 7px;
   background: rgba(153, 94, 38, 0.08);
   color: rgba(112, 67, 24, 0.94);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
 }
 
@@ -5546,14 +5543,14 @@ textarea:disabled {
 }
 
 .entity-key-option-title {
-  font-size: 0.88rem;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   line-height: 1.25;
 }
 
 .entity-key-option-description {
   color: var(--muted-text, rgba(39, 48, 43, 0.7));
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
 }
 
@@ -5564,13 +5561,13 @@ textarea:disabled {
   border-left: 2px solid rgba(42, 66, 58, 0.2);
   padding-left: 8px;
   color: rgba(42, 50, 46, 0.68);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   line-height: 1.32;
 }
 
 .entity-key-option-preview > span {
   color: rgba(42, 50, 46, 0.54);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
 }
 
@@ -5585,7 +5582,7 @@ textarea:disabled {
 
 .entity-key-modal-footer-status {
   color: var(--muted-text, rgba(39, 48, 43, 0.72));
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .entity-key-modal-footer-actions {
@@ -5647,20 +5644,20 @@ textarea:disabled {
 
 .entity-key-current-entity-kicker {
   color: rgba(31, 75, 65, 0.82);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 800;
 }
 
 .entity-key-current-entity-head h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   letter-spacing: 0;
 }
 
 .entity-key-current-entity-head p {
   margin: 0;
   color: var(--muted-text, rgba(39, 48, 43, 0.68));
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .entity-key-modal-preview-pane {
@@ -5682,11 +5679,11 @@ textarea:disabled {
 .entity-key-preview-pane-head span,
 .entity-key-preview-pane-head small {
   color: var(--muted-text, rgba(39, 48, 43, 0.68));
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .entity-key-preview-pane-head strong {
-  font-size: 0.92rem;
+  font-size: var(--font-size-lg);
 }
 
 .entity-key-preview-canvas {
@@ -5869,7 +5866,7 @@ textarea:disabled {
 
 .entity-key-preview-table-head span {
   color: var(--muted-text, rgba(39, 48, 43, 0.68));
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
 }
 
 .entity-key-preview-table-rows {
@@ -5883,7 +5880,7 @@ textarea:disabled {
   gap: 8px;
   padding: 8px 11px;
   border-top: 1px solid rgba(35, 47, 42, 0.08);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .entity-key-preview-table-row:first-child {
@@ -5904,7 +5901,7 @@ textarea:disabled {
   padding: 2px 5px;
   background: rgba(31, 92, 77, 0.14);
   color: rgba(18, 80, 62, 0.94);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
 }
 
@@ -5912,7 +5909,7 @@ textarea:disabled {
   margin: 0;
   padding: 12px;
   color: var(--muted-text, rgba(39, 48, 43, 0.68));
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
 }
 
 .entity-key-modal-footer-status {
@@ -5922,7 +5919,7 @@ textarea:disabled {
 
 .entity-key-modal-footer-status strong {
   color: rgba(24, 35, 30, 0.92);
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
 }
 
 .entity-key-next-highlight:not(:disabled) {
@@ -5942,7 +5939,7 @@ textarea:disabled {
   padding: 2px 7px;
   background: rgba(31, 92, 77, 0.08);
   color: rgba(22, 82, 65, 0.95);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
 }
 
@@ -5985,7 +5982,7 @@ textarea:disabled {
 .entity-key-preview-current-choice span,
 .entity-key-preview-current-choice small {
   color: var(--muted-text, rgba(39, 48, 43, 0.68));
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
 }
 
@@ -5994,7 +5991,7 @@ textarea:disabled {
 .entity-key-preview-effect strong,
 .entity-key-preview-alternatives strong {
   color: var(--diagram-text, #101513);
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
 }
 
 .entity-key-preview-effect,
@@ -6009,7 +6006,7 @@ textarea:disabled {
   margin: 0;
   padding-left: 17px;
   color: rgba(39, 48, 43, 0.78);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
 }
 
@@ -6208,8 +6205,8 @@ textarea:disabled {
 
 .app-shell-view-er .canvas-viewport-hud {
   top: auto !important;
-  right: 28px !important;
-  bottom: 28px !important;
+  right: var(--space-6) !important;
+  bottom: var(--space-6) !important;
   left: auto !important;
 }
 
@@ -6260,7 +6257,7 @@ textarea:disabled {
 .studio-modal__title {
   margin: 0;
   color: var(--editor-text-strong);
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   font-weight: 780;
   line-height: 1.15;
   letter-spacing: 0;
@@ -6269,7 +6266,7 @@ textarea:disabled {
 .studio-modal__subtitle {
   margin: 5px 0 0;
   color: var(--editor-text-muted);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.35;
 }
 
@@ -6282,7 +6279,7 @@ textarea:disabled {
   background: var(--editor-panel-muted);
   color: var(--editor-text);
   font: inherit;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
 }
@@ -6358,7 +6355,7 @@ textarea:disabled {
   border-radius: 0;
   background: var(--editor-accent-soft);
   color: var(--editor-accent);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -6367,7 +6364,7 @@ textarea:disabled {
 .designer-cardinality-modal h2 {
   margin: 0;
   color: var(--editor-text-strong);
-  font-size: 1.02rem;
+  font-size: var(--font-size-xl);
   font-weight: 820;
   line-height: 1.16;
   letter-spacing: 0;
@@ -6376,7 +6373,7 @@ textarea:disabled {
 .designer-cardinality-modal__subtitle {
   margin: 6px 0 0;
   color: var(--editor-text-muted);
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
   line-height: 1.4;
 }
 
@@ -6399,7 +6396,7 @@ textarea:disabled {
   border-radius: 0;
   background: var(--editor-panel);
   color: var(--editor-text-muted);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .designer-cardinality-visual span {
@@ -6422,7 +6419,7 @@ textarea:disabled {
 
 .designer-cardinality-visual strong {
   color: var(--editor-accent);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 820;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -6469,7 +6466,7 @@ textarea:disabled {
 
 .designer-cardinality-option span {
   color: var(--editor-text-strong);
-  font-size: 1rem;
+  font-size: var(--font-size-xl);
   font-weight: 820;
   line-height: 1.1;
 }
@@ -6477,7 +6474,7 @@ textarea:disabled {
 .designer-cardinality-option small,
 .designer-cardinality-custom small {
   color: var(--editor-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   line-height: 1.3;
 }
 
@@ -6497,7 +6494,7 @@ textarea:disabled {
 
 .designer-cardinality-custom__radio {
   color: var(--editor-text-strong);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   font-weight: 780;
 }
 
@@ -6510,7 +6507,7 @@ textarea:disabled {
   background: var(--editor-panel-strong);
   color: var(--editor-text);
   font: inherit;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
 }
 
 .designer-cardinality-custom > input:focus {
@@ -6526,7 +6523,7 @@ textarea:disabled {
   border-radius: 0;
   background: color-mix(in srgb, var(--editor-error) 10%, var(--editor-panel));
   color: var(--editor-error);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 720;
   line-height: 1.35;
 }
@@ -6544,7 +6541,7 @@ textarea:disabled {
   border: 1px solid var(--editor-border);
   border-radius: 0;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
   font-weight: 780;
   cursor: pointer;
 }
@@ -6587,7 +6584,7 @@ textarea:disabled {
   padding: 0;
   border: 0;
   color: var(--editor-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 780;
   line-height: 1.2;
   letter-spacing: 0.12em;
@@ -6648,7 +6645,7 @@ textarea:disabled {
 .studio-modal .command-menu-item-copy strong {
   overflow-wrap: anywhere;
   color: var(--editor-text-strong);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 720;
   line-height: 1.2;
   letter-spacing: 0;
@@ -6658,7 +6655,7 @@ textarea:disabled {
 .studio-modal .command-menu-item-copy span {
   overflow-wrap: anywhere;
   color: var(--editor-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   line-height: 1.35;
   white-space: normal;
 }
@@ -6677,7 +6674,7 @@ textarea:disabled {
   background: var(--editor-panel-muted);
   color: var(--editor-text);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 0.65rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
@@ -6696,13 +6693,13 @@ textarea:disabled {
 .studio-modal__meta strong,
 .about-meta strong {
   color: var(--editor-text-strong);
-  font-size: 0.95rem;
+  font-size: var(--font-size-xl);
 }
 
 .studio-modal__meta span,
 .about-meta span {
   color: var(--editor-text-muted);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .studio-modal__accordion,
@@ -6730,7 +6727,7 @@ textarea:disabled {
   gap: 12px;
   padding: 10px 12px;
   color: var(--editor-text-strong);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 780;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -6767,7 +6764,7 @@ textarea:disabled {
   margin: 0;
   padding: 12px 14px 12px 28px;
   color: var(--editor-text-muted);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   line-height: 1.5;
 }
 
@@ -6801,13 +6798,13 @@ textarea:disabled {
 .studio-modal__release header strong,
 .studio-modal .changelog-entry header strong {
   color: var(--editor-text-strong);
-  font-size: 0.86rem;
+  font-size: var(--font-size-lg);
 }
 
 .studio-modal__release header span,
 .studio-modal .changelog-entry header span {
   color: var(--editor-text-muted);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   white-space: nowrap;
 }
 
@@ -7012,7 +7009,7 @@ textarea:disabled {
   background: var(--studio-surface);
   color: var(--studio-muted);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   line-height: 1.42;
 }
 
@@ -7026,7 +7023,7 @@ textarea:disabled {
 .translation-technical-details summary {
   cursor: pointer;
   color: var(--studio-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 750;
   letter-spacing: 0;
 }
@@ -7146,7 +7143,7 @@ textarea:disabled {
   border: 1px dashed var(--panel-border-strong);
   border-radius: 0;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
   font-weight: 800;
   text-align: center;
 }
@@ -7182,7 +7179,7 @@ textarea:disabled {
   border-radius: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -7260,7 +7257,7 @@ textarea:disabled {
 .toolbar-section-label {
   margin: 0;
   color: var(--text-main);
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.25;
@@ -7297,7 +7294,7 @@ textarea:disabled {
   border-radius: 0;
   background: var(--color-bg-elevated);
   color: var(--text-main);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -7365,7 +7362,7 @@ textarea:disabled {
   border-radius: 0;
   background: rgba(31, 107, 79, 0.1);
   color: var(--studio-accent, #1f6b4f);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 900;
 }
 
@@ -7376,12 +7373,12 @@ textarea:disabled {
 }
 
 .collapsible-panel-copy strong {
-  font-size: 0.9rem;
+  font-size: var(--font-size-lg);
 }
 
 .collapsible-panel-copy span {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .collapsible-panel-body {
@@ -7437,7 +7434,7 @@ button.warning-card:hover {
   border-radius: 0;
   background: color-mix(in srgb, var(--color-bg-elevated) 72%, transparent);
   color: var(--text-main);
-  font-size: 0.69rem;
+  font-size: var(--font-size-2xs);
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -7447,7 +7444,7 @@ button.warning-card:hover {
 .warning-card-message {
   min-width: 0;
   color: var(--text-main);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
   font-weight: 650;
   line-height: 1.42;
   white-space: normal;
@@ -7465,7 +7462,7 @@ button.warning-card:hover {
   border-radius: 0;
   background: color-mix(in srgb, var(--color-bg-elevated) 64%, transparent);
   color: var(--text-muted);
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   line-height: 1.45;
 }
 
@@ -7511,7 +7508,7 @@ button.warning-card:hover {
 
 .command-option-label {
   min-width: 0;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   font-weight: 780;
   line-height: 1.2;
   white-space: nowrap;
@@ -7532,7 +7529,7 @@ button.warning-card:hover {
   border-radius: 0;
   background: rgba(248, 250, 248, 0.98);
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
@@ -7676,11 +7673,4 @@ button.warning-card:hover {
 .designer-translation-view {
   --diagram-translation-pending: #ff3b30;
   --diagram-translation-blocked: #ff3b30;
-}
-
-.app-shell-view-er .canvas-viewport-hud {
-  top: auto !important;
-  right: 28px !important;
-  bottom: 28px !important;
-  left: auto !important;
 }

@@ -56,7 +56,7 @@ export function MoveToDialog({ open, nodeName, destinations, onMove, onClose }: 
               <select
                 id={id}
                 aria-describedby={describedBy}
-                className="settings-select"
+                className="ui-select"
                 value={targetId}
                 onChange={(event) => setTargetId(event.target.value)}
                 data-autofocus

@@ -33,7 +33,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   text-align: left;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-explorer-context-menu__item:hover,
@@ -61,7 +61,7 @@
 .project-explorer-context-menu__shortcut,
 .project-file-tab-menu__shortcut {
   color: var(--color-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
 }
 
 .project-file-tab-menu {

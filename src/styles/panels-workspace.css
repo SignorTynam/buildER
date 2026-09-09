@@ -43,7 +43,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--color-text-primary);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 720;
   letter-spacing: 0.08em;
   text-overflow: ellipsis;
@@ -88,7 +88,7 @@
   border-radius: 9px;
   background: var(--color-accent-muted);
   color: var(--color-accent);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
 }
 
@@ -123,7 +123,7 @@
 
 .workspace-panel__empty strong {
   color: var(--color-text-primary);
-  font-size: 0.82rem;
+  font-size: var(--font-size-md);
 }
 
 .workspace-panel__empty-copy > span {
@@ -405,7 +405,7 @@
 .project-explorer-header__topline h2 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   font-weight: 750;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -429,7 +429,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-primary);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -442,7 +442,7 @@
   border: 0;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -491,7 +491,7 @@
   padding: var(--space-2) 0 var(--space-1);
   border-top: 1px solid var(--color-border-subtle);
   color: var(--color-text-muted);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
 }
 
 .project-explorer-tree {
@@ -583,7 +583,7 @@
 }
 
 .project-explorer-item__name {
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
 }
 
 .project-explorer-item__extension,
@@ -592,7 +592,7 @@
   border: 0;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 0.62rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -635,7 +635,7 @@
   border: 1px solid var(--color-accent);
   background: var(--color-bg-elevated);
   color: var(--color-text-primary);
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-explorer-item__rename[aria-invalid="true"] {
@@ -654,7 +654,7 @@
   background: var(--color-bg-elevated);
   color: var(--color-danger);
   box-shadow: var(--elevation-popover);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
 }
 
 .project-explorer-empty {
@@ -683,7 +683,7 @@
 .project-explorer-empty p {
   max-width: 200px;
   margin: 0;
-  font-size: 0.76rem;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
 }
 
@@ -733,7 +733,7 @@ button.project-explorer-empty__cta:focus-visible {
 .project-explorer-empty__secondary-row button {
   min-height: 26px;
   padding: var(--space-0-5) var(--space-2);
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-explorer-empty > svg {
@@ -743,13 +743,13 @@ button.project-explorer-empty__cta:focus-visible {
 
 .project-explorer-empty strong {
   color: var(--color-text-primary);
-  font-size: 0.8rem;
+  font-size: var(--font-size-md);
 }
 
 .project-explorer-empty p {
   max-width: 220px;
   margin: 0;
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
 }
 
 .project-explorer-empty button {

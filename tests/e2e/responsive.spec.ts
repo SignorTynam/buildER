@@ -30,6 +30,7 @@ const VIEWPORTS = [
  * lista di classi di dispositivo su cui l'editor va esercitato davvero.
  */
 const REQUIRED_VIEWPORTS = [
+  { name: "wide-desktop-1920x1080", width: 1920, height: 1080 },
   { name: "desktop-1440x900", width: 1440, height: 900 },
   { name: "compact-desktop-1024x768", width: 1024, height: 768 },
   { name: "tablet-portrait-768x1024", width: 768, height: 1024 },
@@ -156,14 +157,22 @@ test("ER editor controls stay reachable across the required viewport matrix", as
       const nav = document.querySelector<HTMLElement>(".designer-context-toolbar");
       if (!nav) return null;
       return {
-        overflows: nav.scrollWidth - nav.clientWidth > 1,
-        hasAffordance: nav.hasAttribute("data-scroll-start") || nav.hasAttribute("data-scroll-end"),
+        overflowsX: nav.scrollWidth - nav.clientWidth > 1,
+        overflowsY: nav.scrollHeight - nav.clientHeight > 1,
+        hasHorizontalAffordance: nav.hasAttribute("data-scroll-start") || nav.hasAttribute("data-scroll-end"),
+        hasVerticalAffordance: nav.hasAttribute("data-scroll-top") || nav.hasAttribute("data-scroll-bottom"),
       };
     });
-    if (toolbarScroll?.overflows) {
+    if (toolbarScroll?.overflowsX) {
       expect(
-        toolbarScroll.hasAffordance,
-        `a ${viewport.name} la toolbar scorre ma non lo segnala in alcun modo`,
+        toolbarScroll.hasHorizontalAffordance,
+        `a ${viewport.name} la toolbar scorre in orizzontale ma non lo segnala`,
+      ).toBe(true);
+    }
+    if (toolbarScroll?.overflowsY) {
+      expect(
+        toolbarScroll.hasVerticalAffordance,
+        `a ${viewport.name} la toolbar scorre in verticale ma non lo segnala`,
       ).toBe(true);
     }
 

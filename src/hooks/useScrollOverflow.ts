@@ -12,14 +12,14 @@ export interface ScrollOverflow {
 }
 
 /**
- * Osserva quanto contenuto resta fuori da un contenitore scrollabile in
- * orizzontale.
+ * Osserva quanto contenuto resta fuori da un contenitore scrollabile sui due
+ * assi.
  *
  * Serve per dare un'indicazione visibile che lo scroll esiste: un contenitore
  * che scorre senza alcun segnale sembra semplicemente troncato, e i controlli
  * oltre il bordo restano di fatto invisibili. Lo stato si aggiorna su scroll,
  * su resize del contenitore e quando cambia il numero di figli, cosi la
- * sfumatura sparisce appena il contenuto ci sta tutto.
+ * sfumatura orizzontale o verticale sparisce appena il contenuto ci sta tutto.
  *
  * La logica ricalca quella gia usata da `ProjectFileTabs` per le sue frecce di
  * scorrimento; qui e estratta per poter essere condivisa.

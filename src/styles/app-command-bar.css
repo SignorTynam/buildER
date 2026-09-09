@@ -45,7 +45,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: currentColor;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -119,7 +119,7 @@
   background: transparent;
   color: inherit;
   text-align: left;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -150,7 +150,7 @@
   display: block;
   padding: 5px 9px 3px;
   color: var(--editor-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -184,7 +184,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: currentColor;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -224,7 +224,7 @@
   background: transparent;
   color: var(--editor-text);
   text-align: left;
-  font-size: 0.84rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
@@ -248,7 +248,7 @@
   padding: 0 5px;
   background: var(--studio-danger-soft);
   color: var(--studio-danger);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
 }
 

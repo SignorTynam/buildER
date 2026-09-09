@@ -5,6 +5,12 @@ test("welcome, empty actions, and compact header stay balanced", async ({ page }
   await page.addInitScript(() => {
     window.localStorage.clear();
     window.localStorage.setItem("chen-er-diagram-studio:locale", "sq");
+    // Il tour va tenuto fuori: finche e aperto la Welcome passa di proposito a
+    // due colonne per lasciare il posto al dock, che altrimenti si posa sulla
+    // colonna dei suggerimenti. Qui si misura la disposizione a regime, e la
+    // dipendenza dall'onboarding era incidentale — questo test non lo nomina.
+    // L'arrangiamento con tour aperto e coperto da canvas-overlays.spec.ts.
+    window.localStorage.setItem("chen-er-diagram-studio:onboarding-v1:done", "1");
   });
 
   await page.setViewportSize({ width: 1295, height: 861 });

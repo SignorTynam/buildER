@@ -37,6 +37,7 @@ import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } fro
 import { StudioIcon } from "../components/icons/StudioIcon";
 import { Modal } from "../components/ui";
 import { FloatingExportMenu } from "../components/FloatingExportMenu";
+import { useScrollOverflow } from "../hooks/useScrollOverflow";
 
 type LogicalBulkStep = Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">;
 type ColumnMoveDirection = "up" | "down" | "top" | "bottom";
@@ -357,6 +358,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [showForeignKeyLabels, setShowForeignKeyLabels] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [toolbarRef, toolbarOverflow] = useScrollOverflow<HTMLDivElement>();
   const [entityKeySelectionModal, setEntityKeySelectionModal] = useState<{
     requests: LogicalEntityKeySelectionRequest[];
     selectedChoiceIdsByTargetKey: Record<string, string>;
@@ -554,7 +556,16 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     const itemIsSelected = selectedTranslationItem != null;
     const showItemTools = itemIsSelected || translationRenameTarget != null;
     return (
-      <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.translationTools")}>
+      <div
+        ref={toolbarRef}
+        className="designer-context-toolbar designer-logical-toolbar"
+        role="toolbar"
+        aria-label={t("logical.toolbars.translationTools")}
+        data-scroll-start={toolbarOverflow.atStart ? "" : undefined}
+        data-scroll-end={toolbarOverflow.atEnd ? "" : undefined}
+        data-scroll-top={toolbarOverflow.atTop ? "" : undefined}
+        data-scroll-bottom={toolbarOverflow.atBottom ? "" : undefined}
+      >
         {renderCommonLeadButtons()}
         {showItemTools ? (
           <>
@@ -613,7 +624,16 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
       : t("logical.designer.showForeignKeyLabelsTitle");
 
     return (
-      <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.schemaTools")}>
+      <div
+        ref={toolbarRef}
+        className="designer-context-toolbar designer-logical-toolbar"
+        role="toolbar"
+        aria-label={t("logical.toolbars.schemaTools")}
+        data-scroll-start={toolbarOverflow.atStart ? "" : undefined}
+        data-scroll-end={toolbarOverflow.atEnd ? "" : undefined}
+        data-scroll-top={toolbarOverflow.atTop ? "" : undefined}
+        data-scroll-bottom={toolbarOverflow.atBottom ? "" : undefined}
+      >
         <ToolbarButton
           label={showForeignKeyLabels ? t("logical.designer.hideForeignKeys") : t("logical.designer.showForeignKeys")}
           icon={<StudioIcon name={showForeignKeyLabels ? "viewOff" : "viewOn"} />}

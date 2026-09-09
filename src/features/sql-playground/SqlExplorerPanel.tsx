@@ -157,7 +157,7 @@ export function SqlExplorerPanel({
       {sessions.length > 1 ? (
         <label className="sql-explorer-session-select">
           <span>{t("databaseWorkspace.session")}</span>
-          <select value={sessionId ?? ""} onChange={(event) => onSessionChange(event.target.value)}>
+          <select className="ui-select" value={sessionId ?? ""} onChange={(event) => onSessionChange(event.target.value)}>
             {sessions.map((session) => (
               <option key={session.sessionId} value={session.sessionId}>
                 {session.source.kind === "imported-sqlite"

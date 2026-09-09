@@ -50,17 +50,21 @@ export function WorkspaceEditorHeader({
         {file.kind === "schema" ? (
           <div className="editor-view-switcher" role="group" aria-label={t("workspaceChrome.viewSwitcherAria")}>
             {([
-              ["er", t("workspaceChrome.views.conceptual")],
-              ["translation", t("workspaceChrome.views.translation")],
-              ["logical", t("workspaceChrome.views.logical")],
-            ] as const).map(([value, label]) => (
+              ["er", "entity", t("workspaceChrome.views.conceptual")],
+              ["translation", "translate", t("workspaceChrome.views.translation")],
+              ["logical", "database", t("workspaceChrome.views.logical")],
+            ] as const).map(([value, icon, label]) => (
               <button
                 key={value}
                 type="button"
                 aria-pressed={view === value}
+                // Sotto 680px l'etichetta si nasconde e resta la sola icona:
+                // senza aria-label il pulsante perderebbe il nome accessibile.
+                aria-label={label}
                 onClick={() => onViewChange(value)}
                 title={label}
               >
+                <StudioIcon name={icon} size={15} aria-hidden="true" />
                 <span>{label}</span>
               </button>
             ))}

@@ -293,16 +293,38 @@
   line-height: var(--line-height-snug);
   text-align: center;
   pointer-events: none;
+  /*
+   * `display: none` e non `visibility: hidden`: da nascosto il tooltip
+   * conservava comunque la sua scatola, larga fino a 260px e posizionata fuori
+   * dall'ancora. Dentro un contenitore scrollabile quella scatola entrava nel
+   * calcolo dell'overflow — il pannello Errori aveva una scrollbar orizzontale
+   * permanente da 15px causata solo dai tooltip dormienti delle sue righe.
+   *
+   * Il nodo resta nel DOM, quindi `aria-describedby` continua a risolversi:
+   * il testo referenziato da aria-describedby viene esposto anche quando
+   * l'elemento e display:none.
+   *
+   * `allow-discrete` piu `@starting-style` tengono la dissolvenza nonostante
+   * il display commutato; dove non sono supportati il tooltip appare e sparisce
+   * di colpo, che e esattamente il comportamento gia previsto sotto
+   * prefers-reduced-motion.
+   */
+  display: none;
   opacity: 0;
-  visibility: hidden;
   transition:
     opacity var(--motion-fast) ease,
-    visibility var(--motion-fast) ease;
+    display var(--motion-fast) allow-discrete;
 }
 
 .ui-tooltip[data-visible="true"] {
+  display: block;
   opacity: 1;
-  visibility: visible;
+}
+
+@starting-style {
+  .ui-tooltip[data-visible="true"] {
+    opacity: 0;
+  }
 }
 
 .ui-tooltip--bottom {
@@ -316,6 +338,54 @@
   top: 50%;
   bottom: auto;
   transform: translateY(-50%);
+}
+
+/* Select ------------------------------------------------------------------- */
+
+/*
+ * Skin unica per tutte le `<select>` dell'app. Prima ce n'erano tre diverse
+ * (`.settings-select`, il dialetto del pannello Codice, la sessione di SQL
+ * Explorer) e nessuna spegneva `appearance`, quindi il controllo restava
+ * disegnato dal sistema operativo in mezzo a un'interfaccia interamente custom.
+ *
+ * Resta una `<select>` nativa: si sostituisce solo l'aspetto del campo chiuso,
+ * non la lista, che il sistema apre con la propria accessibilita.
+ *
+ * Il colore del chevron e cotto dentro l'SVG perche una data URI non legge le
+ * custom property: e l'unico valore visivo non tokenizzato qui, tenuto in un
+ * posto solo, e andra rivisto quando arrivera il tema scuro.
+ */
+.ui-select {
+  --ui-select-chevron: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23636d66' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: var(--size-input);
+  padding: 0 var(--space-6) 0 var(--space-2-5);
+  border: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-elevated);
+  background-image: var(--ui-select-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--space-2-5) center;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+  cursor: pointer;
+}
+
+.ui-select:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  background-color: var(--color-bg-hover);
+}
+
+.ui-select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ui-select:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 /* Badge -------------------------------------------------------------------- */

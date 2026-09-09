@@ -140,6 +140,53 @@ async function expectNavigationSurface(page: Page, canvasSelector: string) {
   expect(accessibility.violations).toEqual([]);
 }
 
+async function expectToolbarOrientation(page: Page, expected: "column" | "row") {
+  const toolbar = page.locator(".designer-context-toolbar");
+  const geometry = await toolbar.evaluate((toolbar) => {
+    const buttons = Array.from(toolbar.querySelectorAll<HTMLElement>("button"));
+    const buttonBounds = buttons.map((button) => button.getBoundingClientRect());
+    const bounds = toolbar.getBoundingClientRect();
+    const canvas = toolbar.closest<HTMLElement>(".designer-canvas-region")?.getBoundingClientRect();
+    return {
+      direction: getComputedStyle(toolbar).flexDirection,
+      rows: new Set(buttonBounds.map((rect) => Math.round(rect.top))).size,
+      columns: new Set(buttonBounds.map((rect) => Math.round(rect.left))).size,
+      buttons: buttons.length,
+      insideCanvas:
+        canvas != null &&
+        bounds.left >= canvas.left - 1 &&
+        bounds.right <= canvas.right + 1 &&
+        bounds.top >= canvas.top - 1 &&
+        bounds.bottom <= canvas.bottom + 1,
+    };
+  });
+
+  expect(geometry.direction).toBe(expected);
+  expect(geometry.insideCanvas).toBe(true);
+  if (expected === "column") {
+    expect(geometry.columns).toBe(1);
+    expect(geometry.rows).toBe(geometry.buttons);
+  } else {
+    expect(geometry.rows).toBe(1);
+  }
+}
+
+test("Translate and Logic toolboxes match the ER desktop and compact orientations", async ({ page }) => {
+  test.setTimeout(60_000);
+  await bootProject(page);
+
+  await expectToolbarOrientation(page, "column");
+  await page.getByRole("group", { name: "Vista dello schema" }).getByRole("button", { name: "Traduzione" }).click();
+  await expectToolbarOrientation(page, "column");
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect.poll(() => page.locator(".designer-context-toolbar").evaluate((toolbar) => getComputedStyle(toolbar).flexDirection)).toBe("row");
+  await expectToolbarOrientation(page, "row");
+  await page.keyboard.press("Escape");
+  await page.getByRole("group", { name: "Vista dello schema" }).getByRole("button", { name: "Logico" }).click();
+  await expectToolbarOrientation(page, "row");
+});
+
 test("Translate and Logic expose complete canvas navigation and reversible auto-layout", async ({ page }) => {
   test.setTimeout(60_000);
   await bootProject(page);

@@ -131,16 +131,62 @@
   }
 
   .app-command-search span {
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
   }
 
+  /*
+   * Modalita icon-only della barra di contesto. Il view switcher non aveva
+   * icone: nascondere lo span lasciava tre pulsanti vuoti da 18x24px con la
+   * sola `title`, inutile al tocco. Ora l'icona compare quando il testo esce,
+   * e i bersagli salgono a --size-input come gia fa la topbar compatta.
+   */
   .editor-view-switcher button span,
   .editor-context-button span {
     display: none;
   }
 
+  .editor-view-switcher button > .studio-icon {
+    display: block;
+  }
+
+  .editor-context-bar {
+    height: var(--size-tab);
+  }
+
+  .editor-view-switcher {
+    padding: 0;
+  }
+
+  .editor-view-switcher button,
+  .editor-context-button {
+    width: var(--size-input);
+    min-width: var(--size-input);
+    height: var(--size-input);
+    min-height: var(--size-input);
+    justify-content: center;
+    padding: 0;
+  }
+
   .project-file-tabs__tool[data-direction] {
     display: none;
+  }
+
+  /*
+   * Stessi bersagli da --size-input anche per i comandi della barra tab. La
+   * chiusura resta dentro i 36px della tab: 2 + 32 + 2, e il padding destro
+   * del titolo (34px) le lascia esattamente lo spazio che occupa.
+   */
+  .project-file-tab__close {
+    top: 2px;
+    right: 2px;
+    width: var(--size-input);
+    height: var(--size-input);
+  }
+
+  .project-file-tabs__tool,
+  .project-file-tabs__new {
+    width: var(--size-input);
+    height: var(--size-input);
   }
 
   .workspace-empty-editor__panel {

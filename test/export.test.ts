@@ -59,22 +59,33 @@ test("image export no longer enforces viewport-sized minimums", () => {
   assert.doesNotMatch(exportSource, /1280\s*[x,]\s*720|720\s*[x,]\s*1280/);
 });
 
-test("PNG export keeps transparent as the default background", () => {
+test("content bounds are measured without the viewport transform and restore it afterwards", () => {
+  const withoutTransformBody = localFunctionBody("withoutWorldTransform");
+  const contentBoundsBody = localFunctionBody("getContentBounds");
+
+  assert.match(withoutTransformBody, /const previousTransform = worldGroup\.getAttribute\("transform"\)/);
+  assert.match(withoutTransformBody, /worldGroup\.removeAttribute\("transform"\)/);
+  assert.match(withoutTransformBody, /worldGroup\.setAttribute\("transform", previousTransform\)/);
+  assert.match(contentBoundsBody, /withoutWorldTransform\(worldGroup/);
+});
+
+test("PNG export keeps the canvas and diagram shape interiors transparent", () => {
   const downloadPngBody = functionBody("downloadPng");
 
   assert.match(downloadPngBody, /format:\s*"png"/);
-  assert.match(downloadPngBody, /options\?\.background\s*\?\?\s*"transparent"/);
-  assert.match(downloadPngBody, /styleMode:\s*"print"/);
+  assert.match(downloadPngBody, /background:\s*"transparent"/);
+  assert.match(downloadPngBody, /styleMode:\s*"normal"/);
+  assert.match(exportSource, /normalizeRasterShapeFills\(clone,\s*format === "jpeg" \? "#ffffff" : "none"\)/);
   assert.doesNotMatch(downloadPngBody, /fillStyle\s*=\s*["']#ffffff["']/i);
   assert.doesNotMatch(downloadPngBody, /fillRect\(/);
 });
 
-test("JPEG export exists, uses JPEG MIME, and paints a white background", () => {
+test("JPEG export uses normal styling with white shape interiors and background", () => {
   const downloadJpegBody = functionBody("downloadJpeg");
 
   assert.match(downloadJpegBody, /format:\s*"jpeg"/);
   assert.match(downloadJpegBody, /background:\s*"white"/);
-  assert.match(downloadJpegBody, /styleMode:\s*"print"/);
+  assert.match(downloadJpegBody, /styleMode:\s*"normal"/);
   assert.match(exportSource, /image\/jpeg/);
   assert.match(exportSource, /JPEG_QUALITY\s*=\s*0\.92/);
   assert.match(exportSource, /background === "white"[\s\S]*return "#ffffff"/);
@@ -108,9 +119,10 @@ test("export removes validation UI from cloned SVG", () => {
   assert.match(exportSource, /removeExportOnlyUi\(clone\)/);
 });
 
-test("print mode forces monochrome transparent fills", () => {
-  assert.match(exportSource, /styleMode\s*=\s*options\.styleMode\s*\?\?\s*\(format\s*===\s*"jpeg"\s*\?\s*"print"\s*:\s*"normal"\)/);
+test("normal mode is shared by raster downloads while SVG print mode remains available", () => {
+  assert.match(exportSource, /styleMode\s*=\s*options\.styleMode\s*\?\?\s*"normal"/);
   assert.match(exportSource, /function applyPrintExportStyle/);
+  assert.match(exportSource, /function normalizeRasterShapeFills/);
   assert.match(exportSource, /--diagram-canvas-fill",\s*"transparent"/);
   assert.match(exportSource, /--diagram-node-fill",\s*"transparent"/);
   assert.match(exportSource, /--diagram-stroke",\s*"#000000"/);
@@ -127,12 +139,21 @@ test("print mode forces monochrome transparent fills", () => {
   assert.match(exportSource, /querySelectorAll<SVGTextElement \| SVGTSpanElement>\("text, tspan"\)/);
 });
 
+test("all image exports mask every edge line beneath cardinality labels", () => {
+  assert.match(exportSource, /querySelector<SVGTextElement>\("\.cardinality-label"\)/);
+  assert.match(exportSource, /label\?\.previousElementSibling/);
+  assert.match(exportSource, /labelCutout\.setAttribute\("fill",\s*"black"\)/);
+  assert.match(exportSource, /path\.setAttribute\("mask",\s*`url\(#\$\{maskId\}\)`\)/);
+  assert.match(exportSource, /normalizePrintExportElements\(clone\);[\s\S]*maskLinesUnderCardinality\(clone/);
+  assert.match(exportSource, /maskLinesUnderCardinality\(clone/);
+});
+
 test("simple attribute identifiers expose a print-preservable marker class", () => {
   assert.match(diagramNodeSource, /attribute-identifier-marker/);
   assert.match(diagramNodeSource, /isIdentifier\s*\?\s*"attribute-marker attribute-identifier-marker"\s*:\s*"attribute-marker"/);
 });
 
-test("JPEG print mode preserves semantic identifier marker fills", () => {
+test("SVG print mode preserves semantic identifier marker fills", () => {
   const preserveFillBody = localFunctionBody("shouldPreservePrintFill");
   const normalizeBody = localFunctionBody("normalizePrintExportElements");
 
@@ -162,14 +183,14 @@ test("PNG, SVG, and JPEG request explicit export modes", () => {
   const downloadJpegBody = functionBody("downloadJpeg");
 
   assert.match(downloadPngBody, /format:\s*"png"/);
-  assert.match(downloadPngBody, /options\?\.background\s*\?\?\s*"transparent"/);
-  assert.match(downloadPngBody, /styleMode:\s*"print"/);
+  assert.match(downloadPngBody, /background:\s*"transparent"/);
+  assert.match(downloadPngBody, /styleMode:\s*"normal"/);
   assert.match(downloadSvgBody, /format:\s*"svg"/);
   assert.match(downloadSvgBody, /options\?\.background\s*\?\?\s*"white"/);
   assert.match(downloadSvgBody, /styleMode:\s*"print"/);
   assert.match(downloadJpegBody, /format:\s*"jpeg"/);
   assert.match(downloadJpegBody, /background:\s*"white"/);
-  assert.match(downloadJpegBody, /styleMode:\s*"print"/);
+  assert.match(downloadJpegBody, /styleMode:\s*"normal"/);
 });
 
 test("print style export covers logical diagram variables", () => {
@@ -200,14 +221,12 @@ test("SVG download no longer defaults to transparent background", () => {
   assert.match(downloadSvgBody, /options\?\.background\s*\?\?\s*"white"/);
 });
 
-test("Conceptual and Translation exports request the computed canvas background", () => {
+test("only SVG Conceptual and Translation exports request the computed canvas background", () => {
   assert.match(exportSource, /type ExportBackground = "transparent" \| "white" \| "canvas"/);
   assert.match(exportSource, /getPropertyValue\("--diagram-canvas-fill"\)/);
   assert.match(exportSource, /prependExportBackground\([\s\S]*backgroundColor/);
-  assert.match(
-    appSource,
-    /downloadPng\([\s\S]*?background:\s*diagramView === "er" \|\| diagramView === "translation" \? "canvas" : "transparent"/,
-  );
+  assert.match(appSource, /downloadPng\(svgRef\.current,\s*"builder-diagram\.png"\)/);
+  assert.doesNotMatch(appSource, /downloadPng\([\s\S]*?background:\s*"canvas"/);
   assert.match(
     appSource,
     /downloadSvg\([\s\S]*?background:\s*diagramView === "er" \|\| diagramView === "translation" \? "canvas" : "white"/,
