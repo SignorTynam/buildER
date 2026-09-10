@@ -10,6 +10,11 @@ import {
 } from "../../utils/sqlPlayground";
 import { SqlPlaygroundClientError, type SqlPlaygroundManager } from "./SqlPlaygroundManager";
 import type { GeneratedSqlPlaygroundSessionState } from "./sqlPlaygroundState";
+import type {
+  SqlPopulationApplyResult,
+  SqlPopulationConfig,
+  SqlPopulationPlanPreview,
+} from "./sqlDataPopulationTypes";
 
 interface UseSqlPlaygroundOptions {
   manager: SqlPlaygroundManager;
@@ -94,7 +99,11 @@ export function useSqlPlayground({
       source: { ...current.source, schemaName },
       currentGeneratedChecksum,
       status:
-        current.status === "creating-database" || current.status === "running" || current.status === "loading-engine"
+        current.status === "creating-database"
+          || current.status === "running"
+          || current.status === "planning-data"
+          || current.status === "populating-data"
+          || current.status === "loading-engine"
           ? current.status
           : getSqlPlaygroundStatus(current.databaseReady, current.schemaChecksum, currentGeneratedChecksum),
     }));
@@ -136,9 +145,47 @@ export function useSqlPlayground({
           ? error.payload
           : normalizeSqlPlaygroundError(reset ? "reset" : "create-schema", error);
         updateSession((current) => ({ ...current, status: "schema-error", error: normalized }));
+        return false;
       }
+      return true;
     },
     [currentGeneratedChecksum, generatedSql, manager, sessionId, updateSession],
+  );
+
+  const planPopulation = useCallback(
+    async (config: SqlPopulationConfig): Promise<SqlPopulationPlanPreview> => {
+      updateSession((current) => ({ ...current, status: "planning-data", error: null }));
+      try {
+        const plan = await manager.planPopulation(sessionId, config);
+        updateSession((current) => ({ ...current, status: "ready", error: null }));
+        return plan;
+      } catch (error) {
+        updateSession((current) => ({ ...current, status: "ready", error: null }));
+        throw error;
+      }
+    },
+    [manager, sessionId, updateSession],
+  );
+
+  const applyPopulation = useCallback(
+    async (planId: string): Promise<SqlPopulationApplyResult> => {
+      updateSession((current) => ({ ...current, status: "populating-data", error: null }));
+      try {
+        const result = await manager.applyPopulation(sessionId, planId);
+        updateSession((current) => ({
+          ...current,
+          status: "ready",
+          hasUserDataChanges: true,
+          results: [],
+          error: null,
+        }));
+        return result;
+      } catch (error) {
+        updateSession((current) => ({ ...current, status: "ready", error: null }));
+        throw error;
+      }
+    },
+    [manager, sessionId, updateSession],
   );
 
   const execute = useCallback(
@@ -184,6 +231,8 @@ export function useSqlPlayground({
     setResultsPanelHeight,
     setResultsPanelCollapsed,
     createDatabase,
+    planPopulation,
+    applyPopulation,
     execute,
     downloadDatabase,
   };

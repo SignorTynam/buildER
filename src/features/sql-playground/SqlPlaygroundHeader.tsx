@@ -9,6 +9,10 @@ function getStatusPresentation(session: GeneratedSqlPlaygroundSessionState): { k
       return { key: "sqlPlayground.status.loadingEngine", tone: "info" };
     case "creating-database":
       return { key: "sqlPlayground.status.creatingDatabase", tone: "info" };
+    case "planning-data":
+      return { key: "sqlPlayground.status.planningData", tone: "info" };
+    case "populating-data":
+      return { key: "sqlPlayground.status.populatingData", tone: "info" };
     case "ready":
     case "running":
       return { key: "sqlPlayground.status.ready", tone: "success" };
@@ -43,6 +47,7 @@ interface SqlPlaygroundHeaderProps {
   onCreateDatabase?: () => void;
   onRecreateDatabase?: () => void;
   onExecute?: () => void;
+  onGenerateData?: () => void;
   onDownload?: () => void;
 }
 
@@ -52,12 +57,18 @@ export function SqlPlaygroundHeader({
   onCreateDatabase,
   onRecreateDatabase,
   onExecute,
+  onGenerateData,
   onDownload,
 }: SqlPlaygroundHeaderProps) {
   const { t } = useI18n();
   const presentation = getStatusPresentation(session);
-  const busy = session.status === "loading-engine" || session.status === "creating-database" || session.status === "running";
-  const interactive = Boolean(onCreateDatabase || onRecreateDatabase || onExecute || onDownload);
+  const busy = session.status === "loading-engine"
+    || session.status === "creating-database"
+    || session.status === "running"
+    || session.status === "planning-data"
+    || session.status === "populating-data";
+  const generateDataDisabled = !session.databaseReady || session.status === "stale" || busy;
+  const interactive = Boolean(onCreateDatabase || onRecreateDatabase || onExecute || onGenerateData || onDownload);
   return (
     <header className="sql-playground-command-bar" aria-label={t("sqlPlayground.actionsLabel")}>
       <div className="sql-playground-command-bar__primary">
@@ -79,7 +90,7 @@ export function SqlPlaygroundHeader({
                 disabled={session.status === "loading-engine"}
                 onClick={onCreateDatabase}
               >
-                {t("sqlPlayground.createDatabase")}
+                <span className="sql-playground-command-bar__action-label">{t("sqlPlayground.createDatabase")}</span>
               </Button>
             ) : (
               <Button
@@ -89,9 +100,27 @@ export function SqlPlaygroundHeader({
                 loading={session.status === "creating-database"}
                 onClick={onRecreateDatabase}
               >
-                {t("sqlPlayground.recreateDatabase")}
+                <span className="sql-playground-command-bar__action-label">{t("sqlPlayground.recreateDatabase")}</span>
               </Button>
             )}
+            <Tooltip label={t("sqlPlayground.population.generateDataTooltip")} position="bottom">
+              {(aria) => (
+                <Button
+                  className="sql-playground-command-bar__population"
+                  variant="secondary"
+                  size="sm"
+                  iconLeft="sparkles"
+                  loading={session.status === "planning-data" || session.status === "populating-data"}
+                  disabled={generateDataDisabled}
+                  onClick={onGenerateData}
+                  {...aria}
+                >
+                  <span className="sql-playground-command-bar__action-label sql-playground-command-bar__population-label">
+                    {t("sqlPlayground.population.generateData")}
+                  </span>
+                </Button>
+              )}
+            </Tooltip>
             <Tooltip label={t("sqlPlayground.executeTooltip")} position="bottom">
               {(aria) => (
                 <Button
@@ -103,7 +132,7 @@ export function SqlPlaygroundHeader({
                   onClick={onExecute}
                   {...aria}
                 >
-                  {t("sqlPlayground.execute")}
+                  <span className="sql-playground-command-bar__action-label">{t("sqlPlayground.execute")}</span>
                 </Button>
               )}
             </Tooltip>
@@ -118,7 +147,7 @@ export function SqlPlaygroundHeader({
                   onClick={onDownload}
                   {...aria}
                 >
-                  <span className="sql-playground-command-bar__download-label">{t("sqlPlayground.downloadDatabase")}</span>
+                  <span className="sql-playground-command-bar__action-label sql-playground-command-bar__download-label">{t("sqlPlayground.downloadDatabase")}</span>
                 </Button>
               )}
             </Tooltip>
