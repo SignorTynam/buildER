@@ -9,6 +9,7 @@ import type {
   SqlExplorerTrigger,
   SqlExplorerView,
 } from "./sqlExplorerTypes";
+import { quoteSqliteIdentifier } from "./sqliteIdentifier";
 
 type SqlRow = SqlValue[];
 
@@ -24,9 +25,7 @@ function asNullableString(value: SqlValue | undefined): string | null {
   return value == null ? null : String(value);
 }
 
-export function quoteSqliteIdentifier(identifier: string): string {
-  return `"${identifier.replace(/"/g, '""')}"`;
-}
+export { quoteSqliteIdentifier } from "./sqliteIdentifier";
 
 function queryRows(database: Database, sql: string, bindings: readonly SqlValue[] = []): SqlRow[] {
   let statement: PreparedStatement | null = null;
