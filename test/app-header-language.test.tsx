@@ -25,7 +25,6 @@ function renderHeader(): string {
         diagramView="er"
         logicalSqlOpen={false}
         codePanelOpen={false}
-        notesPanelOpen={false}
         logicalOutOfDate={false}
         focusMode={false}
         hasUncommittedChanges
@@ -46,7 +45,6 @@ function renderHeader(): string {
         onExportCurrentSchema={() => undefined}
         onOpenVersioningPanel={() => undefined}
         onToggleCodePanel={() => undefined}
-        onToggleNotesPanel={() => undefined}
         onRegenerateErs={() => undefined}
         onSaveProject={() => undefined}
         onLoadProject={() => undefined}

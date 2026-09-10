@@ -43,7 +43,6 @@ import {
 } from "./components/CardinalityModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { SettingsModal } from "./components/settings/SettingsModal";
-import { NotesModal } from "./components/NotesModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
 import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview";
@@ -452,6 +451,14 @@ interface SqlReverseWorkflowState {
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
 /** Bersaglio dello skip link e id del landmark `main` del workspace. */
 const WORKSPACE_MAIN_ID = "workspace-main";
+/*
+ * Le vecchie Notes del diagramma non hanno piu interfaccia: restano i file
+ * `.txt` del progetto. Il campo resta pero nello stato di workspace serializzato
+ * — toglierlo cambierebbe il formato `.ersp`/`.erschema` — e viene sempre
+ * scritto chiuso, cosi un progetto salvato quando il pannello era aperto non
+ * risulta "modificato" al solo caricamento.
+ */
+const LEGACY_NOTES_PANEL_OPEN = false;
 const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 3200);
 
 function normalizeMessagePart(value: string): string {
@@ -923,7 +930,7 @@ function createProjectFileWorkspaceStateFromBootstrap(
     technicalPanelTab: sessionBootstrap.technicalPanelTab,
     codePanelOpen: sessionBootstrap.codePanelOpen,
     codePanelWidth: sessionBootstrap.codePanelWidth,
-    notesPanelOpen: sessionBootstrap.notesPanelOpen,
+    notesPanelOpen: LEGACY_NOTES_PANEL_OPEN,
     notesPanelWidth: sessionBootstrap.notesPanelWidth,
     toolbarCollapsed: sessionBootstrap.toolbarCollapsed,
     focusMode: sessionBootstrap.focusMode,
@@ -1048,8 +1055,6 @@ export default function App() {
     setCodePanelOpen,
     codePanelWidth,
     setCodePanelWidth,
-    notesPanelOpen,
-    setNotesPanelOpen,
     notesPanelWidth,
     setNotesPanelWidth,
     toolbarCollapsed,
@@ -1066,7 +1071,6 @@ export default function App() {
     handleToggleToolRail,
     closeTechnicalPanel,
     handleToggleCodePanel: toggleWorkspaceCodePanel,
-    handleToggleNotesPanel,
     handlePanelResizeStart,
     resetPanelWidth,
   } = useWorkspaceLayoutState(sessionBootstrap);
@@ -1364,7 +1368,7 @@ export default function App() {
       technicalPanelTab,
       codePanelOpen,
       codePanelWidth,
-      notesPanelOpen,
+      notesPanelOpen: LEGACY_NOTES_PANEL_OPEN,
       notesPanelWidth,
       toolbarCollapsed,
       focusMode,
@@ -1379,7 +1383,6 @@ export default function App() {
       focusMode,
       logicalSelection,
       mode,
-      notesPanelOpen,
       notesPanelWidth,
       selection.edgeIds,
       selection.nodeIds,
@@ -1596,7 +1599,7 @@ export default function App() {
       technicalPanelTab,
       codePanelOpen,
       codePanelWidth,
-      notesPanelOpen,
+      notesPanelOpen: LEGACY_NOTES_PANEL_OPEN,
       notesPanelWidth,
       toolbarCollapsed,
       focusMode,
@@ -1614,7 +1617,6 @@ export default function App() {
     technicalPanelTab,
     codePanelOpen,
     codePanelWidth,
-    notesPanelOpen,
     notesPanelWidth,
     diagramView,
     focusMode,
@@ -1656,7 +1658,6 @@ export default function App() {
     technicalPanelTab,
     codePanelOpen,
     codePanelWidth,
-    notesPanelOpen,
     notesPanelWidth,
     diagramView,
     focusMode,
@@ -1944,7 +1945,6 @@ export default function App() {
     appReleases.closeReleaseCenter();
     setIntroOpen(false);
     setKeyboardShortcutsOpen(false);
-    setNotesPanelOpen(false);
     setCommandMenuOpen(true);
   }
 
@@ -3095,22 +3095,6 @@ export default function App() {
     activateSqlPlayground(sqlExplorerSchemaId, sqlExplorerSchema.name);
   }
 
-  function handleNotesChange(nextNotes: string) {
-    const normalizedNotes = nextNotes.replace(/\r\n/g, "\n");
-    if (normalizedNotes === history.present.notes) {
-      return;
-    }
-
-    commitDiagram(
-      {
-        ...history.present,
-        notes: normalizedNotes,
-      },
-      history.present,
-      { suppressExternalIdentifierWarnings: true },
-    );
-  }
-
   function replaceCodeDraft(nextCode: string) {
     codeDraftRef.current = nextCode;
     codeDirtyRef.current = false;
@@ -3153,7 +3137,7 @@ export default function App() {
       technicalPanelTab: snapshot.technicalPanelTab,
       codePanelOpen: snapshot.codePanelOpen,
       codePanelWidth: snapshot.codePanelWidth,
-      notesPanelOpen: snapshot.notesPanelOpen,
+      notesPanelOpen: LEGACY_NOTES_PANEL_OPEN,
       notesPanelWidth: snapshot.notesPanelWidth,
       toolbarCollapsed: snapshot.toolbarCollapsed,
       focusMode: snapshot.focusMode,
@@ -3233,9 +3217,6 @@ export default function App() {
       setTechnicalPanelOpen(nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab !== "code");
       setCodePanelOpen(nextWorkspace.codePanelOpen || (nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab === "code"));
       setCodePanelWidth(nextWorkspace.codePanelWidth);
-      setNotesPanelOpen(
-        nextWorkspace.notesPanelOpen || (nextWorkspace.technicalPanelOpen && nextWorkspace.technicalPanelTab === "notes"),
-      );
       setNotesPanelWidth(nextWorkspace.notesPanelWidth);
       setToolbarCollapsed(nextWorkspace.toolbarCollapsed);
       setFocusMode(nextWorkspace.focusMode);
@@ -5017,7 +4998,6 @@ export default function App() {
     setActiveActivityPanel("file");
     setTechnicalPanelOpen(false);
     setCodePanelOpen(false);
-    setNotesPanelOpen(false);
     setFocusMode(false);
     setOnboardingOpen(false);
     setOnboardingStepState({
@@ -8208,7 +8188,6 @@ export default function App() {
           diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
-        notesPanelOpen={notesPanelOpen}
         logicalOutOfDate={logicalOutOfDate}
         focusMode={focusMode}
         hasUncommittedChanges={hasVersioningUncommittedChanges}
@@ -8233,7 +8212,6 @@ export default function App() {
           setWorkspaceActivityOpen(true);
         }}
         onToggleCodePanel={handleToggleCodePanel}
-        onToggleNotesPanel={handleToggleNotesPanel}
         onRegenerateErs={handleResetCodeFromDiagram}
         onSaveProject={handleSaveProject}
         onLoadProject={handleLoadProjectRequest}
@@ -8321,8 +8299,6 @@ export default function App() {
           {activeProjectFile && !sqlPlaygroundActive && !importedDatabaseActive ? (
             <WorkspaceEditorHeader
               file={activeProjectFile}
-              view={diagramView}
-              onViewChange={handleDiagramViewChange}
               onOpenSqlPlayground={activeProjectFile.kind === "sql"
                 ? () => void handleOpenSqlFileInPlayground(activeProjectFile)
                 : undefined}
@@ -8538,8 +8514,6 @@ export default function App() {
               onResetTranslation={handleResetTranslation}
               onOpenDesign={() => handleDiagramViewChange("er")}
               onOpenLogical={handleGenerateLogicalModel}
-              notesPanelOpen={notesPanelOpen}
-              onToggleNotesPanel={handleToggleNotesPanel}
               onExportProject={handleSaveProject}
               onExportPng={handleExportPng}
               onExportJpeg={handleExportJpeg}
@@ -8571,7 +8545,6 @@ export default function App() {
               panelMode={logicalPanelMode}
               fitRequestToken={logicalFitRequestToken}
               viewportCommand={logicalViewportCommand}
-              notesPanelOpen={notesPanelOpen}
               canUndo={logicalHistory.canUndo}
               canRedo={logicalHistory.canRedo}
               onUndo={handleUndoAction}
@@ -8581,7 +8554,6 @@ export default function App() {
               onSelectionChange={setLogicalSelection}
               onTypeModeChange={handleLogicalTypeModeChange}
               onPanelModeChange={handleLogicalPanelModeChange}
-              onToggleNotesPanel={handleToggleNotesPanel}
               onApplyChoice={handleApplyLogicalTranslationChoice}
               onApplyBulkFix={handleApplyBulkLogicalFix}
               onResetTranslation={handleResetLogicalTranslation}
@@ -8634,7 +8606,6 @@ export default function App() {
         diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
-        notesPanelOpen={notesPanelOpen}
         statusMessage={statusMessage}
         notices={notices}
         issues={issues}
@@ -8749,30 +8720,12 @@ export default function App() {
         />
       ) : null}
 
-      <NotesModal
-        open={notesPanelOpen}
-        notes={history.present.notes}
-        editable={mode === "edit"}
-        onSave={handleNotesChange}
-        onClose={() => setNotesPanelOpen(false)}
-        onConfirmDiscard={() =>
-          requestConfirmDialog({
-            title: t("dialogs.discardNotes.title"),
-            message: t("notesPanel.unsavedConfirm"),
-            confirmLabel: t("dialogs.discardNotes.confirm"),
-            cancelLabel: t("dialogs.unsavedChanges.cancel"),
-            danger: true,
-          })
-        }
-      />
-
       {commandMenuOpen ? (
         <CommandMenuModal
           diagramView={diagramView}
           logicalSqlOpen={logicalPanelMode === "sql"}
           sqlPlaygroundOpen={Boolean(sqlPlaygroundActive)}
           codePanelOpen={codePanelOpen}
-          notesPanelOpen={notesPanelOpen}
           errorsPanelOpen={activeActivityPanel === "errors" && projectExplorer.view.explorerOpen}
           explorerOpen={activeActivityPanel === "file" && projectExplorer.view.explorerOpen}
           versioningOpen={activeActivityPanel === "version" && projectExplorer.view.explorerOpen}
@@ -8858,7 +8811,6 @@ export default function App() {
           }}
           onToggleDiagnostics={() => setShowDiagnostics((current) => !current)}
           onToggleCodePanel={handleToggleCodePanel}
-          onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}
           onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
           onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}

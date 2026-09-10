@@ -72,7 +72,10 @@ test("la barra di contesto porta solo azioni, allineate a sinistra", () => {
   assert.doesNotMatch(header, /editor-breadcrumb/);
   assert.doesNotMatch(header, /onReveal/);
   assert.doesNotMatch(header, /workspaceChrome\.reveal"/);
-  assert.match(header, /editor-view-switcher/);
+  // Il selettore Concettuale/Traduzione/Logico non vive piu sopra il canvas:
+  // le tre viste restano sulla palette comandi e sulla toolbar ER.
+  assert.doesNotMatch(header, /editor-view-switcher/);
+  assert.doesNotMatch(header, /onViewChange/);
 
   // Nessun foglio deve conservare stili per una briciola che non esiste piu.
   for (const sheet of ["workspace-shell.css", "responsive.css", "panels-workspace.css"]) {
@@ -107,7 +110,7 @@ test("il livello di movimento usa i token e rispetta prefers-reduced-motion", ()
     ".app-topbar-menu__panel",
     ".project-activity-content > *",
     ".project-file-tab.active::before",
-    ".editor-view-switcher button",
+    ".editor-context-button",
     // Animazioni preesistenti che erano rimaste senza guardia.
     ".project-explorer-context-menu",
     ".project-file-tab-menu",

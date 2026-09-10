@@ -33,7 +33,6 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
   const [technicalPanelTab, setTechnicalPanelTab] = useState<TechnicalPanelTab>(restoredTechnicalPanelTab);
   const [codePanelOpen, setCodePanelOpen] = useState(sessionBootstrap.codePanelOpen);
   const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
-  const [notesPanelOpen, setNotesPanelOpen] = useState(false);
   const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
@@ -85,25 +84,14 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
 
     setTechnicalPanelTab(nextTab);
     setTechnicalPanelOpen(true);
-    setNotesPanelOpen(nextTab === "notes");
   }
 
   function closeTechnicalPanel() {
     setTechnicalPanelOpen(false);
-    setNotesPanelOpen(false);
   }
 
   function handleToggleCodePanel() {
     setCodePanelOpen((current) => !current);
-  }
-
-  function handleToggleNotesPanel() {
-    if (technicalPanelOpen && technicalPanelTab === "notes") {
-      closeTechnicalPanel();
-      return;
-    }
-
-    openTechnicalPanelTab("notes");
   }
 
   function handlePanelResizeStart(
@@ -221,8 +209,6 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
     setCodePanelOpen,
     codePanelWidth,
     setCodePanelWidth,
-    notesPanelOpen,
-    setNotesPanelOpen,
     notesPanelWidth,
     setNotesPanelWidth,
     toolbarCollapsed,
@@ -246,7 +232,6 @@ export function useWorkspaceLayoutState(sessionBootstrap: WorkspaceSessionBootst
     openTechnicalPanelTab,
     closeTechnicalPanel,
     handleToggleCodePanel,
-    handleToggleNotesPanel,
     handlePanelResizeStart,
     resetPanelWidth,
   };

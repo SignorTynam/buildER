@@ -16,7 +16,6 @@ interface AppHeaderProps {
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
-  notesPanelOpen: boolean;
   logicalOutOfDate: boolean;
   focusMode: boolean;
   hasUncommittedChanges: boolean;
@@ -38,7 +37,6 @@ interface AppHeaderProps {
   onExportCurrentSchema: () => void;
   onOpenVersioningPanel: () => void;
   onToggleCodePanel: () => void;
-  onToggleNotesPanel: () => void;
   onRegenerateErs: () => void;
   onSaveProject: () => void;
   onLoadProject: () => void;

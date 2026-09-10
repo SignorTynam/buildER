@@ -20,7 +20,6 @@ function renderHeader() {
         diagramView="er"
         logicalSqlOpen={false}
         codePanelOpen={false}
-        notesPanelOpen={false}
         logicalOutOfDate={false}
         focusMode={false}
         hasUncommittedChanges={false}
@@ -41,7 +40,6 @@ function renderHeader() {
         onExportCurrentSchema={() => undefined}
         onOpenVersioningPanel={() => undefined}
         onToggleCodePanel={() => undefined}
-        onToggleNotesPanel={() => undefined}
         onRegenerateErs={() => undefined}
         onSaveProject={() => undefined}
         onLoadProject={() => undefined}

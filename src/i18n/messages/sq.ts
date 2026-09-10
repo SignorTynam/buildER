@@ -104,8 +104,6 @@ export const sq: DeepPartialMessages = {
     quickActions: {
       showCode: "Shfaq kodin",
       hideCode: "Fshih panelin e kodit",
-      showNotes: "Shfaq shenimet",
-      hideNotes: "Fshih shenimet",
       resetTranslation: "Rivendos perkthimin",
       resetTranslationTitle: "Rivendos workspace-in e perkthimit ER-ne-ER",
       resetLogical: "Rivendos",
@@ -839,8 +837,6 @@ export const sq: DeepPartialMessages = {
       workspaceDiagnosticsDisable: { label: "Çaktivizo diagnostikën", detail: "Fshih problemet në canvas" },
       workspaceCodeShow: { label: "Shfaq Code", detail: "Editor ERS në hapësirën e punës" },
       workspaceCodeHide: { label: "Fshih Code", detail: "Editor ERS në hapësirën e punës" },
-      workspaceNotesShow: { label: "Shfaq Notes", detail: "Shënime në tab-in e dedikuar" },
-      workspaceNotesHide: { label: "Fshih Notes", detail: "Shënime në tab-in e dedikuar" },
       workspaceFocusEnable: { label: "Aktivizo fokusin", detail: "Fshih panelet e panevojshme" },
       workspaceFocusDisable: { label: "Çaktivizo fokusin", detail: "Fshih panelet e panevojshme" },
       workspaceVersioning: { label: "Versione", detail: "Historiku i commit-eve te projektit" },
@@ -1109,26 +1105,6 @@ export const sq: DeepPartialMessages = {
       next: "Diagnostika tjeter",
       position: "{{current}} nga {{count}}",
       count: "{{count}} diagnostika",
-    },
-  },
-  notesPanel: {
-    shellAria: "Shenimet e diagramit",
-    title: "Shenime",
-    description: "Shenime personale te projektit.",
-    openAria: "Hap Shenime",
-    closeAria: "Mbyll Shenime",
-    editorAria: "Editori i shenimeve",
-    placeholder: "Shto ketu shenime, vendime projekti dhe kujtues",
-    unsavedConfirm: "Ka ndryshime te paruajtura ne Shenime. Te mbyllen pa ruajtur?",
-    toolbar: {
-      aria: "Formatimi i shenimeve",
-      normal: "Tekst normal",
-      bold: "Trash",
-      italic: "Kursiv",
-      underline: "Nenvizuar",
-      unorderedList: "Liste me pika",
-      orderedList: "Liste me numra",
-      clearFormatting: "Pastro formatimin",
     },
   },
   onboarding: {
@@ -1567,7 +1543,6 @@ export const sq: DeepPartialMessages = {
     },
     panels: {
       code: "Kod",
-      notes: "Shenime",
     },
     validationErrors: "{{count}} gabime validimi kerkojne vemendje.",
     validationWarnings: "{{count}} paralajmerime validimi ne workspace-in aktual.",
@@ -1913,10 +1888,6 @@ export const sq: DeepPartialMessages = {
     resetTranslation: {
       title: "Pastro ristrukturimin",
       confirm: "Pastro",
-    },
-    discardNotes: {
-      title: "Shënime të paruajtura",
-      confirm: "Mbyll pa ruajtur",
     },
     prompt: {
       defaultConfirm: "Ruaj",
@@ -2844,9 +2815,6 @@ export const sq: DeepPartialMessages = {
       pendingGeneralizations: "Hierarki në pritje",
       pendingAttributes: "Atribute shumëvlerëshe në pritje",
       unavailable: "Operacioni nuk është i disponueshëm në pamjen e ristrukturimit.",
-      openNotes: "Hap shenimet",
-      closeNotes: "Mbyll shenimet",
-      notes: "Shenime",
     },
     composite: {
       split: {

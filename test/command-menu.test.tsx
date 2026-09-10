@@ -28,7 +28,6 @@ function renderPalette() {
         logicalSqlOpen={false}
         sqlPlaygroundOpen={false}
         codePanelOpen={false}
-        notesPanelOpen={false}
         errorsPanelOpen={false}
         explorerOpen
         versioningOpen={false}
@@ -81,7 +80,6 @@ function renderPalette() {
         onOpenVersioningPanel={noop}
         onToggleDiagnostics={noop}
         onToggleCodePanel={noop}
-        onToggleNotesPanel={noop}
         onSaveProject={noop}
         onNewSchema={noop}
         onNewNote={noop}
