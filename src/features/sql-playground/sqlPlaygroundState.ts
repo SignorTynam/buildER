@@ -15,6 +15,8 @@ export type SqlPlaygroundStatus =
   | "restoring"
   | "stale"
   | "running"
+  | "planning-data"
+  | "populating-data"
   | "schema-error"
   | "runtime-error";
 

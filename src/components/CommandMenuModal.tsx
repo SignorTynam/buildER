@@ -15,7 +15,6 @@ interface CommandMenuModalProps {
   logicalSqlOpen: boolean;
   sqlPlaygroundOpen: boolean;
   codePanelOpen: boolean;
-  notesPanelOpen: boolean;
   errorsPanelOpen: boolean;
   explorerOpen: boolean;
   versioningOpen: boolean;
@@ -75,7 +74,6 @@ interface CommandMenuModalProps {
   onOpenVersioningPanel: () => void;
   onToggleDiagnostics: () => void;
   onToggleCodePanel: () => void;
-  onToggleNotesPanel: () => void;
   onSaveProject: () => void;
   onNewSchema: () => void;
   onNewNote: () => void;
@@ -304,12 +302,6 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       label: props.codePanelOpen ? t("commandMenu.commands.workspaceCodeHide.label") : t("commandMenu.commands.workspaceCodeShow.label"),
       detail: t("commandMenu.commands.workspaceCodeShow.detail"), icon: "code", disabled: !props.hasActiveSchema,
       active: props.codePanelOpen, order: 103, action: props.onToggleCodePanel,
-    },
-    {
-      id: "command-workspace-notes", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
-      label: props.notesPanelOpen ? t("commandMenu.commands.workspaceNotesHide.label") : t("commandMenu.commands.workspaceNotesShow.label"),
-      detail: t("commandMenu.commands.workspaceNotesShow.detail"), icon: "notes", disabled: !props.hasActiveSchema,
-      active: props.notesPanelOpen, order: 104, action: props.onToggleNotesPanel,
     },
     {
       id: "command-workspace-errors", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,

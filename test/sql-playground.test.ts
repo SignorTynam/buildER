@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import "./sql-data-population.test.ts";
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import type { LogicalColumn, LogicalModel, LogicalTable } from "../src/types/logical.ts";
 import { SqlPlaygroundManager } from "../src/features/sql-playground/SqlPlaygroundManager.ts";
 import type { SqlPlaygroundRequest, SqlPlaygroundResponse } from "../src/features/sql-playground/sqlPlaygroundProtocol.ts";
-import { isSqlPlaygroundResponse } from "../src/features/sql-playground/sqlPlaygroundProtocol.ts";
+import { isSqlPlaygroundRequest, isSqlPlaygroundResponse } from "../src/features/sql-playground/sqlPlaygroundProtocol.ts";
 import { generateLogicalSql } from "../src/utils/logicalSql.ts";
 import {
   buildSqlPlaygroundSessionId,
@@ -242,6 +243,10 @@ test("worker protocol keeps SQLite off the React thread and finalizes statements
   assert.match(worker, /sqlite3_complete/);
   assert.match(worker, /statement\?\.finalize\(\)/);
   assert.match(worker, /new sqliteApi\.oo1\.DB\(":memory:"\)/);
+  assert.match(worker, /populationPlans\.delete\(request\.sessionId\)/);
+  assert.match(worker, /applySqlPopulationPlan/);
+  assert.match(manager, /planPopulation/);
+  assert.match(manager, /applyPopulation/);
   assert.match(manager, /new Worker\(new URL\("\.\/sqlite\.worker\.ts", import\.meta\.url\)/);
   assert.doesNotMatch(manager, /@sqlite\.org\/sqlite-wasm/);
 });
@@ -250,6 +255,27 @@ test("worker protocol rejects unexpected and incomplete responses", () => {
   assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "schema-inspected", metadata: { databases: [] }, sessionId: "p:s" }), true);
   assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "schema-inspected", metadata: null, sessionId: "p:s" }), false);
   assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "execution-complete", results: [] }), false);
+  assert.equal(isSqlPlaygroundResponse({
+    requestId: "1",
+    type: "population-planned",
+    planId: "population-1",
+    sessionId: "p:s",
+    seed: 42,
+    rowsPerTable: 20,
+    schemaSignature: "main:1",
+    tableCount: 1,
+    totalRows: 20,
+    tables: [{ tableName: "sample", requestedRows: 20, generatedRows: 20 }],
+    warnings: [],
+    previewSql: "BEGIN IMMEDIATE; COMMIT;",
+  }), true);
+  assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "population-planned", sessionId: "p:s" }), false);
+  assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "population-applied", sessionId: "p:s", rowsInserted: 20, tableCount: 1 }), false);
+  assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "population-applied", sessionId: "p:s", planId: "population-1", rowsInserted: 20, tableCount: 1 }), true);
+  assert.equal(isSqlPlaygroundRequest({ requestId: "1", type: "plan-population", sessionId: "p:s", rowsPerTable: 20, seed: 42 }), true);
+  assert.equal(isSqlPlaygroundRequest({ requestId: "1", type: "plan-population", rowsPerTable: 20, seed: 42 }), false);
+  assert.equal(isSqlPlaygroundRequest({ requestId: "1", type: "apply-population", sessionId: "p:s", planId: "population-1" }), true);
+  assert.equal(isSqlPlaygroundRequest({ requestId: "1", type: "apply-population", sessionId: "p:s" }), false);
   assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "unknown" }), false);
 });
 
@@ -278,6 +304,32 @@ test("manager isolates temporary session state and closes the worker cleanly", a
           break;
         case "inspect-schema":
           response = { requestId: request.requestId, type: "schema-inspected", sessionId: request.sessionId, metadata: { databases: [] } };
+          break;
+        case "plan-population":
+          response = {
+            requestId: request.requestId,
+            type: "population-planned",
+            planId: `population-${request.sessionId}`,
+            sessionId: request.sessionId,
+            seed: request.seed,
+            rowsPerTable: request.rowsPerTable,
+            schemaSignature: "main:1",
+            tableCount: 1,
+            totalRows: request.rowsPerTable,
+            tables: [{ tableName: "sample", requestedRows: request.rowsPerTable, generatedRows: request.rowsPerTable }],
+            warnings: [],
+            previewSql: "BEGIN IMMEDIATE; COMMIT;",
+          };
+          break;
+        case "apply-population":
+          response = {
+            requestId: request.requestId,
+            type: "population-applied",
+            planId: request.planId,
+            sessionId: request.sessionId,
+            tableCount: 1,
+            rowsInserted: 20,
+          };
           break;
         case "export":
           response = { requestId: request.requestId, type: "export-complete", sessionId: request.sessionId, bytes: new ArrayBuffer(8) };
@@ -315,10 +367,13 @@ test("manager isolates temporary session state and closes the worker cleanly", a
     const unsubscribe = manager.subscribe((event) => events.push(event.type));
     assert.equal((await manager.execute("project:first", "INSERT INTO t VALUES (1);", 500)).databaseChanged, true);
     assert.deepEqual(await manager.inspectSchema("project:first"), { databases: [] });
-    assert.deepEqual(events, ["execution-complete", "schema-changed"]);
+    const populationPlan = await manager.planPopulation("project:first", { rowsPerTable: 20, seed: 42 });
+    assert.equal(populationPlan.planId, "population-project:first");
+    assert.equal((await manager.applyPopulation("project:first", populationPlan.planId)).rowsInserted, 20);
+    assert.deepEqual(events, ["execution-complete", "schema-changed", "population-planned", "population-applied"]);
     unsubscribe();
     await manager.execute("project:first", "SELECT 1;", 500);
-    assert.deepEqual(events, ["execution-complete", "schema-changed"]);
+    assert.deepEqual(events, ["execution-complete", "schema-changed", "population-planned", "population-applied"]);
     assert.equal((await manager.exportDatabase("project:first")).byteLength, 8);
     await manager.closeSession("project:first");
     assert.equal(manager.getSessionState("project:first"), undefined);

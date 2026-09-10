@@ -9,6 +9,20 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 Nessuna modifica non rilasciata.
 
 <!-- builder:generated-releases:start -->
+## [7.5.0] - 2026-09-10
+
+### Added
+- Generazione deterministica di dati nel SQL Playground con seed, quantità, anteprima, controlli e rollback atomico.
+- Nuova strategia Dipendente: l'entità multivalore usa il proprio valore e l'identificatore scelto del proprietario.
+
+### Changed
+- Cornice dell'editor semplificata senza controlli duplicati e pannello Note autonomo.
+- Animazioni centralizzate con copertura prefers-reduced-motion completa.
+
+### Fixed
+- Corretta la generazione dati con identificatori composti annidati e chiavi esterne composite in ordine diverso.
+- Corretti l'anello chiaro dell'attività attiva, gli indicatori delle righe dell'Explorer, lo sfondo dei menu di riga e il bordo della tab attiva nell'editor.
+
 ## [7.4.0] - 2026-09-09
 
 ### Added

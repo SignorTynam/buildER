@@ -428,24 +428,28 @@ body {
   top: 254px;
   left: 78px;
   display: grid;
-  width: 220px;
-  border: 1px solid #cfd4d1;
-  border-radius: 0;
-  background: #f8f9f7;
-  overflow: hidden;
+  width: min(380px, calc(100% - 96px));
+  max-height: min(70vh, 620px);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-md);
+  background: var(--studio-surface-strong);
+  box-shadow: var(--studio-shadow-floating);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .designer-fix-choice {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 8px;
-  min-height: 58px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: var(--space-2);
+  min-height: 68px;
   border: 0;
-  border-bottom: 1px solid #e0e4e1;
+  border-bottom: 1px solid var(--studio-border);
   background: transparent;
-  color: #111111;
-  padding: 8px;
+  color: var(--studio-ink);
+  padding: var(--space-3);
   text-align: left;
+  cursor: pointer;
 }
 
 .designer-fix-choice:last-child {
@@ -453,12 +457,19 @@ body {
 }
 
 .designer-fix-choice:disabled {
-  color: #9da29f;
+  color: var(--studio-muted);
   cursor: not-allowed;
 }
 
 .designer-fix-choice:not(:disabled):hover {
-  background: var(--color-bg-elevated);
+  background: var(--studio-surface-muted);
+}
+
+.designer-fix-choice:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: var(--studio-focus-ring);
+  outline-offset: -3px;
 }
 
 .designer-fix-option {
@@ -518,10 +529,34 @@ body {
   min-width: 0;
 }
 
+.designer-fix-choice-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
 .designer-fix-choice-label {
   font-size: var(--font-size-sm);
   font-weight: 700;
   line-height: 1.15;
+}
+
+.designer-fix-choice-description,
+.designer-fix-choice-preview {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
+}
+
+.designer-fix-choice-description {
+  color: var(--studio-muted);
+}
+
+.designer-fix-choice-preview {
+  color: var(--studio-ink);
+  font-weight: 600;
 }
 
 .designer-fix-badge,
@@ -532,16 +567,16 @@ body {
 }
 
 .designer-fix-badge {
-  color: #1f6b4f;
+  color: var(--studio-success);
   text-transform: uppercase;
 }
 
 .designer-fix-warning {
-  color: #8a6426;
+  color: var(--studio-warning);
 }
 
 .designer-fix-disabled-reason {
-  color: #777f7a;
+  color: var(--studio-muted);
 }
 
 .designer-side-toggle {
@@ -1002,170 +1037,6 @@ body > .code-editor-diagnostic-popover {
 .designer-relational-schema-primary-key { color: var(--color-accent); font-weight: var(--font-weight-bold); }
 .designer-relational-schema-foreign-key { color: var(--color-warning); font-weight: var(--font-weight-semibold); }
 .designer-relational-schema-reference { color: var(--color-info); font-weight: var(--font-weight-semibold); }
-
-.notes-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  display: grid;
-  place-items: center;
-  padding: 24px 16px;
-  background: rgba(0, 0, 0, 0.32);
-}
-
-/* Fase C4b: card sulla Modal shell; doppia classe per vincere la base .ui-modal. */
-.ui-modal.notes-modal {
-  width: min(760px, calc(100vw - 32px));
-  max-height: min(760px, calc(100vh - 48px));
-  display: grid;
-  grid-template-rows: auto auto minmax(220px, 1fr) auto;
-  border: 1px solid var(--color-border-default);
-  border-radius: 0;
-  background: var(--color-bg-elevated);
-  box-shadow: var(--elevation-dialog);
-  overflow: hidden;
-}
-
-.notes-modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px 12px;
-  border-bottom: 1px solid var(--studio-border, #e0e4e1);
-}
-
-.notes-modal-header h2 {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  line-height: 1.2;
-}
-
-.notes-modal-header p {
-  margin: 6px 0 0;
-  max-width: 58ch;
-  color: #5e6661;
-  font-size: var(--font-size-md);
-}
-
-.notes-modal-close {
-  display: inline-grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--studio-border, #cfd4d1);
-  border-radius: 0;
-  background: var(--color-bg-elevated);
-  color: #1d2220;
-  cursor: pointer;
-}
-
-.notes-modal-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--studio-border, #e0e4e1);
-  background: rgba(47, 57, 51, 0.04);
-}
-
-.notes-modal-toolbar button {
-  min-height: 34px;
-  border: 1px solid var(--studio-border, #cfd4d1);
-  border-radius: 0;
-  background: var(--color-bg-elevated);
-  color: #1d2220;
-  padding: 6px 10px;
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.notes-modal-toolbar button:disabled {
-  color: #9da29f;
-  cursor: not-allowed;
-}
-
-.notes-modal-toolbar button:hover:not(:disabled),
-.notes-modal-toolbar button:focus-visible,
-.notes-modal-close:hover,
-.notes-modal-close:focus-visible {
-  background: rgba(47, 57, 51, 0.07);
-}
-
-.notes-modal-editor {
-  min-height: 280px;
-  max-height: 52vh;
-  padding: 18px 20px;
-  overflow: auto;
-  outline: none;
-  background: var(--color-bg-elevated);
-  color: #1d2220;
-  line-height: 1.55;
-}
-
-.notes-modal-editor:empty::before {
-  content: attr(data-placeholder);
-  color: #8a918d;
-}
-
-.notes-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--studio-border, #e0e4e1);
-  background: var(--color-bg-elevated);
-}
-
-.notes-modal-actions .studio-secondary-button,
-.notes-modal-actions .studio-primary-button {
-  min-width: 82px;
-  min-height: 34px;
-  border: 1px solid var(--studio-border, #cfd4d1);
-  border-radius: 0;
-  padding: 7px 14px;
-  font: inherit;
-  font-size: var(--font-size-md);
-  font-weight: 700;
-  line-height: 1.1;
-  cursor: pointer;
-}
-
-.notes-modal-actions .studio-secondary-button {
-  background: var(--color-bg-elevated);
-  color: #1d2220;
-}
-
-.notes-modal-actions .studio-primary-button {
-  border-color: var(--studio-accent, #35564f);
-  background: var(--studio-accent, #35564f);
-  color: var(--color-text-on-accent);
-}
-
-.notes-modal-actions .studio-secondary-button:hover,
-.notes-modal-actions .studio-secondary-button:focus-visible {
-  background: rgba(47, 57, 51, 0.07);
-}
-
-.notes-modal-actions .studio-primary-button:hover,
-.notes-modal-actions .studio-primary-button:focus-visible {
-  background: var(--studio-accent-strong, #263f39);
-  border-color: var(--studio-accent-strong, #263f39);
-}
-
-.notes-modal-actions .studio-secondary-button:focus-visible,
-.notes-modal-actions .studio-primary-button:focus-visible {
-  outline: 2px solid rgba(53, 86, 79, 0.35);
-  outline-offset: 2px;
-}
-
-.notes-modal-actions .studio-primary-button:disabled {
-  border-color: #cfd4d1;
-  background: #e5e9e6;
-  color: #8d948f;
-  cursor: not-allowed;
-}
 
 /* Stesso ancoraggio della minimap, che si impila qui sopra: erano 28px qui e
    var(--space-6) la, quindi i bordi destri delle due card flottanti restavano
@@ -1643,8 +1514,7 @@ summary:focus-visible {
 .toolbar-section-meta,
 .bottom-status-label,
 .code-panel-status,
-.toolbar-issue-level,
-.workspace-stage-bar-eyebrow {
+.toolbar-issue-level {
   font-size: var(--font-size-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;

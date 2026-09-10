@@ -1,23 +1,26 @@
-# buildER v7.4.0
+# buildER v7.5.0
 
-_2026-09-09_
+_2026-09-10_
 
-buildER 7.4 aggiunge una terza strategia per gli attributi multivalore con cardinalità piccola e finita: li espande in attributi scalari sulla stessa entità, senza crearne di nuove. Migliora inoltre la fedeltà degli export raster e rende toolbar, overlay e controlli compatti più affidabili.
+buildER 7.5 porta dati deterministici, multivalori dipendenti e un workspace più fluido.
 
 ## Highlights
 
-- **Espandi nell’entità** — Gli attributi semplici multivalore con massimo numerico fino a 10 diventano attributi scalari sulla stessa entità, conservando il minimo della cardinalità originale.
-- **Controlli sempre raggiungibili** — La toolbar si dispone su riga mantenendo ogni comando accessibile, gli overlay flottanti non coprono più il contenuto e il selettore di vista compatto recupera etichette e target touch.
-- **Export e stili coerenti** — I PNG conservano la trasparenza, i JPEG ricevono il fondo e le linee sotto le etichette di cardinalità vengono mascherate; font e select seguono un sistema visivo unico.
+- **Dati pronti per le query** — Genera righe ripetibili dallo schema SQLite e applicale in una transazione sicura per i vincoli.
+- **Workspace più pulito** — Rimuove contesto duplicato e controlli Note per chiarire il file e il workspace attivi.
+- **Multivalori dipendenti** — Crea un'entità dipendente che importa l'identificatore scelto del proprietario.
 
 ## Added
 
-- Aggiunta la strategia di traduzione Espandi nell’entità per gli attributi semplici multivalore posseduti da un’entità: con massimo numerico finito fino a 10 genera un attributo scalare per ogni valore ammesso, è consigliata fino a 5, non crea nuove entità e preserva il minimo della cardinalità originale.
+- Generazione deterministica di dati nel SQL Playground con seed, quantità, anteprima, controlli e rollback atomico.
+- Nuova strategia Dipendente: l'entità multivalore usa il proprio valore e l'identificatore scelto del proprietario.
 
 ## Changed
 
-- Unificata l’interfaccia delle cardinalità, esposti i bound normalizzati come utility condivisa, allineate alla type scale le dimensioni dei font fuori scala e adottata una skin comune per tutti i select.
+- Cornice dell'editor semplificata senza controlli duplicati e pannello Note autonomo.
+- Animazioni centralizzate con copertura prefers-reduced-motion completa.
 
 ## Fixed
 
-- Corretti gli export raster con trasparenza PNG, fondo JPEG e mascheramento delle linee sotto le etichette di cardinalità, gli overlay flottanti sopra il contenuto, i tooltip inattivi che occupavano spazio nel layout e le etichette con i target touch del selettore di vista compatto.
+- Corretta la generazione dati con identificatori composti annidati e chiavi esterne composite in ordine diverso.
+- Corretti l'anello chiaro dell'attività attiva, gli indicatori delle righe dell'Explorer, lo sfondo dei menu di riga e il bordo della tab attiva nell'editor.

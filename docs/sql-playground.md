@@ -88,6 +88,99 @@ L'editor riusa `CodeEditorSurface`: numeri di riga, scroll sincronizzato, Tab, a
 
 Il pannello Risultati usa uno splitter orizzontale con pointer capture e controllo da tastiera (`ArrowUp/ArrowDown`, con Shift per passi maggiori). Può essere chiuso lasciando una barra di riapertura; altezza e stato collapsed sopravvivono alla chiusura della tab nella sessione corrente, ma non vengono serializzati. Le tabelle mantengono semantica HTML e aggiungono row header numerati da 1.
 
+## Generazione dati deterministica
+
+L'azione **Genera dati** è disponibile nella command bar soltanto per una
+sessione `generated-schema` con database pronto e schema aggiornato. La V1 usa
+due parametri temporanei, non serializzati nel progetto:
+
+- **Righe per tabella**, da 1 a 100, con valore iniziale 20;
+- **Seed**, intero unsigned a 32 bit, con valore iniziale 42.
+
+A parità di schema SQLite reale, seed e numero di righe, il planner produce lo
+stesso ordine, gli stessi valori, lo stesso `planId` e la stessa anteprima SQL.
+Il generatore non usa `Math.random()` né dati esterni: deriva sottoseed stabili
+da tabella, colonna, riga e scopo, e crea soltanto valori fittizi (le email
+usano `example.test`).
+
+### Planner e vincoli
+
+Il worker legge `main` con la stessa introspezione di SQL Explorer, esclude
+view, tabelle virtuali, oggetti `sqlite_*` e database attached, quindi passa i
+metadata a un planner TypeScript puro. La normalizzazione ordina esplicitamente
+tabelle, colonne, PK, indici, FK e componenti delle FK composite. Le FK con
+target omesso vengono risolte contro la PK parent ordinata, attraverso la stessa
+utility pura usata dal reverse metadata adapter. Una FK composita è valida
+soltanto se le sue colonne target coincidono con l'intera PRIMARY KEY o con
+un'intera UNIQUE del parent: il confronto avviene sull'insieme completo, perché
+SQL consente di elencare le colonne della chiave parent in un ordine diverso da
+quello dichiarato. Un sottoinsieme, un sovrainsieme o una colonna non chiave
+restano rifiutati; l'accoppiamento child→parent resta quello dei mappings e non
+viene mai riordinato.
+
+Il piano pre-genera i pool di PK e UNIQUE referenziabili, assegna tuple FK
+complete provenienti dalla stessa riga parent e usa enumerazione mixed-radix
+per combinazioni molti-a-molti. La risoluzione dei valori FK segue lo stesso
+ordine topologico degli INSERT, quindi un parent è sempre completo prima dei
+suoi figli: con identificatori esterni/misti annidati una componente della
+chiave del parent è a sua volta una colonna FK, e copiarla in anticipo
+produrrebbe tuple che il parent sovrascrive. FK univoche non riutilizzano la
+stessa tuple.
+Self-reference e componenti cicliche vengono riconosciute con SCC
+deterministiche; per i cicli il batch abilita `defer_foreign_keys` senza mai
+disabilitare `foreign_keys`. Le affinity seguono le regole SQLite per INTEGER,
+TEXT, BLOB, REAL e NUMERIC, con euristiche leggibili per nomi, email, date,
+datetime, boolean, importi, JSON e BLOB.
+
+Le colonne generated/hidden non entrano negli INSERT. Un default non coinvolto
+in PK, UNIQUE o FK viene omesso e lasciato a SQLite. Tabelle senza PK restano
+senza PK e possono essere popolate. Un indice UNIQUE partial o a espressione,
+una chiave generated non calcolabile o una FK irrisolvibile blocca il piano con
+un errore esplicito. CHECK e trigger non vengono disabilitati o interpretati:
+SQLite resta l'autorità finale e un loro rifiuto provoca rollback.
+
+### Preview, apply e sicurezza dei dati
+
+La pianificazione restituisce al main thread soltanto riepilogo, warning,
+anteprima e `planId`; le righe strutturate restano nella cache del worker.
+L'anteprima quota sempre gli identificatori, esegue escaping delle stringhe e
+mostra correttamente `NULL`, numeri e literal BLOB. È una rappresentazione
+didattica del piano, non viene riparsata durante l'apply.
+
+L'apply usa gli stessi valori tramite prepared statement (`prepare`, `bind`,
+`step`, `reset`, `finalize`) in un unico batch:
+
+```text
+PRAGMA foreign_keys = ON
+  → BEGIN IMMEDIATE
+  → ricontrollo schema e row count
+  → PRAGMA defer_foreign_keys = ON (solo per cicli)
+  → INSERT del piano
+  → PRAGMA foreign_key_check
+  → COMMIT oppure ROLLBACK
+```
+
+Il piano conserva firma schema e conteggi iniziali. Un DDL rende stale la firma;
+un DML tra preview e apply viene rilevato dai conteggi anche se la firma schema
+non cambia. Nuova pianificazione, query mutativa, recreate/reset, chiusura della
+sessione e dispose invalidano il piano. Dopo il successo i risultati precedenti
+vengono rimossi e `hasUserDataChanges` diventa `true`, senza modificare editor,
+file `.ersp`, `.erschema` o `.ers`.
+
+La V1 non esegue append o merge. Se una tabella contiene dati, il dialog mostra
+una conferma integrata (nessuna modal annidata): **Annulla** preserva il database;
+**Ricrea database e genera dati** riusa la ricreazione atomica esistente e poi
+pianifica/applica il nuovo dataset. L'export successivo include i dati generati.
+
+### Scope e limiti V1
+
+Restano esclusi popolamento di database importati, quantità per singola tabella,
+selezione parziale, data grid/CRUD, parser generale di CHECK, UNIQUE partial o a
+espressione, OPFS, backend, AI, servizi cloud e dataset esterni. Il dialog usa
+scroll interno e preview SQL separatamente scrollabile sui viewport desktop,
+tablet e mobile; label, errori associati, focus trap/return, Escape e live region
+derivano dai componenti UI condivisi.
+
 ## SQL Explorer
 
 L'attività `SQL Explorer`, immediatamente prima di Export, rappresenta il database effettivo della sessione. Mostra `main` e database collegati con `ATTACH`, tabelle, colonne, viste, indici, trigger e foreign key; gli oggetti `sqlite_*` restano nascosti. Tipi, posizione PK, nullability, default, unique e azioni referenziali derivano dalle PRAGMA SQLite, non dal modello logico.
@@ -115,10 +208,12 @@ In `dist` devono essere presenti il worker e il file `.wasm`; i riferimenti devo
 ## Test
 
 - `test/sql-playground.test.ts`: checksum, valori, limiti, errori, export, risoluzione deterministica dello schema e SQL SQLite reale.
+- `test/sql-data-population.test.ts`: affinity, PRNG, SCC, PK/UNIQUE/FK, cicli, generated/default, preview, stale protection, rollback e equivalenza su SQLite WASM reale.
 - `test/sql-playground-components.test.tsx`: command bar, editor condiviso, risultati, row header e collapsed state.
 - `test/sql-explorer.test.ts`: introspezione SQLite reale, database collegati, metadata e firme schema.
 - `test/sql-explorer-components.test.tsx`: empty state, splitter e tree ARIA.
 - `tests/e2e/sql-playground.spec.ts`: worker/WASM reale, splitter, collapse, SQL Explorer, refresh DDL, responsive e Axe.
+- Il percorso E2E di population copre configurazione 20/42, preview, apply, COUNT/JOIN, determinismo, conferma recreate, export, cinque viewport e Axe sul dialog.
 - `tests/e2e/sql-file-workflow.spec.ts`: file SQL dedicato, passaggio senza esecuzione, riuso sessione, ambiguità schema, Reverse contestuale, stati pannello e viewport stretti.
 
 ## Troubleshooting
@@ -127,7 +222,11 @@ In `dist` devono essere presenti il worker e il file `.wasm`; i riferimenti devo
 - **Errore nello schema:** controllare il dettaglio SQLite e l'indice dell'istruzione; il database precedente non viene distrutto.
 - **Database da aggiornare:** ricreare esplicitamente dopo aver esportato eventuali dati utili.
 - **Query con troppe righe:** il database esegue la query, ma la UI mostra solo le prime 500 righe per proteggere il browser.
+- **Database non vuoto:** annullare per conservare i dati o confermare la ricreazione; la V1 non aggiunge righe a dataset esistenti.
+- **Piano o schema stale:** chiudere l'errore e generare una nuova anteprima dopo la modifica DML/DDL.
+- **Vincolo non supportato:** controllare i dettagli per UNIQUE partial/a espressione, chiavi generated o target FK irrisolti; lo schema non viene modificato.
+- **CHECK o trigger rifiutato:** l'intero batch viene annullato; adeguare lo schema o inserire manualmente dati compatibili.
 
 ## Limiti deliberati
 
-L'import `.sqlite` è gestito dal Database Workspace documentato separatamente. Restano fuori scope backend, cloud sync, OPFS obbligatorio, collaborazione, AI, explain plan grafico e persistenza automatica.
+L'import `.sqlite` è gestito dal Database Workspace documentato separatamente e non espone **Genera dati**. Restano fuori scope backend, cloud sync, OPFS obbligatorio, collaborazione, AI, explain plan grafico e persistenza automatica.

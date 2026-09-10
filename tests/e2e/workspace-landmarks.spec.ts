@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { seedProjectWithSchema } from "./utils/erSchemaProject";
 
+async function openWorkspaceView(page: Parameters<typeof seedProjectWithSchema>[0], label: "ER model" | "Translation" | "Logical schema") {
+  await page.getByTestId("app-header-menu").click();
+  const search = page.getByTestId("command-menu-search");
+  await search.fill(label);
+  await expect(page.getByRole("option", { name: new RegExp(`^${label}\\b`) })).toBeVisible();
+  await search.press("Enter");
+  await expect(page.getByTestId("command-menu")).toBeHidden();
+}
+
 /**
  * Struttura del documento per chi non usa il mouse.
  *
@@ -34,8 +43,8 @@ test("the workspace exposes exactly one main landmark and a heading", async ({ p
   expect(landmarks.h1s[0]).toContain("Schema.erschema");
 
   // Anche cambiando vista il canvas resta intestato.
-  for (const view of ["Translation", "Logical", "Conceptual"]) {
-    await page.getByRole("button", { name: view, exact: true }).click();
+  for (const view of ["Translation", "Logical schema", "ER model"] as const) {
+    await openWorkspaceView(page, view);
     await expect(page.locator("h1")).toHaveCount(1);
   }
 });

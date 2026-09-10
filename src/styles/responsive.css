@@ -113,11 +113,6 @@
     display: none;
   }
 
-  .editor-breadcrumb__segment:not(:last-of-type),
-  .editor-breadcrumb__separator {
-    display: none;
-  }
-
   .bottom-status-center,
   .bottom-status-panels {
     display: none;
@@ -135,29 +130,18 @@
   }
 
   /*
-   * Modalita icon-only della barra di contesto. Il view switcher non aveva
-   * icone: nascondere lo span lasciava tre pulsanti vuoti da 18x24px con la
-   * sola `title`, inutile al tocco. Ora l'icona compare quando il testo esce,
-   * e i bersagli salgono a --size-input come gia fa la topbar compatta.
+   * Modalita icon-only della barra di contesto: restano i comandi SQL, che
+   * hanno gia la loro icona, e i bersagli salgono a --size-input come fa la
+   * topbar compatta.
    */
-  .editor-view-switcher button span,
   .editor-context-button span {
     display: none;
-  }
-
-  .editor-view-switcher button > .studio-icon {
-    display: block;
   }
 
   .editor-context-bar {
     height: var(--size-tab);
   }
 
-  .editor-view-switcher {
-    padding: 0;
-  }
-
-  .editor-view-switcher button,
   .editor-context-button {
     width: var(--size-input);
     min-width: var(--size-input);

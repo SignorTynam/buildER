@@ -41,9 +41,18 @@
   color: var(--color-text-on-accent);
 }
 
+/*
+ * `project-explorer.css` (fase legacy) lascia sul pulsante attivo un
+ * `box-shadow: inset 0 0 0 1px var(--editor-border)`: un anello chiaro che su
+ * rail scura taglia il nero subito sotto l'header e lo fa sembrare
+ * disallineato. La rail scura non vuole bordi chiari: l'attivo si legge dal
+ * fondo piu chiaro e dalla barretta accento a sinistra.
+ */
 .project-activity-button.active,
 .project-activity-button[aria-pressed="true"] {
+  border-color: transparent;
   background: color-mix(in srgb, var(--color-accent-on-dark) 16%, transparent);
+  box-shadow: none;
   color: var(--color-text-on-accent);
 }
 

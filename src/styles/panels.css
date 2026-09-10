@@ -2437,58 +2437,6 @@ summary:focus-visible,
   background: var(--studio-accent-strong);
 }
 
-.workspace-stage-bar {
-  min-height: 44px;
-  padding: 6px 14px;
-  background: var(--studio-bg);
-  border-bottom: 1px solid var(--studio-border);
-}
-
-.workspace-stage-tabs {
-  padding: 3px;
-  border: 1px solid var(--studio-border);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--color-bg-elevated) 78%, transparent);
-  box-shadow: var(--studio-shadow-sm);
-}
-
-.workspace-stage-tab {
-  min-height: 30px;
-  padding: 6px 12px;
-  border: 1px solid transparent;
-  border-radius: 0;
-  color: var(--studio-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.workspace-stage-tab:hover:not(:disabled) {
-  border-color: var(--studio-border);
-  background: var(--studio-surface-muted);
-  color: var(--studio-ink);
-}
-
-.workspace-stage-tab.active {
-  border-color: var(--studio-accent);
-  background: var(--studio-accent);
-  color: var(--color-text-on-accent);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 18%, transparent);
-}
-
-.workspace-stage-connector {
-  color: color-mix(in srgb, var(--color-text-secondary) 48%, transparent);
-}
-
-.workspace-stage-badge {
-  background: var(--studio-accent-soft);
-  color: var(--studio-accent);
-}
-
-.workspace-stage-badge-warning {
-  background: var(--studio-warning-soft);
-  color: var(--studio-warning);
-}
-
 .app-workspace-region {
   padding: 10px 12px;
   background: var(--studio-bg);
@@ -2900,10 +2848,8 @@ summary:focus-visible,
 }
 
 @media (max-width: 760px) {
-.workspace-stage-tab-label,
   .studio-topbar-button span,
-  .studio-topbar-toggle span,
-  .workspace-stage-connector {
+  .studio-topbar-toggle span {
     display: none;
   }
 }
@@ -3637,8 +3583,7 @@ textarea {
     font-size: var(--font-size-xs);
   }
 
-  .designer-side-toggle-right,
-  .designer-translation-notes-toggle {
+  .designer-side-toggle-right {
     top: auto;
     right: 8px;
     bottom: max(8px, env(safe-area-inset-bottom));
@@ -4350,8 +4295,7 @@ textarea {
     max-width: calc(100vw - 16px);
   }
 
-  .designer-side-toggle-right,
-  .designer-translation-notes-toggle {
+  .designer-side-toggle-right {
     z-index: 31;
     bottom: calc(84px + env(safe-area-inset-bottom));
   }
@@ -4622,8 +4566,7 @@ textarea {
     z-index: 30;
   }
 
-  .designer-side-toggle-right,
-  .designer-translation-notes-toggle {
+  .designer-side-toggle-right {
     bottom: calc(84px + env(safe-area-inset-bottom));
     z-index: 31;
   }
@@ -5016,7 +4959,13 @@ textarea {
   align-items: flex-start;
   justify-content: center;
   padding-top: calc(var(--size-header) + var(--space-2));
-  background: transparent;
+  /*
+   * La palette e `aria-modal`, ma restava l'unica superficie modale senza
+   * velo: si posava sul workspace e sembrava un pannello qualsiasi. Stessa
+   * ricetta del backdrop dei dialoghi, piu leggera perche la palette e una
+   * sosta breve.
+   */
+  background: color-mix(in srgb, var(--color-bg-header) 28%, transparent);
 }
 
 .command-modal {

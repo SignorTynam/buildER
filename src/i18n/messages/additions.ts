@@ -43,13 +43,6 @@ export const messageAdditions = {
       export: { aria: "Esporta ER", project: "Progetto buildER", diagramCode: "Codice diagramma", png: "PNG", jpeg: "JPEG", svg: "SVG" },
     },
     codePanel: { closeAria: "Chiudi codice ERS" },
-    workspaceStage: {
-      aria: "Workflow di modellazione",
-      er: "Modello ER",
-      translation: "Traduzione",
-      logical: "Schema logico",
-      logicalOutdated: "Schema logico da riallineare",
-    },
     validationIssues: {
       attributeConflict: "L'attributo \"{{label}}\" non e valido perche e segnato come composto e identificatore insieme; lascia attiva una sola modalita.",
       attributeInvalidCardinality: "La cardinalita non e valida sull'attributo \"{{label}}\" perche gli identificatori non possono definirla.",
@@ -94,15 +87,6 @@ export const messageAdditions = {
           how: "rimuovi il collegamento con l'associazione o disattiva il flag identificatore",
         },
       },
-    },
-    notesPanel: {
-      toolbar: {
-        bold: "Grassetto", italic: "Corsivo", underline: "Sottolineato", strike: "Barrato", quote: "Citazione", codeBlock: "Blocco codice",
-        heading1: "Titolo 1", heading2: "Titolo 2", paragraph: "Paragrafo", orderedList: "Lista numerata", unorderedList: "Lista puntata",
-        subscript: "Pedice", superscript: "Apice", alignLeft: "Allinea a sinistra", alignCenter: "Allinea al centro", alignRight: "Allinea a destra",
-        clearFormatting: "Rimuovi formattazione", link: "Link", image: "Immagine", hide: "Nascondi",
-      },
-      prompts: { linkUrl: "URL", imageUrl: "URL immagine" },
     },
     errors: {
       closeAria: "Chiudi errori e warning",
@@ -276,13 +260,6 @@ export const messageAdditions = {
       export: { aria: "Export ER", project: "buildER Project", diagramCode: "Diagram Code", png: "PNG", jpeg: "JPEG", svg: "SVG" },
     },
     codePanel: { closeAria: "Close ERS code" },
-    workspaceStage: {
-      aria: "Modeling workflow",
-      er: "ER model",
-      translation: "Translation",
-      logical: "Logical schema",
-      logicalOutdated: "Logical schema needs realignment",
-    },
     validationIssues: {
       attributeConflict: "Attribute \"{{label}}\" is invalid because it is marked as both composite and identifier; keep only one mode active.",
       attributeInvalidCardinality: "Cardinality is invalid on attribute \"{{label}}\" because identifiers cannot define cardinality.",
@@ -327,10 +304,6 @@ export const messageAdditions = {
           how: "remove the relationship link or disable the identifier flag",
         },
       },
-    },
-    notesPanel: {
-      toolbar: { bold: "Bold", italic: "Italic", underline: "Underline", strike: "Strikethrough", quote: "Quote", codeBlock: "Code block", heading1: "Heading 1", heading2: "Heading 2", paragraph: "Paragraph", orderedList: "Ordered list", unorderedList: "Unordered list", subscript: "Subscript", superscript: "Superscript", alignLeft: "Align left", alignCenter: "Align center", alignRight: "Align right", clearFormatting: "Clear formatting", link: "Link", image: "Image", hide: "Hide" },
-      prompts: { linkUrl: "URL", imageUrl: "Image URL" },
     },
     errors: {
       closeAria: "Close errors and warnings",
@@ -401,13 +374,6 @@ export const messageAdditions = {
       export: { aria: "Eksporto ER", project: "Projekt buildER", diagramCode: "Kodi i diagramit", png: "PNG", jpeg: "JPEG", svg: "SVG" },
     },
     codePanel: { closeAria: "Mbyll kodin ERS" },
-    workspaceStage: {
-      aria: "Rrjedha e modelimit",
-      er: "Modeli ER",
-      translation: "Perkthim",
-      logical: "Skema logjike",
-      logicalOutdated: "Skema logjike duhet rirreshtuar",
-    },
     validationIssues: {
       attributeConflict: "Atributi \"{{label}}\" eshte i pavlefshem sepse eshte shenuar si i perbere dhe identifikues; mbaj aktiv vetem nje modalitet.",
       attributeInvalidCardinality: "Kardinaliteti eshte i pavlefshem te atributi \"{{label}}\" sepse identifikuesit nuk mund te percaktojne kardinalitet.",
@@ -453,7 +419,6 @@ export const messageAdditions = {
         },
       },
     },
-    notesPanel: { toolbar: { bold: "Trashë", italic: "Kursive", underline: "Nënvizuar", strike: "Vijë në mes", quote: "Citim", codeBlock: "Bllok kodi", heading1: "Titull 1", heading2: "Titull 2", paragraph: "Paragraf", orderedList: "Listë e numëruar", unorderedList: "Listë me pika", subscript: "Nënshkrim", superscript: "Mbishkrim", alignLeft: "Rreshto majtas", alignCenter: "Rreshto në qendër", alignRight: "Rreshto djathtas", clearFormatting: "Hiq formatimin", link: "Lidhje", image: "Imazh", hide: "Fshih" }, prompts: { linkUrl: "URL", imageUrl: "URL e imazhit" } },
     errors: { title: "Gabimet", closeAria: "Mbyll gabimet dhe paralajmërimet", empty: "Nuk ka gabim ose paralajmërim në diagram.", structured: { template: "Gabim: {{what}} sepse {{why}}; për ta zgjidhur, {{how}}.", defaultWhat: "operacioni nuk u përfundua", defaultWhy: "ndodhi një problem i paspecifikuar", defaultHow: "kontrollo të dhënat dhe provo përsëri" }, rawFallbackHow: "kontrollo të dhënat e futura dhe provo përsëri", issueCount: "{{count}} paralajmerime/gabime ne diagram", panel: { connection: "Lidhje", filters: { label: "Filtro problemet", all: "Të gjitha" }, emptyFilter: "Nuk ka probleme në këtë filtër.", validTitle: "Diagram i vlefshëm", validDescription: "Nuk u gjetën gabime ose paralajmërime në diagramin aktual.", emptyFilterTitle: "Nuk ka probleme në këtë filtër", emptyFilterDescription: "Nuk ka probleme që përputhen me filtrin e zgjedhur.", listLabel: "Problemet e validimit" }, diagnostics: { show: "Shfaq diagnostiken ne canvas", hide: "Fshih diagnostiken ne canvas", hiddenNote: "Indikatoret ne canvas jane fshehur; validimi mbetet aktiv." }, ers: { defaultReason: "kod ERS i pavlefshëm", what: "kodi ERS nuk u aplikua", how: "korrigjo rreshtin e treguar dhe provo përsëri" }, projectFile: { what: "skedari i projektit nuk u ngarkua", why: "ndodhi një problem i papritur gjatë importimit", how: "kontrollo skedarin e zgjedhur dhe provo përsëri" } },
     connection: { errors: { self: "Nuk mund ta lidhësh një element me veten.", twoEntities: "Dy entitete nuk lidhen drejtpërdrejt: vendos një marrëdhënie midis tyre.", twoRelationships: "Dy marrëdhënie nuk lidhen drejtpërdrejt me lidhje Chen.", attributeNeedsAttributeTool: "Për një atribut përdor mjetin Atribut, jo Lidhje.", invalidConnector: "Lidhje e pavlefshme midis {{sourceKind}} dhe {{targetKind}}: lidhja Chen kërkon një entitet dhe një marrëdhënie.", inheritanceNeedsEntities: "Përgjithësimi kërkon dy entitete. Ke zgjedhur {{sourceKind}} dhe {{targetKind}}.", attributeNeedsOneAttribute: "Lidhja e atributit kërkon të paktën një atribut. Ke zgjedhur {{sourceKind}} dhe {{targetKind}}.", invalidAttributeConnection: "Një atribut mund të lidhet vetëm me entitet, marrëdhënie ose atribut. Ke zgjedhur {{sourceKind}} dhe {{targetKind}}." } },
     cardinalityModal: { badge: { newConnector: "Lidhje e re", edit: "Ndrysho" }, title: "Konfiguro kardinalitetin", primary: { createConnector: "Krijo lidhje", save: "Ruaj kardinalitetin" }, cancel: "Anulo", visual: { entityFallback: "Entitet", relationshipFallback: "Marrëdhënie", cardinality: "kardinalitet" }, presets: { aria: "Preset-et e kardinalitetit", optionalMaxOne: "opsionale, maksimumi një", requiredOne: "e detyrueshme, vetëm një", optionalMany: "opsionale, shumë", requiredMany: "e detyrueshme, shumë" }, custom: { label: "E personalizuar", aria: "Kardinalitet i personalizuar", help: "Pranon forma si 0,N, (1,N) ose 1..4." }, subtitle: { attributeWithLabel: "Vendos kardinalitetin e atributit {{label}}", attributeSelected: "Vendos kardinalitetin e atributit të zgjedhur", completeConnectorWithLabels: "Plotëso lidhjen midis {{source}} dhe {{target}}", completeConnector: "Plotëso lidhjen e re", editConnectorWithLabels: "Ndrysho pjesëmarrjen e {{source}} në {{target}}", editConnector: "Ndrysho kardinalitetin e lidhjes" } },

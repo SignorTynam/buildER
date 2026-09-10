@@ -12,6 +12,7 @@ import { SqlPlaygroundSplitter } from "./SqlPlaygroundSplitter";
 import type { CodeEditorSurfaceHandle } from "../../components/editor/CodeEditorSurface";
 import { createSqlPlaygroundSessionState } from "../../utils/sqlPlayground";
 import { useSqlPlayground } from "./useSqlPlayground";
+import { SqlDataPopulationDialog } from "./SqlDataPopulationDialog";
 
 interface SqlPlaygroundWorkspaceProps {
   manager: SqlPlaygroundManager;
@@ -34,6 +35,7 @@ interface SqlPlaygroundWorkspaceProps {
 function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
   const { t } = useI18n();
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
+  const [populationDialogOpen, setPopulationDialogOpen] = useState(false);
   const [bodyHeight, setBodyHeight] = useState(0);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<CodeEditorSurfaceHandle | null>(null);
@@ -44,6 +46,8 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
     setResultsPanelHeight,
     setResultsPanelCollapsed,
     createDatabase,
+    planPopulation,
+    applyPopulation,
     execute,
     downloadDatabase,
   } = useSqlPlayground({
@@ -53,7 +57,11 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
     schemaName: props.queryRequest?.databaseName ?? props.schemaName,
     generatedSql: props.generatedSql,
   });
-  const busy = session.status === "loading-engine" || session.status === "creating-database" || session.status === "running";
+  const busy = session.status === "loading-engine"
+    || session.status === "creating-database"
+    || session.status === "running"
+    || session.status === "planning-data"
+    || session.status === "populating-data";
   const canExecute = session.databaseReady && !busy && session.query.trim().length > 0;
   const minimumResultsHeight = 104;
   const maximumResultsHeight = bodyHeight >= minimumResultsHeight + 152 ? bodyHeight - 152 : 10_000;
@@ -72,8 +80,8 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
     if (!props.queryRequest) return;
     setQuery(props.queryRequest.query);
     if (props.queryRequest.createDatabase) {
-      void createDatabase(true).then(() => {
-        if (props.queryRequest?.execute) void execute(props.queryRequest.query);
+      void createDatabase(true).then((created) => {
+        if (created && props.queryRequest?.execute) void execute(props.queryRequest.query);
       });
     } else if (props.queryRequest.execute) {
       void execute(props.queryRequest.query);
@@ -103,6 +111,7 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
         executeDisabled={!canExecute}
         onCreateDatabase={() => void createDatabase(false)}
         onRecreateDatabase={requestRecreate}
+        onGenerateData={() => setPopulationDialogOpen(true)}
         onExecute={executeSelectionOrAll}
         onDownload={() => void downloadDatabase()}
       />
@@ -163,6 +172,13 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
       >
         <div className="sql-playground-reset-modal-note">{t("sqlPlayground.sessionNotice")}</div>
       </Modal>
+      <SqlDataPopulationDialog
+        open={populationDialogOpen}
+        onClose={() => setPopulationDialogOpen(false)}
+        onPlan={planPopulation}
+        onApply={applyPopulation}
+        onRecreate={() => createDatabase(true)}
+      />
     </main>
   );
 }

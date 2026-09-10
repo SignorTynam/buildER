@@ -83,7 +83,6 @@ export async function probeControls(page: Page, groups: ControlGroup[]): Promise
 export const ER_EDITOR_CONTROL_GROUPS: ControlGroup[] = [
   { name: "activity rail", selector: ".project-activity-button" },
   { name: "file tabs", selector: ".project-file-tab" },
-  { name: "view switcher", selector: ".editor-view-switcher button" },
   // Selettore per classe e non per aria-label: l'etichetta e localizzata e
   // cambia con la lingua dell'interfaccia.
   { name: "ER toolbar", selector: ".designer-context-toolbar button" },

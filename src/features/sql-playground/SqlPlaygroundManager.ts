@@ -7,6 +7,11 @@ import { isSqlPlaygroundResponse } from "./sqlPlaygroundProtocol";
 import type { SqlPlaygroundSessionState } from "./sqlPlaygroundState";
 import type { SqlExplorerMetadata } from "./sqlExplorerTypes";
 import type { ImportedDatabaseOpenResult } from "../database-workspace/databaseWorkspaceTypes";
+import type {
+  SqlPopulationApplyResult,
+  SqlPopulationConfig,
+  SqlPopulationPlanPreview,
+} from "./sqlDataPopulationTypes";
 
 export type SqlPlaygroundManagerEvent =
   | { type: "session-created"; sessionId: string }
@@ -15,6 +20,8 @@ export type SqlPlaygroundManagerEvent =
   | { type: "database-restored"; sessionId: string }
   | { type: "schema-ready"; sessionId: string }
   | { type: "execution-complete"; sessionId: string; schemaChanged: boolean }
+  | { type: "population-planned"; sessionId: string; planId: string }
+  | { type: "population-applied"; sessionId: string; planId: string }
   | { type: "schema-changed"; sessionId: string }
   | { type: "session-closed"; sessionId: string }
   | { type: "disposed" };
@@ -144,6 +151,20 @@ export class SqlPlaygroundManager {
     const response = await this.send({ type: "inspect-schema", sessionId });
     if (response.type !== "schema-inspected") throw new Error("Unexpected SQLite schema inspection response.");
     return response.metadata;
+  }
+
+  async planPopulation(sessionId: string, config: SqlPopulationConfig): Promise<SqlPopulationPlanPreview> {
+    const response = await this.send({ type: "plan-population", sessionId, ...config });
+    if (response.type !== "population-planned") throw new Error("Unexpected SQLite population planning response.");
+    this.emit({ type: "population-planned", sessionId, planId: response.planId });
+    return response;
+  }
+
+  async applyPopulation(sessionId: string, planId: string): Promise<SqlPopulationApplyResult> {
+    const response = await this.send({ type: "apply-population", sessionId, planId });
+    if (response.type !== "population-applied") throw new Error("Unexpected SQLite population apply response.");
+    this.emit({ type: "population-applied", sessionId, planId });
+    return response;
   }
 
   async reverseDatabase(sessionId: string): Promise<{

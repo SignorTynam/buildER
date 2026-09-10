@@ -53,7 +53,6 @@ test("no source file calls a native browser dialog", () => {
 
 test("the surfaces that replaced them route through the app dialogs", () => {
   const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
-  const notesSource = readFileSync(new URL("../src/components/NotesModal.tsx", import.meta.url), "utf8");
   const logicalSource = readFileSync(
     new URL("../src/logical/LogicalTranslationWorkspace.tsx", import.meta.url),
     "utf8",
@@ -62,10 +61,6 @@ test("the surfaces that replaced them route through the app dialogs", () => {
   // Azzeramento della ristrutturazione: scarta lavoro applicato.
   assert.match(appSource, /function confirmResetTranslationWork/);
   assert.match(appSource, /dialogs\.resetTranslation\.title/);
-
-  // Note non salvate: la conferma arriva da App, il componente non la inventa.
-  assert.match(notesSource, /onConfirmDiscard/);
-  assert.match(appSource, /dialogs\.discardNotes\.title/);
 
   // Rinomina di tabelle e colonne nella vista logica.
   assert.match(logicalSource, /onRequestRename/);

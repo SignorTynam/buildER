@@ -104,6 +104,15 @@ async function bootProject(page: Page) {
   await expect(page.locator(".project-file-tab.active")).toContainText("navigation.erschema");
 }
 
+async function openWorkspaceView(page: Page, label: "Modello ER" | "Traduzione" | "Schema logico") {
+  await page.getByTestId("app-header-menu").click();
+  const search = page.getByTestId("command-menu-search");
+  await search.fill(label);
+  await expect(page.getByRole("option", { name: new RegExp(`^${label}\\b`) })).toBeVisible();
+  await search.press("Enter");
+  await expect(page.getByTestId("command-menu")).toBeHidden();
+}
+
 function diagramNodeSnapshot(page: Page) {
   return page.locator(".diagram-node").evaluateAll((nodes) =>
     nodes.map((node) => {
@@ -176,14 +185,14 @@ test("Translate and Logic toolboxes match the ER desktop and compact orientation
   await bootProject(page);
 
   await expectToolbarOrientation(page, "column");
-  await page.getByRole("group", { name: "Vista dello schema" }).getByRole("button", { name: "Traduzione" }).click();
+  await openWorkspaceView(page, "Traduzione");
   await expectToolbarOrientation(page, "column");
 
   await page.setViewportSize({ width: 768, height: 1024 });
   await expect.poll(() => page.locator(".designer-context-toolbar").evaluate((toolbar) => getComputedStyle(toolbar).flexDirection)).toBe("row");
   await expectToolbarOrientation(page, "row");
   await page.keyboard.press("Escape");
-  await page.getByRole("group", { name: "Vista dello schema" }).getByRole("button", { name: "Logico" }).click();
+  await openWorkspaceView(page, "Schema logico");
   await expectToolbarOrientation(page, "row");
 });
 
@@ -191,7 +200,7 @@ test("Translate and Logic expose complete canvas navigation and reversible auto-
   test.setTimeout(60_000);
   await bootProject(page);
 
-  await page.getByRole("group", { name: "Vista dello schema" }).getByRole("button", { name: "Traduzione" }).click();
+  await openWorkspaceView(page, "Traduzione");
   await expectNavigationSurface(page, ".designer-translation-canvas");
   const translationBefore = await diagramNodeSnapshot(page);
   await page.getByRole("toolbar", { name: "Restructuring tools" }).getByRole("button", { name: "Organizza" }).click();
@@ -207,7 +216,7 @@ test("Translate and Logic expose complete canvas navigation and reversible auto-
   await expect(page.getByRole("option", { name: /Inquadra selezione/ })).not.toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Escape");
 
-  await page.getByRole("group", { name: "Vista dello schema" }).getByRole("button", { name: "Logico" }).click();
+  await openWorkspaceView(page, "Schema logico");
   await expectNavigationSurface(page, ".designer-logical-canvas");
   const logicalCanvas = page.locator(".logical-canvas-panel");
   await logicalCanvas.locator('[aria-label="Tabella STUDENT"] .logical-table-header').click();
@@ -240,7 +249,7 @@ test("Translate and Logic minimaps default to collapsed below 860px", async ({ p
   await expect(page.getByRole("complementary", { name: "Minimappa" })).toHaveCount(0);
 
   await page.getByRole("complementary", { name: "Explorer" }).getByRole("button", { name: "Chiudi Explorer" }).click();
-  await page.getByRole("group", { name: "Vista dello schema" }).getByRole("button", { name: "Traduzione" }).click();
+  await openWorkspaceView(page, "Traduzione");
   await expect(page.getByRole("button", { name: "Mostra minimappa" })).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Minimappa" })).toHaveCount(0);
 });

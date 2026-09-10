@@ -36,7 +36,6 @@ const IMPORTANT_LOCALIZED_KEYS = [
   "logical.noItemsThisStep",
   "translation.restructuring.stageLabel",
   "toolbar.commands.select.label",
-  "notesPanel.description",
   "cardinalityModal.title",
   "sqlReverse.input.analyze",
   "logical.entityKeyModal.title",
@@ -55,13 +54,18 @@ const NEW_I18N_SECTIONS = [
   "appHeader.actions.languageTitle",
   "appHeader.actions.languageAria",
   "appHeader.actions.languageMenuAria",
+  "translation.restructuring.fixOptions",
+  "translation.simpleMultivalued.dependent.label",
+  "translation.simpleMultivalued.dependent.labelWithIdentifier",
+  "translation.simpleMultivalued.dependent.internalIdentifier",
+  "translation.simpleMultivalued.dependent.externalIdentifier",
+  "translation.simpleMultivalued.dependent.description",
+  "translation.simpleMultivalued.dependent.summary",
+  "translation.simpleMultivalued.dependent.preview",
   "workspace.identifierAlreadyExistsUseDelete",
   "toolbar.export.diagramCode",
   "toolbar.export.jpeg",
   "commandMenu.commands.fileExportJpeg.label",
-  "notesPanel.toolbar.bold",
-  "notesPanel.toolbar.orderedList",
-  "notesPanel.toolbar.clearFormatting",
   "codePanel.closeAria",
   "cardinalityModal.primary.createConnector",
   "cardinalityModal.presets.requiredMany",
@@ -543,6 +547,30 @@ test("plural and interpolation paths work for every locale", () => {
     assert.match(translate("app.versionLabel", { version: "5.2" }, locale), /5\.2/);
     assert.match(translate("commandMenu.visibleCount", { count: 1 }, locale), /1/);
     assert.match(translate("commandMenu.visibleCount", { count: 2 }, locale), /2/);
+  }
+});
+
+test("multivalued strategy descriptions interpolate semantic choice details in every locale", () => {
+  for (const locale of SUPPORTED_LOCALES) {
+    for (const key of [
+      "translation.simpleMultivalued.shared.description",
+      "translation.simpleMultivalued.unique.description",
+      "translation.simpleMultivalued.dependent.description",
+    ]) {
+      const value = translate(key, { name: "TAG", owner: "CON" }, locale);
+      assert.match(value, /TAG/);
+      assert.match(value, /CON/);
+      assert.equal(value.includes("{name}"), false, `${locale}.${key} kept {name}`);
+      assert.equal(value.includes("{owner}"), false, `${locale}.${key} kept {owner}`);
+    }
+
+    const preview = translate(
+      "translation.simpleMultivalued.dependent.preview",
+      { identifier: "idCon", name: "TAG" },
+      locale,
+    );
+    assert.match(preview, /idCon/);
+    assert.match(preview, /TAG/);
   }
 });
 

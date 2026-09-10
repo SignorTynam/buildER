@@ -8,6 +8,7 @@ import { SqlPlaygroundHeader } from "../src/features/sql-playground/SqlPlaygroun
 import { createSqlPlaygroundSessionState } from "../src/utils/sqlPlayground.ts";
 import { SqlPlaygroundError } from "../src/features/sql-playground/SqlPlaygroundError.tsx";
 import { SqlPlaygroundResults } from "../src/features/sql-playground/SqlPlaygroundResults.tsx";
+import { SqlDataPopulationDialog } from "../src/features/sql-playground/SqlDataPopulationDialog.tsx";
 import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
@@ -31,15 +32,51 @@ test("SQL playground editor uses the shared highlighted editor with line numbers
   assert.doesNotMatch(markup, /ui-button--primary/);
 });
 
-test("SQL playground command bar owns all primary actions on one header", () => {
+test("SQL playground command bar owns ordered create, population, run, and download actions", () => {
   const session = { ...createSqlPlaygroundSessionState({ sessionId: "p:s", schemaFileId: "s", schemaName: "university.erschema", currentGeneratedChecksum: "a" }), sqliteVersion: "3.50.4", status: "engine-ready" as const };
-  const markup = render(<SqlPlaygroundHeader session={session} executeDisabled onCreateDatabase={() => undefined} onExecute={() => undefined} onDownload={() => undefined} />);
+  const markup = render(<SqlPlaygroundHeader session={session} executeDisabled onCreateDatabase={() => undefined} onGenerateData={() => undefined} onExecute={() => undefined} onDownload={() => undefined} />);
   assert.match(markup, /sql-playground-command-bar/);
   assert.match(markup, /Crea database|Create database/);
   assert.match(markup, /Esegui|Run/);
+  assert.match(markup, /Genera dati|Generate data/);
   assert.match(markup, /Scarica database|Download database/);
   assert.match(markup, /SQLite 3\.50\.4/);
   assert.doesNotMatch(markup, /sql-playground-toolbar/);
+  assert.match(markup, /sql-playground-command-bar__population[^>]*disabled/);
+  const createIndex = markup.search(/Crea database|Create database/);
+  const populationIndex = markup.search(/Genera dati|Generate data/);
+  const runIndex = markup.search(/Esegui|Run/);
+  const downloadIndex = markup.search(/Scarica database|Download database/);
+  assert.ok(createIndex < populationIndex && populationIndex < runIndex && runIndex < downloadIndex);
+});
+
+test("SQL population command reports busy state while planning", () => {
+  const base = createSqlPlaygroundSessionState({ sessionId: "p:s", schemaFileId: "s", schemaName: "university.erschema", currentGeneratedChecksum: "a" });
+  const session = { ...base, databaseReady: true, schemaChecksum: "a", status: "planning-data" as const };
+  const markup = render(<SqlPlaygroundHeader session={session} onRecreateDatabase={() => undefined} onGenerateData={() => undefined} onExecute={() => undefined} onDownload={() => undefined} />);
+  assert.match(markup, /aria-busy="true"/);
+  assert.match(markup, /Pianificazione dati|Planning data/);
+});
+
+test("SQL population dialog exposes localized defaults, labels, limits, privacy, and accessible fields", () => {
+  const markup = render(
+    <SqlDataPopulationDialog
+      open
+      onClose={() => undefined}
+      onPlan={async () => { throw new Error("unused"); }}
+      onApply={async () => { throw new Error("unused"); }}
+      onRecreate={async () => false}
+    />,
+  );
+  assert.match(markup, /role="dialog"/);
+  assert.match(markup, /Righe per tabella|Rows per table/);
+  assert.match(markup, /Seed/);
+  assert.match(markup, /value="20"/);
+  assert.match(markup, /value="42"/);
+  assert.match(markup, /max="100"/);
+  assert.match(markup, /max="4294967295"/);
+  assert.match(markup, /example\.test|fittizi|fictional/);
+  assert.match(markup, /Genera anteprima|Generate preview/);
 });
 
 test("SQL playground renders multiple semantic result sets, NULL, BLOB and DML summaries", () => {

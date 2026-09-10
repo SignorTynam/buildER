@@ -22,6 +22,7 @@ import type {
   SqlExplorerMetadata,
   SqlExplorerTable,
 } from "../../sql-playground/sqlExplorerTypes";
+import { resolveSqliteForeignKeyGroups } from "../../sql-playground/sqliteMetadataNormalization";
 
 export function getSqliteTableId(databaseName: string, tableName: string): string {
   return `sqlite-table:${encodeURIComponent(databaseName)}:${encodeURIComponent(tableName)}`;
@@ -52,22 +53,6 @@ function issue(
   return { id, level: "warning", code, message, tableId };
 }
 
-function groupForeignKeys(rows: SqlExplorerForeignKey[]): SqlExplorerForeignKey[][] {
-  const groups = new Map<number, SqlExplorerForeignKey[]>();
-  rows.forEach((row) => groups.set(row.id, [...(groups.get(row.id) ?? []), row]));
-  return [...groups.values()].map((group) => group.sort((left, right) => left.sequence - right.sequence));
-}
-
-function findTargetTable(
-  metadata: SqlExplorerMetadata,
-  databaseName: string,
-  tableName: string,
-): SqlExplorerTable | undefined {
-  const database = metadata.databases.find((entry) => entry.name === databaseName)
-    ?? metadata.databases.find((entry) => entry.name === "main");
-  return database?.tables.find((table) => table.name.toLocaleLowerCase() === tableName.toLocaleLowerCase());
-}
-
 function buildForeignKey(
   metadata: SqlExplorerMetadata,
   database: SqlExplorerDatabase,
@@ -77,14 +62,8 @@ function buildForeignKey(
   issues: SqlReverseIssue[],
 ): SqlForeignKeyDefinition {
   const first = rows[0];
-  const target = findTargetTable(metadata, database.name, first.toTable);
-  const targetPrimaryKey = target?.columns
-    .filter((column) => column.primaryKeyPosition > 0)
-    .sort((left, right) => left.primaryKeyPosition - right.primaryKeyPosition);
-  const toColumnNames = rows.map((row, index) => {
-    if (row.toColumn) return row.toColumn;
-    return targetPrimaryKey?.[index]?.name ?? "";
-  });
+  const resolved = resolveSqliteForeignKeyGroups(metadata, database.name, rows)[0];
+  const toColumnNames = resolved.mappings.map((mapping) => mapping.toColumn ?? "");
   if (toColumnNames.some((name) => !name)) {
     issues.push(issue(
       `sqlite-fk-unresolved-${tableId}-${first.id}`,
@@ -130,8 +109,10 @@ function buildTable(
   issues: SqlReverseIssue[],
 ): SqlTableDefinition {
   const tableId = getSqliteTableId(database.name, table.name);
-  const foreignKeys = groupForeignKeys(table.foreignKeys).map((rows) =>
-    buildForeignKey(metadata, database, table, tableId, rows, issues));
+  const foreignKeys = resolveSqliteForeignKeyGroups(metadata, database.name, table.foreignKeys).map((group) => {
+    const rows = table.foreignKeys.filter((foreignKey) => foreignKey.id === group.id);
+    return buildForeignKey(metadata, database, table, tableId, rows, issues);
+  });
   const uniqueConstraints = table.indexes.filter(isConvertibleUnique).map((index) => buildUnique(index, tableId));
   const foreignKeyColumns = new Set(foreignKeys.flatMap((foreignKey) => foreignKey.fromColumnNames));
   const singleUniqueColumns = new Set(

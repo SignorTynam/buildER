@@ -9,7 +9,7 @@ import { WorkspaceEditorHeader } from "../src/components/workspace/WorkspaceEdit
 import { PanelEmptyState } from "../src/components/workspace/WorkspacePanel.tsx";
 import { WorkspaceTextEditor } from "../src/components/workspace/WorkspaceTextEditor.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
-import { createTextWorkspaceFile } from "../src/utils/projectExplorer.ts";
+import { createSchemaWorkspaceFile, createTextWorkspaceFile } from "../src/utils/projectExplorer.ts";
 import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
@@ -99,17 +99,12 @@ test("WorkspaceTextEditor lascia invariato il textarea dei file TXT e supporta S
   assert.match(sqlMarkup, />Read only</);
 });
 
-test("WorkspaceEditorHeader espone azioni accessibili solo per i file SQL e preserva Reveal", () => {
+test("WorkspaceEditorHeader disegna la barra solo per i file SQL", () => {
   const sqlFile = createTextWorkspaceFile("query.sql", "sql", "SELECT 1;");
   const sqlMarkup = renderInEnglish(
     <I18nProvider>
       <WorkspaceEditorHeader
-        projectName="ER Studio"
         file={sqlFile}
-        path="queries/query.sql"
-        view="er"
-        onReveal={() => undefined}
-        onViewChange={() => undefined}
         onOpenSqlPlayground={() => undefined}
         onStartSqlReverse={() => undefined}
       />
@@ -117,24 +112,27 @@ test("WorkspaceEditorHeader espone azioni accessibili solo per i file SQL e pres
   );
   assert.match(sqlMarkup, /aria-label="Open in Playground"/);
   assert.match(sqlMarkup, /aria-label="Start Reverse Engineering"/);
-  assert.match(sqlMarkup, /aria-label="Reveal in Explorer"/);
   assert.match(sqlMarkup, /role="tooltip"/);
+  // Il percorso vive sulla tab e nella status bar: la barra di contesto porta
+  // solo azioni, e "Reveal in Explorer" resta nel menu contestuale della tab.
+  assert.doesNotMatch(sqlMarkup, /editor-breadcrumb/);
+  assert.doesNotMatch(sqlMarkup, /Reveal in Explorer/);
+
+  // Senza selettore di vista uno schema non ha piu nulla da mostrare qui: la
+  // riga non si disegna affatto invece di restare vuota sopra il canvas.
+  const schemaMarkup = renderInEnglish(
+    <I18nProvider>
+      <WorkspaceEditorHeader file={createSchemaWorkspaceFile("model.erschema")} />
+    </I18nProvider>,
+  );
+  assert.equal(schemaMarkup, "");
 
   const textMarkup = renderInEnglish(
     <I18nProvider>
-      <WorkspaceEditorHeader
-        projectName="ER Studio"
-        file={createTextWorkspaceFile("notes.txt", "text", "")}
-        path="notes.txt"
-        view="er"
-        onReveal={() => undefined}
-        onViewChange={() => undefined}
-      />
+      <WorkspaceEditorHeader file={createTextWorkspaceFile("notes.txt", "text", "")} />
     </I18nProvider>,
   );
-  assert.doesNotMatch(textMarkup, /Open in Playground/);
-  assert.doesNotMatch(textMarkup, /Start Reverse Engineering/);
-  assert.match(textMarkup, /Reveal in Explorer/);
+  assert.equal(textMarkup, "");
 });
 
 test("PanelEmptyState offre la variante card e il tone positivo canonici", () => {

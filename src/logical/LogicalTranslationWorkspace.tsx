@@ -57,7 +57,6 @@ interface LogicalTranslationWorkspaceProps {
   panelMode: "review" | "sql";
   fitRequestToken: number;
   viewportCommand?: CanvasViewportCommand | null;
-  notesPanelOpen?: boolean;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -67,7 +66,6 @@ interface LogicalTranslationWorkspaceProps {
   onSelectionChange: (selection: LogicalSelection) => void;
   onTypeModeChange: (nextValue: boolean) => void;
   onPanelModeChange: (nextValue: "review" | "sql") => void;
-  onToggleNotesPanel?: () => void;
   onApplyChoice: (item: LogicalTranslationItem, choice: LogicalTranslationChoice) => void;
   onApplyBulkFix: (step: LogicalBulkStep, options?: { choiceIdsByTargetKey?: Record<string, string> }) => void;
   onResetTranslation: () => void;
@@ -643,17 +641,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           ariaPressed={showForeignKeyLabels}
           onClick={() => setShowForeignKeyLabels((current) => !current)}
         />
-        {props.onToggleNotesPanel ? (
-          <ToolbarButton
-            label={t("notesPanel.title")}
-            icon={<StudioIcon name="notes" />}
-            active={props.notesPanelOpen}
-            title={props.notesPanelOpen ? t("notesPanel.closeAria") : t("notesPanel.openAria")}
-            ariaLabel={props.notesPanelOpen ? t("notesPanel.closeAria") : t("notesPanel.openAria")}
-            ariaPressed={props.notesPanelOpen}
-            onClick={props.onToggleNotesPanel}
-          />
-        ) : null}
         <span className="designer-toolbar-separator" aria-hidden="true" />
         {renderCommonLeadButtons(!showEditTools)}
         {showEditTools ? (

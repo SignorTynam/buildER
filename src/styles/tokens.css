@@ -126,8 +126,13 @@
 
   --motion-fast: 120ms;
   --motion-normal: 180ms;
+  /* Entrata di dialoghi e superfici sovrapposte: piu lunga perche percorre spazio. */
+  --motion-slow: 220ms;
   /* Durata piu lunga per l'evidenziazione temporanea "salta alla riga" (Fase K3). */
   --motion-reveal: 900ms;
+  /* Curve condivise: nessuna sovraelongazione, l'editor non rimbalza. */
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);
   --focus-ring: 0 0 0 2px #fbfcfb, 0 0 0 4px rgba(47, 111, 98, 0.72);
 
   /* Canonical tokens also feed the legacy workspace surfaces. */
