@@ -1562,6 +1562,24 @@ export const it = {
       fix: "Fix",
     },
     entries: {
+      v7_5: {
+        headline: "Dati deterministici e traduzioni più flessibili",
+        summary: "buildER 7.5 porta dati deterministici, multivalori dipendenti e un workspace più fluido.",
+        hero: { eyebrow: "Nuova versione", title: "buildER 7.5.0", subtitle: "Popola gli schemi, modella le dipendenze e lavora in un workspace più fluido." },
+        highlights: {
+          code: { title: "Dati pronti per le query", description: "Genera righe ripetibili dallo schema SQLite e applicale in una transazione sicura per i vincoli.", tag: "SQL Playground" },
+          layout: { title: "Workspace più pulito", description: "Rimuove contesto duplicato e controlli Note per chiarire il file e il workspace attivi.", tag: "Interfaccia" },
+          experience: { title: "Multivalori dipendenti", description: "Crea un'entità dipendente che importa l'identificatore scelto del proprietario.", tag: "Traduzione" },
+        },
+        updates: {
+          "0": "Generazione deterministica di dati nel SQL Playground con seed, quantità, anteprima, controlli e rollback atomico.",
+          "1": "Nuova strategia Dipendente: l'entità multivalore usa il proprio valore e l'identificatore scelto del proprietario.",
+          "2": "Cornice dell'editor semplificata senza controlli duplicati e pannello Note autonomo.",
+          "3": "Animazioni centralizzate con copertura prefers-reduced-motion completa.",
+          "4": "Corretta la generazione dati con identificatori composti annidati e chiavi esterne composite in ordine diverso.",
+          "5": "Corretti l'anello chiaro dell'attività attiva, gli indicatori delle righe dell'Explorer, lo sfondo dei menu di riga e il bordo della tab attiva nell'editor.",
+        },
+      },
       v7_4: {
         headline: "Attributi multivalore espandibili, export fedeli e controlli sempre a portata",
         summary: "buildER 7.4 aggiunge una terza strategia per gli attributi multivalore con cardinalità piccola e finita: li espande in attributi scalari sulla stessa entità, senza crearne di nuove. Migliora inoltre la fedeltà degli export raster e rende toolbar, overlay e controlli compatti più affidabili.",

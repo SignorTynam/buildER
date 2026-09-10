@@ -1564,6 +1564,24 @@ export const en: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_5: {
+        headline: "Deterministic data and more flexible translations",
+        summary: "buildER 7.5 brings deterministic data, dependent multivalues, and a smoother workspace.",
+        hero: { eyebrow: "New release", title: "buildER 7.5.0", subtitle: "Populate schemas, model dependencies, and work in a smoother workspace." },
+        highlights: {
+          code: { title: "Ready-to-query data", description: "Generate repeatable rows from the SQLite schema and apply them in a constraint-safe transaction.", tag: "SQL Playground" },
+          layout: { title: "Cleaner workspace", description: "Remove duplicated context and Notes controls to clarify the active file and workspace.", tag: "Interface" },
+          experience: { title: "Dependent multivalues", description: "Create a dependent entity that imports the selected owner identifier.", tag: "Translation" },
+        },
+        updates: {
+          "0": "Deterministic SQL Playground data generation with seed, row count, preview, checks, and atomic rollback.",
+          "1": "New Dependent strategy: the multivalued entity uses its own value and the selected owner identifier.",
+          "2": "Streamlined editor chrome without duplicated controls or the standalone Notes panel.",
+          "3": "Centralized motion with complete prefers-reduced-motion coverage.",
+          "4": "Fixed data generation for nested composite identifiers and reordered composite foreign keys.",
+          "5": "Fixed the light ring on the active activity, Explorer row indicators, row-menu backgrounds, and the active editor tab border.",
+        },
+      },
       v7_4: {
         headline: "Expandable multivalued attributes, faithful exports and controls always within reach",
         summary: "buildER 7.4 adds a third strategy for multivalued attributes with a small finite cardinality: it expands them into scalar attributes on the same entity, without creating new ones. It also improves raster export fidelity and makes toolbars, overlays and compact controls more reliable.",

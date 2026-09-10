@@ -1564,6 +1564,24 @@ export const sq: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_5: {
+        headline: "Të dhëna deterministe dhe përkthime më fleksibël",
+        summary: "buildER 7.5 sjell të dhëna deterministe, shumëvlera të varura dhe një hapësirë pune më të rrjedhshme.",
+        hero: { eyebrow: "Version i ri", title: "buildER 7.5.0", subtitle: "Populloni skemat, modeloni varësitë dhe punoni në një hapësirë më të rrjedhshme." },
+        highlights: {
+          code: { title: "Të dhëna gati për pyetje", description: "Gjeneroni rreshta të përsëritshëm nga skema SQLite dhe aplikojini në një transaksion që respekton kufizimet.", tag: "SQL Playground" },
+          layout: { title: "Hapësirë më e pastër", description: "Hiqni kontekstin e dyfishuar dhe kontrollet e Shënimeve për një hapësirë më të qartë.", tag: "Ndërfaqe" },
+          experience: { title: "Shumëvlera të varura", description: "Krijoni një entitet të varur që importon identifikuesin e zgjedhur të pronarit.", tag: "Përkthim" },
+        },
+        updates: {
+          "0": "Gjenerim determinist i të dhënave në SQL Playground me seed, numër rreshtash, pamje paraprake, kontrolle dhe rollback atomik.",
+          "1": "Strategji e re E varur: entiteti shumëvlerësh përdor vlerën e vet dhe identifikuesin e zgjedhur të pronarit.",
+          "2": "Ndërfaqe e thjeshtuar pa kontrolle të dyfishuar ose panelin e pavarur të Shënimeve.",
+          "3": "Lëvizje e centralizuar me mbulim të plotë për prefers-reduced-motion.",
+          "4": "U korrigjua gjenerimi për identifikuesit e përbërë të ndërthurur dhe çelësat e jashtëm të përbërë të rirenditur.",
+          "5": "U korrigjuan unaza e çelët e aktivitetit aktiv, treguesit e rreshtave të Explorer-it, sfondet e menuve të rreshtit dhe kufiri i tab-it aktiv të editorit.",
+        },
+      },
       v7_4: {
         headline: "Atribute shumëvlerëshe të zgjerueshme, eksporte besnike dhe kontrolle gjithmonë të arritshme",
         summary: "buildER 7.4 shton një strategji të tretë për atributet shumëvlerëshe me kardinalitet të vogël dhe të fundmë: i zgjeron në atribute skalarë tek i njëjti entitet, pa krijuar entitete të reja. Përmirëson gjithashtu besnikërinë e eksporteve raster dhe i bën më të besueshme shiritat e veglave, mbivendosjet dhe kontrollet kompakte.",
