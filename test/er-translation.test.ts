@@ -521,6 +521,131 @@ function createSimpleMultivaluedAttributeDiagram(
   };
 }
 
+function createDependentMultivaluedAttributeDiagram(options: {
+  cardinality?: string;
+  internalIdentifiers?: Array<{ id: string; attributeIds: string[] }>;
+  ownerExternalIdentifier?: boolean;
+} = {}): DiagramDocument {
+  const diagram = createSimpleMultivaluedAttributeDiagram("TAG", options.cardinality ?? "(0,N)");
+  const owner = getEntity(diagram, "ENTITY1");
+  owner.internalIdentifiers = options.internalIdentifiers ?? [
+    { id: "owner-pk", attributeIds: ["attr-Attribute2"] },
+  ];
+  diagram.nodes = diagram.nodes.map((node) =>
+    node.id === "attr-Attribute2" ||
+    owner.internalIdentifiers?.some((identifier) => identifier.attributeIds.includes(node.id))
+      ? { ...node, isIdentifier: node.type === "attribute" ? true : undefined }
+      : node,
+  ) as DiagramNode[];
+
+  if (!options.ownerExternalIdentifier) {
+    return diagram;
+  }
+
+  owner.internalIdentifiers = [];
+  const ownerLocalKey = diagram.nodes.find((node) => node.id === "attr-Attribute2");
+  if (ownerLocalKey?.type === "attribute") {
+    ownerLocalKey.isIdentifier = false;
+  }
+  owner.externalIdentifiers = [{
+    id: "owner-external-key",
+    importedParts: [{
+      id: "owner-root-key-part",
+      relationshipId: "OWNS_ENTITY1",
+      sourceEntityId: "ROOT",
+      importedIdentifierId: "ROOT-pk",
+    }],
+    localAttributeIds: ["attr-Attribute2"],
+  }];
+  owner.relationshipParticipations = [{
+    id: "owner-root-participation",
+    relationshipId: "OWNS_ENTITY1",
+    cardinality: "(1,1)",
+  }];
+  const root = createEntity("ROOT", "ROOT", ["root-id"]);
+  root.relationshipParticipations = [{
+    id: "root-owner-participation",
+    relationshipId: "OWNS_ENTITY1",
+    cardinality: "(0,N)",
+  }];
+  diagram.nodes.push(
+    root,
+    createAttribute("root-id", "rootId", { isIdentifier: true }),
+    { id: "OWNS_ENTITY1", type: "relationship", label: "OWNS_ENTITY1", x: 0, y: 0, width: 140, height: 70 },
+  );
+  diagram.edges.push(
+    createAttributeEdge("root-id-edge", "root-id", "ROOT"),
+    {
+      id: "root-owner-edge",
+      type: "connector",
+      sourceId: "ROOT",
+      targetId: "OWNS_ENTITY1",
+      label: "",
+      lineStyle: "solid",
+      participationId: "root-owner-participation",
+    },
+    {
+      id: "owner-root-edge",
+      type: "connector",
+      sourceId: "ENTITY1",
+      targetId: "OWNS_ENTITY1",
+      label: "",
+      lineStyle: "solid",
+      participationId: "owner-root-participation",
+    },
+  );
+  return diagram;
+}
+
+function getDependentChoice(diagram: DiagramDocument, attributeId = "attr-tag") {
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const item = buildErTranslationOverview(workspace).itemsByStep["composite-attributes"].find(
+    (candidate) => candidate.id === attributeId,
+  );
+  assert.ok(item);
+  const choice = getErTranslationChoicesForItem(workspace, item).find(
+    (candidate) => candidate.rule === "simple-multivalued-dependent",
+  );
+  assert.ok(choice);
+  return { workspace, item, choice };
+}
+
+function assertDependentTranslation(
+  diagram: DiagramDocument,
+  expectedOwnerCardinality: string,
+  expectedOwnerIdentifier: { kind: "internal" | "external"; id: string },
+) {
+  const dependent = diagram.nodes.find(
+    (node): node is EntityNode => node.type === "entity" && node.label === "TAG",
+  );
+  assert.ok(dependent);
+  const relationship = getRelationshipByLabel(diagram, "HAS_TAG");
+  const tag = getDirectEntityAttributes(diagram, dependent.id).find((attribute) => attribute.label === "TAG");
+  assert.ok(tag);
+  assert.equal(getConnectorCardinality(diagram, "ENTITY1", relationship.id), expectedOwnerCardinality);
+  assert.equal(getConnectorCardinality(diagram, dependent.id, relationship.id), "(1,1)");
+  assert.deepEqual(dependent.internalIdentifiers ?? [], []);
+  assert.equal(dependent.externalIdentifiers?.length, 1);
+  const externalIdentifier = dependent.externalIdentifiers?.[0];
+  assert.ok(externalIdentifier);
+  assert.deepEqual(externalIdentifier.localAttributeIds, [tag.id]);
+  assert.equal(externalIdentifier.importedParts.length, 1);
+  assert.equal(externalIdentifier.importedParts[0].relationshipId, relationship.id);
+  assert.equal(externalIdentifier.importedParts[0].sourceEntityId, "ENTITY1");
+  assert.equal(externalIdentifier.importedParts[0].importedIdentifierId, expectedOwnerIdentifier.id);
+  assert.equal(externalIdentifier.importedParts[0].importedIdentifierKind ?? "internal", expectedOwnerIdentifier.kind);
+  assert.equal(tag.isMultivalued, false);
+  assert.equal(tag.isCompositeInternal, false);
+  assert.equal(tag.isIdentifier, false);
+  assert.equal(tag.cardinality, undefined);
+  assert.equal(getDirectEntityAttributes(diagram, "ENTITY1").some((attribute) => attribute.id === tag.id), false);
+  assertNoDanglingReferences(diagram);
+  assert.deepEqual(
+    validateDiagram(diagram).filter((issue) => issue.level === "warning" || issue.level === "error"),
+    [],
+  );
+}
+
 function createSplitCompositeAttributeDiagram(options: {
   rootCardinality?: string;
   rootIsMultivalued?: boolean;
@@ -1389,6 +1514,166 @@ test("attributo semplice multivalore Attribute3 (1,N) mostra Fix Unique/Shared",
     choices.map((choice) => choice.rule).sort(),
     ["simple-multivalued-shared", "simple-multivalued-unique"],
   );
+});
+
+test("Dependent importa l'identificatore interno owner e preserva cardinalita e stato attributo", () => {
+  for (const cardinality of ["(0,N)", "(1,N)", "(0,7)", "(3,7)"]) {
+    const diagram = createDependentMultivaluedAttributeDiagram({ cardinality });
+    const { choice } = getDependentChoice(diagram);
+    assert.deepEqual(choice.configuration, {
+      ownerIdentifierKind: "internal",
+      ownerIdentifierId: "owner-pk",
+    });
+    assert.notEqual(choice.recommended, true);
+
+    const translated = applySimpleMultivaluedAttributeTranslation(
+      diagram,
+      "attr-tag",
+      "simple-multivalued-dependent",
+      choice.configuration,
+    );
+    assertDependentTranslation(translated, cardinality, { kind: "internal", id: "owner-pk" });
+
+    if (cardinality === "(0,7)") {
+      const choices = getErTranslationChoicesForItem(
+        createEmptyErTranslationWorkspace(diagram),
+        buildErTranslationOverview(createEmptyErTranslationWorkspace(diagram)).itemsByStep["composite-attributes"][0],
+      );
+      assert.equal(choices.some((candidate) => candidate.rule === "simple-multivalued-expanded"), true);
+    }
+  }
+});
+
+test("Dependent importa l'intero identificatore interno composto dell'owner", () => {
+  const diagram = createDependentMultivaluedAttributeDiagram({
+    internalIdentifiers: [{ id: "owner-composite-pk", attributeIds: ["attr-Attribute2", "attr-Attribute5"] }],
+  });
+  const { choice } = getDependentChoice(diagram);
+  assert.match(choice.previewLines?.[0] ?? "", /Attribute2 \+ Attribute5 \+ TAG/);
+
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-tag",
+    "simple-multivalued-dependent",
+    choice.configuration,
+  );
+  assertDependentTranslation(translated, "(0,N)", { kind: "internal", id: "owner-composite-pk" });
+});
+
+test("Dependent espone choice distinte e deterministiche per piu candidate key", () => {
+  const diagram = createDependentMultivaluedAttributeDiagram({
+    internalIdentifiers: [
+      { id: "owner-secondary-key", attributeIds: ["attr-Attribute5"] },
+      { id: "owner-primary-key", attributeIds: ["attr-Attribute2"] },
+    ],
+  });
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const item = buildErTranslationOverview(workspace).itemsByStep["composite-attributes"][0];
+  const dependentChoices = getErTranslationChoicesForItem(workspace, item).filter(
+    (choice) => choice.rule === "simple-multivalued-dependent",
+  );
+
+  assert.deepEqual(
+    dependentChoices.map((choice) => choice.configuration),
+    [
+      { ownerIdentifierKind: "internal", ownerIdentifierId: "owner-primary-key" },
+      { ownerIdentifierKind: "internal", ownerIdentifierId: "owner-secondary-key" },
+    ],
+  );
+  assert.equal(new Set(dependentChoices.map((choice) => choice.label)).size, 2);
+  assert.deepEqual(
+    getErTranslationChoicesForItem(workspace, item).filter((choice) => choice.rule === "simple-multivalued-dependent"),
+    dependentChoices,
+  );
+});
+
+test("Dependent supporta un identifier owner esterno e ne conserva il kind", () => {
+  const diagram = createDependentMultivaluedAttributeDiagram({ ownerExternalIdentifier: true });
+  const { choice } = getDependentChoice(diagram);
+  assert.deepEqual(choice.configuration, {
+    ownerIdentifierKind: "external",
+    ownerIdentifierId: "owner-external-key",
+  });
+
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-tag",
+    "simple-multivalued-dependent",
+    choice.configuration,
+  );
+  assertDependentTranslation(translated, "(0,N)", { kind: "external", id: "owner-external-key" });
+});
+
+test("Dependent non viene proposta senza identifier owner importabile e non esiste external-only", () => {
+  const diagram = createSimpleMultivaluedAttributeDiagram("TAG", "(0,N)");
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const item = buildErTranslationOverview(workspace).itemsByStep["composite-attributes"][0];
+  const choices = getErTranslationChoicesForItem(workspace, item);
+
+  assert.equal(choices.some((choice) => choice.rule === "simple-multivalued-dependent"), false);
+  assert.equal(choices.some((choice) => choice.rule === ("simple-multivalued-external-only" as never)), false);
+});
+
+test("Dependent replaya la configuration e rende esplicito un identifier owner diventato invalido", () => {
+  const diagram = createDependentMultivaluedAttributeDiagram();
+  const { workspace, item, choice } = getDependentChoice(diagram);
+  const applied = applyErTranslationChoice(diagram, workspace, choice, item.targetType, item.id);
+  assert.deepEqual(applied.translation.decisions[0].configuration, choice.configuration);
+  assert.deepEqual(applied.translation.conflicts, []);
+  assertDependentTranslation(applied.translatedDiagram, "(0,N)", { kind: "internal", id: "owner-pk" });
+
+  const replayed = refreshErTranslationWorkspace(diagram, JSON.parse(JSON.stringify(applied)) as typeof applied);
+  assert.deepEqual(replayed.translation.conflicts, []);
+  assert.deepEqual(replayed.translation.decisions[0].configuration, choice.configuration);
+
+  const changedDiagram = {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => {
+      if (node.id === "ENTITY1" && node.type === "entity") {
+        return { ...node, internalIdentifiers: [] };
+      }
+      if (node.id === "attr-Attribute2" && node.type === "attribute") {
+        return { ...node, isIdentifier: false };
+      }
+      return node;
+    }),
+  };
+  const invalid = refreshErTranslationWorkspace(changedDiagram, applied);
+  assert.equal(invalid.translation.decisions.length, 0);
+  assert.equal(invalid.translation.conflicts.length, 1);
+  assert.match(invalid.translation.conflicts[0].message, /non e piu coerente/i);
+  assert.equal(invalid.translatedDiagram.nodes.some((node) => node.type === "entity" && node.label === "TAG"), false);
+});
+
+test("Dependent gestisce collisioni di label e ID in modo deterministico", () => {
+  const diagram = createDependentMultivaluedAttributeDiagram();
+  diagram.nodes.push(
+    createEntity("TAG", "TAG"),
+    { id: "relationship-HAS_TAG", type: "relationship", label: "HAS_TAG", x: 0, y: 0, width: 120, height: 70 },
+    createEntity("TAG (2)", "ALTRO"),
+  );
+  diagram.edges.push({
+    id: "connector-ENTITY1-relationship-HAS_TAG (2)",
+    type: "attribute",
+    sourceId: "TAG",
+    targetId: "TAG (2)",
+    label: "",
+    lineStyle: "solid",
+  });
+  const { choice } = getDependentChoice(diagram);
+  const translate = () => applySimpleMultivaluedAttributeTranslation(
+    diagram,
+    "attr-tag",
+    "simple-multivalued-dependent",
+    choice.configuration,
+  );
+  const translated = translate();
+
+  assert.equal(translated.nodes.some((node) => node.type === "entity" && node.label === "TAG (2)"), true);
+  assert.equal(translated.nodes.some((node) => node.type === "relationship" && node.label === "HAS_TAG (2)"), true);
+  assert.equal(new Set(translated.nodes.map((node) => node.id)).size, translated.nodes.length);
+  assert.equal(new Set(translated.edges.map((edge) => edge.id)).size, translated.edges.length);
+  assert.deepEqual(translate(), translated);
 });
 
 test("Fix Shared su Attribute3 (1,N) crea entita e relazione con lato nuova entita (1,N)", () => {
