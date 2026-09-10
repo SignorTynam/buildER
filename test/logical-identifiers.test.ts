@@ -7,6 +7,12 @@ import { getDesignerLogicalColumnNameUnderlineLayout } from "../src/logical/Logi
 import { generateLogicalModel } from "../src/utils/logicalMapping.ts";
 import { generateLogicalSql } from "../src/utils/logicalSql.ts";
 import {
+  applyErTranslationChoice,
+  buildErTranslationOverview,
+  createEmptyErTranslationWorkspace,
+  getErTranslationChoicesForItem,
+} from "../src/utils/erTranslation.ts";
+import {
   applyBulkLogicalFix,
   applyLogicalTranslationChoice,
   buildLogicalTranslationOverview,
@@ -205,6 +211,64 @@ function createNestedExternalIdentifierDiagram(): DiagramDocument {
   };
 }
 
+function createDependentTranslationSource(compositeOwnerKey = false): DiagramDocument {
+  const ownerKeyIds = compositeOwnerKey ? ["owner-a", "owner-b"] : ["owner-a"];
+  return {
+    meta: { name: "Dependent multivalued translation", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "CON",
+        type: "entity",
+        label: "CON",
+        x: 100,
+        y: 100,
+        width: 160,
+        height: 80,
+        internalIdentifiers: [{ id: "con-pk", attributeIds: ownerKeyIds }],
+        relationshipParticipations: [],
+      },
+      { id: "owner-a", type: "attribute", label: "A", x: 0, y: 0, width: 100, height: 40, isIdentifier: true },
+      ...(compositeOwnerKey
+        ? [{ id: "owner-b", type: "attribute" as const, label: "B", x: 0, y: 50, width: 100, height: 40, isIdentifier: true }]
+        : []),
+      {
+        id: "tag",
+        type: "attribute",
+        label: "tag",
+        x: 320,
+        y: 100,
+        width: 100,
+        height: 40,
+        isIdentifier: false,
+        isCompositeInternal: false,
+        isMultivalued: false,
+        cardinality: "(0,N)",
+      },
+    ],
+    edges: [
+      { id: "owner-a-edge", type: "attribute", sourceId: "owner-a", targetId: "CON", label: "", lineStyle: "solid" },
+      ...(compositeOwnerKey
+        ? [{ id: "owner-b-edge", type: "attribute" as const, sourceId: "owner-b", targetId: "CON", label: "", lineStyle: "solid" as const }]
+        : []),
+      { id: "tag-edge", type: "attribute", sourceId: "tag", targetId: "CON", label: "", lineStyle: "solid" },
+    ],
+  };
+}
+
+function restructureDependentAttribute(diagram: DiagramDocument): DiagramDocument {
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const item = buildErTranslationOverview(workspace).itemsByStep["composite-attributes"].find(
+    (candidate) => candidate.id === "tag",
+  );
+  assert.ok(item);
+  const choice = getErTranslationChoicesForItem(workspace, item).find(
+    (candidate) => candidate.rule === "simple-multivalued-dependent",
+  );
+  assert.ok(choice);
+  return applyErTranslationChoice(diagram, workspace, choice, item.targetType, item.id).translatedDiagram;
+}
+
 function applyEntityChoiceByKeySource(
   diagram: DiagramDocument,
   workspace: ReturnType<typeof createEmptyLogicalWorkspace>,
@@ -286,6 +350,47 @@ test("logical translation: nested external mixed identifiers produce complete co
     new Set(corso.columns.filter((column) => column.isPrimaryKey).map((column) => column.id)),
   );
   assert.deepEqual(model.issues.filter((issue) => issue.level === "warning" || issue.level === "error"), []);
+});
+
+test("logical translation: Dependent restructuring maps owner key plus local value to composite PK/FK", () => {
+  for (const compositeOwnerKey of [false, true]) {
+    const diagram = restructureDependentAttribute(createDependentTranslationSource(compositeOwnerKey));
+    const owner = diagram.nodes.find((node) => node.type === "entity" && node.label === "CON");
+    const dependent = diagram.nodes.find((node) => node.type === "entity" && node.label === "TAG");
+    assert.ok(owner?.type === "entity");
+    assert.ok(dependent?.type === "entity");
+    const dependentKey = dependent.externalIdentifiers?.[0];
+    assert.ok(dependentKey);
+
+    let workspace = createEmptyLogicalWorkspace(diagram);
+    workspace = applyEntityChoiceByKeySource(diagram, workspace, dependent.id, dependentKey.id);
+    workspace = applyEntityChoiceByKeySource(diagram, workspace, owner.id, "con-pk");
+
+    const ownerTable = getTable(workspace.model, "CON");
+    const dependentTable = getTable(workspace.model, "TAG");
+    const expectedOwnerColumns = compositeOwnerKey ? ["A", "B"] : ["A"];
+    assert.deepEqual(primaryKeyColumnNames(ownerTable), expectedOwnerColumns);
+    assert.equal(primaryKeyColumnNames(dependentTable).length, expectedOwnerColumns.length + 1);
+    assert.equal(primaryKeyColumnNames(dependentTable).includes("tag"), true);
+
+    const foreignKey = workspace.model.foreignKeys.find(
+      (candidate) => candidate.fromTableId === dependentTable.id && candidate.toTableId === ownerTable.id,
+    );
+    assert.ok(foreignKey);
+    assert.equal(foreignKey.mappings.length, expectedOwnerColumns.length);
+    assert.deepEqual(
+      new Set(foreignKey.mappings.map((mapping) => mapping.fromColumnId)),
+      new Set(dependentTable.columns.filter((column) => column.isPrimaryKey && column.name !== "tag").map((column) => column.id)),
+    );
+    assert.deepEqual(
+      new Set(foreignKey.mappings.map((mapping) => mapping.toColumnId)),
+      new Set(ownerTable.columns.filter((column) => column.isPrimaryKey).map((column) => column.id)),
+    );
+    assert.deepEqual(
+      workspace.model.issues.filter((issue) => issue.level === "warning" || issue.level === "error"),
+      [],
+    );
+  }
 });
 
 test("logical translation: two simple internal identifiers can choose the second identifier as PK", () => {

@@ -84,9 +84,10 @@ function getChoiceOrder(choice: ErTranslationChoice): number {
     "generalization-substitution": 3,
     "composite-split": 1,
     "composite-merge": 2,
-    "simple-multivalued-unique": 1,
-    "simple-multivalued-shared": 2,
-    "simple-multivalued-expanded": 3,
+    "simple-multivalued-shared": 1,
+    "simple-multivalued-dependent": 2,
+    "simple-multivalued-unique": 3,
+    "simple-multivalued-expanded": 4,
   };
   return order[choice.rule] ?? 99;
 }
@@ -109,6 +110,9 @@ function getChoiceIcon(choice: ErTranslationChoice): StudioIconName {
   }
   if (choice.rule === "simple-multivalued-shared") {
     return "merge";
+  }
+  if (choice.rule === "simple-multivalued-dependent") {
+    return "mixedId";
   }
   if (choice.rule === "simple-multivalued-expanded") {
     return "split";
@@ -249,6 +253,8 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
               active={fixOpen}
               disabled={fixDisabled}
               title={fixTitle}
+              ariaHasPopup="menu"
+              ariaExpanded={fixOpen}
               onClick={() => setFixOpen((value) => !value)}
             />
           ) : null}
@@ -300,7 +306,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
         ) : null}
 
         {!readOnly && fixOpen && selectedItem ? (
-          <div className="designer-fix-popover" aria-label="Fix options">
+          <div className="designer-fix-popover" role="menu" aria-label={t("translation.restructuring.fixOptions")}>
             {selectedChoices.map((choice) => {
               const disabled = selectedItem.status === "blocked" || Boolean(choice.disabledReason);
               return (
@@ -308,6 +314,7 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                   key={choice.id}
                   type="button"
                   className={choice.recommended ? "designer-fix-choice recommended" : "designer-fix-choice"}
+                  role="menuitem"
                   disabled={disabled}
                   title={choice.disabledReason ?? choice.warning ?? choice.description}
                   onClick={() => {
@@ -319,8 +326,14 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
                     <StudioIcon name={getChoiceIcon(choice)} aria-hidden="true" />
                   </span>
                   <span className="designer-fix-choice-main">
-                    <span className="designer-fix-choice-label">{choice.label}</span>
-                    {choice.recommended ? <span className="designer-fix-badge">{t("translation.restructuring.recommended")}</span> : null}
+                    <span className="designer-fix-choice-heading">
+                      <span className="designer-fix-choice-label">{choice.label}</span>
+                      {choice.recommended ? <span className="designer-fix-badge">{t("translation.restructuring.recommended")}</span> : null}
+                    </span>
+                    <span className="designer-fix-choice-description">{choice.description}</span>
+                    {choice.previewLines?.map((line) => (
+                      <span key={line} className="designer-fix-choice-preview">{line}</span>
+                    ))}
                     {choice.warning && !choice.disabledReason ? <span className="designer-fix-warning">{choice.warning}</span> : null}
                     {choice.disabledReason ? <span className="designer-fix-disabled-reason">{choice.disabledReason}</span> : null}
                   </span>

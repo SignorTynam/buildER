@@ -213,6 +213,49 @@ test("il formato .ersp conserva la decisione Espandi nell'entita nel round-trip"
   );
 });
 
+test("il formato .ersp conserva rule, configuration e mixed identifier di Dependent", () => {
+  const diagram = createExpandedMultivaluedDiagram();
+  const workspace = createEmptyErTranslationWorkspace(diagram);
+  const item = buildErTranslationOverview(workspace).itemsByStep["composite-attributes"].find(
+    (candidate) => candidate.id === "telefono",
+  );
+  assert.ok(item);
+  const choice = getErTranslationChoicesForItem(workspace, item).find(
+    (candidate) => candidate.rule === "simple-multivalued-dependent",
+  );
+  assert.ok(choice);
+  const translationWorkspace = applyErTranslationChoice(diagram, workspace, choice, "attribute", item.id);
+  const serialized = serializeProjectFile({
+    diagram,
+    translationWorkspace,
+    logicalWorkspace: createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
+    logicalGenerated: false,
+    logicalStage: "translation",
+    diagramView: "translation",
+    viewport: DEFAULT_VIEWPORT,
+    translationViewport: DEFAULT_VIEWPORT,
+    logicalViewport: DEFAULT_VIEWPORT,
+    savedAt: "2026-09-10T10:00:00.000Z",
+  });
+  const restored = parseProjectFile(serialized, {
+    fallbackViewport: DEFAULT_VIEWPORT,
+    fallbackDiagramView: "er",
+  }).state.translationWorkspace;
+
+  assert.deepEqual(restored.translation.conflicts, []);
+  assert.equal(restored.translation.decisions[0].rule, "simple-multivalued-dependent");
+  assert.deepEqual(restored.translation.decisions[0].configuration, {
+    ownerIdentifierKind: "internal",
+    ownerIdentifierId: "entity-persona-pk",
+  });
+  const dependent = restored.translatedDiagram.nodes.find(
+    (node) => node.type === "entity" && node.label === "TELEFONO",
+  );
+  assert.ok(dependent?.type === "entity");
+  assert.deepEqual(dependent.externalIdentifiers?.[0]?.localAttributeIds, ["telefono"]);
+  assert.equal(dependent.externalIdentifiers?.[0]?.importedParts[0]?.importedIdentifierId, "entity-persona-pk");
+});
+
 test("un progetto .ersp salvato prima della terza strategia continua ad aprirsi", () => {
   const diagram = createExpandedMultivaluedDiagram();
   const workspace = createEmptyErTranslationWorkspace(diagram);

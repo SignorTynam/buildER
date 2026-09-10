@@ -26,6 +26,7 @@ import type {
 import {
   getPreferredNodeSizeForLabel,
   normalizeGeneralizationGroups,
+  resolveEntityIdentifierParts,
   synchronizeEntityRelationshipParticipations,
   synchronizeExternalIdentifiers,
   synchronizeInternalIdentifiers,
@@ -69,6 +70,12 @@ interface TranslationOverviewInternal extends ErTranslationOverview {
 interface TranslationApplyResult {
   diagram: DiagramDocument;
   artifacts: ErTranslationArtifactRef[];
+}
+
+interface OwnerIdentifierCandidate {
+  kind: "internal" | "external";
+  id: string;
+  label: string;
 }
 
 const ER_TRANSLATION_STEP_DEFS: Array<{
@@ -540,6 +547,54 @@ function getSimpleMultivaluedAttributes(diagram: DiagramDocument): AttributeNode
       (node): node is AttributeNode =>
         node.type === "attribute" && isSimpleMultivaluedAttribute(node, ownership),
     ),
+  );
+}
+
+function getImportableOwnerIdentifiers(
+  diagram: DiagramDocument,
+  owner: EntityNode,
+): OwnerIdentifierCandidate[] {
+  const candidates: OwnerIdentifierCandidate[] = [];
+  const addCandidate = (kind: OwnerIdentifierCandidate["kind"], id: string) => {
+    const resolved = resolveEntityIdentifierParts(diagram, owner.id, kind, id);
+    if (!resolved.valid) {
+      return;
+    }
+
+    candidates.push({
+      kind,
+      id,
+      label: resolved.parts.map((part) => part.attribute.label).join(" + "),
+    });
+  };
+
+  (owner.internalIdentifiers ?? []).forEach((identifier) => addCandidate("internal", identifier.id));
+  (owner.externalIdentifiers ?? []).forEach((identifier) => addCandidate("external", identifier.id));
+
+  return candidates.sort((left, right) => {
+    const byKind = left.kind.localeCompare(right.kind);
+    if (byKind !== 0) {
+      return byKind;
+    }
+
+    const byLabel = left.label.localeCompare(right.label, "it", { sensitivity: "base" });
+    return byLabel !== 0 ? byLabel : left.id.localeCompare(right.id);
+  });
+}
+
+function getConfiguredOwnerIdentifier(
+  diagram: DiagramDocument,
+  owner: EntityNode,
+  configuration: ErTranslationDecision["configuration"],
+): OwnerIdentifierCandidate | undefined {
+  const kind = configuration?.ownerIdentifierKind;
+  const id = configuration?.ownerIdentifierId;
+  if ((kind !== "internal" && kind !== "external") || typeof id !== "string") {
+    return undefined;
+  }
+
+  return getImportableOwnerIdentifiers(diagram, owner).find(
+    (candidate) => candidate.kind === kind && candidate.id === id,
   );
 }
 
@@ -1372,7 +1427,11 @@ function applyExpandSimpleMultivaluedAttributeTranslationDetailed(
 function applySimpleMultivaluedAttributeTranslationDetailed(
   diagram: DiagramDocument,
   attributeId: string,
-  rule: Extract<ErTranslationRuleKind, "simple-multivalued-unique" | "simple-multivalued-shared">,
+  rule: Extract<
+    ErTranslationRuleKind,
+    "simple-multivalued-unique" | "simple-multivalued-shared" | "simple-multivalued-dependent"
+  >,
+  configuration?: ErTranslationDecision["configuration"],
 ): TranslationApplyResult {
   const working = cloneDiagram(diagram);
   if (buildGeneralizationHierarchies(working).length > 0) {
@@ -1389,6 +1448,14 @@ function applySimpleMultivaluedAttributeTranslationDetailed(
   const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
   if (owner?.type !== "entity") {
     throw new Error(`L'attributo multivalore semplice "${attribute.label}" non e collegato direttamente a un'entita.`);
+  }
+
+  const ownerIdentifier =
+    rule === "simple-multivalued-dependent"
+      ? getConfiguredOwnerIdentifier(working, owner, configuration)
+      : undefined;
+  if (rule === "simple-multivalued-dependent" && !ownerIdentifier) {
+    throw new Error(`L'identificatore owner configurato per "${attribute.label}" non e piu disponibile.`);
   }
 
   const normalizedCardinality = normalizeCardinalityInput(attribute.cardinality);
@@ -1411,6 +1478,23 @@ function applySimpleMultivaluedAttributeTranslationDetailed(
   const usedParticipationIds = new Set(
     working.nodes.flatMap((node) =>
       node.type === "entity" ? (node.relationshipParticipations ?? []).map((participation) => participation.id) : [],
+    ),
+  );
+  const usedIdentifierIds = new Set(
+    working.nodes.flatMap((node) =>
+      node.type === "entity"
+        ? [
+            ...(node.internalIdentifiers ?? []).map((identifier) => identifier.id),
+            ...(node.externalIdentifiers ?? []).map((identifier) => identifier.id),
+          ]
+        : [],
+    ),
+  );
+  const usedImportedPartIds = new Set(
+    working.nodes.flatMap((node) =>
+      node.type === "entity"
+        ? (node.externalIdentifiers ?? []).flatMap((identifier) => identifier.importedParts.map((part) => part.id))
+        : [],
     ),
   );
 
@@ -1438,6 +1522,18 @@ function applySimpleMultivaluedAttributeTranslationDetailed(
   );
   const placement = findSimpleMultivaluedPlacement(working, owner, attribute, entityLabel, relationshipLabel);
   const targetCardinality = rule === "simple-multivalued-shared" ? "(1,N)" : "(1,1)";
+  const localIdentifierId = allocateUniqueId(usedIdentifierIds, `${entityId}-pk`, "identifier");
+  const externalIdentifierId = allocateUniqueId(
+    usedIdentifierIds,
+    `${entityId}-owner-value-key`,
+    "external-identifier",
+  );
+  const importedPartId = allocateUniqueId(
+    usedImportedPartIds,
+    `${entityId}-${relationshipId}-owner-key-part`,
+    "external-identifier-part",
+  );
+  const dependent = rule === "simple-multivalued-dependent";
 
   const newEntity: EntityNode = {
     id: entityId,
@@ -1448,13 +1544,31 @@ function applySimpleMultivaluedAttributeTranslationDetailed(
     width: placement.entity.width,
     height: placement.entity.height,
     isWeak: false,
-    internalIdentifiers: [
-      {
-        id: `${entityId}-pk`,
-        attributeIds: [attribute.id],
-      },
-    ],
-    externalIdentifiers: [],
+    internalIdentifiers: dependent
+      ? []
+      : [
+          {
+            id: localIdentifierId,
+            attributeIds: [attribute.id],
+          },
+        ],
+    externalIdentifiers: dependent && ownerIdentifier
+      ? [
+          {
+            id: externalIdentifierId,
+            importedParts: [
+              {
+                id: importedPartId,
+                relationshipId,
+                sourceEntityId: owner.id,
+                importedIdentifierId: ownerIdentifier.id,
+                ...(ownerIdentifier.kind === "external" ? { importedIdentifierKind: "external" as const } : {}),
+              },
+            ],
+            localAttributeIds: [attribute.id],
+          },
+        ]
+      : [],
     relationshipParticipations: [
       {
         id: attributeEntityParticipationId,
@@ -1496,7 +1610,7 @@ function applySimpleMultivaluedAttributeTranslationDetailed(
           y: placement.attribute.y,
           width: placement.attribute.width,
           height: placement.attribute.height,
-          isIdentifier: true,
+          isIdentifier: !dependent,
           isCompositeInternal: false,
           isMultivalued: false,
           cardinality: undefined,
@@ -2372,7 +2486,12 @@ function buildCompositeChoices(attribute: AttributeNode, ownerLabel: string): Tr
   ];
 }
 
-function buildSimpleMultivaluedAttributeChoices(attribute: AttributeNode, ownerLabel: string): TranslationChoiceRecord[] {
+function buildSimpleMultivaluedAttributeChoices(
+  diagram: DiagramDocument,
+  attribute: AttributeNode,
+  owner: EntityNode | undefined,
+): TranslationChoiceRecord[] {
+  const ownerLabel = owner?.label ?? "owner";
   const expansionPlan = getSimpleMultivaluedExpansionPlan(attribute.cardinality);
   const expandedChoices: TranslationChoiceRecord[] = expansionPlan
     ? [
@@ -2404,18 +2523,46 @@ function buildSimpleMultivaluedAttributeChoices(attribute: AttributeNode, ownerL
       ]
     : [];
 
-  return [
-    {
-      id: `simple-multivalued-unique-${attribute.id}`,
-      targetType: "attribute",
-      targetId: attribute.id,
-      step: "composite-attributes",
-      rule: "simple-multivalued-unique",
-      label: t("translation.simpleMultivalued.unique.label"),
-      description: t("translation.simpleMultivalued.unique.description", { name: attribute.label, owner: ownerLabel }),
-      summary: t("translation.simpleMultivalued.unique.summary", { name: attribute.label }),
-      previewLines: [t("translation.simpleMultivalued.unique.preview")],
+  const ownerIdentifiers = owner ? getImportableOwnerIdentifiers(diagram, owner) : [];
+  const dependentChoices: TranslationChoiceRecord[] = ownerIdentifiers.map((identifier) => ({
+    id: `simple-multivalued-dependent-${attribute.id}-${identifier.kind}-${identifier.id}`,
+    targetType: "attribute",
+    targetId: attribute.id,
+    step: "composite-attributes",
+    rule: "simple-multivalued-dependent",
+    label:
+      ownerIdentifiers.length === 1
+        ? t("translation.simpleMultivalued.dependent.label")
+        : t("translation.simpleMultivalued.dependent.labelWithIdentifier", {
+            identifier: t(
+              identifier.kind === "external"
+                ? "translation.simpleMultivalued.dependent.externalIdentifier"
+                : "translation.simpleMultivalued.dependent.internalIdentifier",
+              { identifier: identifier.label },
+            ),
+          }),
+    description: t("translation.simpleMultivalued.dependent.description", {
+      name: attribute.label,
+      owner: ownerLabel,
+    }),
+    summary: t("translation.simpleMultivalued.dependent.summary", {
+      name: attribute.label,
+      owner: ownerLabel,
+      identifier: identifier.label,
+    }),
+    previewLines: [
+      t("translation.simpleMultivalued.dependent.preview", {
+        identifier: identifier.label,
+        name: attribute.label,
+      }),
+    ],
+    configuration: {
+      ownerIdentifierKind: identifier.kind,
+      ownerIdentifierId: identifier.id,
     },
+  }));
+
+  return [
     {
       id: `simple-multivalued-shared-${attribute.id}`,
       targetType: "attribute",
@@ -2426,6 +2573,18 @@ function buildSimpleMultivaluedAttributeChoices(attribute: AttributeNode, ownerL
       description: t("translation.simpleMultivalued.shared.description", { name: attribute.label, owner: ownerLabel }),
       summary: t("translation.simpleMultivalued.shared.summary", { name: attribute.label }),
       previewLines: [t("translation.simpleMultivalued.shared.preview")],
+    },
+    ...dependentChoices,
+    {
+      id: `simple-multivalued-unique-${attribute.id}`,
+      targetType: "attribute",
+      targetId: attribute.id,
+      step: "composite-attributes",
+      rule: "simple-multivalued-unique",
+      label: t("translation.simpleMultivalued.unique.label"),
+      description: t("translation.simpleMultivalued.unique.description", { name: attribute.label, owner: ownerLabel }),
+      summary: t("translation.simpleMultivalued.unique.summary", { name: attribute.label }),
+      previewLines: [t("translation.simpleMultivalued.unique.preview")],
     },
     ...expandedChoices,
   ];
@@ -2499,7 +2658,11 @@ function createTranslationItemsByStep(
     const ownerId = ownership.parentByAttributeId.get(attribute.id) as string | undefined;
     const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
     const ownerLabel = owner?.label ?? "owner";
-    const choices = buildSimpleMultivaluedAttributeChoices(attribute, ownerLabel);
+    const choices = buildSimpleMultivaluedAttributeChoices(
+      translatedDiagram,
+      attribute,
+      owner?.type === "entity" ? owner : undefined,
+    );
     choices.forEach((choice) =>
       choicesByKey.set(
         buildChoiceKey(choice.targetType, choice.targetId, choice.rule, choice.configuration),
@@ -2601,11 +2764,16 @@ function applyDecisionToDiagram(
     return applyExpandSimpleMultivaluedAttributeTranslationDetailed(diagram, decision.targetId);
   }
 
-  if (decision.rule === "simple-multivalued-unique" || decision.rule === "simple-multivalued-shared") {
+  if (
+    decision.rule === "simple-multivalued-unique" ||
+    decision.rule === "simple-multivalued-shared" ||
+    decision.rule === "simple-multivalued-dependent"
+  ) {
     return applySimpleMultivaluedAttributeTranslationDetailed(
       diagram,
       decision.targetId,
       decision.rule,
+      decision.configuration,
     );
   }
 
@@ -2654,7 +2822,20 @@ export function refreshErTranslationWorkspace(
     previousSourceSignature &&
     previousSourceSignature !== baseWorkspace.translation.meta.sourceSignature
   ) {
-    return baseWorkspace;
+    const overview = createTranslationItemsByStep(baseWorkspace);
+    const invalidDependentConflicts = (workspace?.translation.decisions ?? [])
+      .filter((decision) => decision.rule === "simple-multivalued-dependent")
+      .map((decision) => validateDecisionAgainstOverview(decision, overview))
+      .filter((conflict): conflict is ErTranslationConflict => conflict !== null);
+    return invalidDependentConflicts.length > 0
+      ? {
+          ...baseWorkspace,
+          translation: {
+            ...baseWorkspace.translation,
+            conflicts: invalidDependentConflicts,
+          },
+        }
+      : baseWorkspace;
   }
 
   const previousDiagram = workspace?.translatedDiagram;
@@ -2869,14 +3050,18 @@ export function applySimpleMultivaluedAttributeTranslation(
   attributeId: string,
   strategy: Extract<
     ErTranslationRuleKind,
-    "simple-multivalued-unique" | "simple-multivalued-shared" | "simple-multivalued-expanded"
+    | "simple-multivalued-unique"
+    | "simple-multivalued-shared"
+    | "simple-multivalued-dependent"
+    | "simple-multivalued-expanded"
   >,
+  configuration?: ErTranslationDecision["configuration"],
 ): DiagramDocument {
   if (strategy === "simple-multivalued-expanded") {
     return applyExpandSimpleMultivaluedAttributeTranslationDetailed(diagram, attributeId).diagram;
   }
 
-  return applySimpleMultivaluedAttributeTranslationDetailed(diagram, attributeId, strategy).diagram;
+  return applySimpleMultivaluedAttributeTranslationDetailed(diagram, attributeId, strategy, configuration).diagram;
 }
 
 export const ER_TRANSLATION_STEPS = ER_TRANSLATION_STEP_DEFS;
