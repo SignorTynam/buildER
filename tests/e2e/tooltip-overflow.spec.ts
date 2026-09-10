@@ -69,8 +69,13 @@ test("the tooltip still shows on hover and stays announceable while hidden", asy
 
   // Da nascosto: fuori dal layout ma ancora risolvibile da aria-describedby,
   // che e il motivo per cui il nodo non viene smontato.
+  //
+  // L'ancora e il comando zoom dell'HUD del canvas: uno dei pochi punti che
+  // usa la forma funzione di `Tooltip`, quella che riporta `aria-describedby`
+  // sul controllo. Prima serviva "Mostra in Explorer" della barra di contesto,
+  // sparita quando la barra e diventata di sole azioni della vista.
   const hidden = await page.evaluate(() => {
-    const button = document.querySelector<HTMLElement>(".editor-context-button");
+    const button = document.querySelector<HTMLElement>(".canvas-hud-zoom");
     if (!button) throw new Error("pulsante con tooltip assente");
     const id = button.getAttribute("aria-describedby");
     const target = id ? document.getElementById(id) : null;
@@ -85,7 +90,7 @@ test("the tooltip still shows on hover and stays announceable while hidden", asy
   expect(hidden.display).toBe("none");
   expect(hidden.text, "il testo annunciato dal tooltip e sparito").not.toBe("");
 
-  const anchor = page.locator(".editor-context-button").locator("xpath=..");
+  const anchor = page.locator(".canvas-hud-zoom").locator("xpath=..");
   await anchor.hover();
 
   const tooltip = page.locator(".ui-tooltip", { hasText: hidden.text }).first();

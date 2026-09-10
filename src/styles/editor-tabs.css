@@ -43,9 +43,14 @@
   color: var(--color-text-primary);
 }
 
+/*
+ * L'indicatore della tab attiva sta sul bordo basso, non su quello alto: e il
+ * lato che confina con l'editor, quindi la linea lega la tab al contenuto
+ * invece di tagliare il confine con l'header.
+ */
 .project-file-tab.active::before {
-  top: 0;
-  bottom: auto;
+  top: auto;
+  bottom: 0;
   height: 2px;
   background: var(--color-accent);
 }
