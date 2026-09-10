@@ -46,6 +46,7 @@ test("opens, edits, exports, restores, and reverse-engineers a real SQLite datab
     buffer: sqliteBytes,
   });
   await expect(page.locator(".database-workspace")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".database-workspace").getByRole("button", { name: "Genera dati", exact: true })).toHaveCount(0);
   await expect(page.getByText("Database pronto", { exact: true })).toBeVisible();
   await expect(page.locator(".project-file-tab.active")).toContainText("Database");
 

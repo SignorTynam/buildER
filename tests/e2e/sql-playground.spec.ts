@@ -27,6 +27,131 @@ async function openPlaygroundFromPalette(page: Page): Promise<void> {
   await expect(page.locator(".sql-playground-workspace")).toBeVisible();
 }
 
+test("plans, previews, applies, repeats, and safely recreates deterministic sample data", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await bootProject(page);
+  await openPlaygroundFromPalette(page);
+  await page.getByRole("button", { name: "Crea database", exact: true }).click();
+  await expect(page.getByText("Database pronto", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.screenshot({ path: "output/playwright/sql-population-after-command-bar-desktop.png" });
+
+  const generateData = page.getByRole("button", { name: "Genera dati", exact: true });
+  await expect(generateData).toBeEnabled();
+  await generateData.click();
+  let dialog = page.getByRole("dialog", { name: "Genera dati" });
+  await expect(dialog.getByLabel("Righe per tabella")).toHaveValue("20");
+  await expect(dialog.getByLabel("Seed")).toHaveValue("42");
+  await dialog.getByLabel("Righe per tabella").fill("0");
+  await dialog.getByLabel("Seed").fill("4294967296");
+  await dialog.getByRole("button", { name: "Genera anteprima", exact: true }).click();
+  await expect(dialog.getByText("Inserisci un numero intero da 1 a 100.", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Inserisci un intero unsigned da 0 a 4294967295.", { exact: true })).toBeVisible();
+  await dialog.getByLabel("Righe per tabella").fill("20");
+  await dialog.getByLabel("Seed").fill("42");
+  await page.screenshot({ path: "output/playwright/sql-population-dialog-config-desktop.png" });
+  await dialog.getByRole("button", { name: "Genera anteprima", exact: true }).click();
+  await expect(dialog.getByText("Righe totali")).toBeVisible({ timeout: 20_000 });
+  await expect(dialog.getByRole("row", { name: /STUDENT 20 20/ })).toBeVisible();
+  await expect(dialog.getByRole("row", { name: /COURSE 20 20/ })).toBeVisible();
+  await expect(dialog.getByRole("row", { name: /ENROLLMENT 20 20/ })).toBeVisible();
+  const firstPreview = await dialog.getByLabel("Anteprima SQL del dataset generato").textContent();
+  expect(firstPreview).toContain("BEGIN IMMEDIATE;");
+  expect(firstPreview).toContain('INSERT INTO "STUDENT"');
+  await page.screenshot({ path: "output/playwright/sql-population-preview-desktop.png" });
+  await dialog.getByRole("button", { name: "Genera e inserisci", exact: true }).click();
+  await expect(dialog.getByText("Dati generati", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(dialog.getByText(/Inserite 60 righe in 3 tabelle/)).toBeVisible();
+  await page.screenshot({ path: "output/playwright/sql-population-success-desktop.png" });
+  await dialog.locator(".ui-modal__footer").getByRole("button", { name: "Chiudi", exact: true }).click();
+
+  await page.getByRole("button", { name: "SQL Explorer", exact: true }).click();
+  const explorer = page.locator(".sql-explorer-panel");
+  await expect(explorer).toBeVisible();
+  await explorer.getByRole("treeitem", { name: /^Tabelle \(3\)/ }).click();
+  await expect(explorer.getByRole("treeitem", { name: /^STUDENT/ })).toBeVisible();
+  await expect(explorer.getByRole("treeitem", { name: /^COURSE/ })).toBeVisible();
+  await expect(explorer.getByRole("treeitem", { name: /^ENROLLMENT/ })).toBeVisible();
+  await explorer.locator(".workspace-panel__close").click();
+
+  const editor = page.getByRole("textbox", { name: "Editor query SQL" });
+  await editor.fill(`SELECT COUNT(*) AS total FROM "STUDENT";`);
+  await editor.press("Control+Enter");
+  await expect(page.getByRole("cell", { name: "20", exact: true })).toBeVisible();
+  await editor.fill(`SELECT s.name, c.title
+FROM "ENROLLMENT" e
+JOIN "STUDENT" s ON s.id = e.student_id
+JOIN "COURSE" c ON c.id = e.course_id
+ORDER BY s.id, c.id
+LIMIT 1;`);
+  await editor.press("Control+Enter");
+  await expect(page.getByRole("columnheader", { name: "name", exact: true })).toBeVisible();
+  const firstGeneratedRow = await page.locator(".sql-playground-result tbody tr").first().textContent();
+  expect(firstGeneratedRow).toBeTruthy();
+
+  await generateData.click();
+  dialog = page.getByRole("dialog", { name: "Genera dati" });
+  await dialog.getByRole("button", { name: "Genera anteprima", exact: true }).click();
+  await expect(dialog.getByText("Il database contiene dati o modifiche", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.screenshot({ path: "output/playwright/sql-population-destructive-reset-desktop.png" });
+  await dialog.getByRole("button", { name: "Annulla", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await editor.fill(`SELECT COUNT(*) AS total FROM "STUDENT";`);
+  await editor.press("Control+Enter");
+  await expect(page.getByRole("cell", { name: "20", exact: true })).toBeVisible();
+
+  await generateData.click();
+  dialog = page.getByRole("dialog", { name: "Genera dati" });
+  await dialog.getByRole("button", { name: "Genera anteprima", exact: true }).click();
+  await expect(dialog.getByText("Il database contiene dati o modifiche", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await dialog.getByRole("button", { name: "Ricrea database e genera dati", exact: true }).click();
+  await expect(dialog.getByText("Dati generati", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await dialog.locator(".ui-modal__footer").getByRole("button", { name: "Chiudi", exact: true }).click();
+  await editor.fill(`SELECT s.name, c.title
+FROM "ENROLLMENT" e
+JOIN "STUDENT" s ON s.id = e.student_id
+JOIN "COURSE" c ON c.id = e.course_id
+ORDER BY s.id, c.id
+LIMIT 1;`);
+  await editor.press("Control+Enter");
+  await expect(page.getByRole("columnheader", { name: "name", exact: true })).toBeVisible();
+  await expect(page.locator(".sql-playground-result tbody tr").first()).toHaveText(firstGeneratedRow!);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Scarica database", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("university.sqlite");
+  const stream = await download.createReadStream();
+  let byteLength = 0;
+  for await (const chunk of stream) byteLength += chunk.length;
+  expect(byteLength).toBeGreaterThan(100);
+});
+
+test("cancelling population reset preserves manually inserted data", async ({ page }) => {
+  test.setTimeout(120_000);
+  await bootProject(page);
+  await openPlaygroundFromPalette(page);
+  await page.getByRole("button", { name: "Crea database", exact: true }).click();
+  await expect(page.getByText("Database pronto", { exact: true })).toBeVisible({ timeout: 20_000 });
+
+  const editor = page.getByRole("textbox", { name: "Editor query SQL" });
+  await editor.fill(`INSERT INTO "STUDENT" ("id", "name") VALUES (1, 'Ada');`);
+  await editor.press("Control+Enter");
+  await expect(page.getByText("1 istruzioni eseguite", { exact: true })).toBeVisible();
+  await expect(page.getByText("Righe modificate", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Genera dati", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Genera dati" });
+  await dialog.getByRole("button", { name: "Genera anteprima", exact: true }).click();
+  await expect(dialog.getByText("Il database contiene dati o modifiche", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await dialog.getByRole("button", { name: "Annulla", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await editor.fill(`SELECT name FROM "STUDENT" WHERE name = 'Ada';`);
+  await editor.press("Control+Enter");
+  await expect(page.getByRole("cell", { name: "Ada", exact: true })).toBeVisible();
+});
+
 test("runs real SQLite WASM, reports results and constraints, exports, and reopens the session", async ({ page }) => {
   test.setTimeout(60_000);
   await bootProject(page);
@@ -188,7 +313,61 @@ INSERT INTO "STUDENT" ("id", "name") VALUES (3, 'Mira');`);
   expect(axe.violations).toEqual([]);
 });
 
-test("remains contained across supported viewports and passes the existing WCAG A/AA scan", async ({ page }) => {
+test("population dialog remains contained across required viewports and passes WCAG A/AA", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await bootProject(page);
+  await openPlaygroundFromPalette(page);
+  await page.getByRole("button", { name: "Crea database", exact: true }).click();
+  await expect(page.getByText("Database pronto", { exact: true })).toBeVisible({ timeout: 20_000 });
+  const workspace = page.locator(".sql-playground-workspace");
+  await page.getByRole("button", { name: "Genera dati", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Genera dati" });
+  const requiredViewports = [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+    { width: 360, height: 800 },
+  ];
+  for (const viewport of requiredViewports) {
+    await page.setViewportSize(viewport);
+    await expect(workspace).toBeVisible();
+    await expect(dialog.getByLabel("Righe per tabella")).toBeVisible();
+    await expect(dialog.getByLabel("Seed")).toBeVisible();
+    await expect(dialog.locator(".ui-modal__footer")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await dialog.getByRole("button", { name: "Genera anteprima", exact: true }).click();
+  await expect(dialog.getByLabel("Anteprima SQL del dataset generato")).toBeVisible({ timeout: 20_000 });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+    { width: 360, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(workspace).toBeVisible();
+    await expect(dialog.getByLabel("Anteprima SQL del dataset generato")).toBeVisible();
+    await expect(dialog.locator(".ui-modal__footer")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await workspace.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    expect(await dialog.getByLabel("Anteprima SQL del dataset generato").evaluate((element) => getComputedStyle(element).overflowX)).toBe("auto");
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "output/playwright/sql-population-preview-mobile-390x844.png" });
+  const results = await new AxeBuilder({ page })
+    .include(".sql-playground-workspace")
+    .include(".sql-population-dialog")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test("SQL Explorer remains contained across supported viewports and passes the existing WCAG A/AA scan", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await bootProject(page);

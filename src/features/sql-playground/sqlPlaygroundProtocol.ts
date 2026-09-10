@@ -1,8 +1,17 @@
+import type {
+  SqlPopulationApplyResult,
+  SqlPopulationConfig,
+  SqlPopulationErrorCode,
+  SqlPopulationPlanPreview,
+} from "./sqlDataPopulationTypes";
+
 export type SqlPlaygroundOperation =
   | "initialize"
   | "create-schema"
   | "open-database"
   | "execute"
+  | "plan-population"
+  | "apply-population"
   | "inspect-schema"
   | "reverse-database"
   | "restore-database"
@@ -36,6 +45,8 @@ export interface SqlPlaygroundErrorPayload {
   message: string;
   statementIndex?: number;
   technicalDetail?: string;
+  code?: SqlPopulationErrorCode;
+  context?: Record<string, string | number>;
   recoverable: boolean;
 }
 
@@ -44,6 +55,8 @@ export type SqlPlaygroundRequestPayload =
   | { type: "create-schema"; sessionId: string; sql: string; schemaChecksum: string }
   | { type: "open-database"; sessionId: string; fileName: string; fileSize: number; bytes: ArrayBuffer }
   | { type: "execute"; sessionId: string; sql: string; maxRows: number }
+  | ({ type: "plan-population"; sessionId: string } & SqlPopulationConfig)
+  | { type: "apply-population"; sessionId: string; planId: string }
   | { type: "inspect-schema"; sessionId: string }
   | { type: "reverse-database"; sessionId: string }
   | { type: "restore-database"; sessionId: string }
@@ -76,6 +89,8 @@ export type SqlPlaygroundResponsePayload =
       schemaChanged: boolean;
       durationMs: number;
     }
+  | ({ type: "population-planned" } & SqlPopulationPlanPreview)
+  | ({ type: "population-applied" } & SqlPopulationApplyResult)
   | {
       type: "schema-inspected";
       sessionId: string;
@@ -99,6 +114,96 @@ export type SqlPlaygroundResponsePayload =
   | { type: "error"; error: SqlPlaygroundErrorPayload };
 
 export type SqlPlaygroundResponse = SqlPlaygroundResponsePayload & { requestId: string };
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isInteger(value: unknown): value is number {
+  return isFiniteNumber(value) && Number.isInteger(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPopulationContext(value: unknown): boolean {
+  return isRecord(value) && Object.values(value).every((entry) => isString(entry) || isFiniteNumber(entry));
+}
+
+function isPopulationWarning(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return value.code === "population-row-limit"
+    && isString(value.tableName)
+    && isPopulationContext(value.messageContext);
+}
+
+function isPopulationSummary(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return isString(value.tableName)
+    && isInteger(value.requestedRows)
+    && isInteger(value.generatedRows);
+}
+
+function isPopulationPlan(value: Record<string, unknown>): boolean {
+  return isString(value.planId)
+    && value.planId.length > 0
+    && isString(value.sessionId)
+    && value.sessionId.length > 0
+    && isInteger(value.seed)
+    && isInteger(value.rowsPerTable)
+    && isString(value.schemaSignature)
+    && isInteger(value.tableCount)
+    && isInteger(value.totalRows)
+    && Array.isArray(value.tables)
+    && value.tables.every(isPopulationSummary)
+    && Array.isArray(value.warnings)
+    && value.warnings.every(isPopulationWarning)
+    && isString(value.previewSql);
+}
+
+function isErrorPayload(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return isString(value.operation)
+    && isString(value.message)
+    && typeof value.recoverable === "boolean"
+    && (value.statementIndex === undefined || isInteger(value.statementIndex))
+    && (value.technicalDetail === undefined || isString(value.technicalDetail))
+    && (value.code === undefined || isString(value.code))
+    && (value.context === undefined || isPopulationContext(value.context));
+}
+
+export function isSqlPlaygroundRequest(value: unknown): value is SqlPlaygroundRequest {
+  if (!isRecord(value) || !isString(value.requestId) || !isString(value.type)) return false;
+  switch (value.type) {
+    case "initialize":
+    case "dispose":
+      return true;
+    case "create-schema":
+    case "reset":
+      return isString(value.sessionId) && isString(value.sql) && isString(value.schemaChecksum);
+    case "open-database":
+      return isString(value.sessionId) && isString(value.fileName) && isFiniteNumber(value.fileSize) && value.bytes instanceof ArrayBuffer;
+    case "execute":
+      return isString(value.sessionId) && isString(value.sql) && isInteger(value.maxRows);
+    case "plan-population":
+      return isString(value.sessionId) && isInteger(value.rowsPerTable) && isInteger(value.seed);
+    case "apply-population":
+      return isString(value.sessionId) && isString(value.planId) && value.planId.length > 0;
+    case "inspect-schema":
+    case "reverse-database":
+    case "restore-database":
+    case "export":
+    case "close-session":
+      return isString(value.sessionId);
+    default:
+      return false;
+  }
+}
 
 export function isSqlPlaygroundResponse(value: unknown): value is SqlPlaygroundResponse {
   if (typeof value !== "object" || value === null) return false;
@@ -124,6 +229,14 @@ export function isSqlPlaygroundResponse(value: unknown): value is SqlPlaygroundR
         && typeof candidate.databaseChanged === "boolean"
         && typeof candidate.schemaChanged === "boolean"
         && typeof candidate.durationMs === "number";
+    case "population-planned":
+      return isPopulationPlan(candidate);
+    case "population-applied":
+      return isString(candidate.sessionId)
+        && isString(candidate.planId)
+        && candidate.planId.length > 0
+        && isInteger(candidate.tableCount)
+        && isInteger(candidate.rowsInserted);
     case "schema-inspected": {
       const metadata = candidate.metadata;
       return typeof candidate.sessionId === "string"
@@ -143,7 +256,7 @@ export function isSqlPlaygroundResponse(value: unknown): value is SqlPlaygroundR
     case "disposed":
       return true;
     case "error":
-      return typeof candidate.error === "object" && candidate.error !== null;
+      return isErrorPayload(candidate.error);
     default:
       return false;
   }

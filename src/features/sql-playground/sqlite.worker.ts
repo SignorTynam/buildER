@@ -15,7 +15,14 @@ import type {
   SqlResultValue,
   SqlStatementResult,
 } from "./sqlPlaygroundProtocol";
+import { isSqlPlaygroundRequest } from "./sqlPlaygroundProtocol";
 import { inspectSqliteSchema, readSqliteSchemaSignature } from "./sqlExplorerIntrospection";
+import { planSqlPopulation, toSqlPopulationPlanPreview } from "./sqlDataPopulation";
+import { applySqlPopulationPlan, readSqlPopulationRowCounts } from "./sqlDataPopulationSqlite";
+import {
+  SqlPopulationError,
+  type SqlPopulationPlan,
+} from "./sqlDataPopulationTypes";
 
 type WorkerSession =
   | {
@@ -37,6 +44,7 @@ interface StatementExecutionError extends Error {
 
 const workerScope: DedicatedWorkerGlobalScope = self as unknown as DedicatedWorkerGlobalScope;
 const sessions = new Map<string, WorkerSession>();
+const populationPlans = new Map<string, SqlPopulationPlan>();
 let sqlite: Sqlite3Static | null = null;
 let initialization: Promise<Sqlite3Static> | null = null;
 let requestQueue = Promise.resolve();
@@ -62,7 +70,9 @@ function createErrorPayload(
     operation,
     message: normalized.message,
     statementIndex: Number.isInteger(statementIndex) ? statementIndex : undefined,
-    technicalDetail: normalized.code,
+    technicalDetail: normalized.technicalDetail ?? normalized.code,
+    code: normalized.populationCode,
+    context: normalized.context,
     recoverable: operation !== "initialize",
   };
 }
@@ -70,9 +80,24 @@ function createErrorPayload(
 function normalizeDatabaseError(
   operation: SqlPlaygroundOperation,
   error: unknown,
-): { message: string; code: string } {
+): {
+  message: string;
+  code: string;
+  technicalDetail?: string;
+  populationCode?: SqlPopulationError["code"];
+  context?: SqlPopulationError["context"];
+} {
   const raw = getErrorMessage(error);
   const name = error instanceof Error ? error.name : "SQLiteError";
+  if (error instanceof SqlPopulationError) {
+    return {
+      message: error.message,
+      code: error.name,
+      technicalDetail: error.technicalDetail,
+      populationCode: error.code,
+      context: error.context,
+    };
+  }
   if (name === "SQLiteIntegrityError") {
     return { message: "SQLite reported an integrity problem in the database.", code: name };
   }
@@ -230,6 +255,7 @@ async function createSchemaDatabase(
   }
 
   const previous = sessions.get(sessionId);
+  populationPlans.delete(sessionId);
   sessions.set(sessionId, { source: "generated-schema", database: temporaryDatabase, schemaChecksum });
   previous?.database.close();
 }
@@ -320,6 +346,7 @@ async function openImportedDatabase(
   try {
     const validation = validateImportedDatabase(temporaryDatabase);
     const previous = sessions.get(sessionId);
+    populationPlans.delete(sessionId);
     sessions.set(sessionId, {
       source: "imported-sqlite",
       database: temporaryDatabase,
@@ -358,6 +385,18 @@ async function restoreImportedDatabase(session: WorkerSession) {
 function requireSession(sessionId: string): WorkerSession {
   const session = sessions.get(sessionId);
   if (!session) throw new Error("The SQLite database has not been created for this schema.");
+  return session;
+}
+
+function requireGeneratedSession(sessionId: string): Extract<WorkerSession, { source: "generated-schema" }> {
+  const session = requireSession(sessionId);
+  if (session.source !== "generated-schema") {
+    throw new SqlPopulationError(
+      "population-session-not-generated",
+      "Data population is available only for generated SQL Playground sessions.",
+      { sessionId },
+    );
+  }
   return session;
 }
 
@@ -402,7 +441,14 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
         const session = requireSession(request.sessionId);
         const startedAt = performance.now();
         const schemaSignatureBefore = readSqliteSchemaSignature(session.database);
-        const execution = executeStatements(sqliteApi, session.database, request.sql, request.maxRows);
+        let execution: ReturnType<typeof executeStatements>;
+        try {
+          execution = executeStatements(sqliteApi, session.database, request.sql, request.maxRows);
+        } catch (error) {
+          populationPlans.delete(request.sessionId);
+          throw error;
+        }
+        if (execution.databaseChanged) populationPlans.delete(request.sessionId);
         const schemaSignatureAfter = readSqliteSchemaSignature(session.database);
         postResponse({
           requestId: request.requestId,
@@ -413,6 +459,47 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
           schemaChanged: schemaSignatureBefore !== schemaSignatureAfter,
           durationMs: Math.max(0, performance.now() - startedAt),
         });
+        return;
+      }
+      case "plan-population": {
+        const session = requireGeneratedSession(request.sessionId);
+        populationPlans.delete(request.sessionId);
+        const metadata = inspectSqliteSchema(session.database);
+        const main = metadata.databases.find((database) => database.name === "main");
+        const tableNames = (main?.tables ?? [])
+          .filter((table) => !table.virtual && !table.name.toLocaleLowerCase().startsWith("sqlite_"))
+          .map((table) => table.name);
+        const plan = planSqlPopulation({
+          sessionId: request.sessionId,
+          config: { rowsPerTable: request.rowsPerTable, seed: request.seed },
+          metadata,
+          schemaSignature: readSqliteSchemaSignature(session.database),
+          rowCounts: readSqlPopulationRowCounts(session.database, tableNames),
+        });
+        populationPlans.set(request.sessionId, plan);
+        postResponse({
+          requestId: request.requestId,
+          type: "population-planned",
+          ...toSqlPopulationPlanPreview(plan),
+        });
+        return;
+      }
+      case "apply-population": {
+        const session = requireGeneratedSession(request.sessionId);
+        const plan = populationPlans.get(request.sessionId);
+        if (!plan || plan.planId !== request.planId || plan.sessionId !== request.sessionId) {
+          throw new SqlPopulationError(
+            "population-plan-stale",
+            "The population plan is missing, stale, or belongs to another session.",
+            { sessionId: request.sessionId, planId: request.planId },
+          );
+        }
+        try {
+          const result = applySqlPopulationPlan(session.database, plan);
+          postResponse({ requestId: request.requestId, type: "population-applied", ...result });
+        } finally {
+          populationPlans.delete(request.sessionId);
+        }
         return;
       }
       case "inspect-schema": {
@@ -438,6 +525,7 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
       }
       case "restore-database": {
         const session = requireSession(request.sessionId);
+        populationPlans.delete(request.sessionId);
         const validation = await restoreImportedDatabase(session);
         postResponse({
           requestId: request.requestId,
@@ -464,12 +552,14 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
       case "close-session": {
         sessions.get(request.sessionId)?.database.close();
         sessions.delete(request.sessionId);
+        populationPlans.delete(request.sessionId);
         postResponse({ requestId: request.requestId, type: "session-closed", sessionId: request.sessionId });
         return;
       }
       case "dispose": {
         sessions.forEach((session) => session.database.close());
         sessions.clear();
+        populationPlans.clear();
         postResponse({ requestId: request.requestId, type: "disposed" });
         return;
       }
@@ -483,6 +573,8 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
   }
 }
 
-workerScope.onmessage = (event: MessageEvent<SqlPlaygroundRequest>) => {
-  requestQueue = requestQueue.then(() => handleRequest(event.data));
+workerScope.onmessage = (event: MessageEvent<unknown>) => {
+  if (!isSqlPlaygroundRequest(event.data)) return;
+  const request = event.data;
+  requestQueue = requestQueue.then(() => handleRequest(request));
 };
