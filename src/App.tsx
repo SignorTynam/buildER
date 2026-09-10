@@ -8320,11 +8320,8 @@ export default function App() {
           />
           {activeProjectFile && !sqlPlaygroundActive && !importedDatabaseActive ? (
             <WorkspaceEditorHeader
-              projectName={projectExplorer.project.name}
               file={activeProjectFile}
-              path={projectFilePaths[activeProjectFile.id] ?? activeProjectFile.name}
               view={diagramView}
-              onReveal={() => handleRevealProjectFile(activeProjectFile.id)}
               onViewChange={handleDiagramViewChange}
               onOpenSqlPlayground={activeProjectFile.kind === "sql"
                 ? () => void handleOpenSqlFileInPlayground(activeProjectFile)

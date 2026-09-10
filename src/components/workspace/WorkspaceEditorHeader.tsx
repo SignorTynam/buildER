@@ -5,47 +5,32 @@ import { StudioIcon } from "../icons/StudioIcon";
 import { Tooltip } from "../ui/Tooltip";
 
 interface WorkspaceEditorHeaderProps {
-  projectName: string;
   file: ProjectWorkspaceFile;
-  path: string;
   view: WorkspaceView;
-  onReveal: () => void;
   onViewChange: (view: WorkspaceView) => void;
   onOpenSqlPlayground?: () => void;
   onStartSqlReverse?: () => void;
 }
 
+/**
+ * Barra di contesto dell'editor: solo le azioni della vista corrente.
+ *
+ * Il percorso del file non vive piu qui. Nome e progetto sono gia sulla tab
+ * attiva e nella status bar, quindi la riga ripeteva la stessa informazione
+ * accanto ai comandi; ora la barra parte da sinistra con i comandi allineati
+ * alle tab. "Mostra in Explorer" resta nel menu contestuale della tab.
+ */
 export function WorkspaceEditorHeader({
-  projectName,
   file,
-  path,
   view,
-  onReveal,
   onViewChange,
   onOpenSqlPlayground,
   onStartSqlReverse,
 }: WorkspaceEditorHeaderProps) {
   const { t } = useI18n();
-  const pathSegments = path.split("/").filter(Boolean);
-  const typeLabel = file.kind === "schema"
-    ? t("workspaceChrome.fileTypes.schema")
-    : file.kind === "sql"
-      ? t("workspaceChrome.fileTypes.sql")
-      : t("workspaceChrome.fileTypes.text");
 
   return (
     <div className="editor-context-bar">
-      <nav className="editor-breadcrumb" aria-label={t("workspaceChrome.breadcrumbAria")} title={`${projectName} / ${path}`}>
-        <span className="editor-breadcrumb__segment">{projectName}</span>
-        {pathSegments.map((segment, index) => (
-          <span key={`${segment}-${index}`} className="editor-breadcrumb__segment">
-            <span className="editor-breadcrumb__separator" aria-hidden="true">/</span>
-            {segment}
-          </span>
-        ))}
-        <span className="editor-breadcrumb__type">{typeLabel}</span>
-      </nav>
-
       <div className="editor-context-actions">
         {file.kind === "schema" ? (
           <div className="editor-view-switcher" role="group" aria-label={t("workspaceChrome.viewSwitcherAria")}>
@@ -102,22 +87,7 @@ export function WorkspaceEditorHeader({
             )}
           </Tooltip>
         ) : null}
-        <Tooltip label={t("workspaceChrome.revealInExplorer")} position="bottom">
-          {(aria) => (
-            <button
-              type="button"
-              className="editor-context-button"
-              onClick={onReveal}
-              aria-label={t("workspaceChrome.revealInExplorer")}
-              {...aria}
-            >
-              <StudioIcon name="panelLeft" size={15} aria-hidden="true" />
-              <span>{t("workspaceChrome.reveal")}</span>
-            </button>
-          )}
-        </Tooltip>
       </div>
     </div>
   );
 }
-

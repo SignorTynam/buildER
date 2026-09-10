@@ -113,11 +113,6 @@
     display: none;
   }
 
-  .editor-breadcrumb__segment:not(:last-of-type),
-  .editor-breadcrumb__separator {
-    display: none;
-  }
-
   .bottom-status-center,
   .bottom-status-panels {
     display: none;

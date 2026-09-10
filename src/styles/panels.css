@@ -5016,7 +5016,13 @@ textarea {
   align-items: flex-start;
   justify-content: center;
   padding-top: calc(var(--size-header) + var(--space-2));
-  background: transparent;
+  /*
+   * La palette e `aria-modal`, ma restava l'unica superficie modale senza
+   * velo: si posava sul workspace e sembrava un pannello qualsiasi. Stessa
+   * ricetta del backdrop dei dialoghi, piu leggera perche la palette e una
+   * sosta breve.
+   */
+  background: color-mix(in srgb, var(--color-bg-header) 28%, transparent);
 }
 
 .command-modal {
