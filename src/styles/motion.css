@@ -1,0 +1,182 @@
+/*
+ * Livello di movimento condiviso.
+ *
+ * L'app era statica: dialoghi, menu della topbar e cambi di pannello
+ * comparivano di scatto e i controlli della chrome cambiavano stato senza
+ * transizione. Qui vive un solo strato di motion, applicato alle superfici che
+ * appaiono e ai controlli che cambiano stato — durate e curve dai token, mai
+ * valori locali.
+ *
+ * Regole del livello:
+ * - si muovono `opacity` e `transform`, non la geometria: niente animazioni su
+ *   larghezze, altezze o griglie, che rimisurerebbero canvas e minimappa;
+ * - nessuna animazione infinita e nessun rimbalzo;
+ * - `prefers-reduced-motion: reduce` azzera tutto in fondo al file;
+ * - importato per ultimo in `main.tsx`, cosi aggiunge movimento senza
+ *   riscrivere il look definito dai fogli precedenti.
+ */
+
+/* Superfici sovrapposte: dialoghi, palette comandi, menu della topbar ------- */
+
+.ui-modal-backdrop,
+.command-palette-catcher {
+  animation: builder-overlay-in var(--motion-fast) var(--motion-ease) backwards;
+}
+
+.ui-modal,
+.command-modal.command-palette {
+  animation: builder-dialog-in var(--motion-slow) var(--motion-ease-out) backwards;
+}
+
+.app-file-menu__panel,
+.app-topbar-menu__panel,
+.project-file-tabs__open-menu,
+.floating-export-popover {
+  transform-origin: top center;
+  animation: builder-menu-in var(--motion-fast) var(--motion-ease-out) backwards;
+}
+
+/* Il pannello lingua si apre sotto un trigger allineato a destra. */
+.app-topbar-menu__panel--right {
+  transform-origin: top right;
+}
+
+/*
+ * Contenuto dell'activity bar: il pannello che entra si presenta, non salta.
+ * Solo `opacity`: il menu contestuale dell'Explorer e `position: fixed` e un
+ * `transform` residuo sull'antenato ne sposterebbe l'ancoraggio.
+ */
+.project-activity-content > * {
+  animation: builder-panel-in var(--motion-normal) var(--motion-ease-out) backwards;
+}
+
+/* Controlli della chrome: un'unica transizione di stato ------------------- */
+
+.app-file-menu__trigger,
+.app-topbar-menu__trigger,
+.app-topbar-menu__icon-trigger,
+.designer-topbar-actions button,
+.app-command-search,
+.editor-context-button,
+.editor-view-switcher button,
+.project-file-tab,
+.project-file-tab__close,
+.project-file-tabs__tool,
+.project-file-tabs__new,
+.project-explorer-header__actions button,
+.ui-modal__close {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+/*
+ * Il sottolineato della tab attiva cresce dal centro invece di apparire: e il
+ * solo segnale che si sposta quando si cambia file, quindi vale animarlo.
+ */
+.project-file-tab.active::before {
+  animation: builder-underline-in var(--motion-normal) var(--motion-ease-out) backwards;
+}
+
+@keyframes builder-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes builder-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes builder-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes builder-panel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes builder-underline-in {
+  from {
+    transform: scaleX(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/*
+ * Chi chiede meno movimento vede lo stesso identico risultato finale: le
+ * animazioni non spostano nulla di definitivo, quindi si possono spegnere.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal-backdrop,
+  .command-palette-catcher,
+  .ui-modal,
+  .command-modal.command-palette,
+  .app-file-menu__panel,
+  .app-topbar-menu__panel,
+  .project-file-tabs__open-menu,
+  .floating-export-popover,
+  .project-activity-content > *,
+  .project-file-tab.active::before {
+    animation: none;
+  }
+
+  .app-file-menu__trigger,
+  .app-topbar-menu__trigger,
+  .app-topbar-menu__icon-trigger,
+  .designer-topbar-actions button,
+  .app-command-search,
+  .editor-context-button,
+  .editor-view-switcher button,
+  .project-file-tab,
+  .project-file-tab__close,
+  .project-file-tabs__tool,
+  .project-file-tabs__new,
+  .project-explorer-header__actions button,
+  .ui-modal__close {
+    transition: none;
+  }
+
+  /*
+   * Entrate gia esistenti rimaste senza guardia: menu contestuali
+   * (context-menu.css), toast e vista logica (index.css). Stanno qui e non nei
+   * loro fogli perche il contratto reduced-motion vale per l'app intera e va
+   * letto in un punto solo.
+   */
+  .workspace-context-menu,
+  .project-explorer-context-menu,
+  .project-file-tab-menu,
+  .project-explorer-new-menu,
+  .workspace-toast-viewport .workspace-toast,
+  .logical-view-layout {
+    animation: none;
+  }
+}
