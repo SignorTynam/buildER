@@ -2830,6 +2830,7 @@ export const en: DeepPartialMessages = {
   translation: {
     restructuring: {
       stageLabel: "RESTRUCTURING",
+      fixOptions: "Restructuring strategies",
       undo: "Undo",
       redo: "Redo",
       reset: "Reset",
@@ -2865,15 +2866,24 @@ export const en: DeepPartialMessages = {
     simpleMultivalued: {
       unique: {
         label: "Unique",
-        description: "Turns \"{name}\" into a new entity whose values belong exclusively to one {owner} instance.",
-        summary: "Simple multivalued attribute \"{name}\" transformed into an exclusive entity.",
-        preview: "Output ER: new entity side cardinality is (1,1).",
+        description: "The value of \"{{name}}\" has a global identifier and belongs to one {{owner}} instance.",
+        summary: "Simple multivalued attribute \"{{name}}\" transformed into an entity with a global identifier.",
+        preview: "Output: each value is globally identified and belongs to one owner.",
       },
       shared: {
         label: "Shared",
-        description: "Turns \"{name}\" into a new entity whose values can be shared by multiple {owner} instances.",
-        summary: "Simple multivalued attribute \"{name}\" transformed into a shared entity.",
-        preview: "Output ER: new entity side cardinality is (1,N).",
+        description: "The same \"{{name}}\" value can belong to multiple {{owner}} instances.",
+        summary: "Simple multivalued attribute \"{{name}}\" transformed into a shared entity.",
+        preview: "Output: M:N relationship; the new entity has its own identifier.",
+      },
+      dependent: {
+        label: "Owner-scoped",
+        labelWithIdentifier: "Owner-scoped — via {{identifier}}",
+        internalIdentifier: "internal ID {{identifier}}",
+        externalIdentifier: "external ID {{identifier}}",
+        description: "The \"{{name}}\" value is identified only within its owning {{owner}} instance.",
+        summary: "Simple multivalued attribute \"{{name}}\" transformed into an entity dependent on {{owner}} through {{identifier}}.",
+        preview: "Resulting PK: {{identifier}} + {{name}}.",
       },
       expanded: {
         label: "Expand in entity",

@@ -15,6 +15,7 @@ export type ErTranslationRuleKind =
   | "composite-merge"
   | "simple-multivalued-unique"
   | "simple-multivalued-shared"
+  | "simple-multivalued-dependent"
   | "simple-multivalued-expanded";
 
 export interface ErTranslationChoice {

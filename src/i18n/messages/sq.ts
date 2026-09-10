@@ -2766,6 +2766,7 @@ export const sq: DeepPartialMessages = {
   translation: {
     restructuring: {
       stageLabel: "RISTRUKTURIM",
+      fixOptions: "Strategjitë e ristrukturimit",
       undo: "Zhbëj",
       redo: "Ribëj",
       reset: "Rivendos",
@@ -2801,15 +2802,24 @@ export const sq: DeepPartialMessages = {
     simpleMultivalued: {
       unique: {
         label: "Unique",
-        description: "Kthen \"{name}\" ne nje entitet te ri me vlera ekskluzive per nje instance te {owner}.",
-        summary: "Atributi i thjeshte shumevleresh \"{name}\" u kthye ne entitet ekskluziv.",
-        preview: "Output ER: kardinaliteti ne anen e entitetit te ri eshte (1,1).",
+        description: "Vlera e \"{{name}}\" ka identifikues global dhe i përket vetëm një instance të {{owner}}.",
+        summary: "Atributi i thjeshtë shumëvlerësh \"{{name}}\" u kthye në entitet me identifikues global.",
+        preview: "Rezultati: çdo vlerë identifikohet globalisht dhe i përket një owner-i.",
       },
       shared: {
         label: "Shared",
-        description: "Kthen \"{name}\" ne nje entitet te ri me vlera qe mund te ndahen nga disa instanca te {owner}.",
-        summary: "Atributi i thjeshte shumevleresh \"{name}\" u kthye ne entitet te perbashket.",
-        preview: "Output ER: kardinaliteti ne anen e entitetit te ri eshte (1,N).",
+        description: "E njëjta vlerë e \"{{name}}\" mund t'u përkasë disa instancave të {{owner}}.",
+        summary: "Atributi i thjeshtë shumëvlerësh \"{{name}}\" u kthye në entitet të përbashkët.",
+        preview: "Rezultati: marrëdhënie M:N; entiteti i ri ka identifikuesin e vet.",
+      },
+      dependent: {
+        label: "I varur",
+        labelWithIdentifier: "I varur — përmes {{identifier}}",
+        internalIdentifier: "ID i brendshëm {{identifier}}",
+        externalIdentifier: "ID i jashtëm {{identifier}}",
+        description: "Vlera e \"{{name}}\" identifikohet vetëm brenda instancës pronare të {{owner}}.",
+        summary: "Atributi i thjeshtë shumëvlerësh \"{{name}}\" u kthye në entitet të varur nga {{owner}} përmes {{identifier}}.",
+        preview: "PK rezultuese: {{identifier}} + {{name}}.",
       },
       expanded: {
         label: "Zgjero në entitet",

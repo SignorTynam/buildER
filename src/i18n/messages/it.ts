@@ -2828,6 +2828,7 @@ export const it = {
   translation: {
     restructuring: {
       stageLabel: "RISTRUTTURAZIONE",
+      fixOptions: "Strategie di ristrutturazione",
       undo: "Annulla",
       redo: "Ripeti",
       reset: "Reset",
@@ -2863,15 +2864,24 @@ export const it = {
     simpleMultivalued: {
       unique: {
         label: "Unique",
-        description: "Trasforma \"{name}\" in una nuova entita esclusiva per ogni istanza di {owner}.",
-        summary: "Attributo multivalore semplice \"{name}\" trasformato in entita esclusiva.",
-        preview: "Output ER: lato nuova entita con cardinalita (1,1).",
+        description: "Il valore di \"{{name}}\" ha un identificatore globale e appartiene a una sola istanza di {{owner}}.",
+        summary: "Attributo multivalore semplice \"{{name}}\" trasformato in entità con identificatore globale.",
+        preview: "Output: ogni valore è identificato globalmente e appartiene a un solo owner.",
       },
       shared: {
         label: "Shared",
-        description: "Trasforma \"{name}\" in una nuova entita condivisibile da piu istanze di {owner}.",
-        summary: "Attributo multivalore semplice \"{name}\" trasformato in entita condivisa.",
-        preview: "Output ER: lato nuova entita con cardinalita (1,N).",
+        description: "Lo stesso valore di \"{{name}}\" può appartenere a più istanze di {{owner}}.",
+        summary: "Attributo multivalore semplice \"{{name}}\" trasformato in entità condivisa.",
+        preview: "Output: relazione M:N; la nuova entità ha un identificatore proprio.",
+      },
+      dependent: {
+        label: "Dipendente",
+        labelWithIdentifier: "Dipendente — tramite {{identifier}}",
+        internalIdentifier: "ID interno {{identifier}}",
+        externalIdentifier: "ID esterno {{identifier}}",
+        description: "Il valore di \"{{name}}\" è identificato soltanto all'interno della propria istanza di {{owner}}.",
+        summary: "Attributo multivalore semplice \"{{name}}\" trasformato in entità dipendente da {{owner}} tramite {{identifier}}.",
+        preview: "PK risultante: {{identifier}} + {{name}}.",
       },
       expanded: {
         label: "Espandi nell'entità",
