@@ -37,8 +37,6 @@ interface TranslationWorkspaceProps {
   onResetTranslation: () => void;
   onOpenDesign: () => void;
   onOpenLogical: () => void;
-  notesPanelOpen: boolean;
-  onToggleNotesPanel: () => void;
   onExportProject: () => void;
   onExportPng: () => void;
   onExportJpeg: () => void;
@@ -291,18 +289,6 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
               { key: "svg", label: t("toolbar.export.svg"), onClick: props.onExportSvg },
             ]}
           />
-        ) : null}
-
-        {!readOnly ? (
-          <button
-            type="button"
-            className="designer-side-toggle designer-side-toggle-right designer-translation-notes-toggle"
-            onClick={props.onToggleNotesPanel}
-            title={props.notesPanelOpen ? t("translation.restructuring.closeNotes") : t("translation.restructuring.openNotes")}
-          >
-            <StudioIcon name="notes" aria-hidden="true" />
-            {props.notesPanelOpen ? t("common.actions.hide") : t("translation.restructuring.notes")}
-          </button>
         ) : null}
 
         {!readOnly && fixOpen && selectedItem ? (

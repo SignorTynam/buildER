@@ -104,8 +104,6 @@ export const en: DeepPartialMessages = {
     quickActions: {
       showCode: "Show code",
       hideCode: "Hide code panel",
-      showNotes: "Show notes",
-      hideNotes: "Hide notes",
       resetTranslation: "Reset translation",
       resetTranslationTitle: "Reset the ER-to-ER translation workspace",
       resetLogical: "Reset",
@@ -839,8 +837,6 @@ export const en: DeepPartialMessages = {
       workspaceDiagnosticsDisable: { label: "Disable diagnostics", detail: "Hide issues on the canvas" },
       workspaceCodeShow: { label: "Show Code", detail: "ERS editor in the workspace" },
       workspaceCodeHide: { label: "Hide Code", detail: "ERS editor in the workspace" },
-      workspaceNotesShow: { label: "Show Notes", detail: "Annotations in the dedicated tab" },
-      workspaceNotesHide: { label: "Hide Notes", detail: "Annotations in the dedicated tab" },
       workspaceFocusEnable: { label: "Enable focus", detail: "Hide unnecessary panels" },
       workspaceFocusDisable: { label: "Disable focus", detail: "Hide unnecessary panels" },
       workspaceVersioning: { label: "Versions", detail: "Project commit history" },
@@ -1109,26 +1105,6 @@ export const en: DeepPartialMessages = {
       next: "Next diagnostic",
       position: "{{current}} of {{count}}",
       count: "{{count}} diagnostics",
-    },
-  },
-  notesPanel: {
-    shellAria: "Diagram notes",
-    title: "Notes",
-    description: "Personal project notes.",
-    openAria: "Open Notes",
-    closeAria: "Close Notes",
-    editorAria: "Notes editor",
-    placeholder: "Add notes, design decisions, and reminders here",
-    unsavedConfirm: "There are unsaved changes in Notes. Close without saving?",
-    toolbar: {
-      aria: "Notes formatting",
-      normal: "Normal text",
-      bold: "Bold",
-      italic: "Italic",
-      underline: "Underline",
-      unorderedList: "Bulleted list",
-      orderedList: "Numbered list",
-      clearFormatting: "Clear formatting",
     },
   },
   onboarding: {
@@ -1567,7 +1543,6 @@ export const en: DeepPartialMessages = {
     },
     panels: {
       code: "Code",
-      notes: "Notes",
     },
     validationErrors: "{{count}} validation errors need attention.",
     validationWarnings: "{{count}} validation warnings in the current workspace.",
@@ -1913,10 +1888,6 @@ export const en: DeepPartialMessages = {
     resetTranslation: {
       title: "Clear restructuring",
       confirm: "Clear",
-    },
-    discardNotes: {
-      title: "Unsaved notes",
-      confirm: "Close without saving",
     },
     prompt: {
       defaultConfirm: "Save",
@@ -2908,9 +2879,6 @@ export const en: DeepPartialMessages = {
       pendingGeneralizations: "Pending generalizations",
       pendingAttributes: "Pending multivalued attributes",
       unavailable: "Operation not available in the Restructuring view.",
-      openNotes: "Open notes",
-      closeNotes: "Close notes",
-      notes: "Notes",
     },
     composite: {
       split: {

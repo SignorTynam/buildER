@@ -144,7 +144,6 @@ export function VersionCompareWorkspaceInstance({
               typeMode={false}
               panelMode="review"
               fitRequestToken={logicalFitToken}
-              notesPanelOpen={false}
               canUndo={false}
               canRedo={false}
               readOnly
@@ -156,7 +155,6 @@ export function VersionCompareWorkspaceInstance({
               onSelectionChange={setLogicalSelection}
               onTypeModeChange={() => undefined}
               onPanelModeChange={() => undefined}
-              onToggleNotesPanel={() => undefined}
               onApplyChoice={() => undefined}
               onApplyBulkFix={() => undefined}
               onResetTranslation={() => undefined}
@@ -184,7 +182,6 @@ export function VersionCompareWorkspaceInstance({
             sidePanelHidden
             canUndo={false}
             canRedo={false}
-            notesPanelOpen={false}
             readOnly
             compareMode
             versionHighlights={diagramHighlights}
@@ -196,7 +193,6 @@ export function VersionCompareWorkspaceInstance({
             onResetTranslation={() => undefined}
             onOpenDesign={() => undefined}
             onOpenLogical={() => undefined}
-            onToggleNotesPanel={() => undefined}
             onExportProject={() => undefined}
             onExportPng={() => undefined}
             onExportJpeg={() => undefined}

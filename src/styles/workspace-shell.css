@@ -218,9 +218,9 @@
 }
 
 /*
- * Barra di sole azioni, allineata a sinistra come le tab sopra: il percorso
- * del file non sta piu qui, quindi non c'e un secondo blocco da spingere a
- * destra.
+ * Barra di sole azioni, allineata a sinistra come le tab sopra. La disegna solo
+ * un file SQL: senza selettore di vista e senza percorso non resta nulla da
+ * mostrare per gli altri tipi, e il componente non la monta affatto.
  */
 .editor-context-bar {
   display: flex;
@@ -236,8 +236,7 @@
   font-size: var(--font-size-sm);
 }
 
-.editor-context-actions,
-.editor-view-switcher {
+.editor-context-actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -249,8 +248,7 @@
   flex: 0 0 auto;
 }
 
-.editor-context-button,
-.editor-view-switcher button {
+.editor-context-button {
   display: inline-flex;
   height: 24px;
   align-items: center;
@@ -263,33 +261,9 @@
   cursor: pointer;
 }
 
-.editor-context-button:hover,
-.editor-view-switcher button:hover {
+.editor-context-button:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
-}
-
-.editor-view-switcher {
-  padding: 2px;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-panel);
-  background: var(--color-bg-editor);
-}
-
-.editor-view-switcher button[aria-pressed="true"] {
-  border-color: var(--color-border-default);
-  background: var(--color-bg-elevated);
-  color: var(--color-accent);
-  box-shadow: var(--elevation-flat);
-}
-
-/*
- * L'icona serve solo alla modalita compatta, dove l'etichetta si nasconde
- * (vedi responsive.css). Qui c'e spazio per il testo, che resta piu chiaro di
- * tre simboli affiancati.
- */
-.editor-view-switcher button > .studio-icon {
-  display: none;
 }
 
 .workspace-text-editor {

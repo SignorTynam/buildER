@@ -20,7 +20,6 @@ interface BottomStatusBarProps {
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
-  notesPanelOpen: boolean;
   statusMessage: string;
   notices: WorkspaceNoticeItem[];
   issues: ValidationIssue[];
@@ -45,7 +44,6 @@ function getWorkspaceLabel(props: BottomStatusBarProps, t: Translate): string {
 function getPanelLabels(props: BottomStatusBarProps, t: Translate): string {
   const activePanels = [
     props.codePanelOpen ? t("bottomStatus.panels.code") : "",
-    props.notesPanelOpen ? t("bottomStatus.panels.notes") : "",
   ].filter(Boolean);
   return activePanels.length > 0 ? activePanels.join(" + ") : "";
 }

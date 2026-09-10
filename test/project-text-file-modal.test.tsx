@@ -99,14 +99,12 @@ test("WorkspaceTextEditor lascia invariato il textarea dei file TXT e supporta S
   assert.match(sqlMarkup, />Read only</);
 });
 
-test("WorkspaceEditorHeader espone azioni accessibili solo per i file SQL e non ripete il percorso", () => {
+test("WorkspaceEditorHeader disegna la barra solo per i file SQL", () => {
   const sqlFile = createTextWorkspaceFile("query.sql", "sql", "SELECT 1;");
   const sqlMarkup = renderInEnglish(
     <I18nProvider>
       <WorkspaceEditorHeader
         file={sqlFile}
-        view="er"
-        onViewChange={() => undefined}
         onOpenSqlPlayground={() => undefined}
         onStartSqlReverse={() => undefined}
       />
@@ -120,30 +118,21 @@ test("WorkspaceEditorHeader espone azioni accessibili solo per i file SQL e non 
   assert.doesNotMatch(sqlMarkup, /editor-breadcrumb/);
   assert.doesNotMatch(sqlMarkup, /Reveal in Explorer/);
 
+  // Senza selettore di vista uno schema non ha piu nulla da mostrare qui: la
+  // riga non si disegna affatto invece di restare vuota sopra il canvas.
   const schemaMarkup = renderInEnglish(
     <I18nProvider>
-      <WorkspaceEditorHeader
-        file={createSchemaWorkspaceFile("model.erschema")}
-        view="er"
-        onViewChange={() => undefined}
-      />
+      <WorkspaceEditorHeader file={createSchemaWorkspaceFile("model.erschema")} />
     </I18nProvider>,
   );
-  // Il view switcher e il primo blocco della barra, allineato a sinistra.
-  assert.match(schemaMarkup, /editor-context-actions"><div class="editor-view-switcher"/);
+  assert.equal(schemaMarkup, "");
 
   const textMarkup = renderInEnglish(
     <I18nProvider>
-      <WorkspaceEditorHeader
-        file={createTextWorkspaceFile("notes.txt", "text", "")}
-        view="er"
-        onViewChange={() => undefined}
-      />
+      <WorkspaceEditorHeader file={createTextWorkspaceFile("notes.txt", "text", "")} />
     </I18nProvider>,
   );
-  assert.doesNotMatch(textMarkup, /Open in Playground/);
-  assert.doesNotMatch(textMarkup, /Start Reverse Engineering/);
-  assert.doesNotMatch(textMarkup, /Reveal in Explorer/);
+  assert.equal(textMarkup, "");
 });
 
 test("PanelEmptyState offre la variante card e il tone positivo canonici", () => {

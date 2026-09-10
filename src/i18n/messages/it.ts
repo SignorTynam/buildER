@@ -80,8 +80,6 @@ export const it = {
     quickActions: {
       showCode: "Mostra codice",
       hideCode: "Nascondi pannello codice",
-      showNotes: "Mostra notes",
-      hideNotes: "Nascondi notes",
       resetTranslation: "Reset traduzione",
       resetTranslationTitle: "Resetta il workspace di traduzione ER->ER",
       resetLogical: "Reset",
@@ -837,8 +835,6 @@ export const it = {
       workspaceDiagnosticsDisable: { label: "Disattiva diagnostica", detail: "Nascondi i problemi sul canvas" },
       workspaceCodeShow: { label: "Mostra Code", detail: "Editor ERS nel workspace" },
       workspaceCodeHide: { label: "Nascondi Code", detail: "Editor ERS nel workspace" },
-      workspaceNotesShow: { label: "Mostra Notes", detail: "Annotazioni nel tab dedicato" },
-      workspaceNotesHide: { label: "Nascondi Notes", detail: "Annotazioni nel tab dedicato" },
       workspaceFocusEnable: { label: "Attiva focus", detail: "Nascondi pannelli non necessari" },
       workspaceFocusDisable: { label: "Disattiva focus", detail: "Nascondi pannelli non necessari" },
       workspaceVersioning: { label: "Versioni", detail: "Cronologia commit del progetto" },
@@ -1107,26 +1103,6 @@ export const it = {
       next: "Diagnostica successiva",
       position: "{{current}} di {{count}}",
       count: "{{count}} diagnostiche",
-    },
-  },
-  notesPanel: {
-    shellAria: "Note del diagramma",
-    title: "Notes",
-    description: "Appunti personali del progetto.",
-    openAria: "Apri Notes",
-    closeAria: "Chiudi Notes",
-    editorAria: "Editor note",
-    placeholder: "Aggiungi qui note, decisioni progettuali e promemoria del diagramma",
-    unsavedConfirm: "Ci sono modifiche non salvate nelle Notes. Vuoi chiuderle senza salvare?",
-    toolbar: {
-      aria: "Formattazione Notes",
-      normal: "Testo normale",
-      bold: "Grassetto",
-      italic: "Corsivo",
-      underline: "Sottolineato",
-      unorderedList: "Lista puntata",
-      orderedList: "Lista numerata",
-      clearFormatting: "Pulisci formattazione",
     },
   },
   onboarding: {
@@ -1565,7 +1541,6 @@ export const it = {
     },
     panels: {
       code: "Code",
-      notes: "Notes",
     },
     validationErrors: "{{count}} errori di validazione richiedono attenzione.",
     validationWarnings: "{{count}} warning di validazione nel workspace corrente.",
@@ -1911,10 +1886,6 @@ export const it = {
     resetTranslation: {
       title: "Azzera la ristrutturazione",
       confirm: "Azzera",
-    },
-    discardNotes: {
-      title: "Note non salvate",
-      confirm: "Chiudi senza salvare",
     },
     prompt: {
       defaultConfirm: "Salva",
@@ -2906,9 +2877,6 @@ export const it = {
       pendingGeneralizations: "Gerarchie pending",
       pendingAttributes: "Attributi multivalore pending",
       unavailable: "Operazione non disponibile nella vista Traduzione.",
-      openNotes: "Apri note",
-      closeNotes: "Chiudi note",
-      notes: "Note",
     },
     composite: {
       split: {
