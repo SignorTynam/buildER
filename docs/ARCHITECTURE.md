@@ -54,6 +54,15 @@ Feature verticale del Playground SQLite. I componenti React delegano stato e cic
 
 `CodeEditorSurface` fornisce gutter, highlighting e selezione tramite un handle tipizzato riusabile. Altezza e stato collapsed dei risultati vivono esclusivamente nello stato temporaneo della sessione. SQL Explorer interroga `database_list`, `sqlite_schema` e le table-valued PRAGMA nel worker; confronta le versioni schema prima e dopo ogni script e aggiorna il tree soltanto quando la struttura cambia. I metadata, l'espansione del tree e il layout del pannello non entrano nella serializzazione `.ersp` e non influenzano Source Control.
 
+La generazione dati segue un protocollo worker in due fasi. `plan-population`
+normalizza i metadata SQLite reali e costruisce un piano puro, deterministico e
+constraint-aware; il worker conserva le righe strutturate e restituisce soltanto
+`planId`, riepilogo, warning e preview. `apply-population` ricontrolla firma schema
+e row count, quindi applica lo stesso piano con prepared statement dentro
+`BEGIN IMMEDIATE`, enforcement FK sempre attivo, deferred FK per le SCC cicliche,
+`foreign_key_check` e rollback totale. Il main thread non importa SQLite WASM e
+React orchestra soltanto configurazione, preview, conferma e feedback.
+
 ### `src/features/database-workspace`
 
 Feature verticale per file SQLite importati. Validazione preliminare e nomi download sono pure utility; header/workspace/hook rendono la sessione importata; il wizard `reverse` adatta metadata SQLite reali a `SqlSchemaModel` e riusa la pipeline logica/ER. Worker e manager rimangono condivisi con il Playground, ma la source discriminata impedisce che il lifecycle progetto chiuda database importati indipendenti.
