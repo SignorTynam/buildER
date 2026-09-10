@@ -110,11 +110,22 @@ view, tabelle virtuali, oggetti `sqlite_*` e database attached, quindi passa i
 metadata a un planner TypeScript puro. La normalizzazione ordina esplicitamente
 tabelle, colonne, PK, indici, FK e componenti delle FK composite. Le FK con
 target omesso vengono risolte contro la PK parent ordinata, attraverso la stessa
-utility pura usata dal reverse metadata adapter.
+utility pura usata dal reverse metadata adapter. Una FK composita è valida
+soltanto se le sue colonne target coincidono con l'intera PRIMARY KEY o con
+un'intera UNIQUE del parent: il confronto avviene sull'insieme completo, perché
+SQL consente di elencare le colonne della chiave parent in un ordine diverso da
+quello dichiarato. Un sottoinsieme, un sovrainsieme o una colonna non chiave
+restano rifiutati; l'accoppiamento child→parent resta quello dei mappings e non
+viene mai riordinato.
 
 Il piano pre-genera i pool di PK e UNIQUE referenziabili, assegna tuple FK
 complete provenienti dalla stessa riga parent e usa enumerazione mixed-radix
-per combinazioni molti-a-molti. FK univoche non riutilizzano la stessa tuple.
+per combinazioni molti-a-molti. La risoluzione dei valori FK segue lo stesso
+ordine topologico degli INSERT, quindi un parent è sempre completo prima dei
+suoi figli: con identificatori esterni/misti annidati una componente della
+chiave del parent è a sua volta una colonna FK, e copiarla in anticipo
+produrrebbe tuple che il parent sovrascrive. FK univoche non riutilizzano la
+stessa tuple.
 Self-reference e componenti cicliche vengono riconosciute con SCC
 deterministiche; per i cicli il batch abilita `defer_foreign_keys` senza mai
 disabilitare `foreign_keys`. Le affinity seguono le regole SQLite per INTEGER,

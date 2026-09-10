@@ -510,3 +510,183 @@ test("direct logical mapping: alternative internal identifiers become UNIQUE NOT
   assert.match(sql, /UNIQUE \(dataOraPartenza, dataOraArrivo\)/);
   assert.equal(countSqlPrimaryKeys(sql), 1);
 });
+
+function createMixedExternalIdentifierChainDiagram(): DiagramDocument {
+  return {
+    meta: { name: "Mixed external identifier chain", version: 3 },
+    notes: "",
+    nodes: [
+      {
+        id: "UNIVERSITA",
+        type: "entity",
+        label: "UNIVERSITÀ",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        internalIdentifiers: [{ id: "UNI-id", attributeIds: ["idUniversita"] }],
+        relationshipParticipations: [{ id: "p-uni-afferenza", relationshipId: "AFFERENZA", cardinality: "(1,N)" }],
+      },
+      {
+        id: "DIPARTIMENTO",
+        type: "entity",
+        label: "DIPARTIMENTO",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        externalIdentifiers: [{
+          id: "DIP-ext",
+          importedParts: [{
+            id: "DIP-part-uni",
+            relationshipId: "AFFERENZA",
+            sourceEntityId: "UNIVERSITA",
+            importedIdentifierId: "UNI-id",
+            importedIdentifierKind: "internal",
+          }],
+          localAttributeIds: ["idDip"],
+        }],
+        relationshipParticipations: [
+          { id: "p-dip-afferenza", relationshipId: "AFFERENZA", cardinality: "(1,1)" },
+          { id: "p-dip-contiene", relationshipId: "CONTIENE", cardinality: "(1,N)" },
+        ],
+      },
+      {
+        id: "CORSO_CHAIN",
+        type: "entity",
+        label: "CORSO",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        externalIdentifiers: [{
+          id: "CORSO-chain-ext",
+          importedParts: [{
+            id: "CORSO-chain-part-dip",
+            relationshipId: "CONTIENE",
+            sourceEntityId: "DIPARTIMENTO",
+            importedIdentifierId: "DIP-ext",
+            importedIdentifierKind: "external",
+          }],
+          localAttributeIds: ["idCorsoChain"],
+        }],
+        relationshipParticipations: [
+          { id: "p-corso-contiene", relationshipId: "CONTIENE", cardinality: "(1,1)" },
+          { id: "p-corso-iscrizione", relationshipId: "ISCRIZIONE", cardinality: "(1,N)" },
+        ],
+      },
+      {
+        id: "STUDENTE",
+        type: "entity",
+        label: "STUDENTE",
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 80,
+        externalIdentifiers: [{
+          id: "STU-ext",
+          importedParts: [{
+            id: "STU-part-corso",
+            relationshipId: "ISCRIZIONE",
+            sourceEntityId: "CORSO_CHAIN",
+            importedIdentifierId: "CORSO-chain-ext",
+            importedIdentifierKind: "external",
+          }],
+          localAttributeIds: ["matricola"],
+        }],
+        relationshipParticipations: [{ id: "p-stu-iscrizione", relationshipId: "ISCRIZIONE", cardinality: "(1,1)" }],
+      },
+      { id: "AFFERENZA", type: "relationship", label: "AFFERENZA", x: 0, y: 0, width: 120, height: 70 },
+      { id: "CONTIENE", type: "relationship", label: "CONTIENE", x: 0, y: 0, width: 120, height: 70 },
+      { id: "ISCRIZIONE", type: "relationship", label: "ISCRIZIONE", x: 0, y: 0, width: 120, height: 70 },
+      { id: "idUniversita", type: "attribute", label: "idUniversità", x: 0, y: 0, width: 120, height: 36, isIdentifier: true },
+      { id: "idDip", type: "attribute", label: "idDip", x: 0, y: 0, width: 100, height: 36 },
+      { id: "idCorsoChain", type: "attribute", label: "idCorso", x: 0, y: 0, width: 100, height: 36 },
+      { id: "matricola", type: "attribute", label: "matricola", x: 0, y: 0, width: 100, height: 36 },
+    ],
+    edges: [
+      { id: "e-uni-afferenza", type: "connector", sourceId: "UNIVERSITA", targetId: "AFFERENZA", label: "", lineStyle: "solid", participationId: "p-uni-afferenza" },
+      { id: "e-dip-afferenza", type: "connector", sourceId: "DIPARTIMENTO", targetId: "AFFERENZA", label: "", lineStyle: "solid", participationId: "p-dip-afferenza" },
+      { id: "e-dip-contiene", type: "connector", sourceId: "DIPARTIMENTO", targetId: "CONTIENE", label: "", lineStyle: "solid", participationId: "p-dip-contiene" },
+      { id: "e-corso-contiene", type: "connector", sourceId: "CORSO_CHAIN", targetId: "CONTIENE", label: "", lineStyle: "solid", participationId: "p-corso-contiene" },
+      { id: "e-corso-iscrizione", type: "connector", sourceId: "CORSO_CHAIN", targetId: "ISCRIZIONE", label: "", lineStyle: "solid", participationId: "p-corso-iscrizione" },
+      { id: "e-stu-iscrizione", type: "connector", sourceId: "STUDENTE", targetId: "ISCRIZIONE", label: "", lineStyle: "solid", participationId: "p-stu-iscrizione" },
+      { id: "e-uni-id", type: "attribute", sourceId: "UNIVERSITA", targetId: "idUniversita", label: "", lineStyle: "solid" },
+      { id: "e-dip-id", type: "attribute", sourceId: "DIPARTIMENTO", targetId: "idDip", label: "", lineStyle: "solid" },
+      { id: "e-corso-id", type: "attribute", sourceId: "CORSO_CHAIN", targetId: "idCorsoChain", label: "", lineStyle: "solid" },
+      { id: "e-stu-id", type: "attribute", sourceId: "STUDENTE", targetId: "matricola", label: "", lineStyle: "solid" },
+    ],
+  };
+}
+
+function foreignKeyColumnPairs(
+  model: LogicalModel,
+  foreignKey: LogicalModel["foreignKeys"][number],
+): Array<[string, string]> {
+  const fromTable = model.tables.find((candidate) => candidate.id === foreignKey.fromTableId);
+  const toTable = model.tables.find((candidate) => candidate.id === foreignKey.toTableId);
+  assert.ok(fromTable && toTable);
+  return foreignKey.mappings.map((mapping) => {
+    const from = fromTable.columns.find((column) => column.id === mapping.fromColumnId);
+    const to = toTable.columns.find((column) => column.id === mapping.toColumnId);
+    assert.ok(from && to, "Mapping della foreign key non risolto");
+    return [from.name, to.name] as [string, string];
+  });
+}
+
+test("logical translation: a mixed external identifier chain keeps every imported key component in one composite FK", () => {
+  const diagram = createMixedExternalIdentifierChainDiagram();
+  let workspace = createEmptyLogicalWorkspace(diagram);
+
+  workspace = applyEntityChoiceByKeySource(diagram, workspace, "UNIVERSITA", "UNI-id");
+  workspace = applyEntityChoiceByKeySource(diagram, workspace, "DIPARTIMENTO", "DIP-ext");
+  workspace = applyEntityChoiceByKeySource(diagram, workspace, "CORSO_CHAIN", "CORSO-chain-ext");
+  workspace = applyEntityChoiceByKeySource(diagram, workspace, "STUDENTE", "STU-ext");
+
+  const model = workspace.model;
+  const universita = getTable(model, "UNIVERSITÀ");
+  const dipartimento = getTable(model, "DIPARTIMENTO");
+  const corso = getTable(model, "CORSO");
+  const studente = getTable(model, "STUDENTE");
+
+  assert.deepEqual(primaryKeyColumnNames(universita), ["idUniversità"]);
+  assert.equal(primaryKeyColumnNames(dipartimento).length, 2);
+  assert.equal(primaryKeyColumnNames(corso).length, 3);
+  assert.equal(primaryKeyColumnNames(studente).length, 4);
+
+  const corsoForeignKeys = model.foreignKeys.filter(
+    (foreignKey) => foreignKey.fromTableId === corso.id && foreignKey.toTableId === dipartimento.id,
+  );
+  assert.equal(corsoForeignKeys.length, 1);
+  assert.equal(corsoForeignKeys[0].mappings.length, 2);
+  assert.deepEqual(
+    corsoForeignKeys[0].mappings.map((mapping) => mapping.toColumnId),
+    dipartimento.columns.filter((column) => column.isPrimaryKey).map((column) => column.id),
+  );
+  assert.deepEqual(
+    foreignKeyColumnPairs(model, corsoForeignKeys[0]),
+    [
+      ["DIPARTIMENTO_idDip", "idDip"],
+      ["DIPARTIMENTO_UNIVERSITÀ_idUniversità", "UNIVERSITÀ_idUniversità"],
+    ],
+  );
+
+  const studenteForeignKeys = model.foreignKeys.filter(
+    (foreignKey) => foreignKey.fromTableId === studente.id && foreignKey.toTableId === corso.id,
+  );
+  assert.equal(studenteForeignKeys.length, 1);
+  assert.equal(studenteForeignKeys[0].mappings.length, 3);
+  assert.deepEqual(
+    studenteForeignKeys[0].mappings.map((mapping) => mapping.toColumnId),
+    corso.columns.filter((column) => column.isPrimaryKey).map((column) => column.id),
+  );
+
+  const sql = generateLogicalSql(model, { dialect: "sqlite", quoteIdentifiers: true });
+  assert.match(
+    sql,
+    /FOREIGN KEY \("DIPARTIMENTO_idDip", "DIPARTIMENTO_UNIVERSITÀ_idUniversità"\) REFERENCES "DIPARTIMENTO" \("idDip", "UNIVERSITÀ_idUniversità"\)/,
+  );
+  assert.doesNotMatch(sql, /FOREIGN KEY \("DIPARTIMENTO_idDip"\) REFERENCES/);
+  assert.doesNotMatch(sql, /FOREIGN KEY \("DIPARTIMENTO_UNIVERSITÀ_idUniversità"\) REFERENCES "DIPARTIMENTO"/);
+  assert.deepEqual(model.issues.filter((issue) => issue.level === "warning" || issue.level === "error"), []);
+});
