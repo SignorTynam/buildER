@@ -239,8 +239,12 @@ function normalizeTables(metadata: SqlExplorerMetadata): NormalizedPopulationTab
       );
     }
     const targetColumns = foreignKey.mappings.map((mapping) => mapping.toColumn);
+    // SQL lets a composite foreign key list the parent key columns in any order, so the target
+    // must cover the whole key as a set. A subset, a superset, or a non-key column stays invalid;
+    // the child-to-parent pairing is carried by the mappings and is never re-sorted.
     const isReferencable = target.uniqueKeys.some((key) => key.columns.length === targetColumns.length
-      && key.columns.every((column, index) => sameIdentifier(column, targetColumns[index])));
+      && key.columns.every((column) => targetColumns.some((candidate) => sameIdentifier(column, candidate)))
+      && targetColumns.every((candidate) => key.columns.some((column) => sameIdentifier(column, candidate))));
     if (!isReferencable) {
       throw new SqlPopulationError(
         "population-invalid-foreign-key-target",
@@ -521,8 +525,21 @@ function foreignKeyConstraintForGroup(
       || left.foreignKeys[0].id - right.foreignKeys[0].id)[0] ?? null;
 }
 
+function orderTablesForForeignKeyResolution(
+  tables: readonly NormalizedPopulationTable[],
+  tableOrder: readonly string[],
+): NormalizedPopulationTable[] {
+  const byName = new Map(tables.map((table) => [table.name, table]));
+  const ordered = tableOrder
+    .map((tableName) => byName.get(tableName))
+    .filter((table): table is NormalizedPopulationTable => table !== undefined);
+  const orderedNames = new Set(ordered.map((table) => table.name));
+  return [...ordered, ...tables.filter((table) => !orderedNames.has(table.name))];
+}
+
 function buildMutableRows(
   tables: readonly NormalizedPopulationTable[],
+  tableOrder: readonly string[],
   rowCounts: ReadonlyMap<string, number>,
   seed: number,
 ): Map<string, MutablePopulationTable> {
@@ -535,7 +552,10 @@ function buildMutableRows(
     mutable.set(table.name, { table, rows });
   });
 
-  tables.forEach((table) => {
+  // Parents must be resolved before their children: a parent key component can itself be a
+  // foreign key column (nested composite identifiers), so copying a parent tuple too early
+  // would capture values that the parent still overwrites.
+  orderTablesForForeignKeyResolution(tables, tableOrder).forEach((table) => {
     const child = mutable.get(table.name);
     if (!child) return;
     table.foreignKeys.forEach((foreignKey) => {
@@ -719,7 +739,7 @@ export function planSqlPopulation(input: {
   }
   const { rowCounts, warnings } = resolvePopulationRowCounts(tables, config.rowsPerTable);
   const { order: tableOrder, usesDeferredForeignKeys } = buildPopulationTableOrder(tables);
-  const mutable = buildMutableRows(tables, rowCounts, config.seed);
+  const mutable = buildMutableRows(tables, tableOrder, rowCounts, config.seed);
   validatePlannedRows(mutable);
   const tableRows: SqlPopulationTableRows[] = tables.map((table) => {
     const planned = mutable.get(table.name);

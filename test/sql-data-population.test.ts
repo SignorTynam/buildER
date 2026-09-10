@@ -389,3 +389,147 @@ test("unsupported unique indexes, generated keys, and unresolved implicit target
     }
   }
 });
+
+const NESTED_IDENTIFIER_SCHEMA = `
+  CREATE TABLE "UNIVERSITÀ" (
+    "idUniversità" VARCHAR(100) NOT NULL,
+    PRIMARY KEY ("idUniversità")
+  );
+  CREATE TABLE "DIPARTIMENTO" (
+    "idDip" VARCHAR(100) NOT NULL,
+    "UNIVERSITÀ_idUniversità" VARCHAR(100) NOT NULL,
+    PRIMARY KEY ("idDip", "UNIVERSITÀ_idUniversità"),
+    FOREIGN KEY ("UNIVERSITÀ_idUniversità") REFERENCES "UNIVERSITÀ" ("idUniversità")
+  );
+  CREATE TABLE "CORSO" (
+    "idCorso" VARCHAR(100) NOT NULL,
+    "DIPARTIMENTO_idDip" VARCHAR(100) NOT NULL,
+    "DIPARTIMENTO_UNIVERSITÀ_idUniversità" VARCHAR(100) NOT NULL,
+    PRIMARY KEY ("idCorso", "DIPARTIMENTO_idDip", "DIPARTIMENTO_UNIVERSITÀ_idUniversità"),
+    FOREIGN KEY ("DIPARTIMENTO_idDip", "DIPARTIMENTO_UNIVERSITÀ_idUniversità")
+      REFERENCES "DIPARTIMENTO" ("idDip", "UNIVERSITÀ_idUniversità")
+  );
+  CREATE TABLE "STUDENTE" (
+    "matricola" VARCHAR(100) NOT NULL,
+    "CORSO_idCorso" VARCHAR(100) NOT NULL,
+    "CORSO_DIPARTIMENTO_idDip" VARCHAR(100) NOT NULL,
+    "CORSO_DIPARTIMENTO_UNIVERSITÀ_idUniversità" VARCHAR(100) NOT NULL,
+    PRIMARY KEY ("matricola", "CORSO_idCorso", "CORSO_DIPARTIMENTO_idDip", "CORSO_DIPARTIMENTO_UNIVERSITÀ_idUniversità"),
+    FOREIGN KEY ("CORSO_idCorso", "CORSO_DIPARTIMENTO_idDip", "CORSO_DIPARTIMENTO_UNIVERSITÀ_idUniversità")
+      REFERENCES "CORSO" ("idCorso", "DIPARTIMENTO_idDip", "DIPARTIMENTO_UNIVERSITÀ_idUniversità")
+  );
+`;
+
+test("nested composite identifiers keep child foreign keys aligned with their parent key pool", async () => {
+  const sqlite = await sqlite3InitModule();
+  const database = new sqlite.oo1.DB(":memory:");
+  try {
+    database.exec("PRAGMA foreign_keys = ON;");
+    database.exec(NESTED_IDENTIFIER_SCHEMA);
+
+    const corsoForeignKeys = inspectSqliteSchema(database).databases
+      .find((entry) => entry.name === "main")?.tables
+      .find((table) => table.name === "CORSO")?.foreignKeys ?? [];
+    assert.equal(new Set(corsoForeignKeys.map((row) => row.id)).size, 1);
+    assert.deepEqual(corsoForeignKeys.map((row) => row.sequence), [0, 1]);
+    assert.deepEqual(
+      corsoForeignKeys.map((row) => [row.fromColumn, row.toTable, row.toColumn]),
+      [
+        ["DIPARTIMENTO_idDip", "DIPARTIMENTO", "idDip"],
+        ["DIPARTIMENTO_UNIVERSITÀ_idUniversità", "DIPARTIMENTO", "UNIVERSITÀ_idUniversità"],
+      ],
+    );
+
+    const plan = createPlan(database, 20, 42);
+    assert.equal(plan.totalRows, 80);
+    assert.deepEqual(plan.warnings, []);
+    assert.deepEqual(
+      plan.tableOrder,
+      ["UNIVERSITÀ", "DIPARTIMENTO", "CORSO", "STUDENTE"],
+    );
+
+    applySqlPopulationPlan(database, plan);
+    assert.deepEqual(queryRows(database, "PRAGMA foreign_key_check;"), []);
+    assert.deepEqual(
+      queryRows(database, `SELECT COUNT(*) FROM "CORSO" JOIN "DIPARTIMENTO"
+        ON "DIPARTIMENTO"."idDip" = "CORSO"."DIPARTIMENTO_idDip"
+        AND "DIPARTIMENTO"."UNIVERSITÀ_idUniversità" = "CORSO"."DIPARTIMENTO_UNIVERSITÀ_idUniversità";`),
+      [[20]],
+    );
+    assert.deepEqual(
+      queryRows(database, `SELECT COUNT(*) FROM "STUDENTE" JOIN "CORSO"
+        ON "CORSO"."idCorso" = "STUDENTE"."CORSO_idCorso"
+        AND "CORSO"."DIPARTIMENTO_idDip" = "STUDENTE"."CORSO_DIPARTIMENTO_idDip"
+        AND "CORSO"."DIPARTIMENTO_UNIVERSITÀ_idUniversità" = "STUDENTE"."CORSO_DIPARTIMENTO_UNIVERSITÀ_idUniversità";`),
+      [[20]],
+    );
+
+    const repeated = new sqlite.oo1.DB(":memory:");
+    try {
+      repeated.exec("PRAGMA foreign_keys = ON;");
+      repeated.exec(NESTED_IDENTIFIER_SCHEMA);
+      assert.equal(createPlan(repeated, 20, 42).planId, plan.planId);
+    } finally {
+      repeated.close();
+    }
+  } finally {
+    database.close();
+  }
+});
+
+test("a composite foreign key may list the parent key columns in any order", async () => {
+  const sqlite = await sqlite3InitModule();
+  const database = new sqlite.oo1.DB(":memory:");
+  try {
+    database.exec("PRAGMA foreign_keys = ON;");
+    database.exec(`
+      CREATE TABLE parent(area TEXT NOT NULL, code TEXT NOT NULL, PRIMARY KEY (area, code));
+      CREATE TABLE child(
+        id TEXT NOT NULL PRIMARY KEY,
+        parent_code TEXT NOT NULL,
+        parent_area TEXT NOT NULL,
+        FOREIGN KEY (parent_code, parent_area) REFERENCES parent(code, area)
+      );
+    `);
+    const plan = createPlan(database, 6, 42);
+    applySqlPopulationPlan(database, plan);
+    assert.deepEqual(queryRows(database, "PRAGMA foreign_key_check;"), []);
+    assert.deepEqual(
+      queryRows(database, `SELECT COUNT(*) FROM child JOIN parent
+        ON parent.area = child.parent_area AND parent.code = child.parent_code;`),
+      [[6]],
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test("a composite foreign key targeting less or more than a full parent key stays rejected", async () => {
+  const sqlite = await sqlite3InitModule();
+  const cases: Array<{ schema: string; code: SqlPopulationError["code"] }> = [
+    {
+      schema: `CREATE TABLE parent(area TEXT NOT NULL, code TEXT NOT NULL, PRIMARY KEY (area, code));
+        CREATE TABLE child(id TEXT PRIMARY KEY, parent_area TEXT NOT NULL REFERENCES parent(area));`,
+      code: "population-invalid-foreign-key-target",
+    },
+    {
+      schema: `CREATE TABLE parent(area TEXT NOT NULL PRIMARY KEY, code TEXT NOT NULL);
+        CREATE TABLE child(
+          id TEXT PRIMARY KEY,
+          parent_area TEXT NOT NULL,
+          parent_code TEXT NOT NULL,
+          FOREIGN KEY (parent_area, parent_code) REFERENCES parent(area, code)
+        );`,
+      code: "population-invalid-foreign-key-target",
+    },
+  ];
+  for (const entry of cases) {
+    const database = new sqlite.oo1.DB(":memory:");
+    try {
+      database.exec(entry.schema);
+      assertPopulationCode(() => createPlan(database, 3, 42), entry.code);
+    } finally {
+      database.close();
+    }
+  }
+});
