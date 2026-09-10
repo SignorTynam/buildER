@@ -22,6 +22,9 @@ import "./styles/settings.css";
 import "./styles/canvas-navigation.css";
 import "./styles/sql-playground.css";
 import "./styles/releases.css";
+// Ultimo: il livello di movimento aggiunge transizioni e entrate senza
+// ridefinire il look dei fogli precedenti.
+import "./styles/motion.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

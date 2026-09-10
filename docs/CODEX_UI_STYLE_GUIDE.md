@@ -96,11 +96,27 @@ src/styles/
   panels.css
   editor-surfaces.css
   diagram.css
+  motion.css
 ```
 
 `src/main.tsx` deve importare solo il set finale ordinato, senza CSS legacy residuo.
 
 Strategia accettabile: mantenere i file attuali ma ripulirli, evitando token duplicati e blocchi finali di override che riscrivono mezzo tema.
+
+## Movimento
+
+`src/styles/motion.css` è l'unico livello di movimento e va importato per
+ultimo in `src/main.tsx`. Regole:
+
+- durate e curve solo dai token `--motion-*`, mai millisecondi locali;
+- si animano `opacity` e `transform`, non larghezze, altezze o griglie: la
+  geometria animata rimisura canvas e minimappa;
+- un `transform` che resta applicato crea un containing block e sposta i
+  discendenti `position: fixed` (menu contestuali, tooltip): usare
+  `animation-fill-mode: backwards`, non `both`;
+- ogni entrata o transizione dichiarata qui compare anche nel blocco
+  `@media (prefers-reduced-motion: reduce)` in fondo al file, che copre pure le
+  animazioni definite altrove.
 
 ## Piano operativo per modifiche UI
 

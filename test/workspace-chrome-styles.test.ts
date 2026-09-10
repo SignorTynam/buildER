@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 /**
- * Invarianti visive della chrome del workspace: header, activity rail,
- * Explorer, tab e barra di contesto.
+ * Invarianti visive della chrome del workspace (header, activity rail,
+ * Explorer, tab, barra di contesto) e del livello di movimento.
  *
  * Sono difetti gia visti tornare indietro perche vivono su fogli diversi che
  * si sovrascrivono a vicenda: qui restano ancorati al CSS che li risolve.
@@ -80,3 +80,40 @@ test("la barra di contesto porta solo azioni, allineate a sinistra", () => {
   }
 });
 
+test("il livello di movimento usa i token e rispetta prefers-reduced-motion", () => {
+  const motion = readStyle("motion.css");
+  const main = readSource("main.tsx");
+
+  // Importato per ultimo: aggiunge movimento senza riscrivere il look.
+  const imports = main.match(/^import ".*\.css";$/gmu) ?? [];
+  assert.equal(imports.at(-1), 'import "./styles/motion.css";');
+
+  const durations = motion.match(/animation:[^;]+;|transition:[\s\S]*?;/gu) ?? [];
+  assert.ok(durations.length > 0, "il livello di movimento non dichiara animazioni");
+  for (const declaration of durations) {
+    assert.doesNotMatch(
+      declaration,
+      /\b\d+(?:\.\d+)?m?s\b/u,
+      `durata hardcoded nel livello di movimento: ${declaration.trim()}`,
+    );
+  }
+
+  const reduced = motion.slice(motion.indexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.ok(reduced.length > 0, "manca il blocco prefers-reduced-motion");
+  for (const selector of [
+    ".ui-modal-backdrop",
+    ".ui-modal",
+    ".command-modal.command-palette",
+    ".app-topbar-menu__panel",
+    ".project-activity-content > *",
+    ".project-file-tab.active::before",
+    ".editor-view-switcher button",
+    // Animazioni preesistenti che erano rimaste senza guardia.
+    ".project-explorer-context-menu",
+    ".project-file-tab-menu",
+    ".workspace-toast-viewport .workspace-toast",
+    ".logical-view-layout",
+  ]) {
+    assert.ok(reduced.includes(selector), `${selector} resta animato con reduced motion`);
+  }
+});

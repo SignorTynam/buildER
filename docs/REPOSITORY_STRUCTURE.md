@@ -40,6 +40,7 @@ buildER/
 | Logica pura | `src/utils` | Parser, serializzazione, layout, validazione, export |
 | Catalogo release | `src/releases` | Definizioni e localizzazione delle release |
 | Design token | `src/styles/tokens.css` | Fonte canonica di token visuali |
+| Livello movimento | `src/styles/motion.css` | Entrate, transizioni di stato e contratto `prefers-reduced-motion` |
 | Istruzioni agent | `docs/agents` | Indice e regole specialistiche condivise |
 | Policy eseguibile | `config/repository-policy.json` | Branch, commit, viewport, lingue e SemVer |
 | Script policy | `scripts/check-*.ts` | Validazione locale e CI |
